@@ -57,18 +57,25 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: "Need at least 2 activities to optimize" });
   }
 
-  // Ask AI to determine optimal ORDER only
+  // Ask AI to determine optimal ORDER (agent's removeActivity tool handles deletions)
   const optimized = await optimizeDayRoute({
     destination: trip.destination,
     activities: day.activities.map((a) => ({
+      id: a.id,
       name: a.name,
+      type: a.type,
       address: a.address,
       lat: a.lat,
       lng: a.lng,
       suggestedTime: a.suggestedTime,
+      estimatedDurationMinutes: a.estimatedDurationMinutes,
     })),
     userContext: sanitizedContext,
   });
+
+  // Remove deleted activities from the local list (already deleted from DB by the tool)
+  const removedIds = new Set(optimized.removedActivityIds ?? []);
+  day.activities = day.activities.filter((a) => !removedIds.has(a.id));
 
   // Map AI-returned order to actual activity objects
   const orderedActivities = optimized.orderedActivities

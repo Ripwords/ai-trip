@@ -54,8 +54,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Day not found" });
   }
 
-  // Collect existing activities as context
+  // Collect existing activities as context (include id for removal tool)
   const existingActivities = day.activities.map((a) => ({
+    id: a.id,
     name: a.name,
     type: a.type,
     suggestedTime: a.suggestedTime,
@@ -98,6 +99,17 @@ export default defineEventHandler(async (event) => {
     userContext: sanitizedContext,
   });
 
+  // Removals are handled by the agent's removeActivity tool during generation
+  const removedCount = aiOutput.removedActivityIds?.length ?? 0;
+
+  // Remove deleted activity names from dedup set
+  for (const removedId of aiOutput.removedActivityIds ?? []) {
+    const removedAct = day.activities.find((a) => a.id === removedId);
+    if (removedAct) {
+      existingNames.delete(removedAct.name.toLowerCase().trim());
+    }
+  }
+
   // Apply time/duration updates to existing activities that were missing them
   if (aiOutput.existingActivityUpdates?.length) {
     const updatePromises = aiOutput.existingActivityUpdates.map((update) => {
@@ -119,7 +131,7 @@ export default defineEventHandler(async (event) => {
 
   // Enrich with Google Maps data (use dayLocation so Places API searches near the right city)
   const enriched = await enrichItinerary(
-    { days: [{ dayNumber: day.dayNumber, theme: aiOutput.theme, activities: aiOutput.activities }] },
+    { days: [{ dayNumber: day.dayNumber, theme: aiOutput.theme, activities: aiOutput.activitiesToAdd }] },
     dayLocation
   );
 
@@ -261,5 +273,5 @@ export default defineEventHandler(async (event) => {
   await db.update(trips).set({ status: "planned" }).where(eq(trips.id, id));
 
   const updatedCount = aiOutput.existingActivityUpdates?.length ?? 0;
-  return { success: true, added: addedCount, updated: updatedCount };
+  return { success: true, added: addedCount, updated: updatedCount, removed: removedCount };
 });
