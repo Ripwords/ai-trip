@@ -1,0 +1,121 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&display=swap');
+
+@theme {
+  --font-display: 'DM Serif Display', serif;
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+
+  --color-sand-50: #faf8f5;
+  --color-sand-100: #f3efe8;
+  --color-sand-200: #e8e0d4;
+  --color-sand-300: #d4c8b8;
+  --color-sand-400: #b8a78f;
+  --color-sand-500: #9f8b6f;
+  --color-sand-600: #8a7458;
+  --color-sand-700: #6e5c46;
+  --color-sand-800: #5a4b3a;
+  --color-sand-900: #3d3328;
+
+  --color-terra-50: #fef4f0;
+  --color-terra-100: #fde6dc;
+  --color-terra-200: #fbc9b8;
+  --color-terra-300: #f7a48a;
+  --color-terra-400: #f07b5a;
+  --color-terra-500: #e85d3a;
+  --color-terra-600: #d44425;
+  --color-terra-700: #b0341b;
+  --color-terra-800: #8e2c1a;
+  --color-terra-900: #6b2416;
+
+  --color-ocean-50: #f0f7f9;
+  --color-ocean-100: #d9eef3;
+  --color-ocean-200: #b3dde7;
+  --color-ocean-300: #7dc3d4;
+  --color-ocean-400: #4aa5b9;
+  --color-ocean-500: #2e8a9e;
+  --color-ocean-600: #276f82;
+  --color-ocean-700: #245a6a;
+  --color-ocean-800: #234b58;
+  --color-ocean-900: #1e3d48;
+
+  --color-forest-50: #f2f7f2;
+  --color-forest-100: #e0ede0;
+  --color-forest-200: #c2dbc3;
+  --color-forest-300: #96c098;
+  --color-forest-400: #6aa06d;
+  --color-forest-500: #4a8450;
+  --color-forest-600: #3a6a3f;
+  --color-forest-700: #305534;
+  --color-forest-800: #29442c;
+  --color-forest-900: #233825;
+}
+
+* {
+  font-family: var(--font-sans);
+}
+
+/* Scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--color-sand-300);
+  border-radius: 9999px;
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Card hover lift */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(61, 51, 40, 0.08);
+}
+
+/* Shimmer animation */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+.animate-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Gradient text */
+.text-gradient {
+  background: linear-gradient(135deg, var(--color-terra-600), var(--color-terra-400));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Subtle grain texture */
+.grain::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Input focus ring */
+.input-focus {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.input-focus:focus {
+  border-color: var(--color-terra-400);
+  box-shadow: 0 0 0 3px rgba(240, 123, 90, 0.1);
+  outline: none;
+}
