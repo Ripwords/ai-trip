@@ -38,12 +38,8 @@ const { data: expensesList, refresh: refreshExpenses } = await useFetch<
   }[]
 >(`/api/trips/${tripId}/expenses`);
 
-const generating = ref(false);
-const optimizing = ref(false);
-const aiPromptModal = ref<{
-  open: boolean;
-  mode: "generate" | "optimize";
-}>({ open: false, mode: "generate" });
+const aiLoading = ref(false);
+const aiLoadingMode = ref<"generate" | "optimize">("generate");
 const editingActivity = ref<(typeof allActivities.value)[number] | null>(null);
 const editModalOpen = ref(false);
 const highlightedActivityId = ref<string | null>(null);
@@ -53,6 +49,22 @@ const storageKeyDay = `trip-${tripId}-day`;
 
 const activeTab = ref<"itinerary" | "notes" | "expenses">("itinerary");
 const activeDayId = ref<string | null>(null);
+const showPrefsEditor = ref(false);
+
+async function updatePreference(key: string, value: string) {
+  if (!trip.value) return;
+  const currentPrefs = trip.value.preferences ?? {};
+  const updatedPrefs = { ...currentPrefs, [key]: value || undefined };
+  try {
+    await $fetch(`/api/trips/${tripId}`, {
+      method: "PUT",
+      body: { preferences: updatedPrefs },
+    });
+    await refresh();
+  } catch (e: unknown) {
+    console.error("Failed to update preferences:", e);
+  }
+}
 let sessionRestored = false;
 
 if (import.meta.client) {
@@ -145,52 +157,34 @@ function formatDayDate(dateStr: string): string {
   });
 }
 
-function handleGenerateClick() {
-  if (!activeDayId.value) return;
-  aiPromptModal.value = { open: true, mode: "generate" };
-}
-
-function handleOptimizeClick() {
-  if (!activeDayId.value) return;
-  aiPromptModal.value = { open: true, mode: "optimize" };
-}
-
 const aiError = ref("");
+const aiMessage = ref("");
+const aiPrompt = ref("");
 
-async function handleAiPromptSubmit(prompt: string) {
-  if (!activeDayId.value) return;
-  const mode = aiPromptModal.value.mode;
-  aiPromptModal.value = { open: false, mode: "generate" };
+async function handleAiSubmit() {
+  if (!activeDayId.value || !aiPrompt.value.trim()) return;
+  const prompt = aiPrompt.value.trim();
+  aiPrompt.value = "";
   aiError.value = "";
+  aiMessage.value = "";
+  aiLoading.value = true;
 
-  if (mode === "generate") {
-    generating.value = true;
-    try {
-      await $fetch(`/api/trips/${tripId}/days/${activeDayId.value}/generate`, {
-        method: "POST",
-        body: { context: prompt || undefined },
-      });
-      await refresh();
-    } catch (e: unknown) {
-      const err = e as { data?: { message?: string } };
-      aiError.value = err.data?.message ?? "Failed to generate itinerary";
-    } finally {
-      generating.value = false;
-    }
-  } else {
-    optimizing.value = true;
-    try {
-      await $fetch(`/api/trips/${tripId}/days/${activeDayId.value}/optimize`, {
-        method: "POST",
-        body: { context: prompt || undefined },
-      });
-      await refresh();
-    } catch (e: unknown) {
-      const err = e as { data?: { message?: string } };
-      aiError.value = err.data?.message ?? "Failed to optimize route";
-    } finally {
-      optimizing.value = false;
-    }
+  // Guess loading mode for the overlay
+  const optimizeKeywords = /\b(optimize|reorder|rearrange|best route|efficient)\b/i;
+  aiLoadingMode.value = optimizeKeywords.test(prompt) ? "optimize" : "generate";
+
+  try {
+    const result = await $fetch(`/api/trips/${tripId}/days/${activeDayId.value}/ai`, {
+      method: "POST",
+      body: { prompt },
+    });
+    aiMessage.value = result.message;
+    await refresh();
+  } catch (e: unknown) {
+    const err = e as { data?: { message?: string } };
+    aiError.value = err.data?.message ?? "Something went wrong";
+  } finally {
+    aiLoading.value = false;
   }
 }
 
@@ -372,11 +366,57 @@ async function recomputeSegments(dayId: string) {
           </div>
         </div>
 
-        <span
-          class="inline-block rounded-full bg-terra-50 px-3 py-1 text-xs font-medium text-terra-700"
-        >
-          {{ sortedDays.length }} days
-        </span>
+        <div class="flex items-center gap-2">
+          <span class="inline-block rounded-full bg-terra-50 px-3 py-1 text-xs font-medium text-terra-700">
+            {{ sortedDays.length }} days
+          </span>
+          <button
+            class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-3 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
+            @click="showPrefsEditor = !showPrefsEditor"
+          >
+            <Icon name="lucide:sliders-horizontal" class="h-3 w-3" />
+            {{ trip.preferences?.budget || "moderate" }} · {{ trip.preferences?.pace || "moderate" }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Preferences editor -->
+      <div v-if="showPrefsEditor" class="mt-4 rounded-xl border border-sand-200 bg-white p-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-sand-900">Trip Preferences</h3>
+          <button class="text-xs text-sand-400 hover:text-sand-600" @click="showPrefsEditor = false">
+            <Icon name="lucide:x" class="h-4 w-4" />
+          </button>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-sand-500">Budget</label>
+            <select
+              :value="trip.preferences?.budget || ''"
+              class="mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm input-focus"
+              @change="updatePreference('budget', ($event.target as HTMLSelectElement).value)"
+            >
+              <option value="">Any</option>
+              <option value="budget">Budget</option>
+              <option value="moderate">Moderate</option>
+              <option value="luxury">Luxury</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-sand-500">Pace</label>
+            <select
+              :value="trip.preferences?.pace || ''"
+              class="mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm input-focus"
+              @change="updatePreference('pace', ($event.target as HTMLSelectElement).value)"
+            >
+              <option value="">Any</option>
+              <option value="relaxed">Relaxed</option>
+              <option value="moderate">Moderate</option>
+              <option value="packed">Packed</option>
+            </select>
+          </div>
+        </div>
+        <p class="mt-2 text-xs text-sand-400">AI suggestions will respect these preferences.</p>
       </div>
 
       <!-- Tabs -->
@@ -403,47 +443,49 @@ async function recomputeSegments(dayId: string) {
           </div>
         </ClientOnly>
 
-        <!-- Day action buttons -->
-        <div v-if="activeDay" class="mt-4 flex items-center gap-2">
-          <button
-            :disabled="generating || optimizing"
-            class="inline-flex items-center gap-1.5 rounded-full border border-terra-300 px-4 py-1.5 text-xs font-medium text-terra-700 transition hover:bg-terra-50 disabled:opacity-50"
-            @click="handleGenerateClick"
-          >
-            <Icon
-              :name="generating ? 'lucide:loader' : 'lucide:sparkles'"
-              class="h-3.5 w-3.5"
-              :class="{ 'animate-spin': generating }"
-            />
-            {{ generating ? "Generating..." : activeDayHasActivities ? "AI Fill Gaps" : "AI Generate" }}
-          </button>
-          <button
-            :disabled="optimizing || generating || !activeDayHasActivities || (activeDay?.activities.length ?? 0) < 2"
-            class="inline-flex items-center gap-1.5 rounded-full border border-terra-300 px-4 py-1.5 text-xs font-medium text-terra-700 transition hover:bg-terra-50 disabled:opacity-50"
-            @click="handleOptimizeClick"
-          >
-            <Icon
-              :name="optimizing ? 'lucide:loader' : 'lucide:route'"
-              class="h-3.5 w-3.5"
-              :class="{ 'animate-spin': optimizing }"
-            />
-            {{ optimizing ? "Optimizing..." : "Optimize Route" }}
-          </button>
-        </div>
+        <!-- AI prompt bar -->
+        <div v-if="activeDay" class="mt-4">
+          <form class="flex items-center gap-2" @submit.prevent="handleAiSubmit">
+            <div class="relative flex-1">
+              <Icon name="lucide:sparkles" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-terra-400" />
+              <input
+                v-model="aiPrompt"
+                type="text"
+                :disabled="aiLoading"
+                :placeholder="activeDayHasActivities
+                  ? 'Add a ramen spot, remove the temple, optimize the route...'
+                  : 'What would you like to do today? e.g., street food tour, temple visits...'"
+                class="input-focus block w-full rounded-xl border border-sand-200 bg-white py-2.5 pl-10 pr-4 text-sm text-sand-900 placeholder:text-sand-400 disabled:opacity-50"
+              />
+            </div>
+            <button
+              type="submit"
+              :disabled="aiLoading || !aiPrompt.trim()"
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-terra-500 text-white transition hover:bg-terra-600 disabled:opacity-50"
+            >
+              <Icon
+                :name="aiLoading ? 'lucide:loader' : 'lucide:arrow-up'"
+                class="h-4 w-4"
+                :class="{ 'animate-spin': aiLoading }"
+              />
+            </button>
+          </form>
 
-        <!-- AI error message -->
-        <div
-          v-if="aiError"
-          class="mt-3 flex items-start gap-2 rounded-lg bg-terra-50 px-3 py-2 text-sm text-terra-600"
-        >
-          <Icon name="lucide:alert-circle" class="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{{ aiError }}</span>
-          <button
-            class="ml-auto shrink-0 text-terra-400 transition hover:text-terra-700"
-            @click="aiError = ''"
-          >
-            <Icon name="lucide:x" class="h-3.5 w-3.5" />
-          </button>
+          <!-- AI feedback messages -->
+          <div v-if="aiMessage && !aiError" class="mt-2 flex items-center gap-2 rounded-lg bg-forest-50 px-3 py-2 text-sm text-forest-700">
+            <Icon name="lucide:check-circle" class="h-4 w-4 shrink-0" />
+            <span>{{ aiMessage }}</span>
+            <button class="ml-auto shrink-0 text-forest-400 hover:text-forest-700" @click="aiMessage = ''">
+              <Icon name="lucide:x" class="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div v-if="aiError" class="mt-2 flex items-start gap-2 rounded-lg bg-terra-50 px-3 py-2 text-sm text-terra-600">
+            <Icon name="lucide:alert-circle" class="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{{ aiError }}</span>
+            <button class="ml-auto shrink-0 text-terra-400 hover:text-terra-700" @click="aiError = ''">
+              <Icon name="lucide:x" class="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
         <!-- Active day content -->
@@ -464,13 +506,13 @@ async function recomputeSegments(dayId: string) {
 
               <!-- AI loading overlay -->
               <AiLoadingOverlay
-                :visible="generating || optimizing"
-                :mode="generating ? 'generate' : 'optimize'"
+                :visible="aiLoading"
+                :mode="aiLoadingMode"
               />
 
               <!-- Activities for this day -->
               <DaySection
-                v-show="!generating && !optimizing"
+                v-show="!aiLoading"
                 :day="activeDay"
                 :trip-id="tripId"
                 :highlighted-activity-id="highlightedActivityId"
@@ -483,7 +525,7 @@ async function recomputeSegments(dayId: string) {
 
               <!-- Ideas bucket -->
               <IdeasBucket
-                v-show="!generating && !optimizing"
+                v-show="!aiLoading"
                 :trip-id="tripId"
                 :ideas="ideas ?? []"
                 :days="sortedDays.map((d) => ({ id: d.id, dayNumber: d.dayNumber, date: d.date }))"
@@ -553,15 +595,5 @@ async function recomputeSegments(dayId: string) {
       @close="addActivityModal.open = false"
     />
 
-    <!-- AI prompt modal (for both generate and optimize) -->
-    <AiPromptModal
-      :open="aiPromptModal.open"
-      :mode="aiPromptModal.mode"
-      :day-number="activeDay?.dayNumber ?? 1"
-      :destination="trip?.destination ?? ''"
-      :has-activities="activeDayHasActivities"
-      @submit="handleAiPromptSubmit"
-      @close="aiPromptModal.open = false"
-    />
   </div>
 </template>

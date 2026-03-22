@@ -17,7 +17,7 @@ const { isOpen, options, handleConfirm, handleCancel } = useConfirm();
         class="fixed inset-0 z-50 flex items-center justify-center"
       >
         <div
-          class="fixed inset-0 bg-black/30 backdrop-blur-sm"
+          class="fixed inset-0 bg-black/40"
           @click="handleCancel"
         />
         <div class="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl mx-4">

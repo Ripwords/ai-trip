@@ -73,7 +73,7 @@ function handleSave() {
       class="fixed inset-0 z-50 flex items-center justify-center"
     >
       <div
-        class="fixed inset-0 bg-black/30 backdrop-blur-sm"
+        class="fixed inset-0 bg-black/40"
         @click="emit('close')"
       />
       <div class="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl mx-4">
@@ -104,8 +104,7 @@ function handleSave() {
               <label class="block text-sm font-medium text-sand-700">Suggested Time</label>
               <input
                 v-model="suggestedTime"
-                type="text"
-                placeholder="e.g. 09:00 AM"
+                type="time"
                 class="mt-1 block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
               />
             </div>
