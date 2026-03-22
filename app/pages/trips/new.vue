@@ -39,7 +39,7 @@ async function handleCreate() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-lg rounded-2xl bg-white p-8 shadow-lg">
+  <div class="mx-auto max-w-lg rounded-2xl bg-white p-5 shadow-lg sm:p-8">
     <h1 class="font-display text-2xl text-sand-900">Plan a New Trip</h1>
 
     <form class="mt-8 space-y-6" @submit.prevent="handleCreate">
@@ -60,7 +60,7 @@ async function handleCreate() {
         />
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label
             for="startDate"
@@ -93,7 +93,7 @@ async function handleCreate() {
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label for="budget" class="block text-sm font-medium text-sand-700">
             Budget
