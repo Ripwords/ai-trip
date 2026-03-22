@@ -2,6 +2,15 @@ import tailwindcss from "@tailwindcss/vite";
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
+  app: {
+    head: {
+      link: [
+        { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
+        { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+        { rel: "icon", type: "image/png", sizes: "512x512", href: "/image.png" },
+      ],
+    },
+  },
   compatibilityDate: "2025-07-15",
   future: {
     compatibilityVersion: 5,
@@ -11,7 +20,7 @@ export default defineNuxtConfig({
   },
   css: ["./app/assets/css/tailwind.css"],
   devtools: { enabled: true },
-  modules: ["@nuxt/icon", "@nuxt/image", "nuxt-security"],
+  modules: ["@nuxt/icon", "@nuxt/image", "nuxt-security", "dayjs-nuxt"],
   vite: {
     plugins: [tailwindcss()],
     optimizeDeps: {

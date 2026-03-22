@@ -126,7 +126,7 @@ function formatCurrency(amount: number): string {
         class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
         :class="typeBadgeClasses[type as string] || 'bg-sand-100 text-sand-700'"
       >
-        {{ type }}
+        {{ formatType(type as string) }}
         <span class="font-bold">{{ count }}</span>
       </span>
     </div>

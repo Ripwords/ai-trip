@@ -4,6 +4,7 @@ interface Activity {
   name: string;
   type: string;
   description: string | null;
+  placeId: string | null;
   lat: number | null;
   lng: number | null;
   address: string | null;
@@ -15,6 +16,19 @@ interface Activity {
   actualCost: string | null;
   photos: string[];
   sortOrder: number;
+}
+
+function getGoogleMapsUrl(activity: Activity): string {
+  if (activity.placeId) {
+    return `https://www.google.com/maps/place/?q=place_id:${activity.placeId}`;
+  }
+  if (activity.lat && activity.lng) {
+    return `https://www.google.com/maps/search/?api=1&query=${activity.lat},${activity.lng}`;
+  }
+  if (activity.address) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.address)}`;
+  }
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.name)}`;
 }
 
 const props = defineProps<{
@@ -82,14 +96,14 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
               class="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium"
               :class="getBadgeClass(activity.type)"
             >
-              {{ activity.type }}
+              {{ formatType(activity.type) }}
             </span>
             <span
               v-if="activity.suggestedTime"
               class="flex items-center gap-1 text-sm text-sand-500"
             >
               <Icon name="lucide:clock" class="h-3.5 w-3.5" />
-              {{ activity.suggestedTime }}
+              {{ formatTime12h(activity.suggestedTime) }}
             </span>
             <span
               v-if="activity.estimatedDurationMinutes"
@@ -127,10 +141,19 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
     </p>
 
     <div class="mt-3 flex flex-wrap items-center gap-3 text-sm text-sand-500">
-      <span v-if="activity.address" class="flex items-center gap-1.5 truncate">
+      <a
+        :href="getGoogleMapsUrl(activity)"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-1.5 truncate text-sand-500 transition hover:text-terra-600"
+        title="Open in Google Maps"
+        @click.stop
+      >
         <Icon name="lucide:map-pin" class="h-3.5 w-3.5 shrink-0" />
-        <span class="truncate">{{ activity.address }}</span>
-      </span>
+        <span v-if="activity.address" class="truncate">{{ activity.address }}</span>
+        <span v-else class="truncate">View on map</span>
+        <Icon name="lucide:external-link" class="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-60" />
+      </a>
       <span v-if="activity.costEstimate" class="flex items-center gap-1">
         <Icon name="lucide:dollar-sign" class="h-3.5 w-3.5" />
         {{ parseFloat(activity.costEstimate).toFixed(0) }}

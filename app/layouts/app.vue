@@ -14,9 +14,7 @@ async function logout() {
     <header class="glass sticky top-0 z-50 border-b border-sand-200/50">
       <nav class="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
         <NuxtLink to="/dashboard" class="flex items-center gap-2">
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-terra-500">
-            <Icon name="lucide:compass" class="h-4 w-4 text-white" />
-          </div>
+          <img src="/image.png" alt="AI Trip" class="h-8 w-8 rounded-lg" />
           <span class="font-display text-lg text-sand-900">AI Trip</span>
         </NuxtLink>
         <div class="flex items-center gap-3">

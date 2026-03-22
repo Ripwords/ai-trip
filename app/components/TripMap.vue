@@ -90,9 +90,11 @@ function updateMarkers(
   markers.forEach((m) => (m.map = null));
   markers = [];
 
-  const geoActivities = props.activities.filter(
-    (a) => a.lat != null && a.lng != null
-  );
+  // props.activities is already sorted by sortOrder from the API
+  // Use array index for marker numbering to match v-for index in DaySection
+  const geoActivities = props.activities
+    .map((a, i) => ({ ...a, displayIndex: i }))
+    .filter((a) => a.lat != null && a.lng != null);
 
   if (geoActivities.length === 0) {
     map.setCenter({ lat: 0, lng: 0 });
@@ -106,14 +108,14 @@ function updateMarkers(
 
   const bounds = new google.maps.LatLngBounds();
 
-  geoActivities.forEach((activity, index) => {
+  geoActivities.forEach((activity) => {
     const position = { lat: activity.lat!, lng: activity.lng! };
     bounds.extend(position);
 
     const marker = new MarkerClass({
       map,
       position,
-      content: createMarkerContent(index, activity.type),
+      content: createMarkerContent(activity.displayIndex, activity.type),
       title: activity.name,
     });
 

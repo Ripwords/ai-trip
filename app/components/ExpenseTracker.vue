@@ -253,7 +253,7 @@ function formatCurrency(amount: number): string {
                 class="inline-block rounded-full px-2 py-0.5 text-xs font-medium"
                 :class="categoryBadgeClasses[expense.category] || 'bg-sand-100 text-sand-700'"
               >
-                {{ expense.category }}
+                {{ formatType(expense.category) }}
               </span>
               <span v-if="expense.paidAt">{{ new Date(expense.paidAt).toLocaleDateString() }}</span>
             </div>

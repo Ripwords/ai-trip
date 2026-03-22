@@ -66,7 +66,7 @@ function handlePromote() {
             class="inline-block rounded-full px-2 py-0.5 text-xs font-medium"
             :class="getBadgeClass(idea.type)"
           >
-            {{ idea.type }}
+            {{ formatType(idea.type) }}
           </span>
           <span v-if="idea.address" class="text-xs text-sand-500 truncate">
             {{ idea.address }}
