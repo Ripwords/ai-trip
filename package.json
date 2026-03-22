@@ -13,7 +13,8 @@
     "db:gen": "bun run auth:gen && drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
-    "docker:dev": "docker compose -f docker/docker-compose.dev.yml up -d"
+    "docker:dev": "docker compose -f docker/docker-compose.dev.yml up -d",
+    "pwa:assets": "pwa-assets-generator --preset minimal-2023 public/image.png"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.52",
@@ -24,6 +25,7 @@
     "@nuxt/icon": "2.2.1",
     "@nuxt/image": "2.0.0",
     "@tailwindcss/vite": "^4.2.1",
+    "@vite-pwa/nuxt": "^1.1.1",
     "ai": "^6.0.134",
     "better-auth": "^1.5.5",
     "dayjs-nuxt": "^2.1.11",
@@ -43,6 +45,7 @@
     "@types/google.maps": "^3.58.1",
     "@types/pg": "^8.11.0",
     "@types/ws": "^8.18.1",
+    "@vite-pwa/assets-generator": "^1.0.2",
     "drizzle-kit": "^0.31.0"
   }
 }

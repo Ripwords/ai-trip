@@ -4,10 +4,13 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineNuxtConfig({
   app: {
     head: {
+      meta: [
+        { name: "description", content: "AI-powered travel itinerary planner with real places verified by Google Maps" },
+        { name: "theme-color", content: "#e85d3a" },
+      ],
       link: [
-        { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
-        { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
-        { rel: "icon", type: "image/png", sizes: "512x512", href: "/image.png" },
+        { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
+        { rel: "apple-touch-icon", href: "/apple-touch-icon-180x180.png" },
       ],
     },
   },
@@ -20,7 +23,7 @@ export default defineNuxtConfig({
   },
   css: ["./app/assets/css/tailwind.css"],
   devtools: { enabled: true },
-  modules: ["@nuxt/icon", "@nuxt/image", "nuxt-security", "dayjs-nuxt"],
+  modules: ["@nuxt/icon", "@nuxt/image", "nuxt-security", "dayjs-nuxt", "@vite-pwa/nuxt"],
   vite: {
     plugins: [tailwindcss()],
     optimizeDeps: {
@@ -29,10 +32,10 @@ export default defineNuxtConfig({
         '@vue/devtools-core',
         '@vue/devtools-kit',
         '@googlemaps/js-api-loader',
-        'dayjs', // CJS
-        'dayjs/plugin/updateLocale', // CJS
-        'dayjs/plugin/relativeTime', // CJS
-        'dayjs/plugin/utc', // CJS
+        'dayjs',
+        'dayjs/plugin/updateLocale',
+        'dayjs/plugin/relativeTime',
+        'dayjs/plugin/utc',
       ],
     },
   },
@@ -42,6 +45,77 @@ export default defineNuxtConfig({
       googleMapsApiKey: "",
     },
   },
+
+  // PWA Configuration
+  pwa: {
+    registerType: "autoUpdate",
+    manifest: {
+      name: "AI Trip — Travel Planner",
+      short_name: "AI Trip",
+      description: "AI-powered travel itinerary planner with real places verified by Google Maps",
+      theme_color: "#e85d3a",
+      background_color: "#faf8f5",
+      display: "standalone",
+      orientation: "portrait",
+      start_url: "/dashboard",
+      scope: "/",
+      icons: [
+        {
+          src: "pwa-64x64.png",
+          sizes: "64x64",
+          type: "image/png",
+        },
+        {
+          src: "pwa-192x192.png",
+          sizes: "192x192",
+          type: "image/png",
+        },
+        {
+          src: "pwa-512x512.png",
+          sizes: "512x512",
+          type: "image/png",
+        },
+        {
+          src: "maskable-icon-512x512.png",
+          sizes: "512x512",
+          type: "image/png",
+          purpose: "maskable",
+        },
+      ],
+    },
+    workbox: {
+      navigateFallback: "/",
+      globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2}"],
+      runtimeCaching: [
+        {
+          urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+          handler: "CacheFirst",
+          options: {
+            cacheName: "google-fonts-css",
+            expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        },
+        {
+          urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+          handler: "CacheFirst",
+          options: {
+            cacheName: "google-fonts-webfonts",
+            expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        },
+      ],
+    },
+    client: {
+      installPrompt: true,
+      periodicSyncForUpdates: 3600, // check for updates every hour
+    },
+    devOptions: {
+      enabled: false, // enable for PWA testing in dev
+    },
+  },
+
   security: {
     headers: {
       crossOriginEmbedderPolicy: "unsafe-none",
@@ -81,31 +155,19 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
-    // Stricter rate limit for AI generation (expensive)
     "/api/trips/*/generate": {
       security: {
-        rateLimiter: {
-          tokensPerInterval: 3,
-          interval: 60000,
-        },
+        rateLimiter: { tokensPerInterval: 3, interval: 60000 },
       },
     },
-    // Stricter rate limit for place search (costs money)
     "/api/places/search": {
       security: {
-        rateLimiter: {
-          tokensPerInterval: 20,
-          interval: 60000,
-        },
+        rateLimiter: { tokensPerInterval: 20, interval: 60000 },
       },
     },
-    // Auth routes
     "/api/auth/**": {
       security: {
-        rateLimiter: {
-          tokensPerInterval: 10,
-          interval: 60000,
-        },
+        rateLimiter: { tokensPerInterval: 10, interval: 60000 },
       },
     },
   },
