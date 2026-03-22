@@ -19,8 +19,10 @@ interface Activity {
 }
 
 function getGoogleMapsUrl(activity: Activity): string {
-  if (activity.placeId) {
-    return `https://www.google.com/maps/place/?q=place_id:${activity.placeId}`;
+  // Use query_place_id for precise matching, with query as fallback display
+  // The api=1 format works cross-platform (iOS, Android, web)
+  if (activity.placeId && activity.lat && activity.lng) {
+    return `https://www.google.com/maps/search/?api=1&query=${activity.lat},${activity.lng}&query_place_id=${activity.placeId}`;
   }
   if (activity.lat && activity.lng) {
     return `https://www.google.com/maps/search/?api=1&query=${activity.lat},${activity.lng}`;
