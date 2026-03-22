@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "nuxt build",
+    "vercel-build": "nuxt build && drizzle-kit migrate",
     "dev": "nuxt dev --host",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
@@ -16,11 +17,15 @@
   "dependencies": {
     "@ai-sdk/google": "^3.0.52",
     "@googlemaps/js-api-loader": "^2.0.2",
+    "@mastra/core": "^1.15.0",
+    "@mastra/loggers": "^1.0.3",
+    "@neondatabase/serverless": "^1.0.2",
     "@nuxt/icon": "2.2.1",
     "@nuxt/image": "2.0.0",
     "@tailwindcss/vite": "^4.2.1",
     "ai": "^6.0.134",
     "better-auth": "^1.5.5",
+    "dayjs-nuxt": "^2.1.11",
     "drizzle-orm": "^0.45.1",
     "nuxt": "^4.4.2",
     "nuxt-security": "^2.5.1",
@@ -28,12 +33,14 @@
     "tailwindcss": "^4.2.1",
     "vue": "^3.5.30",
     "vue-router": "^5.0.3",
+    "ws": "^8.20.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {
     "@iconify-json/lucide": "^1.2.98",
     "@types/google.maps": "^3.58.1",
     "@types/pg": "^8.11.0",
+    "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.0"
   }
 }

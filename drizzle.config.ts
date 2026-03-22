@@ -5,6 +5,8 @@ export default defineConfig({
   schema: "./server/db/schema",
   out: "./server/db/migrations",
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    // Vercel + Neon sets DATABASE_URL_UNPOOLED for direct connections (migrations need this)
+    // Falls back to DATABASE_URL for local dev
+    url: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL!,
   },
 });
