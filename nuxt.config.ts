@@ -29,6 +29,10 @@ export default defineNuxtConfig({
         '@vue/devtools-core',
         '@vue/devtools-kit',
         '@googlemaps/js-api-loader',
+        'dayjs', // CJS
+        'dayjs/plugin/updateLocale', // CJS
+        'dayjs/plugin/relativeTime', // CJS
+        'dayjs/plugin/utc', // CJS
       ],
     },
   },
@@ -38,7 +42,6 @@ export default defineNuxtConfig({
       googleMapsApiKey: "",
     },
   },
-
   security: {
     headers: {
       crossOriginEmbedderPolicy: "unsafe-none",
@@ -50,20 +53,24 @@ export default defineNuxtConfig({
           "'unsafe-eval'",
           "https://maps.googleapis.com",
         ],
-        "style-src": ["'self'", "'unsafe-inline'"],
+        "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        "font-src": ["'self'", "https://fonts.gstatic.com"],
         "img-src": [
           "'self'",
           "data:",
           "https:",
           "https://*.googleapis.com",
           "https://*.gstatic.com",
+          "https://*.googleusercontent.com",
         ],
         "connect-src": [
           "'self'",
           "https://maps.googleapis.com",
           "https://places.googleapis.com",
+          "https://fonts.googleapis.com",
+          "https://accounts.google.com",
         ],
-        "frame-src": ["https://maps.googleapis.com"],
+        "frame-src": ["https://maps.googleapis.com", "https://accounts.google.com"],
       },
     },
     rateLimiter: {

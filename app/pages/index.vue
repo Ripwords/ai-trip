@@ -54,16 +54,10 @@ const isLoggedIn = computed(() => !!session.value?.user);
         </template>
         <template v-else>
           <NuxtLink
-            to="/register"
+            to="/login"
             class="group relative overflow-hidden rounded-xl bg-terra-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all hover:bg-terra-600 hover:shadow-xl hover:shadow-terra-500/30"
           >
-            <span class="relative z-10">Start planning free</span>
-          </NuxtLink>
-          <NuxtLink
-            to="/login"
-            class="rounded-xl border border-sand-300 bg-white/70 px-8 py-3.5 text-sm font-semibold text-sand-800 backdrop-blur-sm transition-all hover:border-sand-400 hover:bg-white"
-          >
-            Log in
+            <span class="relative z-10">Get started free</span>
           </NuxtLink>
         </template>
       </div>

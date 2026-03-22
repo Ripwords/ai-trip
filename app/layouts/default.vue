@@ -25,15 +25,9 @@ const isLoggedIn = computed(() => !!session.value?.user);
           <template v-else>
             <NuxtLink
               to="/login"
-              class="px-4 py-2 text-sm font-medium text-sand-600 transition hover:text-sand-900"
-            >
-              Log in
-            </NuxtLink>
-            <NuxtLink
-              to="/register"
               class="rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-terra-600 hover:shadow-md"
             >
-              Sign up
+              Sign in
             </NuxtLink>
           </template>
         </div>

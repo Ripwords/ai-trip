@@ -8,6 +8,13 @@
       "when": 1774181271192,
       "tag": "0000_greedy_kronos",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1774183967666,
+      "tag": "0001_shiny_terror",
+      "breakpoints": true
     }
   ]
 }

@@ -19,7 +19,17 @@ async function logout() {
         </NuxtLink>
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 rounded-full bg-sand-100 px-3 py-1.5">
-            <div class="flex h-6 w-6 items-center justify-center rounded-full bg-terra-100 text-xs font-semibold text-terra-700">
+            <img
+              v-if="session?.user?.image"
+              :src="session.user.image"
+              :alt="session.user.name || ''"
+              class="h-6 w-6 rounded-full object-cover"
+              referrerpolicy="no-referrer"
+            />
+            <div
+              v-else
+              class="flex h-6 w-6 items-center justify-center rounded-full bg-terra-100 text-xs font-semibold text-terra-700"
+            >
               {{ session?.user?.name?.charAt(0)?.toUpperCase() || '?' }}
             </div>
             <span class="text-sm font-medium text-sand-700">
