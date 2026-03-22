@@ -2,6 +2,7 @@
 import { authClient } from "../lib/auth-client";
 
 const { data: session } = await authClient.useSession(useFetch);
+const { cycle, modeIcon, modeLabel } = useDarkMode();
 
 async function logout() {
   await authClient.signOut();
@@ -36,6 +37,13 @@ async function logout() {
               {{ session?.user?.name }}
             </span>
           </div>
+          <button
+            class="rounded-lg p-1.5 text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+            :title="`Theme: ${modeLabel}`"
+            @click="cycle"
+          >
+            <Icon :name="modeIcon" class="h-4 w-4" />
+          </button>
           <button
             class="rounded-lg px-3 py-1.5 text-sm text-sand-500 transition hover:bg-sand-100 hover:text-sand-700"
             @click="logout"

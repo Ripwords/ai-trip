@@ -19,10 +19,15 @@ const emit = defineEmits<{
 
 const mapContainer = ref<HTMLElement | null>(null);
 const { isLoaded, loadMaps, loadMarker } = useGoogleMaps();
+const { isDark: siteIsDark } = useDarkMode();
+type MapMode = "light" | "dark" | "satellite";
+const mapMode = ref<MapMode>("light");
 
 let map: google.maps.Map | null = null;
 let markers: google.maps.marker.AdvancedMarkerElement[] = [];
 let polylines: google.maps.Polyline[] = [];
+let MapClass: typeof google.maps.Map;
+let MarkerClass: typeof google.maps.marker.AdvancedMarkerElement;
 
 const markerColors: Record<string, string> = {
   attraction: "#3B82F6",
@@ -62,25 +67,67 @@ async function initMap() {
   if (!mapContainer.value) return;
 
   try {
-    const { Map } = await loadMaps();
-    const { AdvancedMarkerElement } = await loadMarker();
+    const mapsLib = await loadMaps();
+    const markerLib = await loadMarker();
+    MapClass = mapsLib.Map;
+    MarkerClass = markerLib.AdvancedMarkerElement;
 
-    map = new Map(mapContainer.value, {
-      zoom: 12,
-      center: { lat: 0, lng: 0 },
-      mapId: "trip-map",
-      disableDefaultUI: false,
-      zoomControl: true,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: true,
-    });
-
-    updateMarkers(AdvancedMarkerElement);
+    createMap();
   } catch {
     // Google Maps failed to load
   }
 }
+
+function createMap() {
+  if (!mapContainer.value || !MapClass) return;
+
+  // Clean up existing
+  markers.forEach((m) => (m.map = null));
+  markers = [];
+  polylines.forEach((p) => p.setMap(null));
+  polylines = [];
+
+  map = new MapClass(mapContainer.value, {
+    zoom: 12,
+    center: { lat: 0, lng: 0 },
+    mapId: "trip-map",
+    mapTypeId: mapMode.value === "satellite" ? "hybrid" : "roadmap",
+    colorScheme: mapMode.value === "dark" ? "DARK" : "LIGHT",
+    disableDefaultUI: false,
+    zoomControl: true,
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: true,
+  });
+
+  updateMarkers();
+}
+
+function cycleMapMode() {
+  const modes: MapMode[] = ["light", "dark", "satellite"];
+  const current = modes.indexOf(mapMode.value);
+  mapMode.value = modes[(current + 1) % modes.length];
+  if (import.meta.client) {
+    localStorage.setItem("map-mode", mapMode.value);
+  }
+  createMap();
+}
+
+const mapModeIcon = computed(() => {
+  switch (mapMode.value) {
+    case "light": return "lucide:moon";
+    case "dark": return "lucide:globe";
+    case "satellite": return "lucide:sun";
+  }
+});
+
+const mapModeLabel = computed(() => {
+  switch (mapMode.value) {
+    case "light": return "Dark mode";
+    case "dark": return "Satellite";
+    case "satellite": return "Light mode";
+  }
+});
 
 function updateMarkers(
   AdvancedMarkerElement?: typeof google.maps.marker.AdvancedMarkerElement
@@ -103,8 +150,7 @@ function updateMarkers(
     return;
   }
 
-  const MarkerClass =
-    AdvancedMarkerElement ?? google.maps.marker.AdvancedMarkerElement;
+  const MClass = AdvancedMarkerElement ?? MarkerClass;
 
   const bounds = new google.maps.LatLngBounds();
 
@@ -112,7 +158,7 @@ function updateMarkers(
     const position = { lat: activity.lat!, lng: activity.lng! };
     bounds.extend(position);
 
-    const marker = new MarkerClass({
+    const marker = new MClass({
       map,
       position,
       content: createMarkerContent(activity.displayIndex, activity.type),
@@ -158,7 +204,7 @@ function updatePolylines() {
 
   const polyline = new google.maps.Polyline({
     path,
-    strokeColor: "#1F2937",
+    strokeColor: mapMode.value === "light" ? "#1F2937" : "#f7a48a",
     strokeWeight: 3,
     strokeOpacity: 0.6,
     geodesic: true,
@@ -184,7 +230,24 @@ watch(
   { deep: true }
 );
 
+// Sync map with site dark mode if user hasn't manually set a map preference
+watch(siteIsDark, (dark) => {
+  if (!localStorage.getItem("map-mode") && mapMode.value !== "satellite") {
+    mapMode.value = dark ? "dark" : "light";
+    createMap();
+  }
+});
+
 onMounted(() => {
+  if (import.meta.client) {
+    const saved = localStorage.getItem("map-mode") as MapMode | null;
+    if (saved && ["light", "dark", "satellite"].includes(saved)) {
+      mapMode.value = saved;
+    } else {
+      // Default: follow site theme
+      mapMode.value = siteIsDark.value ? "dark" : "light";
+    }
+  }
   initMap();
 });
 
@@ -192,7 +255,16 @@ defineExpose({ centerOnActivity });
 </script>
 
 <template>
-  <div class="flex h-full w-full flex-col">
+  <div class="relative flex h-full w-full flex-col">
     <div ref="mapContainer" class="flex-1 rounded-lg" />
+    <!-- Map mode toggle: Light → Dark → Satellite → Light -->
+    <button
+      class="absolute right-2 top-2 z-10 flex h-8 items-center gap-1.5 rounded-lg bg-white px-2.5 shadow-md transition hover:bg-sand-50"
+      :title="mapModeLabel"
+      @click="cycleMapMode"
+    >
+      <Icon :name="mapModeIcon" class="h-4 w-4 text-sand-700" />
+      <span class="text-xs font-medium text-sand-600">{{ mapModeLabel }}</span>
+    </button>
   </div>
 </template>

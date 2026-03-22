@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&display=swap');
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-display: 'DM Serif Display', serif;
   --font-sans: 'DM Sans', system-ui, sans-serif;
@@ -52,6 +54,92 @@
 
 * {
   font-family: var(--font-sans);
+}
+
+/* ── Dark Mode: Semantic color overrides ─────────────────────────── */
+/* When .dark is on <html>, swap all sand/terra/ocean/forest shades  */
+/* so existing classes like bg-sand-50, text-sand-900 just work.     */
+
+.dark {
+  /* Sand: invert the scale — light becomes dark, dark becomes light */
+  --color-sand-50: #1a1714;
+  --color-sand-100: #23201b;
+  --color-sand-200: #302b24;
+  --color-sand-300: #433b30;
+  --color-sand-400: #6e5c46;
+  --color-sand-500: #9f8b6f;
+  --color-sand-600: #b8a78f;
+  --color-sand-700: #d4c8b8;
+  --color-sand-800: #e8e0d4;
+  --color-sand-900: #f3efe8;
+
+  /* Terra: darken the tints, brighten the shades */
+  --color-terra-50: #2a1a14;
+  --color-terra-100: #3d2218;
+  --color-terra-200: #5c2f1c;
+  --color-terra-300: #8e3d1e;
+  --color-terra-400: #d44425;
+  --color-terra-500: #e85d3a;
+  --color-terra-600: #f07b5a;
+  --color-terra-700: #f7a48a;
+  --color-terra-800: #fbc9b8;
+  --color-terra-900: #fde6dc;
+
+  /* Ocean */
+  --color-ocean-50: #121e22;
+  --color-ocean-100: #1a2e35;
+  --color-ocean-200: #234b58;
+  --color-ocean-300: #245a6a;
+  --color-ocean-400: #2e8a9e;
+  --color-ocean-500: #4aa5b9;
+  --color-ocean-600: #7dc3d4;
+  --color-ocean-700: #b3dde7;
+  --color-ocean-800: #d9eef3;
+  --color-ocean-900: #f0f7f9;
+
+  /* Forest */
+  --color-forest-50: #141e14;
+  --color-forest-100: #1c2e1d;
+  --color-forest-200: #29442c;
+  --color-forest-300: #305534;
+  --color-forest-400: #4a8450;
+  --color-forest-500: #6aa06d;
+  --color-forest-600: #96c098;
+  --color-forest-700: #c2dbc3;
+  --color-forest-800: #e0ede0;
+  --color-forest-900: #f2f7f2;
+
+  /* Override white backgrounds used in cards/modals */
+  color-scheme: dark;
+}
+
+/* White elements need to become dark in dark mode */
+.dark .bg-white { background-color: #1e1b18 !important; }
+.dark .bg-white\/60 { background-color: rgba(30, 27, 24, 0.6) !important; }
+.dark .bg-white\/70 { background-color: rgba(30, 27, 24, 0.7) !important; }
+.dark .bg-white\/80 { background-color: rgba(30, 27, 24, 0.8) !important; }
+
+/* Glass effect in dark mode */
+.dark .glass {
+  background: rgba(26, 23, 20, 0.8);
+}
+
+/* Card hover shadow in dark mode */
+.dark .card-hover:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Input focus ring in dark mode */
+.dark .input-focus:focus {
+  box-shadow: 0 0 0 3px rgba(240, 123, 90, 0.2);
+}
+
+/* Gradient text stays vibrant in dark mode */
+.dark .text-gradient {
+  background: linear-gradient(135deg, var(--color-terra-500), var(--color-terra-400));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* Scrollbar */
@@ -118,4 +206,10 @@
   border-color: var(--color-terra-400);
   box-shadow: 0 0 0 3px rgba(240, 123, 90, 0.1);
   outline: none;
+}
+
+/* Smooth transition when toggling dark mode */
+html.transitioning,
+html.transitioning * {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
 }
