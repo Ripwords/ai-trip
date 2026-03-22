@@ -51,6 +51,15 @@ const activeTab = ref<"itinerary" | "notes" | "expenses">("itinerary");
 const activeDayId = ref<string | null>(null);
 const showPrefsEditor = ref(false);
 
+function handleExportKml() {
+  if (!trip.value) return;
+  downloadKml(trip.value.destination, sortedDays.value.map((d) => ({
+    dayNumber: d.dayNumber,
+    date: d.date,
+    activities: d.activities,
+  })));
+}
+
 async function updatePreference(key: string, value: string) {
   if (!trip.value) return;
   const currentPrefs = trip.value.preferences ?? {};
@@ -376,6 +385,14 @@ async function recomputeSegments(dayId: string) {
           >
             <Icon name="lucide:sliders-horizontal" class="h-3 w-3" />
             {{ trip.preferences?.budget || "moderate" }} · {{ trip.preferences?.pace || "moderate" }}
+          </button>
+          <button
+            class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-3 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
+            title="Export trip as KML for Google My Maps"
+            @click="handleExportKml"
+          >
+            <Icon name="lucide:download" class="h-3 w-3" />
+            Export KML
           </button>
         </div>
       </div>
