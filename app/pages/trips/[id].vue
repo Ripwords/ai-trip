@@ -38,6 +38,12 @@ const { data: expensesList, refresh: refreshExpenses } = await useFetch<
   }[]
 >(`/api/trips/${tripId}/expenses`);
 
+const { data: aiUsage, refresh: refreshUsage } = await useFetch<{
+  used: number;
+  limit: number;
+  remaining: number;
+}>("/api/ai/usage");
+
 const aiLoading = ref(false);
 const aiLoadingMode = ref<"generate" | "optimize">("generate");
 const editingActivity = ref<(typeof allActivities.value)[number] | null>(null);
@@ -60,7 +66,7 @@ function handleExportKml() {
   })));
 }
 
-async function updatePreference(key: string, value: string) {
+async function updatePreference(key: string, value: string | string[]) {
   if (!trip.value) return;
   const currentPrefs = trip.value.preferences ?? {};
   const updatedPrefs = { ...currentPrefs, [key]: value || undefined };
@@ -194,6 +200,7 @@ async function handleAiSubmit() {
     aiError.value = err.data?.message ?? "Something went wrong";
   } finally {
     aiLoading.value = false;
+    refreshUsage();
   }
 }
 
@@ -432,6 +439,16 @@ async function recomputeSegments(dayId: string) {
               <option value="packed">Packed</option>
             </select>
           </div>
+          <div class="col-span-2">
+            <label class="block text-xs font-medium text-sand-500">Interests</label>
+            <input
+              :value="trip.preferences?.interests?.join(', ') || ''"
+              type="text"
+              placeholder="e.g. temples, street food, nature, nightlife"
+              class="mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm input-focus"
+              @change="updatePreference('interests', ($event.target as HTMLInputElement).value.split(',').map(s => s.trim()).filter(Boolean))"
+            />
+          </div>
         </div>
         <p class="mt-2 text-xs text-sand-400">AI suggestions will respect these preferences.</p>
       </div>
@@ -468,16 +485,18 @@ async function recomputeSegments(dayId: string) {
               <input
                 v-model="aiPrompt"
                 type="text"
-                :disabled="aiLoading"
-                :placeholder="activeDayHasActivities
-                  ? 'Add a ramen spot, remove the temple, optimize the route...'
-                  : 'What would you like to do today? e.g., street food tour, temple visits...'"
+                :disabled="aiLoading || (aiUsage?.remaining ?? 1) <= 0"
+                :placeholder="(aiUsage?.remaining ?? 1) <= 0
+                  ? `Limit reached (${aiUsage?.used}/${aiUsage?.limit}). Resets next month.`
+                  : activeDayHasActivities
+                    ? 'Add a ramen spot, remove the temple, optimize the route...'
+                    : 'What would you like to do today? e.g., street food tour, temple visits...'"
                 class="input-focus block w-full rounded-xl border border-sand-200 bg-white py-2.5 pl-10 pr-4 text-sm text-sand-900 placeholder:text-sand-400 disabled:opacity-50"
               />
             </div>
             <button
               type="submit"
-              :disabled="aiLoading || !aiPrompt.trim()"
+              :disabled="aiLoading || !aiPrompt.trim() || (aiUsage?.remaining ?? 1) <= 0"
               class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-terra-500 text-white transition hover:bg-terra-600 disabled:opacity-50"
             >
               <Icon
@@ -486,6 +505,15 @@ async function recomputeSegments(dayId: string) {
                 :class="{ 'animate-spin': aiLoading }"
               />
             </button>
+            <!-- Usage counter -->
+            <span
+              v-if="aiUsage"
+              class="shrink-0 text-xs tabular-nums"
+              :class="aiUsage.remaining <= 10 ? 'text-terra-500 font-medium' : 'text-sand-400'"
+              :title="`${aiUsage.used}/${aiUsage.limit} AI prompts used this month`"
+            >
+              {{ aiUsage.used }}/{{ aiUsage.limit }}
+            </span>
           </form>
 
           <!-- AI feedback messages -->

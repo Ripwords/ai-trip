@@ -24,10 +24,11 @@ export interface EnrichedItinerary {
 
 async function enrichActivity(
   activity: AIActivity,
-  destination: string
+  destination: string,
+  destinationCoords?: { lat: number; lng: number }
 ): Promise<EnrichedActivity> {
   try {
-    const candidates = await searchPlace(`${activity.name} ${destination}`);
+    const candidates = await searchPlace(`${activity.name} ${destination}`, destinationCoords);
     const topResult = candidates[0];
 
     if (topResult) {
@@ -66,7 +67,8 @@ async function enrichActivity(
  */
 export async function enrichItinerary(
   aiOutput: AIItineraryOutput,
-  destination: string
+  destination: string,
+  destinationCoords?: { lat: number; lng: number }
 ): Promise<EnrichedItinerary> {
   const enrichedDays: EnrichedDay[] = [];
 
@@ -77,7 +79,7 @@ export async function enrichItinerary(
     for (let i = 0; i < day.activities.length; i += batchSize) {
       const batch = day.activities.slice(i, i + batchSize);
       const results = await Promise.all(
-        batch.map((activity) => enrichActivity(activity, destination))
+        batch.map((activity) => enrichActivity(activity, destination, destinationCoords))
       );
       enrichedActivities.push(...results);
     }

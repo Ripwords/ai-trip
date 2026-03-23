@@ -92,7 +92,7 @@ function formatCurrency(amount: number): string {
       </div>
       <div class="text-center">
         <p class="text-2xl font-display text-sand-900">
-          ${{ totalCost.toFixed(0) }}
+          {{ formatCurrency(totalCost) }}
         </p>
         <p class="text-xs text-sand-500">Est. Cost</p>
       </div>

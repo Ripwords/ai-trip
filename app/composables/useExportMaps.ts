@@ -33,7 +33,7 @@ export function getGoogleMapsDirectionsUrl(activities: ExportActivity[]): string
     .map((a) => `${a.lat},${a.lng}`)
     .join("|");
 
-  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=walking`;
+  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=transit`;
   if (waypoints) {
     url += `&waypoints=${waypoints}`;
   }

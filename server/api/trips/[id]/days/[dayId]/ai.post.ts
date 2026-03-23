@@ -18,6 +18,9 @@ export default defineEventHandler(async (event) => {
   const { id, dayId } = await getValidatedRouterParams(event, dayIdParamsSchema.parse);
   const body = await readValidatedBody(event, aiBodySchema.parse);
 
+  // Check AI usage limit
+  await checkAiLimit(session.user.id);
+
   // Sanitize prompt
   const prompt = sanitizePromptInput(body.prompt);
   if (!prompt) {
@@ -76,6 +79,8 @@ export default defineEventHandler(async (event) => {
         suggestedTime: a.suggestedTime,
         estimatedDurationMinutes: a.estimatedDurationMinutes,
         address: a.address,
+        lat: a.lat,
+        lng: a.lng,
       })),
       accommodation: day.accommodationName
         ? { name: day.accommodationName, address: day.accommodationAddress }
@@ -166,9 +171,16 @@ export default defineEventHandler(async (event) => {
       // Enrich with Google Maps (graceful — if enrichment fails, skip adding)
       let enriched;
       try {
+        // Use first geo-located activity or accommodation as location bias for place search
+        const geoActivity = day.activities.find((a) => a.lat != null && a.lng != null);
+        const destinationCoords = geoActivity
+          ? { lat: geoActivity.lat!, lng: geoActivity.lng! }
+          : undefined;
+
         enriched = await enrichItinerary(
           { days: [{ dayNumber: day.dayNumber, theme: "", activities: deduped }] },
-          dayLocation
+          dayLocation,
+          destinationCoords
       );
 
       const enrichedActivities = enriched.days[0]?.activities ?? [];
@@ -212,8 +224,30 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // Handle AI-determined activity order (from optimize intent)
+  if (result.orderedActivities?.length) {
+    const currentActivities = await db.query.activities.findMany({
+      where: eq(activities.itineraryDayId, dayId),
+      orderBy: [asc(activities.sortOrder)],
+    });
+
+    for (let i = 0; i < result.orderedActivities.length; i++) {
+      const ordered = result.orderedActivities[i];
+      const match = currentActivities.find(
+        (a) => a.name.toLowerCase().trim() === ordered.name.toLowerCase().trim()
+      );
+      if (match) {
+        await db
+          .update(activities)
+          .set({ sortOrder: i, suggestedTime: ordered.suggestedTime })
+          .where(eq(activities.id, match.id));
+      }
+    }
+    optimized = true;
+  }
+
   // Handle route optimization
-  if (result.shouldOptimize) {
+  if (result.shouldOptimize && !result.orderedActivities?.length) {
     const allDayActivities = await db.query.activities.findMany({
       where: eq(activities.itineraryDayId, dayId),
       orderBy: [asc(activities.sortOrder)],
@@ -283,6 +317,9 @@ export default defineEventHandler(async (event) => {
 
   // Recompute segments
   await computeAndSaveSegments(dayId);
+
+  // Increment AI usage counter (only after successful processing)
+  await incrementAiUsage(session.user.id);
 
   return {
     success: true,

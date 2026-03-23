@@ -6,3 +6,4 @@ export * from "./travel-segments";
 export * from "./trip-ideas";
 export * from "./checklists";
 export * from "./expenses";
+export * from "./ai-usage";

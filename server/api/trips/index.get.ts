@@ -11,6 +11,7 @@ export default defineEventHandler(async (event) => {
     where: eq(trips.userId, session.user.id),
     with: {
       days: {
+        orderBy: (days, { asc }) => [asc(days.dayNumber)],
         with: {
           activities: true,
           travelSegments: true,

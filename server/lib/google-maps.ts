@@ -38,7 +38,22 @@ const MAPS_API_KEY = process.env.NUXT_PUBLIC_GOOGLE_MAPS_API_KEY!;
 // ── Cached: Place Text Search ($35/1K — cache 24h) ──────────────────
 
 const _searchPlace = defineCachedFunction(
-  async (_event: unknown, query: string): Promise<PlaceCandidate[]> => {
+  async (_event: unknown, query: string, locationBiasStr?: string): Promise<PlaceCandidate[]> => {
+    const body: Record<string, unknown> = { textQuery: query };
+
+    if (locationBiasStr) {
+      const parts = locationBiasStr.split(",");
+      const latStr = parts[0] ?? "0";
+      const lngStr = parts[1] ?? "0";
+      const radiusStr = parts[2];
+      body.locationBias = {
+        circle: {
+          center: { latitude: parseFloat(latStr), longitude: parseFloat(lngStr) },
+          radius: radiusStr ? parseFloat(radiusStr) : 50000, // 50km default
+        },
+      };
+    }
+
     const response = await $fetch<{ places?: Array<Record<string, unknown>> }>(
       "https://places.googleapis.com/v1/places:searchText",
       {
@@ -49,7 +64,7 @@ const _searchPlace = defineCachedFunction(
           "X-Goog-FieldMask":
             "places.displayName,places.id,places.location,places.rating,places.formattedAddress,places.types",
         },
-        body: { textQuery: query },
+        body,
       }
     );
 
@@ -74,12 +89,21 @@ const _searchPlace = defineCachedFunction(
     maxAge: 60 * 60 * 24, // 24 hours — place data rarely changes
     name: "searchPlace",
     group: "maps",
-    getKey: (_event: unknown, query: string) => query.toLowerCase().trim(),
+    getKey: (_event: unknown, query: string, locationBiasStr?: string) =>
+      locationBiasStr
+        ? `${query.toLowerCase().trim()}@${locationBiasStr}`
+        : query.toLowerCase().trim(),
   }
 );
 
-export function searchPlace(query: string): Promise<PlaceCandidate[]> {
-  return _searchPlace(null, query);
+export function searchPlace(
+  query: string,
+  locationBias?: { lat: number; lng: number; radius?: number }
+): Promise<PlaceCandidate[]> {
+  const biasStr = locationBias
+    ? `${locationBias.lat.toFixed(2)},${locationBias.lng.toFixed(2)},${locationBias.radius ?? 50000}`
+    : undefined;
+  return _searchPlace(null, query, biasStr);
 }
 
 // ── Cached: Distance Matrix ($5/1K — cache 6h) ──────────────────────

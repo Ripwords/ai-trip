@@ -130,10 +130,7 @@ function timeToMinutes(time: string): number | null {
           class="flex items-center gap-1.5 rounded-lg bg-terra-50 px-3 py-2 text-sm text-terra-700"
         >
           <Icon name="lucide:alert-triangle" class="h-3.5 w-3.5 shrink-0" />
-          <span>
-            Starts before previous activity ends — consider using
-            <strong>Optimize Route</strong> to fix the schedule
-          </span>
+          <span>Schedule conflict — activities overlap in time</span>
         </div>
 
         <div :id="`activity-${activity.id}`">

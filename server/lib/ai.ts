@@ -5,7 +5,6 @@ import { PinoLogger } from "@mastra/loggers";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import type { TripPreferences } from "../db/schema/trips";
-import { sanitizePromptInput } from "../utils/sanitize";
 
 const MODEL_ID = "gemini-3.1-flash-lite-preview";
 
@@ -30,25 +29,10 @@ export interface AIProcessResult {
   newActivities: AIActivity[];
   removals: { name: string; reason: string }[];
   updates: { name: string; suggestedTime: string; estimatedDurationMinutes: number }[];
+  orderedActivities?: { name: string; suggestedTime: string }[];
   shouldOptimize: boolean;
 }
 
-// Legacy types kept for compatibility
-export interface AISingleDayOutput {
-  theme: string;
-  activitiesToAdd: AIActivity[];
-  existingActivityUpdates: { name: string; suggestedTime: string; estimatedDurationMinutes: number }[];
-  removedActivityIds: string[];
-}
-
-export interface AIOptimizedOrderOutput {
-  orderedActivities: { name: string; suggestedTime: string }[];
-  removedActivityIds: string[];
-}
-
-export interface AIItineraryOutput {
-  days: { dayNumber: number; theme: string; activities: AIActivity[] }[];
-}
 
 // ── Logging ──────────────────────────────────────────────────────────
 
@@ -418,7 +402,7 @@ export async function processUserRequest(params: {
   tripDestination: string;
   date: string;
   dayNumber: number;
-  existingActivities: { id: string; name: string; type: string; suggestedTime: string | null; estimatedDurationMinutes: number | null; address?: string | null }[];
+  existingActivities: { id: string; name: string; type: string; suggestedTime: string | null; estimatedDurationMinutes: number | null; address?: string | null; lat?: number | null; lng?: number | null }[];
   accommodation?: { name: string; address: string | null };
   preferences?: TripPreferences;
 }): Promise<AIProcessResult> {
@@ -503,12 +487,25 @@ export async function processUserRequest(params: {
         preferences: params.preferences,
       });
       result.updates = timeUpdates;
-      result.shouldOptimize = true; // Recompute with server-side schedule validator
+      result.shouldOptimize = false; // Don't overwrite AI-provided times with computeSchedule
       result.message = `Rescheduled ${timeUpdates.length} activit${timeUpdates.length === 1 ? "y" : "ies"}`;
       break;
     }
 
     case "optimize": {
+      const { orderedActivities } = await handleOptimize({
+        destination: params.destination,
+        activities: params.existingActivities.map((a) => ({
+          name: a.name,
+          type: a.type,
+          lat: a.lat ?? null,
+          lng: a.lng ?? null,
+          address: a.address ?? null,
+        })),
+        prompt: params.prompt,
+        preferences: params.preferences,
+      });
+      result.orderedActivities = orderedActivities;
       result.shouldOptimize = true;
       result.message = "Optimized route for minimum travel time";
       break;
@@ -565,71 +562,3 @@ export async function processUserRequest(params: {
   return result;
 }
 
-// ── Legacy exports (kept for backward compat with old endpoints) ─────
-
-export async function generateForDay(params: {
-  destination: string;
-  tripDestination: string;
-  date: string;
-  dayNumber: number;
-  preferences?: TripPreferences;
-  existingActivities?: { id: string; name: string; type: string; suggestedTime: string | null; estimatedDurationMinutes: number | null; address?: string | null }[];
-  accommodation?: { name: string; address: string | null };
-  userContext?: string;
-}): Promise<AISingleDayOutput> {
-  const result = await processUserRequest({
-    prompt: params.userContext || "Fill gaps with local recommendations",
-    destination: params.destination,
-    tripDestination: params.tripDestination,
-    date: params.date,
-    dayNumber: params.dayNumber,
-    existingActivities: params.existingActivities ?? [],
-    accommodation: params.accommodation,
-    preferences: params.preferences,
-  });
-
-  return {
-    theme: "",
-    activitiesToAdd: result.newActivities,
-    existingActivityUpdates: result.updates,
-    removedActivityIds: [],
-  };
-}
-
-export async function optimizeDayRoute(params: {
-  destination: string;
-  activities: { id: string; name: string; type: string; address: string | null; lat: number | null; lng: number | null; suggestedTime: string | null; estimatedDurationMinutes: number | null }[];
-  userContext?: string;
-}): Promise<AIOptimizedOrderOutput> {
-  const { generateObject } = await import("ai");
-  const { object } = await generateObject({
-    model: google(MODEL_ID),
-    schema: z.object({ orderedActivities: z.array(z.object({ name: z.string(), suggestedTime: z.string() })) }),
-    prompt: `Reorder these for minimum travel in ${params.destination}: ${JSON.stringify(params.activities.map((a) => ({ name: a.name, lat: a.lat, lng: a.lng })))}
-Keep ALL. ${SCHEDULE_RULES}`,
-  });
-  return { orderedActivities: object.orderedActivities, removedActivityIds: [] };
-}
-
-export async function generateItinerary(params: {
-  destination: string;
-  startDate: string;
-  endDate: string;
-  preferences?: TripPreferences;
-  existingActivities?: { dayNumber: number; name: string; type: string; suggestedTime: string | null; estimatedDurationMinutes: number | null }[];
-}): Promise<AIItineraryOutput> {
-  const destination = sanitizePromptInput(params.destination);
-  if (!destination) throw createError({ statusCode: 400, message: "Invalid destination" });
-  const numDays = Math.ceil((new Date(params.endDate).getTime() - new Date(params.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
-
-  const research = await doResearch(destination);
-
-  const { generateObject } = await import("ai");
-  const { object } = await generateObject({
-    model: google(MODEL_ID),
-    schema: z.object({ days: z.array(z.object({ dayNumber: z.number(), theme: z.string(), activities: z.array(aiActivitySchema) })) }),
-    system: `You are a local travel expert. ${SCHEDULE_RULES}`,
-    prompt: `Based on this research:\n${research}\n\nCreate ${numDays}-day itinerary for ${destination}.`,
-  });
-  return object;
-}

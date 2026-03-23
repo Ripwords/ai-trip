@@ -11,6 +11,7 @@ export default defineEventHandler(async (event) => {
     where: and(eq(trips.id, id), eq(trips.userId, session.user.id)),
     with: {
       days: {
+        orderBy: (days, { asc }) => [asc(days.dayNumber)],
         with: {
           activities: {
             orderBy: (activities, { asc }) => [asc(activities.sortOrder)],
