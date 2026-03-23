@@ -392,6 +392,7 @@ async function recomputeSegments(dayId: string) {
             {{ sortedDays.length }} days
           </span>
           <button
+            v-if="!isViewer"
             class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-3 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
             @click="showPrefsEditor = !showPrefsEditor"
           >
@@ -543,8 +544,9 @@ async function recomputeSegments(dayId: string) {
           <div class="flex flex-col gap-6 lg:flex-row">
             <!-- Left: Accommodation + Activities + Ideas -->
             <div class="flex-1 space-y-6 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-4">
-              <!-- Accommodation -->
+              <!-- Accommodation (hidden for viewers) -->
               <AccommodationSection
+                v-if="!isViewer"
                 :trip-id="tripId"
                 :day-id="activeDay.id"
                 :accommodation-name="activeDay.accommodationName"
@@ -567,14 +569,16 @@ async function recomputeSegments(dayId: string) {
                 :trip-id="tripId"
                 :highlighted-activity-id="highlightedActivityId"
                 :travel-segments="activeDay.travelSegments"
+                :readonly="isViewer"
                 @edit-activity="handleEditActivity"
                 @delete-activity="handleDeleteActivity"
                 @click-activity="handleActivityClick"
                 @add-activity="handleAddActivity"
               />
 
-              <!-- Ideas bucket -->
+              <!-- Ideas bucket (hidden for viewers) -->
               <IdeasBucket
+                v-if="!isViewer"
                 v-show="!aiLoading"
                 :trip-id="tripId"
                 :ideas="ideas ?? []"

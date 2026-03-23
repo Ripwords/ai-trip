@@ -1,6 +1,5 @@
-import { and, eq } from "drizzle-orm";
 import { db } from "../../../../db";
-import { trips, checklists } from "../../../../db/schema";
+import { checklists } from "../../../../db/schema";
 import { uuidParamsSchema, createChecklistSchema } from "../../../../utils/schemas";
 
 export default defineEventHandler(async (event) => {
@@ -8,14 +7,7 @@ export default defineEventHandler(async (event) => {
   const { id } = await getValidatedRouterParams(event, uuidParamsSchema.parse);
   const body = await readValidatedBody(event, createChecklistSchema.parse);
 
-  // Verify trip belongs to user
-  const trip = await db.query.trips.findFirst({
-    where: and(eq(trips.id, id), eq(trips.userId, session.user.id)),
-  });
-
-  if (!trip) {
-    throw createError({ statusCode: 404, message: "Trip not found" });
-  }
+  await requireTripAccess(id, session.user.id, ["owner", "editor"]);
 
   const [checklist] = await db
     .insert(checklists)

@@ -37,6 +37,7 @@ const props = defineProps<{
   activity: Activity;
   index: number;
   highlighted?: boolean;
+  readonly?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -117,7 +118,7 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
         </div>
       </div>
 
-      <div class="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100 transition">
+      <div v-if="!readonly" class="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100 transition">
         <button
           class="rounded-lg p-1.5 text-sand-400 hover:bg-terra-50 hover:text-terra-600"
           title="Edit"

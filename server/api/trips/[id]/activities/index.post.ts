@@ -1,6 +1,6 @@
 import { and, eq, desc } from "drizzle-orm";
 import { db } from "../../../../db";
-import { trips, itineraryDays, activities } from "../../../../db/schema";
+import { itineraryDays, activities } from "../../../../db/schema";
 import { uuidParamsSchema, addActivitySchema } from "../../../../utils/schemas";
 import { computeAndSaveSegments } from "../../../../lib/segments";
 
@@ -9,14 +9,7 @@ export default defineEventHandler(async (event) => {
   const { id } = await getValidatedRouterParams(event, uuidParamsSchema.parse);
   const body = await readValidatedBody(event, addActivitySchema.parse);
 
-  // Verify trip belongs to user
-  const trip = await db.query.trips.findFirst({
-    where: and(eq(trips.id, id), eq(trips.userId, session.user.id)),
-  });
-
-  if (!trip) {
-    throw createError({ statusCode: 404, message: "Trip not found" });
-  }
+  await requireTripAccess(id, session.user.id, ["owner", "editor"]);
 
   // Verify itineraryDayId belongs to trip
   const day = await db.query.itineraryDays.findFirst({

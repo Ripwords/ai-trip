@@ -36,6 +36,7 @@ const props = defineProps<{
   tripId: string;
   highlightedActivityId?: string | null;
   travelSegments?: TravelSegment[];
+  readonly?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -138,6 +139,7 @@ function timeToMinutes(time: string): number | null {
             :activity="activity"
             :index="index"
             :highlighted="activity.id === highlightedActivityId"
+            :readonly="readonly"
             @edit="emit('editActivity', $event)"
             @delete="emit('deleteActivity', $event)"
             @click="emit('clickActivity', $event)"
@@ -151,6 +153,7 @@ function timeToMinutes(time: string): number | null {
       </template>
 
       <button
+        v-if="!readonly"
         class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-terra-200 py-2.5 text-sm text-sand-400 transition hover:border-terra-400 hover:text-terra-500"
         @click="emit('addActivity', day.id)"
       >

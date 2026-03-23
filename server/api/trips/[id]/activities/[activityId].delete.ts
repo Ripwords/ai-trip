@@ -1,6 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "../../../../db";
-import { trips, activities } from "../../../../db/schema";
+import { activities } from "../../../../db/schema";
 import { activityIdParamsSchema } from "../../../../utils/schemas";
 
 export default defineEventHandler(async (event) => {
@@ -10,14 +10,7 @@ export default defineEventHandler(async (event) => {
     activityIdParamsSchema.parse
   );
 
-  // Verify trip belongs to user
-  const trip = await db.query.trips.findFirst({
-    where: and(eq(trips.id, id), eq(trips.userId, session.user.id)),
-  });
-
-  if (!trip) {
-    throw createError({ statusCode: 404, message: "Trip not found" });
-  }
+  await requireTripAccess(id, session.user.id, ["owner", "editor"]);
 
   // Verify activity belongs to this trip
   const activity = await db.query.activities.findFirst({

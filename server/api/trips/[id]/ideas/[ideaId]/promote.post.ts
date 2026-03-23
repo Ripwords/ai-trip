@@ -1,6 +1,6 @@
 import { and, eq, desc } from "drizzle-orm";
 import { db } from "../../../../../db";
-import { trips, tripIdeas, itineraryDays, activities } from "../../../../../db/schema";
+import { tripIdeas, itineraryDays, activities } from "../../../../../db/schema";
 import { ideaIdParamsSchema, promoteIdeaSchema } from "../../../../../utils/schemas";
 import { computeAndSaveSegments } from "../../../../../lib/segments";
 
@@ -12,14 +12,7 @@ export default defineEventHandler(async (event) => {
   );
   const body = await readValidatedBody(event, promoteIdeaSchema.parse);
 
-  // Verify trip belongs to user
-  const trip = await db.query.trips.findFirst({
-    where: and(eq(trips.id, id), eq(trips.userId, session.user.id)),
-  });
-
-  if (!trip) {
-    throw createError({ statusCode: 404, message: "Trip not found" });
-  }
+  await requireTripAccess(id, session.user.id, ["owner", "editor"]);
 
   // Verify idea belongs to trip
   const idea = await db.query.tripIdeas.findFirst({
