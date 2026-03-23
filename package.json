@@ -28,7 +28,7 @@
     "@tailwindcss/vite": "^4.2.1",
     "@vite-pwa/nuxt": "^1.1.1",
     "ai": "^6.0.134",
-    "better-auth": "^1.5.5",
+    "better-auth": "^1.5.6",
     "dayjs-nuxt": "^2.1.11",
     "drizzle-orm": "^0.45.1",
     "nuxt": "^4.4.2",
