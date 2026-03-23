@@ -1,11 +1,11 @@
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { dash } from "@better-auth/infra";
-import { eq, and } from "drizzle-orm";
-import { db } from "../db";
-import { tripMembers, user as userTable } from "../db/schema";
+import { betterAuth } from "better-auth"
+import { drizzleAdapter } from "better-auth/adapters/drizzle"
+import { dash } from "@better-auth/infra"
+import { eq, and } from "drizzle-orm"
+import { db } from "../db"
+import { tripMembers, user as userTable } from "../db/schema"
 
-const isProduction = process.env.NODE_ENV === "production";
+const isProduction = process.env.NODE_ENV === "production"
 
 export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
@@ -49,36 +49,44 @@ export const auth = betterAuth({
             // Find pending invites matching this user's email
             const user = await db.query.user.findFirst({
               where: eq(userTable.id, session.userId),
-            });
-            if (!user) return;
+            })
+            if (!user) return
 
             const pendingInvites = await db.query.tripMembers.findMany({
               where: and(
                 eq(tripMembers.invitedEmail, user.email),
-                eq(tripMembers.status, "pending"),
+                eq(tripMembers.status, "pending")
               ),
-            });
+            })
 
             for (const invite of pendingInvites) {
               // Check not expired
               if (invite.expiresAt && new Date() > invite.expiresAt) {
-                await db.update(tripMembers).set({ status: "expired" }).where(eq(tripMembers.id, invite.id));
-                continue;
+                await db
+                  .update(tripMembers)
+                  .set({ status: "expired" })
+                  .where(eq(tripMembers.id, invite.id))
+                continue
               }
 
               // Auto-accept
-              await db.update(tripMembers).set({
-                userId: session.userId,
-                status: "active",
-                inviteToken: null,
-              }).where(eq(tripMembers.id, invite.id));
+              await db
+                .update(tripMembers)
+                .set({
+                  userId: session.userId,
+                  status: "active",
+                  inviteToken: null,
+                })
+                .where(eq(tripMembers.id, invite.id))
             }
 
             if (pendingInvites.length > 0) {
-              console.log(`[auth] Auto-accepted ${pendingInvites.length} pending invite(s) for ${user.email}`);
+              console.log(
+                `[auth] Auto-accepted ${pendingInvites.length} pending invite(s) for ${user.email}`
+              )
             }
           } catch (e) {
-            console.error("[auth] Failed to auto-accept invites:", e);
+            console.error("[auth] Failed to auto-accept invites:", e)
           }
         },
       },
@@ -94,5 +102,12 @@ export const auth = betterAuth({
       "/callback/*": { window: 60, max: 10 },
     },
   },
-  plugins: [dash()],
-});
+  plugins: [
+    dash({
+      activityTracking: {
+        enabled: true,
+        updateInterval: 300000, // Update interval in ms (default: 5 minutes)
+      },
+    }),
+  ],
+})
