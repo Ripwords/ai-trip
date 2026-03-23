@@ -126,13 +126,12 @@ async function handleCreate() {
 .form-input {
   display: block;
   width: 100%;
-  height: 44px;
   margin-top: 0.375rem;
-  padding: 0 0.875rem;
+  padding: 0.625rem 0.875rem;
   border: 1px solid var(--color-sand-300);
   border-radius: 0.75rem;
   font-size: 0.875rem;
-  line-height: 1.25rem;
+  line-height: 1.5;
   color: var(--color-sand-900);
   background-color: var(--color-sand-50);
   appearance: none;
@@ -155,8 +154,9 @@ select.form-input {
   padding-right: 2.5rem;
 }
 
-/* Fix date input on iOS/Safari */
+/* Fix date input vertical alignment on iOS/Safari */
 input[type="date"].form-input {
-  min-height: 44px;
+  display: flex;
+  align-items: center;
 }
 </style>

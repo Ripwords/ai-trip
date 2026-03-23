@@ -155,7 +155,7 @@ export default defineNuxtConfig({
       },
     },
     rateLimiter: {
-      tokensPerInterval: 100,
+      tokensPerInterval: 300,
       interval: 60000,
       headers: true,
     },
@@ -164,17 +164,17 @@ export default defineNuxtConfig({
   routeRules: {
     "/api/trips/*/generate": {
       security: {
-        rateLimiter: { tokensPerInterval: 3, interval: 60000 },
+        rateLimiter: { tokensPerInterval: 10, interval: 60000 },
       },
     },
     "/api/places/search": {
       security: {
-        rateLimiter: { tokensPerInterval: 20, interval: 60000 },
+        rateLimiter: { tokensPerInterval: 60, interval: 60000 },
       },
     },
     "/api/auth/**": {
       security: {
-        rateLimiter: { tokensPerInterval: 10, interval: 60000 },
+        rateLimiter: { tokensPerInterval: 30, interval: 60000 },
       },
     },
   },
