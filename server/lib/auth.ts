@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
-import { dash } from "@better-auth/infra"
+// import { dash } from "@better-auth/infra"
 import { eq, and } from "drizzle-orm"
 import { db } from "../db"
 import { tripMembers, user as userTable } from "../db/schema"
@@ -24,7 +24,6 @@ export const auth = betterAuth({
       accessType: "offline",
     },
   },
-
   session: {
     expiresIn: 60 * 60 * 24 * 30, // 30 days
     updateAge: 60 * 60 * 24, // refresh session token every 24 hours
@@ -103,11 +102,12 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    dash({
-      activityTracking: {
-        enabled: true,
-        updateInterval: 300000, // Update interval in ms (default: 5 minutes)
-      },
-    }),
+    // https://github.com/better-auth/better-auth/issues/8332
+    // dash({
+    //   activityTracking: {
+    //     enabled: true,
+    //     updateInterval: 300000, // Update interval in ms (default: 5 minutes)
+    //   },
+    // }),
   ],
 })
