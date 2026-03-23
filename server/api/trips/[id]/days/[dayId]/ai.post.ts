@@ -61,25 +61,34 @@ export default defineEventHandler(async (event) => {
   }
 
   // Process the user's request through the AI
-  const result = await processUserRequest({
-    prompt,
-    destination: dayLocation,
-    tripDestination: trip.destination,
-    date: day.date,
-    dayNumber: day.dayNumber,
-    existingActivities: day.activities.map((a) => ({
-      id: a.id,
-      name: a.name,
-      type: a.type,
-      suggestedTime: a.suggestedTime,
-      estimatedDurationMinutes: a.estimatedDurationMinutes,
-      address: a.address,
-    })),
-    accommodation: day.accommodationName
-      ? { name: day.accommodationName, address: day.accommodationAddress }
-      : undefined,
-    preferences: trip.preferences ?? undefined,
-  });
+  let result;
+  try {
+    result = await processUserRequest({
+      prompt,
+      destination: dayLocation,
+      tripDestination: trip.destination,
+      date: day.date,
+      dayNumber: day.dayNumber,
+      existingActivities: day.activities.map((a) => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        suggestedTime: a.suggestedTime,
+        estimatedDurationMinutes: a.estimatedDurationMinutes,
+        address: a.address,
+      })),
+      accommodation: day.accommodationName
+        ? { name: day.accommodationName, address: day.accommodationAddress }
+        : undefined,
+      preferences: trip.preferences ?? undefined,
+    });
+  } catch (e: unknown) {
+    console.error("[ai.post] AI processing failed:", e);
+    throw createError({
+      statusCode: 502,
+      message: "AI service is temporarily unavailable. Please try again.",
+    });
+  }
 
   console.log("[ai.post] AI result:", {
     intent: result.intent,
@@ -154,10 +163,12 @@ export default defineEventHandler(async (event) => {
     console.log("[ai.post] After dedup:", { before: result.newActivities.length, after: deduped.length, existingNames: [...existingNames] });
 
     if (deduped.length > 0) {
-      // Enrich with Google Maps
-      const enriched = await enrichItinerary(
-        { days: [{ dayNumber: day.dayNumber, theme: "", activities: deduped }] },
-        dayLocation
+      // Enrich with Google Maps (graceful — if enrichment fails, skip adding)
+      let enriched;
+      try {
+        enriched = await enrichItinerary(
+          { days: [{ dayNumber: day.dayNumber, theme: "", activities: deduped }] },
+          dayLocation
       );
 
       const enrichedActivities = enriched.days[0]?.activities ?? [];
@@ -194,6 +205,9 @@ export default defineEventHandler(async (event) => {
           }))
         );
         addedCount = enrichedActivities.length;
+      }
+      } catch (e: unknown) {
+        console.error("[ai.post] Enrichment failed, skipping new activities:", e);
       }
     }
   }

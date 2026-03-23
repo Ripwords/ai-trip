@@ -159,12 +159,17 @@ const mastra = new Mastra({
 
 async function doResearch(destination: string, userContext?: string): Promise<string> {
   logger.info("[research] Searching for", { destination });
-  const agent = mastra.getAgent("planner");
-  const response = await agent.generate(
-    `Search the web for local hidden gems, authentic restaurants, and traveler recommendations in ${destination}.${userContext ? ` Focus on: ${userContext}` : ""}`
-  );
-  logger.info("[research] Done", { length: response.text.length });
-  return response.text;
+  try {
+    const agent = mastra.getAgent("planner");
+    const response = await agent.generate(
+      `Search the web for local hidden gems, authentic restaurants, and traveler recommendations in ${destination}.${userContext ? ` Focus on: ${userContext}` : ""}`
+    );
+    logger.info("[research] Done", { length: response.text.length });
+    return response.text;
+  } catch (e) {
+    logger.error("[research] Web search failed, proceeding without research", { error: String(e) });
+    return ""; // Graceful degradation — AI will use training data instead
+  }
 }
 
 // ── Intent Classification ────────────────────────────────────────────
@@ -180,6 +185,7 @@ async function classifyIntent(
 ): Promise<z.infer<typeof intentSchema>> {
   logger.info("[intent] Classifying", { prompt, hasActivities });
 
+  try {
   const { generateObject } = await import("ai");
   const { object } = await generateObject({
     model: google(MODEL_ID),
@@ -202,6 +208,10 @@ IMPORTANT: If the user complains about timing/scheduling (too late, too early, o
 
   logger.info("[intent] Result", { intent: object.intent, reasoning: object.reasoning });
   return object;
+  } catch (e) {
+    logger.error("[intent] Classification failed, defaulting to general", { error: String(e) });
+    return { intent: "general" as const, reasoning: "classification failed" };
+  }
 }
 
 // ── Handlers per Intent ──────────────────────────────────────────────
@@ -428,6 +438,7 @@ export async function processUserRequest(params: {
     shouldOptimize: false,
   };
 
+  try {
   switch (intent) {
     case "add": {
       const { activities } = await handleAdd({
@@ -537,6 +548,10 @@ export async function processUserRequest(params: {
       result.message = `Added ${activities.length} activit${activities.length === 1 ? "y" : "ies"}`;
       break;
     }
+  }
+  } catch (e) {
+    logger.error("=== HANDLER FAILED ===", { intent, error: String(e) });
+    result.message = "Something went wrong processing your request. Please try again.";
   }
 
   logger.info("=== DONE ===", {
