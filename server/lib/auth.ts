@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { dash } from "@better-auth/infra";
 import { eq, and } from "drizzle-orm";
 import { db } from "../db";
 import { tripMembers, user as userTable } from "../db/schema";
@@ -14,9 +15,7 @@ export const auth = betterAuth({
     "http://localhost:3000",
     process.env.NUXT_PUBLIC_BETTER_AUTH_URL || "",
   ],
-
   database: drizzleAdapter(db, { provider: "pg" }),
-
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
@@ -34,7 +33,6 @@ export const auth = betterAuth({
       maxAge: 60 * 5, // cache session in cookie for 5 min to reduce DB lookups
     },
   },
-
   advanced: {
     // Use secure, httpOnly cookies — prevents XSS from stealing session tokens
     cookiePrefix: "ai-trip",
@@ -42,7 +40,6 @@ export const auth = betterAuth({
     // Generate new session token on refresh to prevent session fixation
     generateId: undefined, // use default secure random ID generation
   },
-
   // Auto-accept pending invites when a user signs in
   databaseHooks: {
     session: {
@@ -87,7 +84,6 @@ export const auth = betterAuth({
       },
     },
   },
-
   rateLimit: {
     enabled: true,
     window: 60,
@@ -98,4 +94,5 @@ export const auth = betterAuth({
       "/callback/*": { window: 60, max: 10 },
     },
   },
+  plugins: [dash()],
 });
