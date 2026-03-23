@@ -360,52 +360,52 @@ async function recomputeSegments(dayId: string) {
     <!-- Trip detail -->
     <div v-else>
       <!-- Header -->
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
         <div class="flex items-center gap-3">
           <NuxtLink
             to="/dashboard"
-            class="rounded-lg p-1.5 text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+            class="shrink-0 rounded-lg p-1.5 text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
           >
             <Icon name="lucide:arrow-left" class="h-5 w-5" />
           </NuxtLink>
-          <div>
-            <h1 class="font-display text-3xl text-sand-900">
+          <div class="min-w-0">
+            <h1 class="truncate font-display text-2xl text-sand-900 sm:text-3xl">
               {{ trip.destination }}
             </h1>
-            <div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-sand-500">
+            <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-sand-500 sm:text-sm sm:gap-2">
               <span class="flex items-center gap-1">
-                <Icon name="lucide:calendar" class="h-3.5 w-3.5" />
+                <Icon name="lucide:calendar" class="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 {{ formatDateRange(trip.startDate, trip.endDate) }}
               </span>
-              <span class="text-sand-300">|</span>
-              <span
-                class="inline-block rounded-full bg-sand-100 px-2.5 py-0.5 text-xs font-medium text-sand-700"
-              >
+              <span class="text-sand-300">·</span>
+              <span class="rounded-full bg-sand-100 px-2 py-0.5 text-xs font-medium text-sand-700">
                 {{ trip.status }}
               </span>
             </div>
           </div>
         </div>
 
-        <div class="flex items-center gap-2">
-          <span class="inline-block rounded-full bg-terra-50 px-3 py-1 text-xs font-medium text-terra-700">
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <span class="rounded-full bg-terra-50 px-2.5 py-1 text-xs font-medium text-terra-700">
             {{ sortedDays.length }} days
           </span>
           <button
             v-if="!isViewer"
-            class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-3 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
+            class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
             @click="showPrefsEditor = !showPrefsEditor"
           >
             <Icon name="lucide:sliders-horizontal" class="h-3 w-3" />
-            {{ trip.preferences?.budget || "moderate" }} · {{ trip.preferences?.pace || "moderate" }}
+            <span class="hidden sm:inline">{{ trip.preferences?.budget || "moderate" }} · {{ trip.preferences?.pace || "moderate" }}</span>
+            <span class="sm:hidden">Prefs</span>
           </button>
           <button
-            class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-3 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
+            class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
             title="Export trip as KML for Google My Maps"
             @click="handleExportKml"
           >
             <Icon name="lucide:download" class="h-3 w-3" />
-            Export KML
+            <span class="hidden sm:inline">Export KML</span>
+            <span class="sm:hidden">KML</span>
           </button>
         </div>
       </div>
@@ -418,7 +418,7 @@ async function recomputeSegments(dayId: string) {
             <Icon name="lucide:x" class="h-4 w-4" />
           </button>
         </div>
-        <div class="mt-3 grid grid-cols-2 gap-4">
+        <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
           <div>
             <label class="block text-xs font-medium text-sand-500">Budget</label>
             <select
@@ -468,42 +468,43 @@ async function recomputeSegments(dayId: string) {
       <div v-if="activeTab === 'itinerary'" class="mt-6">
         <!-- Day tabs (client-only to avoid hydration mismatch with sessionStorage) -->
         <ClientOnly>
-          <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+          <div class="flex gap-1.5 overflow-x-auto pb-2 scrollbar-thin sm:gap-2">
             <button
               v-for="day in sortedDays"
               :key="day.id"
-              class="shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition"
+              class="shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition sm:px-4 sm:text-sm"
               :class="day.id === activeDayId
                 ? 'bg-terra-500 text-white shadow-sm'
                 : 'bg-sand-100 text-sand-600 hover:bg-sand-200'"
               @click="activeDayId = day.id"
             >
-              Day {{ day.dayNumber }} &middot; {{ formatDayDate(day.date) }}
+              <span class="sm:hidden">D{{ day.dayNumber }}</span>
+              <span class="hidden sm:inline">Day {{ day.dayNumber }} &middot; {{ formatDayDate(day.date) }}</span>
             </button>
           </div>
         </ClientOnly>
 
         <!-- AI prompt bar (hidden for viewers) -->
         <div v-if="activeDay && !isViewer" class="mt-4">
-          <form class="flex items-center gap-2" @submit.prevent="handleAiSubmit">
-            <div class="relative flex-1">
-              <Icon name="lucide:sparkles" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-terra-400" />
+          <form class="flex items-center gap-1.5 sm:gap-2" @submit.prevent="handleAiSubmit">
+            <div class="relative min-w-0 flex-1">
+              <Icon name="lucide:sparkles" class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-terra-400 sm:h-4 sm:w-4" />
               <input
                 v-model="aiPrompt"
                 type="text"
                 :disabled="aiLoading || (aiUsage?.remaining ?? 1) <= 0"
                 :placeholder="(aiUsage?.remaining ?? 1) <= 0
-                  ? `Limit reached (${aiUsage?.used}/${aiUsage?.limit}). Resets next month.`
+                  ? `Limit reached. Resets next month.`
                   : activeDayHasActivities
-                    ? 'Add a ramen spot, remove the temple, optimize the route...'
-                    : 'What would you like to do today? e.g., street food tour, temple visits...'"
-                class="input-focus block w-full rounded-xl border border-sand-200 bg-white py-2.5 pl-10 pr-4 text-sm text-sand-900 placeholder:text-sand-400 disabled:opacity-50"
+                    ? 'Add, remove, optimize...'
+                    : 'What to do today?'"
+                class="input-focus block w-full rounded-xl border border-sand-200 bg-white py-2 pl-9 pr-3 text-sm text-sand-900 placeholder:text-sand-400 disabled:opacity-50 sm:py-2.5 sm:pl-10 sm:pr-4"
               />
             </div>
             <button
               type="submit"
               :disabled="aiLoading || !aiPrompt.trim() || (aiUsage?.remaining ?? 1) <= 0"
-              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-terra-500 text-white transition hover:bg-terra-600 disabled:opacity-50"
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-terra-500 text-white transition hover:bg-terra-600 disabled:opacity-50 sm:h-10 sm:w-10"
             >
               <Icon
                 :name="aiLoading ? 'lucide:loader' : 'lucide:arrow-up'"
@@ -589,8 +590,8 @@ async function recomputeSegments(dayId: string) {
             </div>
 
             <!-- Right: Map -->
-            <div class="lg:w-[480px] lg:shrink-0">
-              <div class="sticky top-8 h-[400px] overflow-hidden rounded-2xl shadow-lg lg:h-[calc(100vh-320px)]">
+            <div class="order-first lg:order-none lg:w-[480px] lg:shrink-0">
+              <div class="h-[250px] overflow-hidden rounded-2xl shadow-lg sm:h-[300px] lg:sticky lg:top-8 lg:h-[calc(100vh-320px)]">
                 <TripMap
                   ref="tripMapRef"
                   :activities="activeDayActivities"
