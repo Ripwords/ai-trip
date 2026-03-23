@@ -3,8 +3,17 @@ import { authClient } from "../lib/auth-client";
 
 useHead({ title: "AI Trip — Plan your trip with AI" });
 
-const { data: session } = await authClient.useSession(useFetch);
-const isLoggedIn = computed(() => !!session.value?.user);
+// Non-blocking: render page immediately, check session on client
+const isLoggedIn = ref(false);
+
+onMounted(async () => {
+  try {
+    const { data } = await authClient.useSession(useFetch);
+    isLoggedIn.value = !!data.value?.user;
+  } catch {
+    // Not logged in
+  }
+});
 </script>
 
 <template>
@@ -44,22 +53,12 @@ const isLoggedIn = computed(() => !!session.value?.user);
 
       <!-- CTA -->
       <div class="mt-10 flex items-center gap-4">
-        <template v-if="isLoggedIn">
-          <NuxtLink
-            to="/dashboard"
-            class="group relative overflow-hidden rounded-xl bg-terra-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all hover:bg-terra-600 hover:shadow-xl hover:shadow-terra-500/30"
-          >
-            <span class="relative z-10">Go to Dashboard</span>
-          </NuxtLink>
-        </template>
-        <template v-else>
-          <NuxtLink
-            to="/login"
-            class="group relative overflow-hidden rounded-xl bg-terra-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all hover:bg-terra-600 hover:shadow-xl hover:shadow-terra-500/30"
-          >
-            <span class="relative z-10">Get started free</span>
-          </NuxtLink>
-        </template>
+        <NuxtLink
+          :to="isLoggedIn ? '/dashboard' : '/login'"
+          class="group relative overflow-hidden rounded-xl bg-terra-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all hover:bg-terra-600 hover:shadow-xl hover:shadow-terra-500/30"
+        >
+          <span class="relative z-10">{{ isLoggedIn ? "Go to Dashboard" : "Get started free" }}</span>
+        </NuxtLink>
       </div>
 
       <!-- Feature pills -->

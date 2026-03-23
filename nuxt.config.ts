@@ -162,6 +162,7 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+
     "/api/trips/*/generate": {
       security: {
         rateLimiter: { tokensPerInterval: 10, interval: 60000 },
