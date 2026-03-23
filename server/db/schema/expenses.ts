@@ -1,9 +1,10 @@
 import {
-  pgTable, uuid, text, numeric, timestamp, index,
+  pgTable, uuid, text, numeric, timestamp, jsonb, index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { trips } from "./trips";
 import { activities } from "./activities";
+import { user } from "./auth-schema";
 
 export const expenses = pgTable(
   "expenses",
@@ -18,12 +19,18 @@ export const expenses = pgTable(
     description: text("description").notNull(),
     amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
     category: text("category").notNull().default("other"),
+    // Who paid for this expense
+    paidById: text("paid_by_id").references(() => user.id, { onDelete: "set null" }),
+    // Custom splits: { userId: amount } — who owes what portion
+    // e.g., { "user1": "25.00", "user2": "25.00" } for a $50 expense split between 2
+    splits: jsonb("splits").$type<Record<string, string>>(),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("idx_expenses_trip_id").on(table.tripId),
     index("idx_expenses_activity_id").on(table.activityId),
+    index("idx_expenses_paid_by").on(table.paidById),
   ]
 );
 
@@ -33,4 +40,5 @@ export const expensesRelations = relations(expenses, ({ one }) => ({
     fields: [expenses.activityId],
     references: [activities.id],
   }),
+  paidBy: one(user, { fields: [expenses.paidById], references: [user.id] }),
 }));

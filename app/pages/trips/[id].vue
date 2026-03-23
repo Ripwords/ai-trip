@@ -50,10 +50,12 @@ const editingActivity = ref<(typeof allActivities.value)[number] | null>(null);
 const editModalOpen = ref(false);
 const highlightedActivityId = ref<string | null>(null);
 const tripMapRef = ref<InstanceType<typeof TripMap> | null>(null);
+const activityLogRef = ref<{ refresh: () => void } | null>(null);
+const logRefreshKey = ref(0);
 const storageKeyTab = `trip-${tripId}-tab`;
 const storageKeyDay = `trip-${tripId}-day`;
 
-const activeTab = ref<"itinerary" | "notes" | "expenses">("itinerary");
+const activeTab = ref<"itinerary" | "notes" | "expenses" | "team">("itinerary");
 const activeDayId = ref<string | null>(null);
 const showPrefsEditor = ref(false);
 
@@ -134,7 +136,7 @@ watch(
     if (import.meta.client && !sessionRestored) {
       sessionRestored = true;
       const storedTab = sessionStorage.getItem(storageKeyTab);
-      if (storedTab === "itinerary" || storedTab === "notes" || storedTab === "expenses") {
+      if (storedTab === "itinerary" || storedTab === "notes" || storedTab === "expenses" || storedTab === "team") {
         activeTab.value = storedTab;
       }
       const storedDay = sessionStorage.getItem(storageKeyDay);
@@ -203,6 +205,9 @@ async function handleAiSubmit() {
     refreshUsage();
   }
 }
+
+const tripRole = computed(() => (trip.value as Record<string, unknown>)?._role as string ?? "owner");
+const isViewer = computed(() => tripRole.value === "viewer");
 
 const activeDayHasActivities = computed(
   () => (activeDay.value?.activities.length ?? 0) > 0
@@ -477,8 +482,8 @@ async function recomputeSegments(dayId: string) {
           </div>
         </ClientOnly>
 
-        <!-- AI prompt bar -->
-        <div v-if="activeDay" class="mt-4">
+        <!-- AI prompt bar (hidden for viewers) -->
+        <div v-if="activeDay && !isViewer" class="mt-4">
           <form class="flex items-center gap-2" @submit.prevent="handleAiSubmit">
             <div class="relative flex-1">
               <Icon name="lucide:sparkles" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-terra-400" />
@@ -619,6 +624,16 @@ async function recomputeSegments(dayId: string) {
           :budget="trip.budget ?? null"
           :currency-code="trip.currencyCode ?? 'USD'"
         />
+      </div>
+
+      <!-- Team tab -->
+      <div v-else-if="activeTab === 'team'" class="mt-8 max-w-3xl space-y-6">
+        <TripMembers
+          :trip-id="tripId"
+          :current-role="(trip as any)._role ?? 'owner'"
+          @changed="logRefreshKey++"
+        />
+        <TripActivityLog :key="logRefreshKey" :trip-id="tripId" />
       </div>
     </div>
 

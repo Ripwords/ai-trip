@@ -14,9 +14,15 @@ const error = ref("");
 function signInWithGoogle() {
   loading.value = true;
   error.value = "";
+  // Check for pending invite redirect
+  const pendingInvite = import.meta.client ? sessionStorage.getItem("pending-invite") : null;
+  if (pendingInvite) {
+    sessionStorage.removeItem("pending-invite");
+  }
+
   authClient.signIn.social({
     provider: "google",
-    callbackURL: "/dashboard",
+    callbackURL: pendingInvite || "/dashboard",
     errorCallbackURL: "/login",
   });
 }

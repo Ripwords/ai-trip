@@ -15,6 +15,13 @@
       "when": 1774183967666,
       "tag": "0001_shiny_terror",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774268345866,
+      "tag": "0002_nosy_tinkerer",
+      "breakpoints": true
     }
   ]
 }

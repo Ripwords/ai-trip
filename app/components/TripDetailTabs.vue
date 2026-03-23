@@ -11,6 +11,7 @@ const tabs = [
   { value: "itinerary", label: "Itinerary", icon: "lucide:map" },
   { value: "notes", label: "Notes & Lists", icon: "lucide:notebook-text" },
   { value: "expenses", label: "Expenses", icon: "lucide:wallet" },
+  { value: "team", label: "Team", icon: "lucide:users" },
 ];
 </script>
 

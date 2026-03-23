@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { trips } from "../../db/schema";
 import { uuidParamsSchema } from "../../utils/schemas";
@@ -7,8 +7,11 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event);
   const { id } = await getValidatedRouterParams(event, uuidParamsSchema.parse);
 
+  // Check access (owner, editor, or viewer)
+  const access = await requireTripAccess(id, session.user.id);
+
   const trip = await db.query.trips.findFirst({
-    where: and(eq(trips.id, id), eq(trips.userId, session.user.id)),
+    where: eq(trips.id, id),
     with: {
       days: {
         orderBy: (days, { asc }) => [asc(days.dayNumber)],
@@ -26,5 +29,5 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Trip not found" });
   }
 
-  return trip;
+  return { ...trip, _role: access.role };
 });

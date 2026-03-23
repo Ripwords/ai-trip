@@ -30,9 +30,11 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Verify trip ownership
+  // Verify trip access (owner or editor can use AI)
+  await requireTripAccess(id, session.user.id, ["owner", "editor"]);
+
   const trip = await db.query.trips.findFirst({
-    where: and(eq(trips.id, id), eq(trips.userId, session.user.id)),
+    where: eq(trips.id, id),
   });
 
   if (!trip) {
@@ -320,6 +322,15 @@ export default defineEventHandler(async (event) => {
 
   // Increment AI usage counter (only after successful processing)
   await incrementAiUsage(session.user.id);
+
+  // Audit log
+  await logTripAction({
+    tripId: id,
+    userId: session.user.id,
+    action: "ai_prompt",
+    description: `AI ${result.intent}: ${result.message}`,
+    metadata: { prompt: body.prompt, intent: result.intent, added: addedCount, removed: removedCount },
+  });
 
   return {
     success: true,

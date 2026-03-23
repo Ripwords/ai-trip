@@ -7,3 +7,5 @@ export * from "./trip-ideas";
 export * from "./checklists";
 export * from "./expenses";
 export * from "./ai-usage";
+export * from "./trip-members";
+export * from "./activity-log";

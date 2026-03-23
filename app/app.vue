@@ -1,3 +1,7 @@
+<script setup lang="ts">
+const { $pwa } = useNuxtApp();
+</script>
+
 <template>
   <VitePwaManifest />
   <NuxtPwaAssets />
@@ -16,13 +20,13 @@
     <span class="text-sm text-sand-700">Update available</span>
     <button
       class="rounded-lg bg-terra-500 px-3 py-1 text-xs font-medium text-white hover:bg-terra-600"
-      @click="$pwa.updateServiceWorker()"
+      @click="$pwa?.updateServiceWorker()"
     >
       Reload
     </button>
     <button
       class="text-xs text-sand-400 hover:text-sand-600"
-      @click="$pwa.cancelPrompt()"
+      @click="$pwa?.cancelPrompt()"
     >
       Later
     </button>

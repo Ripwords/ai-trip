@@ -14,6 +14,8 @@ import { itineraryDays } from "./itineraries";
 import { tripIdeas } from "./trip-ideas";
 import { checklists } from "./checklists";
 import { expenses } from "./expenses";
+import { tripMembers } from "./trip-members";
+import { activityLog } from "./activity-log";
 
 export const trips = pgTable(
   "trips",
@@ -48,6 +50,8 @@ export const tripsRelations = relations(trips, ({ one, many }) => ({
   ideas: many(tripIdeas),
   checklists: many(checklists),
   expenses: many(expenses),
+  members: many(tripMembers),
+  logs: many(activityLog),
 }));
 
 export interface TripPreferences {
