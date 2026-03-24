@@ -11,14 +11,14 @@
     "postinstall": "nuxt prepare",
     "auth:gen": "better-auth generate --config ./server/lib/auth.ts --output ./server/db/schema/auth-schema.ts -y",
     "db:gen": "bun run auth:gen && drizzle-kit generate",
-    "db:push": "drizzle-kit push",
+    "db:push": "bun run auth:gen && drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
     "docker:dev": "docker compose -f docker/docker-compose.dev.yml up -d",
     "pwa:assets": "pwa-assets-generator --preset minimal-2023 public/image.png"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.52",
-    "@better-auth/infra": "^0.1.12",
+    "@better-auth/infra": "^0.1.13",
     "@googlemaps/js-api-loader": "^2.0.2",
     "@mastra/core": "^1.15.0",
     "@mastra/loggers": "^1.0.3",
@@ -39,7 +39,7 @@
     "vue": "^3.5.30",
     "vue-router": "^5.0.3",
     "ws": "^8.20.0",
-    "zod": "^3.25.0"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@better-auth/cli": "^1.4.21",
