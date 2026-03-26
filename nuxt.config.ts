@@ -43,6 +43,7 @@ export default defineNuxtConfig({
         'dayjs/plugin/updateLocale',
         'dayjs/plugin/relativeTime',
         'dayjs/plugin/utc',
+        '@better-auth/infra/client',
       ],
     },
   },
