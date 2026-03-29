@@ -58,7 +58,7 @@ watch(
   sortedDays,
   (days) => {
     if (days.length > 0 && !activeDayId.value) {
-      activeDayId.value = days[0].id;
+      activeDayId.value = days[0]?.id ?? null;
     }
   },
   { immediate: true }

@@ -23,7 +23,7 @@ interface PlaceDetails {
   types?: string[];
   photos?: string[];
   openingHours?: string[];
-  priceLevel?: number;
+  priceLevel?: number | null;
   editorialSummary?: string;
 }
 

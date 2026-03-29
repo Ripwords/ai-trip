@@ -55,7 +55,7 @@ export function useDarkMode() {
   function cycle() {
     const modes: ThemeMode[] = ["light", "dark", "system"];
     const current = modes.indexOf(mode.value);
-    setMode(modes[(current + 1) % modes.length]);
+    setMode(modes[(current + 1) % modes.length]!);
   }
 
   const modeIcon = computed(() => {

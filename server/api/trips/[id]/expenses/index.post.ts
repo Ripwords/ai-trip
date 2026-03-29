@@ -40,9 +40,14 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  const { paidAt, ...restBody } = body;
   const [expense] = await db
     .insert(expenses)
-    .values({ ...body, tripId: id })
+    .values({
+      ...restBody,
+      tripId: id,
+      paidAt: paidAt ? new Date(paidAt) : undefined,
+    })
     .returning();
 
   // Audit log

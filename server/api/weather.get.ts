@@ -36,9 +36,9 @@ const _getWeather = defineCachedFunction(
 
     return response.daily.time.map((date, i) => ({
       date,
-      tempMax: Math.round(response.daily.temperature_2m_max[i]),
-      tempMin: Math.round(response.daily.temperature_2m_min[i]),
-      weatherCode: response.daily.weather_code[i],
+      tempMax: Math.round(response.daily.temperature_2m_max[i] ?? 0),
+      tempMin: Math.round(response.daily.temperature_2m_min[i] ?? 0),
+      weatherCode: response.daily.weather_code[i] ?? 0,
     }));
   },
   {

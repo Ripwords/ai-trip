@@ -54,7 +54,27 @@ const { data: tripMembers } = await useFetch<{
 const aiLoading = ref(false);
 const aiLoadingMode = ref<"generate" | "optimize" | "remove" | "reschedule">("generate");
 const lastSnapshot = ref<string | null>(null);
-const editingActivity = ref<(typeof allActivities.value)[number] | null>(null);
+interface TripActivity {
+  id: string;
+  name: string;
+  type: string;
+  description: string | null;
+  lat: number | null;
+  lng: number | null;
+  address: string | null;
+  rating: string | null;
+  suggestedTime: string | null;
+  estimatedDurationMinutes: number | null;
+  costEstimate: string | null;
+  notes: string | null;
+  actualCost: string | null;
+  photos: string[] | null;
+  openingHours: string[] | null;
+  tags: string[] | null;
+  placeId: string | null;
+  sortOrder: number;
+}
+const editingActivity = ref<TripActivity | null>(null);
 const editModalOpen = ref(false);
 const highlightedActivityId = ref<string | null>(null);
 const tripMapRef = ref<InstanceType<typeof TripMap> | null>(null);
@@ -102,7 +122,7 @@ const addActivityModal = ref<{
   dayNumber: number;
 }>({ open: false, dayId: "", dayNumber: 1 });
 
-const TripMap = resolveComponent("TripMap");
+const TripMap = resolveComponent("TripMap") as ReturnType<typeof defineComponent>;
 
 const allActivities = computed(() => {
   if (!trip.value?.days) return [];
@@ -170,7 +190,7 @@ watch(
     if (activeDayId.value && days.some((d) => d.id === activeDayId.value)) return;
 
     // Default to first day
-    activeDayId.value = days[0].id;
+    activeDayId.value = days[0]!.id;
   },
   { immediate: true }
 );
@@ -287,19 +307,19 @@ const activeDayHasActivities = computed(
   () => (activeDay.value?.activities.length ?? 0) > 0
 );
 
-function handleEditActivity(activity: (typeof allActivities.value)[number]) {
+function handleEditActivity(activity: TripActivity) {
   editingActivity.value = activity;
   editModalOpen.value = true;
 }
 
 async function handleSaveActivity(data: {
   name: string;
-  description: string;
-  suggestedTime: string;
+  description: string | null;
+  suggestedTime: string | null;
   estimatedDurationMinutes: number | null;
-  costEstimate: string;
-  notes: string;
-  actualCost: string;
+  costEstimate: string | null;
+  notes: string | null;
+  actualCost: string | null;
 }) {
   if (!editingActivity.value) return;
 
@@ -328,7 +348,7 @@ async function handleSaveActivity(data: {
 const { confirm } = useConfirm();
 
 async function handleDeleteActivity(
-  activity: (typeof allActivities.value)[number]
+  activity: TripActivity
 ) {
   const ok = await confirm({
     title: "Delete activity",
@@ -354,7 +374,7 @@ async function handleDeleteActivity(
 }
 
 function handleActivityClick(
-  activity: (typeof allActivities.value)[number]
+  activity: TripActivity
 ) {
   highlightedActivityId.value = activity.id;
   if (tripMapRef.value && activity.lat && activity.lng) {
@@ -363,7 +383,7 @@ function handleActivityClick(
 }
 
 function handleMarkerClick(
-  activity: (typeof allActivities.value)[number]
+  activity: TripActivity
 ) {
   highlightedActivityId.value = activity.id;
 

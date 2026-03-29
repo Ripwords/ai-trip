@@ -85,7 +85,7 @@ const modeIcons: Record<string, string> = {
             : 'border-sand-200 text-sand-600 hover:border-sand-300'"
           @click="setMode(m as 'light' | 'dark' | 'system')"
         >
-          <Icon :name="modeIcons[m]" class="h-4 w-4" />
+          <Icon :name="modeIcons[m] ?? 'lucide:sun'" class="h-4 w-4" />
           {{ modeLabels[m] }}
         </button>
       </div>

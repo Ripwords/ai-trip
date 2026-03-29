@@ -15,7 +15,10 @@ interface Activity {
   costEstimate: string | null;
   notes: string | null;
   actualCost: string | null;
-  photos: string[];
+  photos: string[] | null;
+  openingHours: string[] | null;
+  tags: string[] | null;
+  placeId: string | null;
   sortOrder: number;
 }
 
@@ -102,6 +105,7 @@ function isOutOfOrder(index: number): boolean {
   if (index === 0) return false;
   const prev = localActivities.value[index - 1];
   const curr = localActivities.value[index];
+  if (!prev || !curr) return false;
   if (!prev.suggestedTime || !curr.suggestedTime) return false;
 
   const prevMinutes = timeToMinutes(prev.suggestedTime);
@@ -116,7 +120,7 @@ function isOutOfOrder(index: number): boolean {
 function timeToMinutes(time: string): number | null {
   const match = time.match(/^(\d{1,2}):(\d{2})/);
   if (!match) return null;
-  return parseInt(match[1]) * 60 + parseInt(match[2]);
+  return parseInt(match[1]!) * 60 + parseInt(match[2]!);
 }
 </script>
 

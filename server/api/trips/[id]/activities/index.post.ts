@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
   });
   const sortOrder = (lastActivity?.sortOrder ?? -1) + 1;
 
-  const { itineraryDayId, ...rest } = body;
+  const { itineraryDayId, rating, ...rest } = body;
 
   const [activity] = await db
     .insert(activities)
@@ -38,6 +38,7 @@ export default defineEventHandler(async (event) => {
       ...rest,
       itineraryDayId,
       sortOrder,
+      rating: rating != null ? String(rating) : undefined,
     })
     .returning();
 
@@ -49,7 +50,7 @@ export default defineEventHandler(async (event) => {
     tripId: id,
     userId: session.user.id,
     action: "activity_added",
-    description: `Added "${activity.name}" to Day`,
+    description: `Added "${activity!.name}" to Day`,
   });
 
   return activity;

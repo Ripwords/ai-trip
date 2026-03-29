@@ -12,7 +12,8 @@ interface Activity {
   actualCost: string | null;
   openingHours?: string[] | null;
   priceLevel?: number | null;
-  photos?: string[];
+  photos?: string[] | null;
+  [key: string]: unknown;
 }
 
 interface PlaceDetails {
