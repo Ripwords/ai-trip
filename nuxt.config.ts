@@ -33,7 +33,7 @@ export default defineNuxtConfig({
     // Fix samlify/camelcase ESM require() error on Vercel
     // https://github.com/better-auth/better-auth/issues/8620
     externals: {
-      inline: [/samlify/, /camelcase/],
+      inline: [/./],
     },
   },
   css: ["./app/assets/css/tailwind.css"],
