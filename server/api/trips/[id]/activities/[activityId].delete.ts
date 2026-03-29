@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../../../../db";
 import { activities } from "../../../../db/schema";
 import { activityIdParamsSchema } from "../../../../utils/schemas";
+import { computeAndSaveSegments } from "../../../../lib/segments";
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event);
@@ -25,7 +26,11 @@ export default defineEventHandler(async (event) => {
   }
 
   const activityName = activity.name;
+  const dayId = activity.day.id;
   await db.delete(activities).where(eq(activities.id, activityId));
+
+  // Recompute travel segments
+  await computeAndSaveSegments(dayId);
 
   // Audit log
   await logTripAction({

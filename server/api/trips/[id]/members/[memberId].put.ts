@@ -28,6 +28,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Member not found" });
   }
 
+  if (member.userId === session.user.id) {
+    throw createError({ statusCode: 400, message: "Cannot change your own role" });
+  }
+
   if (member.status !== "active") {
     throw createError({ statusCode: 400, message: "Can only change role of active members" });
   }

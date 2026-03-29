@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../../../db";
-import { activities, expenses } from "../../../../db/schema";
+import { activities, expenses, tripMembers, trips } from "../../../../db/schema";
 import { uuidParamsSchema, createExpenseSchema } from "../../../../utils/schemas";
 
 export default defineEventHandler(async (event) => {
@@ -21,6 +21,18 @@ export default defineEventHandler(async (event) => {
 
     if (!activity || activity.day.tripId !== id) {
       throw createError({ statusCode: 404, message: "Activity not found" });
+    }
+  }
+
+  // If paidById provided, verify they are a member of this trip
+  if (body.paidById) {
+    const trip = await db.query.trips.findFirst({ where: eq(trips.id, id) });
+    const isMember = body.paidById === trip?.userId
+      || await db.query.tripMembers.findFirst({
+        where: (m, { and, eq: e }) => and(e(m.tripId, id), e(m.userId, body.paidById!), e(m.status, "active")),
+      });
+    if (!isMember) {
+      throw createError({ statusCode: 400, message: "Paid-by user is not a member of this trip" });
     }
   }
 

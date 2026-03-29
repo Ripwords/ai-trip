@@ -64,6 +64,8 @@ const resolvedPriceLevel = computed(() =>
   props.activity?.priceLevel ?? placeDetails.value?.priceLevel ?? null
 );
 
+const mapsApiKey = useRuntimeConfig().public.googleMapsApiKey;
+
 const emit = defineEmits<{
   save: [data: {
     name: string;
@@ -132,7 +134,7 @@ function handleSave() {
           <img
             v-for="(photo, i) in resolvedPhotos.slice(0, 3)"
             :key="i"
-            :src="`https://places.googleapis.com/v1/${photo}/media?maxWidthPx=200&key=${useRuntimeConfig().public.googleMapsApiKey}`"
+            :src="`https://places.googleapis.com/v1/${photo}/media?maxWidthPx=200&key=${mapsApiKey}`"
             :alt="activity?.name"
             class="h-20 w-28 shrink-0 rounded-xl object-cover"
             loading="lazy"

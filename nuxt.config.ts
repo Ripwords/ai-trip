@@ -171,6 +171,11 @@ export default defineNuxtConfig({
         rateLimiter: { tokensPerInterval: 60, interval: 60000 },
       },
     },
+    "/api/places/*/details": {
+      security: {
+        rateLimiter: { tokensPerInterval: 30, interval: 60000 },
+      },
+    },
     "/api/auth/**": {
       security: {
         rateLimiter: { tokensPerInterval: 30, interval: 60000 },

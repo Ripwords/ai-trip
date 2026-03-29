@@ -251,7 +251,7 @@ async function deleteItem(checklistId: string, itemId: string) {
                 class="min-w-0 flex-1 rounded border border-sand-300 px-1.5 py-0.5 text-sm input-focus"
                 @keydown.enter="saveItemText(checklist.id, item.id)"
                 @blur="saveItemText(checklist.id, item.id)"
-                @click.prevent
+                @click.stop
               />
               <span
                 v-else

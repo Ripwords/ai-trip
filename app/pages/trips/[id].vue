@@ -750,6 +750,7 @@ async function recomputeSegments(dayId: string) {
       <div v-else-if="activeTab === 'expenses'" class="mt-8 max-w-3xl">
         <ExpenseTracker
           :trip-id="tripId"
+          :trip-name="trip.destination"
           :budget="trip.budget ?? null"
           :currency-code="trip.currencyCode ?? 'USD'"
           :members="tripMembers?.filter(m => m.status === 'active') ?? []"

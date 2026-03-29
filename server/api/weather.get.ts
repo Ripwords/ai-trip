@@ -50,6 +50,7 @@ const _getWeather = defineCachedFunction(
 );
 
 export default defineEventHandler(async (event) => {
+  await requireAuth(event);
   const query = await getValidatedQuery(event, querySchema.parse);
   const forecasts = await _getWeather(null, query.lat, query.lng, query.startDate, query.endDate);
   return forecasts;

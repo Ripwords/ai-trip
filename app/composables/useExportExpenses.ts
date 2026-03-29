@@ -5,14 +5,20 @@ interface Expense {
   paidAt: string | null;
 }
 
+function escapeCsvField(value: string): string {
+  // RFC 4180: if the field contains comma, quote, or newline, wrap in quotes and double any quotes
+  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
 export function useExportExpenses() {
   function downloadCsv(tripName: string, expenses: Expense[], currencyCode: string) {
     const header = "Description,Amount,Currency,Category,Date";
     const rows = expenses.map((e) => {
       const date = e.paidAt ? new Date(e.paidAt).toLocaleDateString() : "";
-      // Escape description for CSV
-      const desc = e.description.includes(",") ? `"${e.description}"` : e.description;
-      return `${desc},${e.amount},${currencyCode},${e.category},${date}`;
+      return `${escapeCsvField(e.description)},${e.amount},${currencyCode},${e.category},${date}`;
     });
 
     const csv = [header, ...rows].join("\n");

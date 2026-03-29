@@ -100,8 +100,8 @@ function formatDate(dateStr: string): string {
  */
 function isOutOfOrder(index: number): boolean {
   if (index === 0) return false;
-  const prev = props.day.activities[index - 1];
-  const curr = props.day.activities[index];
+  const prev = localActivities.value[index - 1];
+  const curr = localActivities.value[index];
   if (!prev.suggestedTime || !curr.suggestedTime) return false;
 
   const prevMinutes = timeToMinutes(prev.suggestedTime);

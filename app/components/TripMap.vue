@@ -265,7 +265,7 @@ function centerOnActivity(activity: Activity) {
 }
 
 watch(
-  () => props.activities,
+  [() => props.activities, () => props.accommodation],
   () => {
     if (isLoaded.value && map) {
       updateMarkers();

@@ -29,13 +29,32 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Shared trip not found" });
   }
 
-  // Return trip data without sensitive fields
+  // Return only public-safe fields — no preferences, notes, or costs
   return {
     destination: trip.destination,
     startDate: trip.startDate,
     endDate: trip.endDate,
-    preferences: trip.preferences,
     currencyCode: trip.currencyCode,
-    days: trip.days,
+    days: trip.days.map((day) => ({
+      id: day.id,
+      dayNumber: day.dayNumber,
+      date: day.date,
+      accommodationName: day.accommodationName,
+      activities: day.activities.map((a) => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        description: a.description,
+        address: a.address,
+        lat: a.lat,
+        lng: a.lng,
+        rating: a.rating,
+        suggestedTime: a.suggestedTime,
+        estimatedDurationMinutes: a.estimatedDurationMinutes,
+        tags: a.tags,
+        sortOrder: a.sortOrder,
+      })),
+      travelSegments: day.travelSegments,
+    })),
   };
 });
