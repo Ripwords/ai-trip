@@ -50,6 +50,13 @@
       "when": 1774763880896,
       "tag": "0006_outstanding_red_wolf",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1774780456096,
+      "tag": "0007_outgoing_red_skull",
+      "breakpoints": true
     }
   ]
 }

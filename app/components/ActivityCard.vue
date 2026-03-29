@@ -45,12 +45,17 @@ const props = defineProps<{
   index: number;
   highlighted?: boolean;
   readonly?: boolean;
+  isCollaborative?: boolean;
+  voteCount?: number;
+  commentCount?: number;
 }>();
 
 const emit = defineEmits<{
   edit: [activity: Activity];
   delete: [activity: Activity];
   click: [activity: Activity];
+  vote: [activityId: string, vote: "up" | "down"];
+  showComments: [activityId: string];
 }>();
 
 const typeBadgeClasses: Record<string, string> = {
@@ -204,6 +209,33 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
         </template>
         <span class="ml-1">{{ activity.rating }}</span>
       </span>
+    </div>
+
+    <!-- Collaboration: vote + comment (only for group trips) -->
+    <div v-if="isCollaborative" class="mt-3 flex items-center gap-3 border-t border-sand-100 pt-2">
+      <button
+        class="inline-flex items-center gap-1 text-xs text-sand-400 transition hover:text-forest-600"
+        title="Upvote"
+        @click.stop="emit('vote', activity.id, 'up')"
+      >
+        <Icon name="lucide:thumbs-up" class="h-3.5 w-3.5" />
+        <span v-if="voteCount">{{ voteCount }}</span>
+      </button>
+      <button
+        class="inline-flex items-center gap-1 text-xs text-sand-400 transition hover:text-terra-600"
+        title="Downvote"
+        @click.stop="emit('vote', activity.id, 'down')"
+      >
+        <Icon name="lucide:thumbs-down" class="h-3.5 w-3.5" />
+      </button>
+      <button
+        class="ml-auto inline-flex items-center gap-1 text-xs text-sand-400 transition hover:text-ocean-600"
+        @click.stop="emit('showComments', activity.id)"
+      >
+        <Icon name="lucide:message-circle" class="h-3.5 w-3.5" />
+        <span v-if="commentCount">{{ commentCount }}</span>
+        <span v-else>Comment</span>
+      </button>
     </div>
   </div>
 </template>
