@@ -4,6 +4,7 @@ interface Activity {
   name: string;
   type: string;
   description: string | null;
+  placeId: string | null;
   suggestedTime: string | null;
   estimatedDurationMinutes: number | null;
   costEstimate: string | null;
@@ -14,6 +15,13 @@ interface Activity {
   photos?: string[];
 }
 
+interface PlaceDetails {
+  openingHours?: string[];
+  priceLevel?: number | null;
+  photos?: string[];
+  editorialSummary?: string;
+}
+
 function formatPriceLevel(level: number): string {
   return "$".repeat(Math.min(level, 4));
 }
@@ -22,6 +30,39 @@ const props = defineProps<{
   activity: Activity | null;
   open: boolean;
 }>();
+
+// Lazy-load place details when modal opens
+const placeDetails = ref<PlaceDetails | null>(null);
+const detailsLoading = ref(false);
+
+watch(
+  () => props.open,
+  async (isOpen) => {
+    if (isOpen && props.activity?.placeId && !props.activity.openingHours?.length) {
+      detailsLoading.value = true;
+      try {
+        const details = await $fetch<PlaceDetails>(`/api/places/${props.activity.placeId}/details`);
+        placeDetails.value = details;
+      } catch {
+        // Graceful — details are optional
+      } finally {
+        detailsLoading.value = false;
+      }
+    } else {
+      placeDetails.value = null;
+    }
+  }
+);
+
+const resolvedPhotos = computed(() =>
+  props.activity?.photos?.length ? props.activity.photos : placeDetails.value?.photos ?? []
+);
+const resolvedOpeningHours = computed(() =>
+  props.activity?.openingHours?.length ? props.activity.openingHours : placeDetails.value?.openingHours ?? []
+);
+const resolvedPriceLevel = computed(() =>
+  props.activity?.priceLevel ?? placeDetails.value?.priceLevel ?? null
+);
 
 const emit = defineEmits<{
   save: [data: {
@@ -86,16 +127,20 @@ function handleSave() {
       <div class="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl mx-4">
         <h2 class="text-lg font-display text-sand-900">Edit Activity</h2>
 
-        <!-- Photos strip (read-only from Google Maps) -->
-        <div v-if="activity?.photos?.length" class="mt-3 flex gap-2 overflow-x-auto scrollbar-thin">
+        <!-- Photos strip (lazy-loaded from Google Maps) -->
+        <div v-if="resolvedPhotos.length" class="mt-3 flex gap-2 overflow-x-auto scrollbar-thin">
           <img
-            v-for="(photo, i) in activity.photos.slice(0, 3)"
+            v-for="(photo, i) in resolvedPhotos.slice(0, 3)"
             :key="i"
             :src="`https://places.googleapis.com/v1/${photo}/media?maxWidthPx=200&key=${useRuntimeConfig().public.googleMapsApiKey}`"
-            :alt="activity.name"
+            :alt="activity?.name"
             class="h-20 w-28 shrink-0 rounded-xl object-cover"
             loading="lazy"
           />
+        </div>
+        <div v-else-if="detailsLoading" class="mt-3 flex items-center gap-2 text-xs text-sand-400">
+          <Icon name="lucide:loader" class="h-3 w-3 animate-spin" />
+          Loading place details...
         </div>
 
         <form class="mt-4 space-y-4" @submit.prevent="handleSave">
@@ -169,18 +214,18 @@ function handleSave() {
             />
           </div>
 
-          <!-- Opening hours (read-only from Google Maps) -->
-          <details v-if="activity?.openingHours?.length" class="group">
+          <!-- Opening hours (lazy-loaded from Google Maps) -->
+          <details v-if="resolvedOpeningHours.length" class="group">
             <summary class="flex cursor-pointer items-center gap-1 text-sm font-medium text-sand-700">
               <Icon name="lucide:clock" class="h-3.5 w-3.5" />
               Opening Hours
-              <span v-if="activity?.priceLevel != null && activity.priceLevel > 0" class="ml-2 text-xs font-medium text-forest-600">
-                {{ formatPriceLevel(activity.priceLevel) }}
+              <span v-if="resolvedPriceLevel != null && resolvedPriceLevel > 0" class="ml-2 text-xs font-medium text-forest-600">
+                {{ formatPriceLevel(resolvedPriceLevel) }}
               </span>
               <Icon name="lucide:chevron-down" class="ml-auto h-3.5 w-3.5 transition group-open:rotate-180" />
             </summary>
             <ul class="mt-2 space-y-0.5 text-sm text-sand-600">
-              <li v-for="(hour, i) in activity.openingHours" :key="i">{{ hour }}</li>
+              <li v-for="(hour, i) in resolvedOpeningHours" :key="i">{{ hour }}</li>
             </ul>
           </details>
 
