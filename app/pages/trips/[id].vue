@@ -436,6 +436,35 @@ async function handleActivityAdded() {
   await refresh();
 }
 
+const shareLoading = ref(false);
+const shareCopied = ref(false);
+
+async function handleToggleShare() {
+  shareLoading.value = true;
+  try {
+    const result = await $fetch(`/api/trips/${tripId}/share`, { method: "POST" });
+    await refresh();
+    if (result.shared && result.shareToken) {
+      const url = `${window.location.origin}/shared/${result.shareToken}`;
+      await navigator.clipboard.writeText(url);
+      shareCopied.value = true;
+      setTimeout(() => { shareCopied.value = false; }, 2000);
+    }
+  } catch (e: unknown) {
+    console.error("Failed to toggle share:", e);
+  } finally {
+    shareLoading.value = false;
+  }
+}
+
+async function handleCopyShareLink() {
+  if (!trip.value?.shareToken) return;
+  const url = `${window.location.origin}/shared/${trip.value.shareToken}`;
+  await navigator.clipboard.writeText(url);
+  shareCopied.value = true;
+  setTimeout(() => { shareCopied.value = false; }, 2000);
+}
+
 async function handleIdeasRefresh() {
   await refreshIdeas();
   await refresh();
@@ -533,6 +562,37 @@ async function recomputeSegments(dayId: string) {
             <span class="hidden sm:inline">Export KML</span>
             <span class="sm:hidden">KML</span>
           </button>
+          <!-- Share button (owner only) -->
+          <template v-if="tripRole === 'owner'">
+            <button
+              v-if="!trip.shareToken"
+              :disabled="shareLoading"
+              class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200 disabled:opacity-50"
+              title="Generate shareable public link"
+              @click="handleToggleShare"
+            >
+              <Icon :name="shareLoading ? 'lucide:loader' : 'lucide:share-2'" class="h-3 w-3" :class="{ 'animate-spin': shareLoading }" />
+              <span class="hidden sm:inline">Share</span>
+            </button>
+            <div v-else class="inline-flex items-center gap-1">
+              <button
+                class="inline-flex items-center gap-1 rounded-l-full bg-ocean-50 px-2.5 py-1 text-xs font-medium text-ocean-700 transition hover:bg-ocean-100"
+                title="Copy share link"
+                @click="handleCopyShareLink"
+              >
+                <Icon :name="shareCopied ? 'lucide:check' : 'lucide:link'" class="h-3 w-3" />
+                <span class="hidden sm:inline">{{ shareCopied ? "Copied!" : "Copy Link" }}</span>
+              </button>
+              <button
+                :disabled="shareLoading"
+                class="inline-flex items-center rounded-r-full bg-sand-100 px-2 py-1 text-xs text-sand-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                title="Revoke share link"
+                @click="handleToggleShare"
+              >
+                <Icon name="lucide:x" class="h-3 w-3" />
+              </button>
+            </div>
+          </template>
         </div>
       </div>
 
