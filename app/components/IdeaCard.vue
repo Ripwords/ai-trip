@@ -68,9 +68,20 @@ function handlePromote() {
           >
             {{ formatType(idea.type) }}
           </span>
-          <span v-if="idea.address" class="text-xs text-sand-500 truncate">
-            {{ idea.address }}
-          </span>
+          <a
+            v-if="idea.address"
+            :href="idea.lat && idea.lng
+              ? `https://www.google.com/maps/search/?api=1&query=${idea.lat},${idea.lng}`
+              : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(idea.address)}`"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1 text-xs text-ocean-600 truncate hover:text-terra-600"
+            title="Open in Google Maps"
+            @click.stop
+          >
+            <span class="truncate underline decoration-ocean-300 underline-offset-2 hover:decoration-terra-400">{{ idea.address }}</span>
+            <Icon name="lucide:external-link" class="h-2.5 w-2.5 shrink-0 opacity-50" />
+          </a>
         </div>
       </div>
       <button

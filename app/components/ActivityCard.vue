@@ -103,9 +103,9 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
             </span>
             <span
               v-if="activity.suggestedTime"
-              class="flex items-center gap-1 text-sm text-sand-500"
+              class="inline-flex items-center gap-1 rounded-full bg-terra-50 px-2.5 py-0.5 text-xs font-semibold text-terra-700"
             >
-              <Icon name="lucide:clock" class="h-3.5 w-3.5" />
+              <Icon name="lucide:clock" class="h-3 w-3" />
               {{ formatTime12h(activity.suggestedTime) }}
             </span>
             <span
@@ -148,14 +148,14 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
         :href="getGoogleMapsUrl(activity)"
         target="_blank"
         rel="noopener noreferrer"
-        class="inline-flex items-center gap-1.5 truncate text-sand-500 transition hover:text-terra-600"
+        class="inline-flex items-center gap-1.5 truncate text-ocean-600 transition hover:text-terra-600"
         title="Open in Google Maps"
         @click.stop
       >
         <Icon name="lucide:map-pin" class="h-3.5 w-3.5 shrink-0" />
-        <span v-if="activity.address" class="truncate">{{ activity.address }}</span>
-        <span v-else class="truncate">View on map</span>
-        <Icon name="lucide:external-link" class="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-60" />
+        <span v-if="activity.address" class="truncate underline decoration-ocean-300 underline-offset-2 hover:decoration-terra-400">{{ activity.address }}</span>
+        <span v-else class="truncate underline decoration-ocean-300 underline-offset-2 hover:decoration-terra-400">View on map</span>
+        <Icon name="lucide:external-link" class="h-3 w-3 shrink-0 opacity-50" />
       </a>
       <span v-if="activity.costEstimate" class="flex items-center gap-1">
         <Icon name="lucide:dollar-sign" class="h-3.5 w-3.5" />
