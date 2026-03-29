@@ -557,13 +557,20 @@ async function recomputeSegments(dayId: string) {
           </span>
           <button
             v-if="!isViewer"
-            class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
+            class="inline-flex items-center gap-1.5 rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
+            title="Edit trip preferences"
             @click="showPrefsEditor = !showPrefsEditor"
           >
             <Icon name="lucide:sliders-horizontal" class="h-3 w-3" />
-            <span class="hidden sm:inline">{{ trip.preferences?.budget || "moderate" }} · {{ trip.preferences?.pace || "moderate" }}</span>
+            <span class="hidden sm:inline">Preferences</span>
             <span class="sm:hidden">Prefs</span>
           </button>
+          <span v-if="trip.preferences?.budget" class="rounded-full bg-sand-100 px-2 py-0.5 text-[11px] text-sand-500 capitalize">
+            {{ trip.preferences.budget }}
+          </span>
+          <span v-if="trip.preferences?.pace" class="rounded-full bg-sand-100 px-2 py-0.5 text-[11px] text-sand-500 capitalize">
+            {{ trip.preferences.pace }}
+          </span>
           <!-- More options dropdown -->
           <div class="relative">
             <button
