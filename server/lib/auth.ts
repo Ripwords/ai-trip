@@ -35,11 +35,8 @@ export const auth = betterAuth({
     cookieCache: {
       enabled: true,
       maxAge: 60 * 5, // cache session in cookie for 5 min to reduce DB lookups
+      strategy: "jwe", // Use JWE strategy for best security
     },
-  },
-  cookieCache: {
-    enabled: true,
-    strategy: "jwe", // Use JWE strategy for best security
   },
   advanced: {
     // Use secure, httpOnly cookies — prevents XSS from stealing session tokens
