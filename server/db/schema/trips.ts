@@ -6,6 +6,7 @@ import {
   jsonb,
   uuid,
   index,
+  uniqueIndex,
   numeric,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -32,6 +33,7 @@ export const trips = pgTable(
     budget: numeric("budget", { precision: 10, scale: 2 }),
     currencyCode: text("currency_code").notNull().default("USD"),
     tripNotes: text("trip_notes"),
+    shareToken: uuid("share_token"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
@@ -41,6 +43,7 @@ export const trips = pgTable(
   (table) => [
     index("idx_trips_user_id").on(table.userId),
     index("idx_trips_status").on(table.status),
+    uniqueIndex("idx_trips_share_token").on(table.shareToken),
   ]
 );
 

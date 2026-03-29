@@ -31,7 +31,7 @@ watch(
   () => props.days,
   (days) => {
     if (days.length > 0 && !days.some((d) => d.id === selectedDayId.value)) {
-      selectedDayId.value = days[0].id;
+      selectedDayId.value = days[0]!.id;
     }
   }
 );

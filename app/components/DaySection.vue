@@ -15,7 +15,10 @@ interface Activity {
   costEstimate: string | null;
   notes: string | null;
   actualCost: string | null;
-  photos: string[];
+  photos: string[] | null;
+  openingHours: string[] | null;
+  tags: string[] | null;
+  placeId: string | null;
   sortOrder: number;
 }
 
@@ -47,6 +50,7 @@ const emit = defineEmits<{
   clickActivity: [activity: Activity];
   addActivity: [dayId: string];
   reordered: [];
+  updateNotes: [notes: string];
 }>();
 
 const mapsUrl = computed(() => getGoogleMapsDirectionsUrl(props.day.activities));
@@ -99,8 +103,9 @@ function formatDate(dateStr: string): string {
  */
 function isOutOfOrder(index: number): boolean {
   if (index === 0) return false;
-  const prev = props.day.activities[index - 1];
-  const curr = props.day.activities[index];
+  const prev = localActivities.value[index - 1];
+  const curr = localActivities.value[index];
+  if (!prev || !curr) return false;
   if (!prev.suggestedTime || !curr.suggestedTime) return false;
 
   const prevMinutes = timeToMinutes(prev.suggestedTime);
@@ -115,7 +120,7 @@ function isOutOfOrder(index: number): boolean {
 function timeToMinutes(time: string): number | null {
   const match = time.match(/^(\d{1,2}):(\d{2})/);
   if (!match) return null;
-  return parseInt(match[1]) * 60 + parseInt(match[2]);
+  return parseInt(match[1]!) * 60 + parseInt(match[2]!);
 }
 </script>
 
@@ -148,7 +153,16 @@ function timeToMinutes(time: string): number | null {
       </a>
     </div>
 
-    <p v-if="day.notes" class="mb-3 text-sm text-sand-600 italic">
+    <div v-if="!readonly" class="mb-3">
+      <textarea
+        :value="day.notes ?? ''"
+        placeholder="Day notes... (dietary needs, booking confirmations, reminders)"
+        rows="2"
+        class="block w-full resize-none rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm text-sand-600 placeholder:text-sand-400 input-focus"
+        @blur="$emit('updateNotes', ($event.target as HTMLTextAreaElement).value)"
+      />
+    </div>
+    <p v-else-if="day.notes" class="mb-3 text-sm text-sand-600 italic">
       {{ day.notes }}
     </p>
 

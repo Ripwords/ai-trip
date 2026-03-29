@@ -9,9 +9,14 @@ export default defineEventHandler(async (event) => {
 
   await requireTripAccess(id, session.user.id, ["owner", "editor"]);
 
+  const { rating, ...restBody } = body;
   const [idea] = await db
     .insert(tripIdeas)
-    .values({ ...body, tripId: id })
+    .values({
+      ...restBody,
+      tripId: id,
+      rating: rating != null ? String(rating) : undefined,
+    })
     .returning();
 
   return idea;

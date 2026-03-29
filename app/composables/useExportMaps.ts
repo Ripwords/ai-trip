@@ -23,8 +23,8 @@ export function getGoogleMapsDirectionsUrl(activities: ExportActivity[]): string
   const geoActivities = activities.filter((a) => a.lat != null && a.lng != null);
   if (geoActivities.length < 2) return null;
 
-  const origin = `${geoActivities[0].lat},${geoActivities[0].lng}`;
-  const destination = `${geoActivities[geoActivities.length - 1].lat},${geoActivities[geoActivities.length - 1].lng}`;
+  const origin = `${geoActivities[0]!.lat},${geoActivities[0]!.lng}`;
+  const destination = `${geoActivities[geoActivities.length - 1]!.lat},${geoActivities[geoActivities.length - 1]!.lng}`;
 
   // Waypoints are everything between first and last (max 9)
   const waypoints = geoActivities

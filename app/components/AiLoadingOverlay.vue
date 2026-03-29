@@ -29,6 +29,7 @@ const stepSets: Record<string, { icon: string; text: string; detail: string }[]>
 const steps = computed(() => stepSets[props.mode] ?? stepSets.generate);
 
 const activeStep = ref(0);
+const activeStepData = computed(() => steps.value![activeStep.value]!);
 let interval: ReturnType<typeof setInterval> | null = null;
 
 watch(
@@ -37,7 +38,7 @@ watch(
     if (visible) {
       activeStep.value = 0;
       interval = setInterval(() => {
-        activeStep.value = (activeStep.value + 1) % steps.value.length;
+        activeStep.value = (activeStep.value + 1) % steps.value!.length;
       }, 3000);
     } else {
       if (interval) clearInterval(interval);
@@ -127,7 +128,7 @@ onUnmounted(() => {
             >
               <Icon
                 :key="activeStep"
-                :name="steps[activeStep].icon"
+                :name="activeStepData.icon"
                 class="h-6 w-6 text-terra-500"
               />
             </Transition>
@@ -148,10 +149,10 @@ onUnmounted(() => {
         >
           <div :key="activeStep" class="text-center">
             <span class="mb-1.5 block font-display text-[11px] uppercase tracking-[0.2em] text-terra-400">
-              {{ steps[activeStep].detail }}
+              {{ activeStepData.detail }}
             </span>
             <p class="text-sm font-medium text-sand-700">
-              {{ steps[activeStep].text }}
+              {{ activeStepData.text }}
             </p>
           </div>
         </Transition>
@@ -174,7 +175,7 @@ onUnmounted(() => {
 
         <!-- Step count -->
         <p class="mt-4 text-[11px] tabular-nums text-sand-400">
-          {{ activeStep + 1 }} / {{ steps.length }}
+          {{ activeStep + 1 }} / {{ steps!.length }}
         </p>
       </div>
     </div>

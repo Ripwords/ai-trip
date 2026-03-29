@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
       startDate: body.startDate,
       endDate: body.endDate,
       preferences: body.preferences ?? {},
+      currencyCode: body.currencyCode ?? "USD",
     })
     .returning();
 
@@ -27,9 +28,9 @@ export default defineEventHandler(async (event) => {
     const dayDate = new Date(start);
     dayDate.setDate(dayDate.getDate() + i);
     return {
-      tripId: trip.id,
+      tripId: trip!.id,
       dayNumber: i + 1,
-      date: dayDate.toISOString().split("T")[0],
+      date: dayDate.toISOString().split("T")[0]!,
     };
   });
 
@@ -37,7 +38,7 @@ export default defineEventHandler(async (event) => {
 
   // Return trip with days
   const result = await db.query.trips.findFirst({
-    where: eq(trips.id, trip.id),
+    where: eq(trips.id, trip!.id),
     with: {
       days: {
         with: {

@@ -25,6 +25,8 @@ const newListName = ref("");
 const newItemTexts = ref<Record<string, string>>({});
 const editingListId = ref<string | null>(null);
 const editingListName = ref("");
+const editingItemId = ref<string | null>(null);
+const editingItemText = ref("");
 
 function toggleList(id: string) {
   if (expandedLists.value.has(id)) {
@@ -122,6 +124,26 @@ async function addItem(checklistId: string) {
   }
 }
 
+function startEditItem(item: ChecklistItem) {
+  editingItemId.value = item.id;
+  editingItemText.value = item.text;
+}
+
+async function saveItemText(checklistId: string, itemId: string) {
+  const text = editingItemText.value.trim();
+  if (!text) return;
+  try {
+    await $fetch(
+      `/api/trips/${props.tripId}/checklists/${checklistId}/items/${itemId}`,
+      { method: "PUT", body: { text } }
+    );
+    editingItemId.value = null;
+    await refresh();
+  } catch (e: unknown) {
+    console.error("Failed to update item:", e);
+  }
+}
+
 async function deleteItem(checklistId: string, itemId: string) {
   try {
     await $fetch(
@@ -215,14 +237,28 @@ async function deleteItem(checklistId: string, itemId: string) {
             :key="item.id"
             class="flex items-center justify-between py-1"
           >
-            <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <label class="flex items-center gap-2 text-sm cursor-pointer min-w-0">
               <input
                 type="checkbox"
                 :checked="item.checked"
-                class="rounded border-sand-300 text-terra-500 focus:ring-terra-500"
+                class="shrink-0 rounded border-sand-300 text-terra-500 focus:ring-terra-500"
                 @change="toggleItem(checklist.id, item)"
               />
-              <span :class="item.checked ? 'text-sand-400 line-through' : 'text-sand-700'">
+              <input
+                v-if="editingItemId === item.id"
+                v-model="editingItemText"
+                type="text"
+                class="min-w-0 flex-1 rounded border border-sand-300 px-1.5 py-0.5 text-sm input-focus"
+                @keydown.enter="saveItemText(checklist.id, item.id)"
+                @blur="saveItemText(checklist.id, item.id)"
+                @click.stop
+              />
+              <span
+                v-else
+                class="min-w-0 truncate"
+                :class="item.checked ? 'text-sand-400 line-through' : 'text-sand-700'"
+                @dblclick.prevent="startEditItem(item)"
+              >
                 {{ item.text }}
               </span>
             </label>

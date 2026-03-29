@@ -29,6 +29,7 @@ export const createTripSchema = z.object({
   startDate: z.string().date(),
   endDate: z.string().date(),
   preferences: tripPreferencesSchema.optional(),
+  currencyCode: z.string().length(3).optional(),
 });
 
 export const updateTripSchema = createTripSchema.partial().extend({
@@ -163,6 +164,7 @@ export const createExpenseSchema = z.object({
   amount: z.string(),
   category: expenseCategoryEnum.optional(),
   activityId: z.string().uuid().nullish(),
+  paidById: z.string().nullish(),
   paidAt: z.string().nullish(),
 });
 

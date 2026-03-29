@@ -97,6 +97,19 @@ async function handleLeave() {
   }
 }
 
+async function handleChangeRole(memberId: string, newRole: string) {
+  try {
+    await $fetch(`/api/trips/${props.tripId}/members/${memberId}`, {
+      method: "PUT",
+      body: { role: newRole },
+    });
+    await refresh();
+    emit("changed");
+  } catch (e: unknown) {
+    console.error("Failed to change role:", e);
+  }
+}
+
 function formatExpiry(expiresAt: string | null | undefined): string {
   if (!expiresAt) return "";
   const d = dayjs(expiresAt);
@@ -177,7 +190,17 @@ const roleBadgeClass: Record<string, string> = {
           </div>
         </div>
         <div class="flex items-center gap-2">
+          <select
+            v-if="currentRole === 'owner' && member.role !== 'owner' && member.status === 'active'"
+            :value="member.role"
+            class="rounded-full border border-sand-200 bg-sand-50 px-2 py-0.5 text-xs font-medium text-sand-700"
+            @change="handleChangeRole(member.id, ($event.target as HTMLSelectElement).value)"
+          >
+            <option value="editor">Editor</option>
+            <option value="viewer">Viewer</option>
+          </select>
           <span
+            v-else
             class="rounded-full px-2 py-0.5 text-xs font-medium"
             :class="roleBadgeClass[member.role] || 'bg-sand-100 text-sand-700'"
           >

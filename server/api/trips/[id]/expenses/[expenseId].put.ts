@@ -22,9 +22,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Expense not found" });
   }
 
+  const { paidAt, ...restBody } = body;
   const [updated] = await db
     .update(expenses)
-    .set(body)
+    .set({
+      ...restBody,
+      ...(paidAt !== undefined ? { paidAt: paidAt ? new Date(paidAt) : null } : {}),
+    })
     .where(eq(expenses.id, expenseId))
     .returning();
 

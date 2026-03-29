@@ -44,8 +44,8 @@ export default defineEventHandler(async (event) => {
           const element = matrix[i]?.[i];
           if (element?.duration?.value) {
             travelTimes.push({
-              fromId: geoActivities[i].id,
-              toId: geoActivities[i + 1].id,
+              fromId: geoActivities[i]!.id,
+              toId: geoActivities[i + 1]!.id,
               durationMinutes: Math.ceil(element.duration.value / 60),
             });
           }
@@ -59,7 +59,7 @@ export default defineEventHandler(async (event) => {
     const times = allDayActivities
       .map((a) => a.suggestedTime)
       .filter((t): t is string => !!t)
-      .map((t) => { const m = t.match(/^(\d{1,2}):(\d{2})/); return m ? parseInt(m[1]) * 60 + parseInt(m[2]) : null; })
+      .map((t) => { const m = t.match(/^(\d{1,2}):(\d{2})/); return m ? parseInt(m[1]!) * 60 + parseInt(m[2]!) : null; })
       .filter((m): m is number => m !== null);
     if (times.length > 0) {
       startHour = Math.floor(Math.min(...times) / 60);

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "idx_trips_share_token" ON "trips" USING btree ("share_token");
