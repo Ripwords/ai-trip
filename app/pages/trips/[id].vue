@@ -138,6 +138,34 @@ async function updateTripField(field: string, value: string) {
   }
 }
 
+const { confirm } = useConfirm();
+const currencyConverting = ref(false);
+
+async function handleCurrencyChange(newCurrency: string) {
+  if (!trip.value || newCurrency === trip.value.currencyCode) return;
+  const oldCurrency = trip.value.currencyCode || "USD";
+
+  const ok = await confirm({
+    title: "Convert currency",
+    message: `Convert all costs and expenses from ${oldCurrency} to ${newCurrency} using live exchange rates?`,
+    confirmText: "Convert",
+  });
+  if (!ok) return;
+
+  currencyConverting.value = true;
+  try {
+    await $fetch(`/api/trips/${tripId}/convert-currency`, {
+      method: "POST",
+      body: { from: oldCurrency, to: newCurrency },
+    });
+    await refresh();
+  } catch (e: unknown) {
+    console.error("Failed to convert currency:", e);
+  } finally {
+    currencyConverting.value = false;
+  }
+}
+
 async function updatePreference(key: string, value: string | string[]) {
   if (!trip.value) return;
   const currentPrefs = trip.value.preferences ?? {};
@@ -386,8 +414,6 @@ async function handleSaveActivity(data: {
     console.error("Failed to update activity:", e);
   }
 }
-
-const { confirm } = useConfirm();
 
 async function handleDeleteActivity(
   activity: TripActivity
@@ -688,8 +714,9 @@ async function recomputeSegments(dayId: string) {
             <label class="block text-xs font-medium text-sand-500">Currency</label>
             <select
               :value="trip.currencyCode || 'USD'"
-              class="mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm input-focus"
-              @change="updateTripField('currencyCode', ($event.target as HTMLSelectElement).value)"
+              :disabled="currencyConverting"
+              class="mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm input-focus disabled:opacity-50"
+              @change="handleCurrencyChange(($event.target as HTMLSelectElement).value)"
             >
               <option value="USD">USD ($)</option>
               <option value="EUR">EUR (€)</option>
