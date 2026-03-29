@@ -44,5 +44,13 @@ export default defineEventHandler(async (event) => {
   // Recompute segments
   await computeAndSaveSegments(itineraryDayId);
 
+  // Audit log
+  await logTripAction({
+    tripId: id,
+    userId: session.user.id,
+    action: "activity_added",
+    description: `Added "${activity.name}" to Day`,
+  });
+
   return activity;
 });

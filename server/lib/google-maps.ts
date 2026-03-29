@@ -196,7 +196,9 @@ const _getPlaceDetails = defineCachedFunction(
       types: response.types as string[] | undefined,
       photos: photos?.slice(0, 3).map((p) => p.name) ?? [],
       openingHours: openingHours?.weekdayDescriptions,
-      priceLevel: priceLevelMap[response.priceLevel as string],
+      priceLevel: response.priceLevel != null
+        ? (priceLevelMap[response.priceLevel as string] ?? null)
+        : null,
       editorialSummary: editorialSummary?.text,
     };
   },

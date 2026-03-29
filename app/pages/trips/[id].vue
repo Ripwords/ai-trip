@@ -45,7 +45,8 @@ const { data: aiUsage, refresh: refreshUsage } = await useFetch<{
 }>("/api/ai/usage");
 
 const aiLoading = ref(false);
-const aiLoadingMode = ref<"generate" | "optimize">("generate");
+const aiLoadingMode = ref<"generate" | "optimize" | "remove" | "reschedule">("generate");
+const lastSnapshot = ref<string | null>(null);
 const editingActivity = ref<(typeof allActivities.value)[number] | null>(null);
 const editModalOpen = ref(false);
 const highlightedActivityId = ref<string | null>(null);
@@ -190,17 +191,26 @@ const aiError = ref("");
 const aiMessage = ref("");
 const aiPrompt = ref("");
 
-async function handleAiSubmit() {
-  if (!activeDayId.value || !aiPrompt.value.trim()) return;
-  const prompt = aiPrompt.value.trim();
+async function submitAiPrompt(prompt: string) {
+  if (!activeDayId.value || !prompt.trim()) return;
   aiPrompt.value = "";
   aiError.value = "";
   aiMessage.value = "";
   aiLoading.value = true;
 
-  // Guess loading mode for the overlay
-  const optimizeKeywords = /\b(optimize|reorder|rearrange|best route|efficient)\b/i;
-  aiLoadingMode.value = optimizeKeywords.test(prompt) ? "optimize" : "generate";
+  // Snapshot current activities for undo
+  lastSnapshot.value = JSON.stringify(activeDay.value?.activities ?? []);
+
+  // Guess loading mode for the overlay based on prompt keywords
+  if (/\b(optimize|reorder|rearrange|best route|efficient)\b/i.test(prompt)) {
+    aiLoadingMode.value = "optimize";
+  } else if (/\b(remove|delete|drop|get rid of)\b/i.test(prompt)) {
+    aiLoadingMode.value = "remove";
+  } else if (/\b(reschedule|move.*earlier|move.*later|too late|too early|change.*time)\b/i.test(prompt)) {
+    aiLoadingMode.value = "reschedule";
+  } else {
+    aiLoadingMode.value = "generate";
+  }
 
   try {
     const result = await $fetch(`/api/trips/${tripId}/days/${activeDayId.value}/ai`, {
@@ -212,11 +222,44 @@ async function handleAiSubmit() {
   } catch (e: unknown) {
     const err = e as { data?: { message?: string } };
     aiError.value = err.data?.message ?? "Something went wrong";
+    lastSnapshot.value = null; // Clear snapshot on error
   } finally {
     aiLoading.value = false;
     refreshUsage();
   }
 }
+
+async function handleAiSubmit() {
+  await submitAiPrompt(aiPrompt.value.trim());
+}
+
+const undoLoading = ref(false);
+const undoAvailable = computed(() => !!lastSnapshot.value && !!aiMessage.value);
+
+async function handleUndo() {
+  if (!activeDayId.value || !lastSnapshot.value) return;
+  undoLoading.value = true;
+  try {
+    await $fetch(`/api/trips/${tripId}/days/${activeDayId.value}/restore`, {
+      method: "POST",
+      body: { activities: JSON.parse(lastSnapshot.value) },
+    });
+    lastSnapshot.value = null;
+    aiMessage.value = "";
+    await refresh();
+  } catch {
+    aiError.value = "Failed to undo. Please try again.";
+  } finally {
+    undoLoading.value = false;
+  }
+}
+
+// Clear undo state when switching days
+watch(activeDayId, () => {
+  lastSnapshot.value = null;
+  aiMessage.value = "";
+  aiError.value = "";
+});
 
 const tripRole = computed(() => (trip.value as Record<string, unknown>)?._role as string ?? "owner");
 const isViewer = computed(() => tripRole.value === "viewer");
@@ -505,8 +548,37 @@ async function recomputeSegments(dayId: string) {
           </div>
         </ClientOnly>
 
+        <!-- Generate all empty days (experimental) -->
+        <GenerateFullItineraryButton
+          v-if="!isViewer"
+          :trip-id="tripId"
+          :days="sortedDays"
+          :disabled="aiLoading || (aiUsage?.remaining ?? 1) <= 0"
+          class="mt-3"
+          @done="refresh(); refreshUsage()"
+        />
+
         <!-- AI prompt bar (hidden for viewers) -->
         <div v-if="activeDay && !isViewer" class="mt-4">
+          <!-- Quick action buttons -->
+          <div class="mb-2 flex items-center justify-between">
+            <AiQuickActions
+              :disabled="aiLoading || (aiUsage?.remaining ?? 1) <= 0"
+              :has-activities="activeDayHasActivities"
+              @fill-gaps="aiPrompt = 'Fill in the gaps in my schedule for today'"
+              @optimize-route="aiPrompt = 'Optimize the route and reorder activities for minimum travel time'"
+            />
+            <!-- Usage counter -->
+            <span
+              v-if="aiUsage"
+              class="shrink-0 text-xs tabular-nums"
+              :class="aiUsage.remaining <= 10 ? 'text-terra-500 font-medium' : 'text-sand-400'"
+              :title="`${aiUsage.used}/${aiUsage.limit} AI prompts used this month`"
+            >
+              {{ aiUsage.used }}/{{ aiUsage.limit }}
+            </span>
+          </div>
+
           <form class="flex items-center gap-1.5 sm:gap-2" @submit.prevent="handleAiSubmit">
             <div class="relative min-w-0 flex-1">
               <Icon name="lucide:sparkles" class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-terra-400 sm:h-4 sm:w-4" />
@@ -517,7 +589,7 @@ async function recomputeSegments(dayId: string) {
                 :placeholder="(aiUsage?.remaining ?? 1) <= 0
                   ? `Limit reached. Resets next month.`
                   : activeDayHasActivities
-                    ? 'Add, remove, optimize...'
+                    ? 'Add, remove, reschedule, find a hotel...'
                     : 'What to do today?'"
                 class="input-focus block w-full rounded-xl border border-sand-200 bg-white py-2 pl-9 pr-3 text-sm text-sand-900 placeholder:text-sand-400 disabled:opacity-50 sm:py-2.5 sm:pl-10 sm:pr-4"
               />
@@ -533,22 +605,30 @@ async function recomputeSegments(dayId: string) {
                 :class="{ 'animate-spin': aiLoading }"
               />
             </button>
-            <!-- Usage counter -->
-            <span
-              v-if="aiUsage"
-              class="shrink-0 text-xs tabular-nums"
-              :class="aiUsage.remaining <= 10 ? 'text-terra-500 font-medium' : 'text-sand-400'"
-              :title="`${aiUsage.used}/${aiUsage.limit} AI prompts used this month`"
-            >
-              {{ aiUsage.used }}/{{ aiUsage.limit }}
-            </span>
           </form>
+
+          <!-- Prompt suggestions -->
+          <AiPromptSuggestions
+            v-if="!aiLoading && !aiMessage && !aiError && trip"
+            :destination="trip.destination"
+            :has-activities="activeDayHasActivities"
+            @select="aiPrompt = $event"
+          />
 
           <!-- AI feedback messages -->
           <div v-if="aiMessage && !aiError" class="mt-2 flex items-center gap-2 rounded-lg bg-forest-50 px-3 py-2 text-sm text-forest-700">
             <Icon name="lucide:check-circle" class="h-4 w-4 shrink-0" />
             <span>{{ aiMessage }}</span>
-            <button class="ml-auto shrink-0 text-forest-400 hover:text-forest-700" @click="aiMessage = ''">
+            <button
+              v-if="undoAvailable"
+              :disabled="undoLoading"
+              class="ml-auto shrink-0 text-sm font-medium text-forest-700 underline underline-offset-2 hover:text-forest-900 disabled:opacity-50"
+              @click="handleUndo"
+            >
+              <span v-if="undoLoading">Undoing...</span>
+              <span v-else>Undo</span>
+            </button>
+            <button class="shrink-0 text-forest-400 hover:text-forest-700" :class="{ 'ml-auto': !undoAvailable }" @click="aiMessage = ''; lastSnapshot = null">
               <Icon name="lucide:x" class="h-3.5 w-3.5" />
             </button>
           </div>
@@ -617,6 +697,7 @@ async function recomputeSegments(dayId: string) {
                 <TripMap
                   ref="tripMapRef"
                   :activities="activeDayActivities"
+                  :accommodation="activeDay ? { name: activeDay.accommodationName, lat: activeDay.accommodationLat, lng: activeDay.accommodationLng } : null"
                   @marker-click="handleMarkerClick"
                 />
               </div>

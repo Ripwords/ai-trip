@@ -24,7 +24,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Activity not found" });
   }
 
+  const activityName = activity.name;
   await db.delete(activities).where(eq(activities.id, activityId));
+
+  // Audit log
+  await logTripAction({
+    tripId: id,
+    userId: session.user.id,
+    action: "activity_removed",
+    description: `Removed "${activityName}"`,
+  });
 
   return { success: true };
 });

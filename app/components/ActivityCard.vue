@@ -9,13 +9,19 @@ interface Activity {
   lng: number | null;
   address: string | null;
   rating: string | null;
+  priceLevel: number | null;
   suggestedTime: string | null;
   estimatedDurationMinutes: number | null;
   costEstimate: string | null;
   notes: string | null;
   actualCost: string | null;
   photos: string[];
+  openingHours: string[] | null;
   sortOrder: number;
+}
+
+function formatPriceLevel(level: number): string {
+  return "$".repeat(Math.min(level, 4));
 }
 
 function getGoogleMapsUrl(activity: Activity): string {
@@ -160,6 +166,9 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
       <span v-if="activity.costEstimate" class="flex items-center gap-1">
         <Icon name="lucide:dollar-sign" class="h-3.5 w-3.5" />
         {{ parseFloat(activity.costEstimate).toFixed(0) }}
+      </span>
+      <span v-if="activity.priceLevel != null && activity.priceLevel > 0" class="text-xs font-medium text-forest-600">
+        {{ formatPriceLevel(activity.priceLevel) }}
       </span>
       <span v-if="activity.actualCost" class="flex items-center gap-1 text-forest-600 font-medium">
         Paid: ${{ parseFloat(activity.actualCost).toFixed(0) }}

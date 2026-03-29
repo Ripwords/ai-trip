@@ -1,7 +1,7 @@
 import { and, eq, asc } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../db";
-import { trips, itineraryDays, activities } from "../../../../../db/schema";
+import { trips, itineraryDays, activities, tripIdeas } from "../../../../../db/schema";
 import { dayIdParamsSchema } from "../../../../../utils/schemas";
 import { processUserRequest } from "../../../../../lib/ai";
 import { enrichItinerary } from "../../../../../lib/enrich";
@@ -55,6 +55,23 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Day not found" });
   }
 
+  // Fetch saved ideas for AI context
+  const savedIdeasRows = await db.query.tripIdeas.findMany({
+    where: eq(tripIdeas.tripId, id),
+    columns: { name: true, type: true, description: true },
+  });
+
+  // Collect activities from OTHER days to avoid cross-day duplicates (especially restaurants)
+  const allTripDays = await db.query.itineraryDays.findMany({
+    where: eq(itineraryDays.tripId, id),
+    with: {
+      activities: { columns: { name: true, type: true } },
+    },
+  });
+  const otherDayActivities = allTripDays
+    .filter((d) => d.id !== dayId)
+    .flatMap((d) => d.activities.map((a) => ({ name: a.name, type: a.type })));
+
   // Derive day location from activities/accommodation
   let dayLocation = trip.destination;
   const addresses = day.activities.map((a) => a.address).filter((a): a is string => !!a);
@@ -88,6 +105,9 @@ export default defineEventHandler(async (event) => {
         ? { name: day.accommodationName, address: day.accommodationAddress }
         : undefined,
       preferences: trip.preferences ?? undefined,
+      otherDayActivities,
+      tripNotes: trip.tripNotes,
+      savedIdeas: savedIdeasRows,
     });
   } catch (e: unknown) {
     console.error("[ai.post] AI processing failed:", e);
