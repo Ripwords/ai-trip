@@ -125,6 +125,19 @@ function handleExportKml() {
   })));
 }
 
+async function updateTripField(field: string, value: string) {
+  if (!trip.value) return;
+  try {
+    await $fetch(`/api/trips/${tripId}`, {
+      method: "PUT",
+      body: { [field]: value },
+    });
+    await refresh();
+  } catch (e: unknown) {
+    console.error(`Failed to update ${field}:`, e);
+  }
+}
+
 async function updatePreference(key: string, value: string | string[]) {
   if (!trip.value) return;
   const currentPrefs = trip.value.preferences ?? {};
@@ -644,7 +657,7 @@ async function recomputeSegments(dayId: string) {
             <Icon name="lucide:x" class="h-4 w-4" />
           </button>
         </div>
-        <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+        <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
           <div>
             <label class="block text-xs font-medium text-sand-500">Budget</label>
             <select
@@ -671,7 +684,32 @@ async function recomputeSegments(dayId: string) {
               <option value="packed">Packed</option>
             </select>
           </div>
-          <div class="col-span-2">
+          <div>
+            <label class="block text-xs font-medium text-sand-500">Currency</label>
+            <select
+              :value="trip.currencyCode || 'USD'"
+              class="mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm input-focus"
+              @change="updateTripField('currencyCode', ($event.target as HTMLSelectElement).value)"
+            >
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="JPY">JPY (¥)</option>
+              <option value="KRW">KRW (₩)</option>
+              <option value="THB">THB (฿)</option>
+              <option value="SGD">SGD (S$)</option>
+              <option value="AUD">AUD (A$)</option>
+              <option value="CAD">CAD (C$)</option>
+              <option value="MYR">MYR (RM)</option>
+              <option value="IDR">IDR (Rp)</option>
+              <option value="TWD">TWD (NT$)</option>
+              <option value="VND">VND (₫)</option>
+              <option value="PHP">PHP (₱)</option>
+              <option value="INR">INR (₹)</option>
+              <option value="CNY">CNY (¥)</option>
+            </select>
+          </div>
+          <div class="sm:col-span-3">
             <label class="block text-xs font-medium text-sand-500">Interests</label>
             <input
               :value="trip.preferences?.interests?.join(', ') || ''"
