@@ -208,6 +208,16 @@
   outline: none;
 }
 
+/* Prevent iOS Safari auto-zoom on input focus (triggered by font-size < 16px) */
+@media screen and (max-width: 767px) {
+  input,
+  select,
+  textarea,
+  [contenteditable] {
+    font-size: 16px !important;
+  }
+}
+
 /* Smooth transition when toggling dark mode */
 html.transitioning,
 html.transitioning * {
