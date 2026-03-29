@@ -25,6 +25,8 @@ const emit = defineEmits<{
   budgetUpdated: [];
 }>();
 
+const { downloadCsv } = useExportExpenses();
+
 const { data: expenses, refresh } = await useFetch<Expense[]>(
   `/api/trips/${props.tripId}/expenses`
 );
@@ -281,13 +283,24 @@ function getMemberName(userId: string | null): string {
     <div class="rounded-2xl border border-sand-200 bg-white p-6">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-semibold text-sand-900">Expenses</h3>
-        <button
-          class="inline-flex items-center gap-1 rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600"
-          @click="resetForm(); showAddForm = !showAddForm"
-        >
-          <Icon name="lucide:plus" class="h-3 w-3" />
-          Add
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            v-if="expenses?.length"
+            class="inline-flex items-center gap-1 rounded-lg border border-sand-200 px-2.5 py-1.5 text-xs font-medium text-sand-600 hover:bg-sand-50"
+            title="Export as CSV"
+            @click="downloadCsv(tripId, expenses ?? [], currencyCode)"
+          >
+            <Icon name="lucide:download" class="h-3 w-3" />
+            <span class="hidden sm:inline">CSV</span>
+          </button>
+          <button
+            class="inline-flex items-center gap-1 rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600"
+            @click="resetForm(); showAddForm = !showAddForm"
+          >
+            <Icon name="lucide:plus" class="h-3 w-3" />
+            Add
+          </button>
+        </div>
       </div>
 
       <!-- Add/Edit form -->

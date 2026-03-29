@@ -32,6 +32,7 @@ export const trips = pgTable(
     budget: numeric("budget", { precision: 10, scale: 2 }),
     currencyCode: text("currency_code").notNull().default("USD"),
     tripNotes: text("trip_notes"),
+    shareToken: uuid("share_token"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
