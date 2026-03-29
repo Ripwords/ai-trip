@@ -8,7 +8,7 @@ const {
   data: trip,
   status,
   refresh,
-} = await useFetch(`/api/trips/${tripId}`);
+} = await useFetch<TripResponse>(`/api/trips/${tripId}`);
 
 useHead({
   title: computed(() =>
@@ -73,6 +73,35 @@ interface TripActivity {
   tags: string[] | null;
   placeId: string | null;
   sortOrder: number;
+}
+
+interface TripDay {
+  id: string;
+  dayNumber: number;
+  date: string;
+  notes: string | null;
+  accommodationName: string | null;
+  accommodationAddress: string | null;
+  accommodationLat: number | null;
+  accommodationLng: number | null;
+  accommodationPlaceId: string | null;
+  activities: TripActivity[];
+  travelSegments: { fromActivityId: string; durationText: string | null; distanceText: string | null }[];
+}
+
+interface TripResponse {
+  id: string;
+  destination: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  budget: string | null;
+  currencyCode: string;
+  tripNotes: string | null;
+  shareToken: string | null;
+  preferences: { budget?: string; pace?: string; interests?: string[]; travelStyle?: string[] } | null;
+  days: TripDay[];
+  _role: string;
 }
 const editingActivity = ref<TripActivity | null>(null);
 const editModalOpen = ref(false);
@@ -300,7 +329,7 @@ watch(activeDayId, () => {
   aiError.value = "";
 });
 
-const tripRole = computed(() => (trip.value as Record<string, unknown>)?._role as string ?? "owner");
+const tripRole = computed(() => trip.value?._role ?? "owner");
 const isViewer = computed(() => tripRole.value === "viewer");
 
 const activeDayHasActivities = computed(
@@ -782,7 +811,7 @@ async function recomputeSegments(dayId: string) {
       <div v-else-if="activeTab === 'team'" class="mt-8 max-w-3xl space-y-6">
         <TripMembers
           :trip-id="tripId"
-          :current-role="(trip as Record<string, unknown>)?._role as string ?? 'owner'"
+          :current-role="trip?._role ?? 'owner'"
           @changed="logRefreshKey++"
         />
         <TripActivityLog :key="logRefreshKey" :trip-id="tripId" />
