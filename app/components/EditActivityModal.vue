@@ -69,12 +69,12 @@ const mapsApiKey = useRuntimeConfig().public.googleMapsApiKey;
 const emit = defineEmits<{
   save: [data: {
     name: string;
-    description: string;
-    suggestedTime: string;
+    description: string | null;
+    suggestedTime: string | null;
     estimatedDurationMinutes: number | null;
-    costEstimate: string;
-    notes: string;
-    actualCost: string;
+    costEstimate: string | null;
+    notes: string | null;
+    actualCost: string | null;
   }];
   close: [];
 }>();

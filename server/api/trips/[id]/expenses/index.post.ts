@@ -24,15 +24,19 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // If paidById provided, verify they are a member of this trip
+  // If paidById provided, verify they are owner or active member of this trip
   if (body.paidById) {
-    const trip = await db.query.trips.findFirst({ where: eq(trips.id, id) });
-    const isMember = body.paidById === trip?.userId
-      || await db.query.tripMembers.findFirst({
+    const trip = await db.query.trips.findFirst({ where: eq(trips.id, id), columns: { userId: true } });
+    if (!trip) throw createError({ statusCode: 404, message: "Trip not found" });
+
+    const isOwner = body.paidById === trip.userId;
+    if (!isOwner) {
+      const member = await db.query.tripMembers.findFirst({
         where: (m, { and, eq: e }) => and(e(m.tripId, id), e(m.userId, body.paidById!), e(m.status, "active")),
       });
-    if (!isMember) {
-      throw createError({ statusCode: 400, message: "Paid-by user is not a member of this trip" });
+      if (!member) {
+        throw createError({ statusCode: 400, message: "Paid-by user is not a member of this trip" });
+      }
     }
   }
 

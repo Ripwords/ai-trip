@@ -54,7 +54,13 @@ export default defineEventHandler(async (event) => {
         tags: a.tags,
         sortOrder: a.sortOrder,
       })),
-      travelSegments: day.travelSegments,
+      travelSegments: day.travelSegments.map((s) => ({
+        fromActivityId: s.fromActivityId,
+        toActivityId: s.toActivityId,
+        durationText: s.durationText,
+        distanceText: s.distanceText,
+        mode: s.mode,
+      })),
     })),
   };
 });
