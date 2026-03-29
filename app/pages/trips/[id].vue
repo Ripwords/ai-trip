@@ -107,6 +107,8 @@ const hasActivities = computed(() =>
   sortedDays.value.some((d) => d.activities.length > 0)
 );
 
+const todayDate = new Date().toISOString().slice(0, 10);
+
 const sortedDays = computed(() => {
   if (!trip.value?.days) return [];
   return [...trip.value.days].sort((a, b) => a.dayNumber - b.dayNumber);
@@ -126,19 +128,29 @@ const totalExpenses = computed(() => {
   );
 });
 
-// Set activeDayId: restore from sessionStorage on client, otherwise default to first day
+// Set activeDayId: prioritize today's date > sessionStorage > first day
 watch(
   sortedDays,
   (days) => {
     if (days.length === 0) return;
 
-    // On first client-side run, try to restore from sessionStorage
+    // On first client-side run, auto-select today's day or restore from sessionStorage
     if (import.meta.client && !sessionRestored) {
       sessionRestored = true;
       const storedTab = sessionStorage.getItem(storageKeyTab);
       if (storedTab === "itinerary" || storedTab === "notes" || storedTab === "expenses" || storedTab === "team") {
         activeTab.value = storedTab;
       }
+
+      // Priority 1: If one of the days matches today, jump to it
+      const today = new Date().toISOString().slice(0, 10);
+      const todayDay = days.find((d) => d.date === today);
+      if (todayDay) {
+        activeDayId.value = todayDay.id;
+        return;
+      }
+
+      // Priority 2: Restore from sessionStorage
       const storedDay = sessionStorage.getItem(storageKeyDay);
       if (storedDay && days.some((d) => d.id === storedDay)) {
         activeDayId.value = storedDay;
@@ -378,8 +390,11 @@ async function recomputeSegments(dayId: string) {
                 {{ formatDateRange(trip.startDate, trip.endDate) }}
               </span>
               <span class="text-sand-300">·</span>
-              <span class="rounded-full bg-sand-100 px-2 py-0.5 text-xs font-medium text-sand-700">
-                {{ trip.status }}
+              <span
+                class="rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="getTripStatus(trip.startDate, trip.endDate).badgeClass"
+              >
+                {{ getTripStatus(trip.startDate, trip.endDate).label }}
               </span>
             </div>
           </div>
@@ -472,14 +487,20 @@ async function recomputeSegments(dayId: string) {
             <button
               v-for="day in sortedDays"
               :key="day.id"
-              class="shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition sm:px-4 sm:text-sm"
+              class="relative shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition sm:px-4 sm:text-sm"
               :class="day.id === activeDayId
                 ? 'bg-terra-500 text-white shadow-sm'
-                : 'bg-sand-100 text-sand-600 hover:bg-sand-200'"
+                : day.date === todayDate
+                  ? 'bg-terra-50 text-terra-700 ring-1 ring-terra-300 hover:bg-terra-100'
+                  : 'bg-sand-100 text-sand-600 hover:bg-sand-200'"
               @click="activeDayId = day.id"
             >
               <span class="sm:hidden">D{{ day.dayNumber }}</span>
               <span class="hidden sm:inline">Day {{ day.dayNumber }} &middot; {{ formatDayDate(day.date) }}</span>
+              <span
+                v-if="day.date === todayDate && day.id !== activeDayId"
+                class="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-terra-500"
+              />
             </button>
           </div>
         </ClientOnly>

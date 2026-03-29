@@ -94,9 +94,10 @@ function getDayCount(start: string, end: string): number {
           </p>
           <div class="mt-3 flex items-center gap-2">
             <span
-              class="inline-block rounded-full bg-sand-100 px-2.5 py-0.5 text-xs font-medium text-sand-700"
+              class="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium"
+              :class="getTripStatus(trip.startDate, trip.endDate).badgeClass"
             >
-              {{ trip.status }}
+              {{ getTripStatus(trip.startDate, trip.endDate).label }}
             </span>
             <span class="text-xs text-sand-400">
               {{ getDayCount(trip.startDate, trip.endDate) }} days

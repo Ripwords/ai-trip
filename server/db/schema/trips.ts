@@ -27,7 +27,7 @@ export const trips = pgTable(
     destination: text("destination").notNull(),
     startDate: date("start_date").notNull(),
     endDate: date("end_date").notNull(),
-    status: text("status").notNull().default("draft"),
+    status: text("status").notNull().default("upcoming"),
     preferences: jsonb("preferences").$type<TripPreferences>().default({}),
     budget: numeric("budget", { precision: 10, scale: 2 }),
     currencyCode: text("currency_code").notNull().default("USD"),
