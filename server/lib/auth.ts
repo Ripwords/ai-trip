@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { dash } from "@better-auth/infra"
 import { eq, and } from "drizzle-orm"
 import { db } from "../db"
+import { admin } from "better-auth/plugins"
 import { tripMembers, user as userTable } from "../db/schema"
 
 const isProduction = process.env.NODE_ENV === "production"
@@ -113,6 +114,7 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    admin(),
     dash({
       activityTracking: {
         enabled: true,

@@ -43,6 +43,13 @@
       "when": 1774319258368,
       "tag": "0005_dusty_thaddeus_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774763880896,
+      "tag": "0006_outstanding_red_wolf",
+      "breakpoints": true
     }
   ]
 }
