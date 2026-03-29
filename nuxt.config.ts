@@ -29,6 +29,13 @@ export default defineNuxtConfig({
   experimental: {
     nitroAutoImports: true,
   },
+  nitro: {
+    // Fix: samlify (better-auth dep) uses require() on ESM-only camelcase
+    // https://github.com/better-auth/better-auth/issues/8620
+    externals: {
+      inline: ["samlify"],
+    },
+  },
   css: ["./app/assets/css/tailwind.css"],
   devtools: { enabled: true },
   modules: ["@nuxt/icon", "@nuxt/image", "nuxt-security", "dayjs-nuxt", "@vite-pwa/nuxt"],
