@@ -1,5 +1,5 @@
 import type { AIItineraryOutput, AIActivity } from "./ai";
-import { searchPlace, getPlaceDetails } from "./google-maps";
+import { searchPlace } from "./google-maps";
 
 interface EnrichedActivity extends AIActivity {
   placeId: string | null;
@@ -22,6 +22,12 @@ export interface EnrichedItinerary {
   days: EnrichedDay[];
 }
 
+/**
+ * Enrich with basic Place Search data only (name, coordinates, rating, address).
+ * Full details (photos, openingHours, priceLevel) are fetched on-demand
+ * via GET /api/places/[placeId]/details when the user opens the edit modal.
+ * This saves ~$20/1K Place Details API calls for activities users never inspect.
+ */
 async function enrichActivity(
   activity: AIActivity,
   destination: string,
@@ -32,19 +38,16 @@ async function enrichActivity(
     const topResult = candidates[0];
 
     if (topResult) {
-      // Fetch full details to get opening hours, price level, photos
-      const details = await getPlaceDetails(topResult.placeId);
-
       return {
         ...activity,
         placeId: topResult.placeId,
         lat: topResult.lat,
         lng: topResult.lng,
-        rating: details?.rating ?? topResult.rating ?? null,
-        address: details?.formattedAddress ?? topResult.formattedAddress ?? null,
-        photos: details?.photos ?? [],
-        openingHours: details?.openingHours ?? [],
-        priceLevel: details?.priceLevel ?? null,
+        rating: topResult.rating ?? null,
+        address: topResult.formattedAddress ?? null,
+        photos: [],
+        openingHours: [],
+        priceLevel: null,
       };
     }
   } catch {
