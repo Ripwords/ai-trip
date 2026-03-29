@@ -11,6 +11,10 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.NUXT_PUBLIC_BETTER_AUTH_URL,
   basePath: "/api/auth",
+  appName: "AI Trip",
+  experimental: {
+    joins: true, // Enable database joins for better performance
+  },
   trustedOrigins: [
     "http://localhost:3000",
     process.env.NUXT_PUBLIC_BETTER_AUTH_URL || "",
@@ -32,12 +36,19 @@ export const auth = betterAuth({
       maxAge: 60 * 5, // cache session in cookie for 5 min to reduce DB lookups
     },
   },
+  cookieCache: {
+    enabled: true,
+    strategy: "jwe", // Use JWE strategy for best security
+  },
   advanced: {
     // Use secure, httpOnly cookies — prevents XSS from stealing session tokens
     cookiePrefix: "ai-trip",
     useSecureCookies: isProduction,
     // Generate new session token on refresh to prevent session fixation
     generateId: undefined, // use default secure random ID generation
+    ipAddress: {
+      ipAddressHeaders: ["x-vercel-forwarded-for", "x-forwarded-for"],
+    }
   },
   // Auto-accept pending invites when a user signs in
   databaseHooks: {

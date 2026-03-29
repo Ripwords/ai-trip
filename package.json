@@ -29,7 +29,6 @@
     "@vite-pwa/nuxt": "^1.1.1",
     "ai": "^6.0.134",
     "better-auth": "^1.5.6",
-    "camelcase": "6.3.0",
     "dayjs-nuxt": "^2.1.11",
     "drizzle-orm": "^0.45.1",
     "nuxt": "^4.4.2",
@@ -51,11 +50,5 @@
     "@types/ws": "^8.18.1",
     "@vite-pwa/assets-generator": "^1.0.2",
     "drizzle-kit": "^0.31.0"
-  },
-  "overrides": {
-    "camelcase": "6.3.0"
-  },
-  "resolutions": {
-    "camelcase": "6.3.0"
   }
 }
