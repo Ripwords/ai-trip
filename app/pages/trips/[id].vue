@@ -44,6 +44,13 @@ const { data: aiUsage, refresh: refreshUsage } = await useFetch<{
   remaining: number;
 }>("/api/ai/usage");
 
+const { data: tripMembers } = await useFetch<{
+  userId: string;
+  user: { name: string; image: string | null };
+  role: string;
+  status: string;
+}[]>(`/api/trips/${tripId}/members`);
+
 const aiLoading = ref(false);
 const aiLoadingMode = ref<"generate" | "optimize" | "remove" | "reschedule">("generate");
 const lastSnapshot = ref<string | null>(null);
@@ -731,6 +738,8 @@ async function recomputeSegments(dayId: string) {
           :trip-id="tripId"
           :budget="trip.budget ?? null"
           :currency-code="trip.currencyCode ?? 'USD'"
+          :members="tripMembers?.filter(m => m.status === 'active') ?? []"
+          @budget-updated="refresh"
         />
       </div>
 

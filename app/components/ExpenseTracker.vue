@@ -4,13 +4,25 @@ interface Expense {
   description: string;
   amount: string;
   category: string;
+  paidById: string | null;
   paidAt: string | null;
+}
+
+interface Member {
+  userId: string;
+  user: { name: string; image: string | null };
+  role: string;
 }
 
 const props = defineProps<{
   tripId: string;
   budget: string | null;
   currencyCode: string;
+  members?: Member[];
+}>();
+
+const emit = defineEmits<{
+  budgetUpdated: [];
 }>();
 
 const { data: expenses, refresh } = await useFetch<Expense[]>(
@@ -20,20 +32,17 @@ const { data: expenses, refresh } = await useFetch<Expense[]>(
 const editingBudget = ref(false);
 const budgetInput = ref(props.budget ?? "");
 const showAddForm = ref(false);
+const editingExpenseId = ref<string | null>(null);
 
-// Add form fields
-const newDescription = ref("");
-const newAmount = ref("");
-const newCategory = ref("food");
-const newDate = ref(new Date().toISOString().split("T")[0]);
+// Form fields
+const formDescription = ref("");
+const formAmount = ref("");
+const formCategory = ref("food");
+const formDate = ref(new Date().toISOString().split("T")[0]);
+const formPaidById = ref<string>("");
 
 const categories = [
-  "accommodation",
-  "food",
-  "transport",
-  "activity",
-  "shopping",
-  "other",
+  "accommodation", "food", "transport", "activity", "shopping", "other",
 ];
 
 const categoryBadgeClasses: Record<string, string> = {
@@ -65,12 +74,63 @@ const progressBarColor = computed(() => {
   return "bg-forest-500";
 });
 
+// Settlement calculation (equal split)
+const settlement = computed(() => {
+  if (!expenses.value?.length || !props.members?.length) return [];
+  const memberCount = props.members.length;
+  if (memberCount < 2) return [];
+
+  // Track how much each person paid
+  const paid: Record<string, number> = {};
+  for (const m of props.members) {
+    paid[m.userId] = 0;
+  }
+
+  for (const expense of expenses.value) {
+    const payerId = expense.paidById;
+    if (payerId && paid[payerId] !== undefined) {
+      paid[payerId] += parseFloat(expense.amount);
+    }
+  }
+
+  // Each person's fair share
+  const total = Object.values(paid).reduce((a, b) => a + b, 0);
+  if (total === 0) return [];
+  const fairShare = total / memberCount;
+
+  // Calculate balances (positive = owed money, negative = owes money)
+  const balances = props.members.map((m) => ({
+    userId: m.userId,
+    name: m.user.name,
+    balance: (paid[m.userId] ?? 0) - fairShare,
+  })).filter((b) => Math.abs(b.balance) > 0.01);
+
+  return balances;
+});
+
 watch(
   () => props.budget,
-  (b) => {
-    budgetInput.value = b ?? "";
-  }
+  (b) => { budgetInput.value = b ?? ""; }
 );
+
+function resetForm() {
+  formDescription.value = "";
+  formAmount.value = "";
+  formCategory.value = "food";
+  formDate.value = new Date().toISOString().split("T")[0];
+  formPaidById.value = "";
+  editingExpenseId.value = null;
+}
+
+function startEdit(expense: Expense) {
+  editingExpenseId.value = expense.id;
+  formDescription.value = expense.description;
+  formAmount.value = expense.amount;
+  formCategory.value = expense.category;
+  formDate.value = expense.paidAt ? new Date(expense.paidAt).toISOString().split("T")[0] : "";
+  formPaidById.value = expense.paidById ?? "";
+  showAddForm.value = true;
+}
 
 async function saveBudget() {
   try {
@@ -79,31 +139,39 @@ async function saveBudget() {
       body: { budget: budgetInput.value || null },
     });
     editingBudget.value = false;
+    emit("budgetUpdated");
   } catch (e: unknown) {
     console.error("Failed to save budget:", e);
   }
 }
 
-async function addExpense() {
-  if (!newDescription.value.trim() || !newAmount.value) return;
+async function submitExpense() {
+  if (!formDescription.value.trim() || !formAmount.value) return;
   try {
-    await $fetch(`/api/trips/${props.tripId}/expenses`, {
-      method: "POST",
-      body: {
-        description: newDescription.value,
-        amount: newAmount.value,
-        category: newCategory.value,
-        paidAt: newDate.value ? new Date(newDate.value).toISOString() : undefined,
-      },
-    });
-    newDescription.value = "";
-    newAmount.value = "";
-    newCategory.value = "food";
-    newDate.value = new Date().toISOString().split("T")[0];
+    const body: Record<string, unknown> = {
+      description: formDescription.value,
+      amount: formAmount.value,
+      category: formCategory.value,
+      paidAt: formDate.value ? new Date(formDate.value).toISOString() : undefined,
+      paidById: formPaidById.value || undefined,
+    };
+
+    if (editingExpenseId.value) {
+      await $fetch(`/api/trips/${props.tripId}/expenses/${editingExpenseId.value}`, {
+        method: "PUT",
+        body,
+      });
+    } else {
+      await $fetch(`/api/trips/${props.tripId}/expenses`, {
+        method: "POST",
+        body,
+      });
+    }
+    resetForm();
     showAddForm.value = false;
     await refresh();
   } catch (e: unknown) {
-    console.error("Failed to add expense:", e);
+    console.error("Failed to save expense:", e);
   }
 }
 
@@ -125,6 +193,12 @@ function formatCurrency(amount: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+function getMemberName(userId: string | null): string {
+  if (!userId || !props.members) return "";
+  const member = props.members.find((m) => m.userId === userId);
+  return member?.user.name ?? "";
 }
 </script>
 
@@ -182,24 +256,45 @@ function formatCurrency(amount: number): string {
       </div>
     </div>
 
+    <!-- Settlement summary (only for group trips with paid-by data) -->
+    <div v-if="settlement.length > 0" class="rounded-2xl border border-sand-200 bg-white p-6">
+      <h3 class="text-sm font-semibold text-sand-900">Settlement</h3>
+      <div class="mt-3 space-y-2">
+        <div
+          v-for="person in settlement"
+          :key="person.userId"
+          class="flex items-center justify-between text-sm"
+        >
+          <span class="text-sand-700">{{ person.name }}</span>
+          <span
+            class="font-medium"
+            :class="person.balance > 0 ? 'text-forest-600' : 'text-terra-600'"
+          >
+            {{ person.balance > 0 ? "is owed" : "owes" }}
+            {{ formatCurrency(Math.abs(person.balance)) }}
+          </span>
+        </div>
+      </div>
+    </div>
+
     <!-- Expenses section -->
     <div class="rounded-2xl border border-sand-200 bg-white p-6">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-semibold text-sand-900">Expenses</h3>
         <button
           class="inline-flex items-center gap-1 rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600"
-          @click="showAddForm = !showAddForm"
+          @click="resetForm(); showAddForm = !showAddForm"
         >
           <Icon name="lucide:plus" class="h-3 w-3" />
           Add
         </button>
       </div>
 
-      <!-- Add form -->
-      <form v-if="showAddForm" class="mt-4 space-y-3 border-b border-sand-100 pb-4" @submit.prevent="addExpense">
+      <!-- Add/Edit form -->
+      <form v-if="showAddForm" class="mt-4 space-y-3 border-b border-sand-100 pb-4" @submit.prevent="submitExpense">
         <div>
           <input
-            v-model="newDescription"
+            v-model="formDescription"
             type="text"
             placeholder="Description"
             required
@@ -208,7 +303,7 @@ function formatCurrency(amount: number): string {
         </div>
         <div class="grid grid-cols-2 gap-3">
           <input
-            v-model="newAmount"
+            v-model="formAmount"
             type="number"
             step="0.01"
             placeholder="Amount"
@@ -216,7 +311,7 @@ function formatCurrency(amount: number): string {
             class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
           />
           <select
-            v-model="newCategory"
+            v-model="formCategory"
             class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
           >
             <option v-for="cat in categories" :key="cat" :value="cat">
@@ -224,17 +319,36 @@ function formatCurrency(amount: number): string {
             </option>
           </select>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="grid grid-cols-2 gap-3">
           <input
-            v-model="newDate"
+            v-model="formDate"
             type="date"
-            class="block flex-1 rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+            class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
           />
+          <select
+            v-if="members && members.length > 1"
+            v-model="formPaidById"
+            class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+          >
+            <option value="">Who paid?</option>
+            <option v-for="m in members" :key="m.userId" :value="m.userId">
+              {{ m.user.name }}
+            </option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="rounded-lg border border-sand-300 px-3 py-2 text-sm font-medium text-sand-700 hover:bg-sand-50"
+            @click="showAddForm = false; resetForm()"
+          >
+            Cancel
+          </button>
           <button
             type="submit"
             class="rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600"
           >
-            Add
+            {{ editingExpenseId ? "Update" : "Add" }}
           </button>
         </div>
       </form>
@@ -256,14 +370,25 @@ function formatCurrency(amount: number): string {
                 {{ formatType(expense.category) }}
               </span>
               <span v-if="expense.paidAt">{{ new Date(expense.paidAt).toLocaleDateString() }}</span>
+              <span v-if="expense.paidById && members && members.length > 1" class="text-sand-400">
+                paid by {{ getMemberName(expense.paidById) }}
+              </span>
             </div>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5">
             <span class="text-sm font-semibold text-sand-900">
               {{ formatCurrency(parseFloat(expense.amount)) }}
             </span>
             <button
+              class="rounded p-1 text-sand-300 hover:text-terra-500"
+              title="Edit"
+              @click="startEdit(expense)"
+            >
+              <Icon name="lucide:edit" class="h-3.5 w-3.5" />
+            </button>
+            <button
               class="rounded p-1 text-sand-300 hover:text-red-500"
+              title="Delete"
               @click="deleteExpense(expense.id)"
             >
               <Icon name="lucide:trash-2" class="h-3.5 w-3.5" />

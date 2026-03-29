@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
       startDate: body.startDate,
       endDate: body.endDate,
       preferences: body.preferences ?? {},
+      currencyCode: body.currencyCode ?? "USD",
     })
     .returning();
 

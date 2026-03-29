@@ -7,8 +7,37 @@ const startDate = ref("");
 const endDate = ref("");
 const budget = ref<string>();
 const pace = ref<string>();
+const currencyCode = ref("USD");
+const travelStyle = ref<string[]>([]);
 const error = ref("");
 const loading = ref(false);
+
+const currencies = [
+  { code: "USD", label: "USD ($)" },
+  { code: "EUR", label: "EUR (€)" },
+  { code: "GBP", label: "GBP (£)" },
+  { code: "JPY", label: "JPY (¥)" },
+  { code: "KRW", label: "KRW (₩)" },
+  { code: "THB", label: "THB (฿)" },
+  { code: "SGD", label: "SGD (S$)" },
+  { code: "AUD", label: "AUD (A$)" },
+  { code: "CAD", label: "CAD (C$)" },
+  { code: "MYR", label: "MYR (RM)" },
+  { code: "IDR", label: "IDR (Rp)" },
+  { code: "TWD", label: "TWD (NT$)" },
+  { code: "VND", label: "VND (₫)" },
+  { code: "PHP", label: "PHP (₱)" },
+  { code: "INR", label: "INR (₹)" },
+  { code: "CNY", label: "CNY (¥)" },
+];
+
+const travelStyleOptions = ["foodie", "culture", "adventure", "nature", "nightlife", "shopping", "relaxation", "photography"];
+
+function toggleStyle(style: string) {
+  const idx = travelStyle.value.indexOf(style);
+  if (idx >= 0) travelStyle.value.splice(idx, 1);
+  else travelStyle.value.push(style);
+}
 
 async function handleCreate() {
   error.value = "";
@@ -21,9 +50,11 @@ async function handleCreate() {
         destination: destination.value,
         startDate: startDate.value,
         endDate: endDate.value,
+        currencyCode: currencyCode.value,
         preferences: {
           budget: budget.value || undefined,
           pace: pace.value || undefined,
+          travelStyle: travelStyle.value.length ? travelStyle.value : undefined,
         },
       },
     });
@@ -106,6 +137,33 @@ async function handleCreate() {
             <option value="moderate">Moderate</option>
             <option value="packed">Packed</option>
           </select>
+        </div>
+      </div>
+
+      <!-- Currency -->
+      <div>
+        <label for="currency" class="block text-sm font-medium text-sand-700">Currency</label>
+        <select id="currency" v-model="currencyCode" class="form-input">
+          <option v-for="c in currencies" :key="c.code" :value="c.code">{{ c.label }}</option>
+        </select>
+      </div>
+
+      <!-- Travel style -->
+      <div>
+        <label class="block text-sm font-medium text-sand-700">Travel Style</label>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <button
+            v-for="style in travelStyleOptions"
+            :key="style"
+            type="button"
+            class="rounded-full border px-3 py-1 text-xs font-medium capitalize transition"
+            :class="travelStyle.includes(style)
+              ? 'border-terra-400 bg-terra-50 text-terra-700'
+              : 'border-sand-200 bg-sand-50 text-sand-600 hover:border-sand-300'"
+            @click="toggleStyle(style)"
+          >
+            {{ style }}
+          </button>
         </div>
       </div>
 
