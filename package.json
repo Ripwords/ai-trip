@@ -53,5 +53,8 @@
   },
   "overrides": {
     "samlify/camelcase": "6.3.0"
+  },
+  "resolutions": {
+    "samlify/camelcase": "6.3.0"
   }
 }
