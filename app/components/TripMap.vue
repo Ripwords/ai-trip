@@ -198,7 +198,7 @@ function updateMarkers(
       title: activity.name,
     });
 
-    marker.addListener("click", () => {
+    marker.addEventListener("gmp-click", () => {
       emit("markerClick", activity);
     });
 
