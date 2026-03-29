@@ -47,6 +47,7 @@ const emit = defineEmits<{
   clickActivity: [activity: Activity];
   addActivity: [dayId: string];
   reordered: [];
+  updateNotes: [notes: string];
 }>();
 
 const mapsUrl = computed(() => getGoogleMapsDirectionsUrl(props.day.activities));
@@ -148,7 +149,16 @@ function timeToMinutes(time: string): number | null {
       </a>
     </div>
 
-    <p v-if="day.notes" class="mb-3 text-sm text-sand-600 italic">
+    <div v-if="!readonly" class="mb-3">
+      <textarea
+        :value="day.notes ?? ''"
+        placeholder="Day notes... (dietary needs, booking confirmations, reminders)"
+        rows="2"
+        class="block w-full resize-none rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm text-sand-600 placeholder:text-sand-400 input-focus"
+        @blur="$emit('updateNotes', ($event.target as HTMLTextAreaElement).value)"
+      />
+    </div>
+    <p v-else-if="day.notes" class="mb-3 text-sm text-sand-600 italic">
       {{ day.notes }}
     </p>
 
