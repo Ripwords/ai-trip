@@ -16,6 +16,7 @@ interface Member {
 
 const props = defineProps<{
   tripId: string;
+  tripName: string;
   budget: string | null;
   currencyCode: string;
   members?: Member[];
@@ -177,7 +178,16 @@ async function submitExpense() {
   }
 }
 
+const { confirm } = useConfirm();
+
 async function deleteExpense(expenseId: string) {
+  const ok = await confirm({
+    title: "Delete expense",
+    message: "Delete this expense? This cannot be undone.",
+    confirmText: "Delete",
+    destructive: true,
+  });
+  if (!ok) return;
   try {
     await $fetch(`/api/trips/${props.tripId}/expenses/${expenseId}`, {
       method: "DELETE",
@@ -288,7 +298,7 @@ function getMemberName(userId: string | null): string {
             v-if="expenses?.length"
             class="inline-flex items-center gap-1 rounded-lg border border-sand-200 px-2.5 py-1.5 text-xs font-medium text-sand-600 hover:bg-sand-50"
             title="Export as CSV"
-            @click="downloadCsv(tripId, expenses ?? [], currencyCode)"
+            @click="downloadCsv(tripName, expenses ?? [], currencyCode)"
           >
             <Icon name="lucide:download" class="h-3 w-3" />
             <span class="hidden sm:inline">CSV</span>

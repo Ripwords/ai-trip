@@ -41,7 +41,7 @@ export async function computeAndSaveSegments(dayId: string): Promise<void> {
       return {
         itineraryDayId: dayId,
         fromActivityId: activity.id,
-        toActivityId: geoActivities[i + 1].id,
+        toActivityId: geoActivities[i + 1]!.id,
         durationSeconds: element?.duration?.value ?? null,
         distanceMeters: element?.distance?.value ?? null,
         durationText: element?.duration?.text ?? null,

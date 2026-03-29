@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/// <reference types="google.maps" />
 interface Activity {
   id: string;
   name: string;
@@ -114,7 +115,7 @@ function createMap() {
 function cycleMapMode() {
   const modes: MapMode[] = ["light", "dark", "satellite"];
   const current = modes.indexOf(mapMode.value);
-  mapMode.value = modes[(current + 1) % modes.length];
+  mapMode.value = modes[(current + 1) % modes.length]!;
   if (import.meta.client) {
     localStorage.setItem("map-mode", mapMode.value);
   }
@@ -197,7 +198,7 @@ function updateMarkers(
       title: activity.name,
     });
 
-    marker.addListener("click", () => {
+    marker.addEventListener("gmp-click", () => {
       emit("markerClick", activity);
     });
 
@@ -218,8 +219,8 @@ function updateMarkers(
 
   if (geoActivities.length === 1 && !accommodationMarker) {
     map.setCenter({
-      lat: geoActivities[0].lat!,
-      lng: geoActivities[0].lng!,
+      lat: geoActivities[0]!.lat!,
+      lng: geoActivities[0]!.lng!,
     });
     map.setZoom(15);
   } else {
@@ -265,7 +266,7 @@ function centerOnActivity(activity: Activity) {
 }
 
 watch(
-  () => props.activities,
+  [() => props.activities, () => props.accommodation],
   () => {
     if (isLoaded.value && map) {
       updateMarkers();

@@ -53,11 +53,11 @@ export function computeSchedule(params: {
   let currentMinutes = startHour * 60 + startMinute;
 
   for (let i = 0; i < activities.length; i++) {
-    const activity = activities[i];
+    const activity = activities[i]!;
 
     // Add travel time from previous activity
     if (i > 0) {
-      const prevId = activities[i - 1].id;
+      const prevId = activities[i - 1]!.id;
       const travel = travelTimes.find(
         (t) => t.fromId === prevId && t.toId === activity.id
       );
@@ -122,8 +122,8 @@ export function parseOpeningTime(
 
   if (!timeMatch) return null;
 
-  let hours = parseInt(timeMatch[1]);
-  const minutes = parseInt(timeMatch[2]);
+  let hours = parseInt(timeMatch[1]!);
+  const minutes = parseInt(timeMatch[2]!);
   const period = timeMatch[3]?.toUpperCase();
 
   if (period === "PM" && hours !== 12) hours += 12;

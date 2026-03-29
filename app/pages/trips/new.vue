@@ -59,7 +59,7 @@ async function handleCreate() {
       },
     });
 
-    navigateTo(`/trips/${trip.id}`);
+    navigateTo(`/trips/${trip!.id}`);
   } catch (e: unknown) {
     const err = e as { data?: { message?: string }; message?: string };
     error.value = err.data?.message ?? err.message ?? "Failed to create trip";

@@ -6,6 +6,7 @@ import {
   jsonb,
   uuid,
   index,
+  uniqueIndex,
   numeric,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -42,6 +43,7 @@ export const trips = pgTable(
   (table) => [
     index("idx_trips_user_id").on(table.userId),
     index("idx_trips_status").on(table.status),
+    uniqueIndex("idx_trips_share_token").on(table.shareToken),
   ]
 );
 

@@ -1,10 +1,41 @@
 <script setup lang="ts">
 definePageMeta({ layout: "default" });
 
+interface SharedActivity {
+  id: string;
+  name: string;
+  type: string;
+  description: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+  rating: string | null;
+  suggestedTime: string | null;
+  estimatedDurationMinutes: number | null;
+  tags: string[];
+  sortOrder: number;
+}
+
+interface SharedDay {
+  id: string;
+  dayNumber: number;
+  date: string;
+  accommodationName: string | null;
+  activities: SharedActivity[];
+}
+
+interface SharedTrip {
+  destination: string;
+  startDate: string;
+  endDate: string;
+  currencyCode: string;
+  days: SharedDay[];
+}
+
 const route = useRoute();
 const token = route.params.token as string;
 
-const { data: trip, error } = await useFetch(`/api/shared/${token}`);
+const { data: trip, error } = await useFetch<SharedTrip>(`/api/shared/${token}`);
 
 useHead({
   title: computed(() =>
@@ -16,18 +47,18 @@ const activeDayId = ref<string | null>(null);
 
 const sortedDays = computed(() => {
   if (!trip.value?.days) return [];
-  return [...trip.value.days].sort((a: { dayNumber: number }, b: { dayNumber: number }) => a.dayNumber - b.dayNumber);
+  return [...trip.value.days].sort((a, b) => a.dayNumber - b.dayNumber);
 });
 
 const activeDay = computed(() =>
-  sortedDays.value.find((d: { id: string }) => d.id === activeDayId.value) ?? null
+  sortedDays.value.find((d) => d.id === activeDayId.value) ?? null
 );
 
 watch(
   sortedDays,
   (days) => {
     if (days.length > 0 && !activeDayId.value) {
-      activeDayId.value = (days[0] as { id: string }).id;
+      activeDayId.value = days[0]?.id ?? null;
     }
   },
   { immediate: true }
@@ -73,21 +104,21 @@ function formatDayDate(dateStr: string): string {
       <div class="mt-8 flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
         <button
           v-for="day in sortedDays"
-          :key="(day as any).id"
+          :key="day.id"
           class="shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition"
-          :class="(day as any).id === activeDayId
+          :class="day.id === activeDayId
             ? 'bg-terra-500 text-white shadow-sm'
             : 'bg-sand-100 text-sand-600 hover:bg-sand-200'"
-          @click="activeDayId = (day as any).id"
+          @click="activeDayId = day.id"
         >
-          Day {{ (day as any).dayNumber }} &middot; {{ formatDayDate((day as any).date) }}
+          Day {{ day.dayNumber }} &middot; {{ formatDayDate(day.date) }}
         </button>
       </div>
 
       <!-- Day content -->
       <div v-if="activeDay" class="mt-6 space-y-3">
         <div
-          v-for="(activity, index) in (activeDay as any).activities"
+          v-for="(activity, index) in activeDay.activities"
           :key="activity.id"
           class="rounded-2xl border border-sand-200 bg-white p-5"
         >
@@ -108,7 +139,7 @@ function formatDayDate(dateStr: string): string {
             </div>
           </div>
         </div>
-        <p v-if="!(activeDay as any).activities?.length" class="text-center text-sm text-sand-400 py-8">
+        <p v-if="!activeDay.activities.length" class="text-center text-sm text-sand-400 py-8">
           No activities planned for this day.
         </p>
       </div>

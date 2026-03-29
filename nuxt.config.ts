@@ -139,7 +139,7 @@ export default defineNuxtConfig({
           "https://maps.googleapis.com",
         ],
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        "font-src": ["'self'", "https://fonts.gstatic.com"],
+        "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
         "img-src": [
           "'self'",
           "data:",
@@ -169,6 +169,11 @@ export default defineNuxtConfig({
     "/api/places/search": {
       security: {
         rateLimiter: { tokensPerInterval: 60, interval: 60000 },
+      },
+    },
+    "/api/places/*/details": {
+      security: {
+        rateLimiter: { tokensPerInterval: 30, interval: 60000 },
       },
     },
     "/api/auth/**": {

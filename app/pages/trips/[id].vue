@@ -8,7 +8,7 @@ const {
   data: trip,
   status,
   refresh,
-} = await useFetch(`/api/trips/${tripId}`);
+} = await useFetch<TripResponse>(`/api/trips/${tripId}`);
 
 useHead({
   title: computed(() =>
@@ -54,7 +54,56 @@ const { data: tripMembers } = await useFetch<{
 const aiLoading = ref(false);
 const aiLoadingMode = ref<"generate" | "optimize" | "remove" | "reschedule">("generate");
 const lastSnapshot = ref<string | null>(null);
-const editingActivity = ref<(typeof allActivities.value)[number] | null>(null);
+interface TripActivity {
+  id: string;
+  name: string;
+  type: string;
+  description: string | null;
+  lat: number | null;
+  lng: number | null;
+  address: string | null;
+  rating: string | null;
+  suggestedTime: string | null;
+  estimatedDurationMinutes: number | null;
+  costEstimate: string | null;
+  notes: string | null;
+  actualCost: string | null;
+  photos: string[] | null;
+  openingHours: string[] | null;
+  tags: string[] | null;
+  placeId: string | null;
+  sortOrder: number;
+}
+
+interface TripDay {
+  id: string;
+  dayNumber: number;
+  date: string;
+  notes: string | null;
+  accommodationName: string | null;
+  accommodationAddress: string | null;
+  accommodationLat: number | null;
+  accommodationLng: number | null;
+  accommodationPlaceId: string | null;
+  activities: TripActivity[];
+  travelSegments: { fromActivityId: string; durationText: string | null; distanceText: string | null }[];
+}
+
+interface TripResponse {
+  id: string;
+  destination: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  budget: string | null;
+  currencyCode: string;
+  tripNotes: string | null;
+  shareToken: string | null;
+  preferences: { budget?: string; pace?: string; interests?: string[]; travelStyle?: string[] } | null;
+  days: TripDay[];
+  _role: string;
+}
+const editingActivity = ref<TripActivity | null>(null);
 const editModalOpen = ref(false);
 const highlightedActivityId = ref<string | null>(null);
 const tripMapRef = ref<InstanceType<typeof TripMap> | null>(null);
@@ -74,6 +123,47 @@ function handleExportKml() {
     date: d.date,
     activities: d.activities,
   })));
+}
+
+async function updateTripField(field: string, value: string) {
+  if (!trip.value) return;
+  try {
+    await $fetch(`/api/trips/${tripId}`, {
+      method: "PUT",
+      body: { [field]: value },
+    });
+    await refresh();
+  } catch (e: unknown) {
+    console.error(`Failed to update ${field}:`, e);
+  }
+}
+
+const { confirm } = useConfirm();
+const currencyConverting = ref(false);
+
+async function handleCurrencyChange(newCurrency: string) {
+  if (!trip.value || newCurrency === trip.value.currencyCode) return;
+  const oldCurrency = trip.value.currencyCode || "USD";
+
+  const ok = await confirm({
+    title: "Convert currency",
+    message: `Convert all costs and expenses from ${oldCurrency} to ${newCurrency} using live exchange rates?`,
+    confirmText: "Convert",
+  });
+  if (!ok) return;
+
+  currencyConverting.value = true;
+  try {
+    await $fetch(`/api/trips/${tripId}/convert-currency`, {
+      method: "POST",
+      body: { from: oldCurrency, to: newCurrency },
+    });
+    await refresh();
+  } catch (e: unknown) {
+    console.error("Failed to convert currency:", e);
+  } finally {
+    currencyConverting.value = false;
+  }
 }
 
 async function updatePreference(key: string, value: string | string[]) {
@@ -102,7 +192,7 @@ const addActivityModal = ref<{
   dayNumber: number;
 }>({ open: false, dayId: "", dayNumber: 1 });
 
-const TripMap = resolveComponent("TripMap");
+const TripMap = resolveComponent("TripMap") as ReturnType<typeof defineComponent>;
 
 const allActivities = computed(() => {
   if (!trip.value?.days) return [];
@@ -170,7 +260,7 @@ watch(
     if (activeDayId.value && days.some((d) => d.id === activeDayId.value)) return;
 
     // Default to first day
-    activeDayId.value = days[0].id;
+    activeDayId.value = days[0]!.id;
   },
   { immediate: true }
 );
@@ -280,26 +370,26 @@ watch(activeDayId, () => {
   aiError.value = "";
 });
 
-const tripRole = computed(() => (trip.value as Record<string, unknown>)?._role as string ?? "owner");
+const tripRole = computed(() => trip.value?._role ?? "owner");
 const isViewer = computed(() => tripRole.value === "viewer");
 
 const activeDayHasActivities = computed(
   () => (activeDay.value?.activities.length ?? 0) > 0
 );
 
-function handleEditActivity(activity: (typeof allActivities.value)[number]) {
+function handleEditActivity(activity: TripActivity) {
   editingActivity.value = activity;
   editModalOpen.value = true;
 }
 
 async function handleSaveActivity(data: {
   name: string;
-  description: string;
-  suggestedTime: string;
+  description: string | null;
+  suggestedTime: string | null;
   estimatedDurationMinutes: number | null;
-  costEstimate: string;
-  notes: string;
-  actualCost: string;
+  costEstimate: string | null;
+  notes: string | null;
+  actualCost: string | null;
 }) {
   if (!editingActivity.value) return;
 
@@ -325,10 +415,8 @@ async function handleSaveActivity(data: {
   }
 }
 
-const { confirm } = useConfirm();
-
 async function handleDeleteActivity(
-  activity: (typeof allActivities.value)[number]
+  activity: TripActivity
 ) {
   const ok = await confirm({
     title: "Delete activity",
@@ -354,7 +442,7 @@ async function handleDeleteActivity(
 }
 
 function handleActivityClick(
-  activity: (typeof allActivities.value)[number]
+  activity: TripActivity
 ) {
   highlightedActivityId.value = activity.id;
   if (tripMapRef.value && activity.lat && activity.lng) {
@@ -363,7 +451,7 @@ function handleActivityClick(
 }
 
 function handleMarkerClick(
-  activity: (typeof allActivities.value)[number]
+  activity: TripActivity
 ) {
   highlightedActivityId.value = activity.id;
 
@@ -385,6 +473,46 @@ function handleAddActivity(dayId: string) {
 async function handleActivityAdded() {
   // Server already recomputes segments on activity add, just refresh data
   await refresh();
+}
+
+const showMoreMenu = ref(false);
+
+// Close more menu on click outside
+if (import.meta.client) {
+  document.addEventListener("click", (e) => {
+    if (showMoreMenu.value && !(e.target as HTMLElement).closest(".relative")) {
+      showMoreMenu.value = false;
+    }
+  });
+}
+
+const shareLoading = ref(false);
+const shareCopied = ref(false);
+
+async function handleToggleShare() {
+  shareLoading.value = true;
+  try {
+    const result = await $fetch(`/api/trips/${tripId}/share`, { method: "POST" });
+    await refresh();
+    if (result.shared && result.shareToken) {
+      const url = `${window.location.origin}/shared/${result.shareToken}`;
+      await navigator.clipboard.writeText(url);
+      shareCopied.value = true;
+      setTimeout(() => { shareCopied.value = false; }, 2000);
+    }
+  } catch (e: unknown) {
+    console.error("Failed to toggle share:", e);
+  } finally {
+    shareLoading.value = false;
+  }
+}
+
+async function handleCopyShareLink() {
+  if (!trip.value?.shareToken) return;
+  const url = `${window.location.origin}/shared/${trip.value.shareToken}`;
+  await navigator.clipboard.writeText(url);
+  shareCopied.value = true;
+  setTimeout(() => { shareCopied.value = false; }, 2000);
 }
 
 async function handleIdeasRefresh() {
@@ -468,22 +596,82 @@ async function recomputeSegments(dayId: string) {
           </span>
           <button
             v-if="!isViewer"
-            class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
+            class="inline-flex items-center gap-1.5 rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
+            title="Edit trip preferences"
             @click="showPrefsEditor = !showPrefsEditor"
           >
             <Icon name="lucide:sliders-horizontal" class="h-3 w-3" />
-            <span class="hidden sm:inline">{{ trip.preferences?.budget || "moderate" }} · {{ trip.preferences?.pace || "moderate" }}</span>
+            <span class="hidden sm:inline">Preferences</span>
             <span class="sm:hidden">Prefs</span>
           </button>
-          <button
-            class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
-            title="Export trip as KML for Google My Maps"
-            @click="handleExportKml"
-          >
-            <Icon name="lucide:download" class="h-3 w-3" />
-            <span class="hidden sm:inline">Export KML</span>
-            <span class="sm:hidden">KML</span>
-          </button>
+          <span v-if="trip.preferences?.budget" class="rounded-full bg-sand-100 px-2 py-0.5 text-[11px] text-sand-500 capitalize">
+            {{ trip.preferences.budget }}
+          </span>
+          <span v-if="trip.preferences?.pace" class="rounded-full bg-sand-100 px-2 py-0.5 text-[11px] text-sand-500 capitalize">
+            {{ trip.preferences.pace }}
+          </span>
+          <!-- More options dropdown -->
+          <div class="relative">
+            <button
+              class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
+              title="More options"
+              @click="showMoreMenu = !showMoreMenu"
+            >
+              <Icon name="lucide:more-horizontal" class="h-3.5 w-3.5" />
+            </button>
+            <Transition
+              enter-active-class="duration-150 ease-out"
+              enter-from-class="opacity-0 scale-95"
+              enter-to-class="opacity-100 scale-100"
+              leave-active-class="duration-100 ease-in"
+              leave-from-class="opacity-100 scale-100"
+              leave-to-class="opacity-0 scale-95"
+            >
+              <div
+                v-if="showMoreMenu"
+                class="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
+              >
+                <button
+                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
+                  @click="handleExportKml(); showMoreMenu = false"
+                >
+                  <Icon name="lucide:map" class="h-4 w-4 text-sand-400" />
+                  Export KML
+                </button>
+              </div>
+            </Transition>
+          </div>
+          <!-- Share button (owner only) -->
+          <template v-if="tripRole === 'owner'">
+            <button
+              v-if="!trip.shareToken"
+              :disabled="shareLoading"
+              class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200 disabled:opacity-50"
+              title="Generate shareable public link"
+              @click="handleToggleShare"
+            >
+              <Icon :name="shareLoading ? 'lucide:loader' : 'lucide:share-2'" class="h-3 w-3" :class="{ 'animate-spin': shareLoading }" />
+              <span class="hidden sm:inline">Share</span>
+            </button>
+            <div v-else class="inline-flex items-center gap-1">
+              <button
+                class="inline-flex items-center gap-1 rounded-l-full bg-ocean-50 px-2.5 py-1 text-xs font-medium text-ocean-700 transition hover:bg-ocean-100"
+                title="Copy share link"
+                @click="handleCopyShareLink"
+              >
+                <Icon :name="shareCopied ? 'lucide:check' : 'lucide:link'" class="h-3 w-3" />
+                <span class="hidden sm:inline">{{ shareCopied ? "Copied!" : "Copy Link" }}</span>
+              </button>
+              <button
+                :disabled="shareLoading"
+                class="inline-flex items-center rounded-r-full bg-sand-100 px-2 py-1 text-xs text-sand-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                title="Revoke share link"
+                @click="handleToggleShare"
+              >
+                <Icon name="lucide:x" class="h-3 w-3" />
+              </button>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -495,7 +683,7 @@ async function recomputeSegments(dayId: string) {
             <Icon name="lucide:x" class="h-4 w-4" />
           </button>
         </div>
-        <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+        <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
           <div>
             <label class="block text-xs font-medium text-sand-500">Budget</label>
             <select
@@ -522,7 +710,33 @@ async function recomputeSegments(dayId: string) {
               <option value="packed">Packed</option>
             </select>
           </div>
-          <div class="col-span-2">
+          <div>
+            <label class="block text-xs font-medium text-sand-500">Currency</label>
+            <select
+              :value="trip.currencyCode || 'USD'"
+              :disabled="currencyConverting"
+              class="mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm input-focus disabled:opacity-50"
+              @change="handleCurrencyChange(($event.target as HTMLSelectElement).value)"
+            >
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="JPY">JPY (¥)</option>
+              <option value="KRW">KRW (₩)</option>
+              <option value="THB">THB (฿)</option>
+              <option value="SGD">SGD (S$)</option>
+              <option value="AUD">AUD (A$)</option>
+              <option value="CAD">CAD (C$)</option>
+              <option value="MYR">MYR (RM)</option>
+              <option value="IDR">IDR (Rp)</option>
+              <option value="TWD">TWD (NT$)</option>
+              <option value="VND">VND (₫)</option>
+              <option value="PHP">PHP (₱)</option>
+              <option value="INR">INR (₹)</option>
+              <option value="CNY">CNY (¥)</option>
+            </select>
+          </div>
+          <div class="sm:col-span-3">
             <label class="block text-xs font-medium text-sand-500">Interests</label>
             <input
               :value="trip.preferences?.interests?.join(', ') || ''"
@@ -750,6 +964,7 @@ async function recomputeSegments(dayId: string) {
       <div v-else-if="activeTab === 'expenses'" class="mt-8 max-w-3xl">
         <ExpenseTracker
           :trip-id="tripId"
+          :trip-name="trip.destination"
           :budget="trip.budget ?? null"
           :currency-code="trip.currencyCode ?? 'USD'"
           :members="tripMembers?.filter(m => m.status === 'active') ?? []"
@@ -761,7 +976,7 @@ async function recomputeSegments(dayId: string) {
       <div v-else-if="activeTab === 'team'" class="mt-8 max-w-3xl space-y-6">
         <TripMembers
           :trip-id="tripId"
-          :current-role="(trip as any)._role ?? 'owner'"
+          :current-role="trip?._role ?? 'owner'"
           @changed="logRefreshKey++"
         />
         <TripActivityLog :key="logRefreshKey" :trip-id="tripId" />

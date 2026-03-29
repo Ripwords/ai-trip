@@ -64,6 +64,13 @@
       "when": 1774780709502,
       "tag": "0008_rich_saracen",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1774781401678,
+      "tag": "0009_aspiring_kylun",
+      "breakpoints": true
     }
   ]
 }
