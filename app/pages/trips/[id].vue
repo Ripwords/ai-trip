@@ -762,7 +762,7 @@ async function recomputeSegments(dayId: string) {
       <div v-else-if="activeTab === 'team'" class="mt-8 max-w-3xl space-y-6">
         <TripMembers
           :trip-id="tripId"
-          :current-role="(trip as any)._role ?? 'owner'"
+          :current-role="(trip as Record<string, unknown>)?._role as string ?? 'owner'"
           @changed="logRefreshKey++"
         />
         <TripActivityLog :key="logRefreshKey" :trip-id="tripId" />
