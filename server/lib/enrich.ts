@@ -1,5 +1,5 @@
 import type { AIItineraryOutput, AIActivity } from "./ai";
-import { searchPlace } from "./google-maps";
+import { searchPlace, getPlaceDetails } from "./google-maps";
 
 interface EnrichedActivity extends AIActivity {
   placeId: string | null;
@@ -32,16 +32,19 @@ async function enrichActivity(
     const topResult = candidates[0];
 
     if (topResult) {
+      // Fetch full details to get opening hours, price level, photos
+      const details = await getPlaceDetails(topResult.placeId);
+
       return {
         ...activity,
         placeId: topResult.placeId,
         lat: topResult.lat,
         lng: topResult.lng,
-        rating: topResult.rating ?? null,
-        address: topResult.formattedAddress ?? null,
-        photos: [],
-        openingHours: [],
-        priceLevel: null,
+        rating: details?.rating ?? topResult.rating ?? null,
+        address: details?.formattedAddress ?? topResult.formattedAddress ?? null,
+        photos: details?.photos ?? [],
+        openingHours: details?.openingHours ?? [],
+        priceLevel: details?.priceLevel ?? null,
       };
     }
   } catch {

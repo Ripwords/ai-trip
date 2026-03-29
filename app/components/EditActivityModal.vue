@@ -9,6 +9,13 @@ interface Activity {
   costEstimate: string | null;
   notes: string | null;
   actualCost: string | null;
+  openingHours?: string[] | null;
+  priceLevel?: number | null;
+  photos?: string[];
+}
+
+function formatPriceLevel(level: number): string {
+  return "$".repeat(Math.min(level, 4));
 }
 
 const props = defineProps<{
@@ -78,6 +85,18 @@ function handleSave() {
       />
       <div class="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl mx-4">
         <h2 class="text-lg font-display text-sand-900">Edit Activity</h2>
+
+        <!-- Photos strip (read-only from Google Maps) -->
+        <div v-if="activity?.photos?.length" class="mt-3 flex gap-2 overflow-x-auto scrollbar-thin">
+          <img
+            v-for="(photo, i) in activity.photos.slice(0, 3)"
+            :key="i"
+            :src="`https://places.googleapis.com/v1/${photo}/media?maxWidthPx=200&key=${useRuntimeConfig().public.googleMapsApiKey}`"
+            :alt="activity.name"
+            class="h-20 w-28 shrink-0 rounded-xl object-cover"
+            loading="lazy"
+          />
+        </div>
 
         <form class="mt-4 space-y-4" @submit.prevent="handleSave">
           <div>
@@ -149,6 +168,21 @@ function handleSave() {
               class="mt-1 block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
             />
           </div>
+
+          <!-- Opening hours (read-only from Google Maps) -->
+          <details v-if="activity?.openingHours?.length" class="group">
+            <summary class="flex cursor-pointer items-center gap-1 text-sm font-medium text-sand-700">
+              <Icon name="lucide:clock" class="h-3.5 w-3.5" />
+              Opening Hours
+              <span v-if="activity?.priceLevel != null && activity.priceLevel > 0" class="ml-2 text-xs font-medium text-forest-600">
+                {{ formatPriceLevel(activity.priceLevel) }}
+              </span>
+              <Icon name="lucide:chevron-down" class="ml-auto h-3.5 w-3.5 transition group-open:rotate-180" />
+            </summary>
+            <ul class="mt-2 space-y-0.5 text-sm text-sand-600">
+              <li v-for="(hour, i) in activity.openingHours" :key="i">{{ hour }}</li>
+            </ul>
+          </details>
 
           <div class="flex justify-end gap-3 pt-2">
             <button
