@@ -438,11 +438,6 @@ async function handleActivityAdded() {
 
 const showMoreMenu = ref(false);
 
-function handlePrint() {
-  showMoreMenu.value = false;
-  window.print();
-}
-
 // Close more menu on click outside
 if (import.meta.client) {
   document.addEventListener("click", (e) => {
@@ -596,13 +591,6 @@ async function recomputeSegments(dayId: string) {
                 >
                   <Icon name="lucide:map" class="h-4 w-4 text-sand-400" />
                   Export KML
-                </button>
-                <button
-                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
-                  @click="handlePrint"
-                >
-                  <Icon name="lucide:printer" class="h-4 w-4 text-sand-400" />
-                  Print
                 </button>
               </div>
             </Transition>
