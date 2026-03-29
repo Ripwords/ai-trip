@@ -8,9 +8,16 @@ interface Activity {
   sortOrder: number;
 }
 
+interface Accommodation {
+  name: string | null;
+  lat: number | null;
+  lng: number | null;
+}
+
 const props = defineProps<{
   activities: Activity[];
   showRoute?: boolean;
+  accommodation?: Accommodation | null;
 }>();
 
 const emit = defineEmits<{
@@ -25,6 +32,7 @@ const mapMode = ref<MapMode>("light");
 
 let map: google.maps.Map | null = null;
 let markers: google.maps.marker.AdvancedMarkerElement[] = [];
+let accommodationMarker: google.maps.marker.AdvancedMarkerElement | null = null;
 let polylines: google.maps.Polyline[] = [];
 let MapClass: typeof google.maps.Map;
 let MarkerClass: typeof google.maps.marker.AdvancedMarkerElement;
@@ -129,6 +137,26 @@ const mapModeLabel = computed(() => {
   }
 });
 
+function createAccommodationMarkerContent(): HTMLElement {
+  const div = document.createElement("div");
+  div.style.cssText = `
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: #22C55E;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    border: 2px solid white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    cursor: pointer;
+  `;
+  div.innerHTML = "🏠";
+  return div;
+}
+
 function updateMarkers(
   AdvancedMarkerElement?: typeof google.maps.marker.AdvancedMarkerElement
 ) {
@@ -136,6 +164,10 @@ function updateMarkers(
 
   markers.forEach((m) => (m.map = null));
   markers = [];
+  if (accommodationMarker) {
+    accommodationMarker.map = null;
+    accommodationMarker = null;
+  }
 
   // props.activities is already sorted by sortOrder from the API
   // Use array index for marker numbering to match v-for index in DaySection
@@ -172,7 +204,19 @@ function updateMarkers(
     markers.push(marker);
   });
 
-  if (geoActivities.length === 1) {
+  // Add accommodation marker if available
+  if (props.accommodation?.lat != null && props.accommodation?.lng != null) {
+    const accomPos = { lat: props.accommodation.lat, lng: props.accommodation.lng };
+    bounds.extend(accomPos);
+    accommodationMarker = new MClass({
+      map,
+      position: accomPos,
+      content: createAccommodationMarkerContent(),
+      title: props.accommodation.name ?? "Accommodation",
+    });
+  }
+
+  if (geoActivities.length === 1 && !accommodationMarker) {
     map.setCenter({
       lat: geoActivities[0].lat!,
       lng: geoActivities[0].lng!,

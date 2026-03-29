@@ -29,5 +29,13 @@ export default defineEventHandler(async (event) => {
     .values({ ...body, tripId: id })
     .returning();
 
+  // Audit log
+  await logTripAction({
+    tripId: id,
+    userId: session.user.id,
+    action: "expense_added",
+    description: `Added expense: ${body.description} ($${body.amount})`,
+  });
+
   return expense;
 });
