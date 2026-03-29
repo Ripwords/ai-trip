@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import draggable from "vuedraggable";
+
 interface Activity {
   id: string;
   name: string;
@@ -44,9 +46,39 @@ const emit = defineEmits<{
   deleteActivity: [activity: Activity];
   clickActivity: [activity: Activity];
   addActivity: [dayId: string];
+  reordered: [];
 }>();
 
 const mapsUrl = computed(() => getGoogleMapsDirectionsUrl(props.day.activities));
+
+// Drag and drop
+const localActivities = ref([...props.day.activities]);
+const isDragging = ref(false);
+
+watch(() => props.day.activities, (newActivities) => {
+  localActivities.value = [...newActivities];
+}, { deep: true });
+
+async function handleDragEnd() {
+  isDragging.value = false;
+  const newOrder = localActivities.value.map((a) => a.id);
+
+  // Check if order actually changed
+  const oldOrder = props.day.activities.map((a) => a.id);
+  if (JSON.stringify(newOrder) === JSON.stringify(oldOrder)) return;
+
+  try {
+    await $fetch(`/api/trips/${props.tripId}/days/${props.day.id}/reorder`, {
+      method: "PUT",
+      body: { activityIds: newOrder },
+    });
+    emit("reordered");
+  } catch (e) {
+    console.error("Failed to reorder:", e);
+    // Revert on failure
+    localActivities.value = [...props.day.activities];
+  }
+}
 
 function getSegmentForActivity(activityId: string): TravelSegment | undefined {
   return props.travelSegments?.find((s) => s.fromActivityId === activityId);
@@ -120,37 +152,57 @@ function timeToMinutes(time: string): number | null {
       {{ day.notes }}
     </p>
 
-    <div v-if="day.activities.length" class="space-y-3 pl-5 border-l-2 border-terra-200">
-      <template
-        v-for="(activity, index) in day.activities"
-        :key="activity.id"
+    <div v-if="day.activities.length" class="pl-5 border-l-2 border-terra-200">
+      <draggable
+        v-model="localActivities"
+        item-key="id"
+        handle=".drag-handle"
+        :disabled="readonly"
+        ghost-class="opacity-30"
+        drag-class="shadow-lg"
+        class="space-y-3"
+        @start="isDragging = true"
+        @end="handleDragEnd"
       >
-        <!-- Time conflict warning -->
-        <div
-          v-if="isOutOfOrder(index)"
-          class="flex items-center gap-1.5 rounded-lg bg-terra-50 px-3 py-2 text-sm text-terra-700"
-        >
-          <Icon name="lucide:alert-triangle" class="h-3.5 w-3.5 shrink-0" />
-          <span>Schedule conflict — activities overlap in time</span>
-        </div>
+        <template #item="{ element: activity, index }">
+          <div>
+            <!-- Time conflict warning -->
+            <div
+              v-if="isOutOfOrder(index)"
+              class="mb-2 flex items-center gap-1.5 rounded-lg bg-terra-50 px-3 py-2 text-sm text-terra-700"
+            >
+              <Icon name="lucide:alert-triangle" class="h-3.5 w-3.5 shrink-0" />
+              <span>Schedule conflict — activities overlap in time</span>
+            </div>
 
-        <div :id="`activity-${activity.id}`">
-          <ActivityCard
-            :activity="activity"
-            :index="index"
-            :highlighted="activity.id === highlightedActivityId"
-            :readonly="readonly"
-            @edit="emit('editActivity', $event)"
-            @delete="emit('deleteActivity', $event)"
-            @click="emit('clickActivity', $event)"
-          />
-        </div>
-        <TravelSegmentDivider
-          v-if="index < day.activities.length - 1"
-          :duration-text="getSegmentForActivity(activity.id)?.durationText ?? null"
-          :distance-text="getSegmentForActivity(activity.id)?.distanceText ?? null"
-        />
-      </template>
+            <div :id="`activity-${activity.id}`" class="flex gap-1">
+              <!-- Drag handle -->
+              <div
+                v-if="!readonly"
+                class="drag-handle flex shrink-0 cursor-grab items-center px-0.5 text-sand-300 active:cursor-grabbing"
+              >
+                <Icon name="lucide:grip-vertical" class="h-4 w-4" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <ActivityCard
+                  :activity="activity"
+                  :index="index"
+                  :highlighted="activity.id === highlightedActivityId"
+                  :readonly="readonly"
+                  @edit="emit('editActivity', $event)"
+                  @delete="emit('deleteActivity', $event)"
+                  @click="emit('clickActivity', $event)"
+                />
+              </div>
+            </div>
+            <TravelSegmentDivider
+              v-if="index < localActivities.length - 1 && !isDragging"
+              :duration-text="getSegmentForActivity(activity.id)?.durationText ?? null"
+              :distance-text="getSegmentForActivity(activity.id)?.distanceText ?? null"
+            />
+          </div>
+        </template>
+      </draggable>
 
       <button
         v-if="!readonly"

@@ -575,6 +575,7 @@ async function recomputeSegments(dayId: string) {
                 @delete-activity="handleDeleteActivity"
                 @click-activity="handleActivityClick"
                 @add-activity="handleAddActivity"
+                @reordered="refresh"
               />
 
               <!-- Ideas bucket (hidden for viewers) -->

@@ -5,6 +5,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       meta: [
+        { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1" },
         { name: "description", content: "AI-powered travel itinerary planner with real places verified by Google Maps" },
         { name: "theme-color", content: "#e85d3a" },
       ],
@@ -44,6 +45,8 @@ export default defineNuxtConfig({
         'dayjs/plugin/relativeTime',
         'dayjs/plugin/utc',
         '@better-auth/infra/client',
+        'vuedraggable',
+        'sortablejs',
       ],
     },
   },

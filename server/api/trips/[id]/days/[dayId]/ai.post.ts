@@ -226,6 +226,17 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // Handle accommodation booking
+  if (result.accommodation) {
+    await db.update(itineraryDays).set({
+      accommodationName: result.accommodation.name,
+      accommodationAddress: result.accommodation.address,
+      accommodationLat: result.accommodation.lat,
+      accommodationLng: result.accommodation.lng,
+      accommodationPlaceId: result.accommodation.placeId,
+    }).where(eq(itineraryDays.id, dayId));
+  }
+
   // Handle AI-determined activity order (from optimize intent)
   if (result.orderedActivities?.length) {
     const currentActivities = await db.query.activities.findMany({

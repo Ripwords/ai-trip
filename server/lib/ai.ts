@@ -30,6 +30,7 @@ export interface AIProcessResult {
   removals: { name: string; reason: string }[];
   updates: { name: string; suggestedTime: string; estimatedDurationMinutes: number }[];
   orderedActivities?: { name: string; suggestedTime: string }[];
+  accommodation?: { name: string; address: string | null; lat: number | null; lng: number | null; placeId: string | null };
   shouldOptimize: boolean;
 }
 
@@ -159,7 +160,7 @@ async function doResearch(destination: string, userContext?: string): Promise<st
 // ── Intent Classification ────────────────────────────────────────────
 
 const intentSchema = z.object({
-  intent: z.enum(["add", "remove", "modify", "optimize", "reschedule", "fill_gaps", "general"]),
+  intent: z.enum(["add", "remove", "modify", "optimize", "reschedule", "fill_gaps", "accommodation", "general"]),
   reasoning: z.string().describe("Why this intent was chosen"),
 });
 
@@ -185,6 +186,7 @@ Choose the MOST appropriate intent:
 - "reschedule": wants to FIX TIMING issues — activities are too early, too late, overlapping, or need reordering WITHOUT adding/removing (e.g., "dinner is too late", "move lunch earlier", "the times don't work", "too cramped in the morning")
 - "optimize": wants to REORDER all activities for best route efficiency (e.g., "optimize the route", "minimize travel time")
 - "fill_gaps": wants AI to SUGGEST activities for empty time slots (e.g., "fill the gaps", "what should I do between lunch and dinner")
+- "accommodation": wants to SET or FIND accommodation/hotel/airbnb for this day (e.g., "book a hotel near Shibuya", "find accommodation", "I'm staying at Hotel X", "set the hotel")
 - "general": mixed or unclear
 
 IMPORTANT: If the user complains about timing/scheduling (too late, too early, overlapping, cramped), choose "reschedule" NOT "modify".`,
@@ -394,6 +396,53 @@ Ensure no overlaps: each activity starts after the previous one ends (with 15-30
   return { timeUpdates: object.timeUpdates };
 }
 
+async function handleAccommodation(params: {
+  prompt: string;
+  destination: string;
+  preferences?: TripPreferences;
+}): Promise<{ name: string; address: string | null; lat: number | null; lng: number | null; placeId: string | null }> {
+  logger.info("[accommodation] Finding accommodation");
+
+  // Step 1: Research via agent
+  const research = await doResearch(params.destination, `hotels accommodation airbnb ${params.prompt}`);
+
+  // Step 2: Get AI to suggest a specific place
+  const { generateObject } = await import("ai");
+  const { object } = await generateObject({
+    model: google(MODEL_ID),
+    schema: z.object({
+      name: z.string().describe("Exact hotel/accommodation name on Google Maps"),
+      description: z.string().describe("Brief description"),
+    }),
+    system: `You are a travel accommodation expert. ${formatPreferences(params.preferences)}`,
+    prompt: `Based on this research:\n${research}\n\nThe traveler wants: ${params.prompt}\nLocation: ${params.destination}\n\nSuggest ONE specific accommodation. Use real names from Google Maps.`,
+  });
+
+  // Step 3: Validate via Google Maps
+  const { searchPlace } = await import("./google-maps");
+  const candidates = await searchPlace(`${object.name} ${params.destination}`);
+  const match = candidates[0];
+
+  if (match) {
+    return {
+      name: match.name,
+      address: match.formattedAddress ?? null,
+      lat: match.lat,
+      lng: match.lng,
+      placeId: match.placeId,
+    };
+  }
+
+  // Fallback: return AI suggestion without coordinates
+  return {
+    name: object.name,
+    address: null,
+    lat: null,
+    lng: null,
+    placeId: null,
+  };
+}
+
 // ── Unified Entry Point ──────────────────────────────────────────────
 
 export async function processUserRequest(params: {
@@ -508,6 +557,17 @@ export async function processUserRequest(params: {
       result.orderedActivities = orderedActivities;
       result.shouldOptimize = true;
       result.message = "Optimized route for minimum travel time";
+      break;
+    }
+
+    case "accommodation": {
+      const accom = await handleAccommodation({
+        prompt: params.prompt,
+        destination: params.destination,
+        preferences: params.preferences,
+      });
+      result.accommodation = accom;
+      result.message = `Set accommodation: ${accom.name}`;
       break;
     }
 
