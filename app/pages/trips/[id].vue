@@ -436,6 +436,22 @@ async function handleActivityAdded() {
   await refresh();
 }
 
+const showMoreMenu = ref(false);
+
+function handlePrint() {
+  showMoreMenu.value = false;
+  window.print();
+}
+
+// Close more menu on click outside
+if (import.meta.client) {
+  document.addEventListener("click", (e) => {
+    if (showMoreMenu.value && !(e.target as HTMLElement).closest(".relative")) {
+      showMoreMenu.value = false;
+    }
+  });
+}
+
 const shareLoading = ref(false);
 const shareCopied = ref(false);
 
@@ -553,15 +569,44 @@ async function recomputeSegments(dayId: string) {
             <span class="hidden sm:inline">{{ trip.preferences?.budget || "moderate" }} · {{ trip.preferences?.pace || "moderate" }}</span>
             <span class="sm:hidden">Prefs</span>
           </button>
-          <button
-            class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
-            title="Export trip as KML for Google My Maps"
-            @click="handleExportKml"
-          >
-            <Icon name="lucide:download" class="h-3 w-3" />
-            <span class="hidden sm:inline">Export KML</span>
-            <span class="sm:hidden">KML</span>
-          </button>
+          <!-- More options dropdown -->
+          <div class="relative">
+            <button
+              class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
+              title="More options"
+              @click="showMoreMenu = !showMoreMenu"
+            >
+              <Icon name="lucide:more-horizontal" class="h-3.5 w-3.5" />
+            </button>
+            <Transition
+              enter-active-class="duration-150 ease-out"
+              enter-from-class="opacity-0 scale-95"
+              enter-to-class="opacity-100 scale-100"
+              leave-active-class="duration-100 ease-in"
+              leave-from-class="opacity-100 scale-100"
+              leave-to-class="opacity-0 scale-95"
+            >
+              <div
+                v-if="showMoreMenu"
+                class="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
+              >
+                <button
+                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
+                  @click="handleExportKml(); showMoreMenu = false"
+                >
+                  <Icon name="lucide:map" class="h-4 w-4 text-sand-400" />
+                  Export KML
+                </button>
+                <button
+                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
+                  @click="handlePrint"
+                >
+                  <Icon name="lucide:printer" class="h-4 w-4 text-sand-400" />
+                  Print
+                </button>
+              </div>
+            </Transition>
+          </div>
           <!-- Share button (owner only) -->
           <template v-if="tripRole === 'owner'">
             <button
