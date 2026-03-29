@@ -29,13 +29,6 @@ export default defineNuxtConfig({
   experimental: {
     nitroAutoImports: true,
   },
-  nitro: {
-    // Fix samlify/camelcase ESM require() error on Vercel
-    // https://github.com/better-auth/better-auth/issues/8620
-    externals: {
-      inline: [/./],
-    },
-  },
   css: ["./app/assets/css/tailwind.css"],
   devtools: { enabled: true },
   modules: ["@nuxt/icon", "@nuxt/image", "nuxt-security", "dayjs-nuxt", "@vite-pwa/nuxt"],
