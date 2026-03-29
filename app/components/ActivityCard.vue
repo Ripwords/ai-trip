@@ -17,6 +17,7 @@ interface Activity {
   actualCost: string | null;
   photos: string[];
   openingHours: string[] | null;
+  tags: string[];
   sortOrder: number;
 }
 
@@ -148,6 +149,16 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
     >
       {{ activity.description }}
     </p>
+
+    <div v-if="activity.tags?.length" class="mt-2 flex flex-wrap gap-1">
+      <span
+        v-for="tag in activity.tags.slice(0, 4)"
+        :key="tag"
+        class="rounded-full bg-sand-100 px-2 py-0.5 text-[10px] text-sand-500"
+      >
+        {{ tag }}
+      </span>
+    </div>
 
     <div class="mt-3 flex flex-wrap items-center gap-3 text-sm text-sand-500">
       <a

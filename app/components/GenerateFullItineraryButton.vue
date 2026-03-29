@@ -3,6 +3,7 @@ const props = defineProps<{
   tripId: string;
   days: { id: string; dayNumber: number; activities: { id: string }[] }[];
   disabled: boolean;
+  aiRemaining?: number;
 }>();
 
 const emit = defineEmits<{
@@ -22,12 +23,22 @@ const emptyDays = computed(() =>
 async function handleGenerate() {
   if (emptyDays.value.length === 0) return;
 
-  const ok = await confirm({
-    title: "Generate full itinerary",
-    message: `This will use AI to fill ${emptyDays.value.length} empty day${emptyDays.value.length > 1 ? "s" : ""}. Each day costs 1 AI prompt.`,
-    confirmText: "Generate",
-  });
-  if (!ok) return;
+  // Pre-check quota
+  if (props.aiRemaining != null && props.aiRemaining < emptyDays.value.length) {
+    const ok = await confirm({
+      title: "Not enough AI prompts",
+      message: `You need ${emptyDays.value.length} prompts but only have ${props.aiRemaining} remaining this month. Generate as many as possible?`,
+      confirmText: "Continue anyway",
+    });
+    if (!ok) return;
+  } else {
+    const ok = await confirm({
+      title: "Generate full itinerary",
+      message: `This will use AI to fill ${emptyDays.value.length} empty day${emptyDays.value.length > 1 ? "s" : ""}. Each day costs 1 AI prompt.`,
+      confirmText: "Generate",
+    });
+    if (!ok) return;
+  }
 
   isGenerating.value = true;
   generationError.value = "";

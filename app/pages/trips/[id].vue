@@ -261,6 +261,18 @@ async function handleUndo() {
   }
 }
 
+async function handleUpdateDayNotes(notes: string) {
+  if (!activeDayId.value) return;
+  try {
+    await $fetch(`/api/trips/${tripId}/days/${activeDayId.value}/notes`, {
+      method: "PUT",
+      body: { notes: notes || null },
+    });
+  } catch (e: unknown) {
+    console.error("Failed to update day notes:", e);
+  }
+}
+
 // Clear undo state when switching days
 watch(activeDayId, () => {
   lastSnapshot.value = null;
@@ -561,6 +573,7 @@ async function recomputeSegments(dayId: string) {
           :trip-id="tripId"
           :days="sortedDays"
           :disabled="aiLoading || (aiUsage?.remaining ?? 1) <= 0"
+          :ai-remaining="aiUsage?.remaining"
           class="mt-3"
           @done="refresh(); refreshUsage()"
         />
@@ -684,6 +697,7 @@ async function recomputeSegments(dayId: string) {
                 @click-activity="handleActivityClick"
                 @add-activity="handleAddActivity"
                 @reordered="refresh"
+                @update-notes="handleUpdateDayNotes"
               />
 
               <!-- Ideas bucket (hidden for viewers) -->
