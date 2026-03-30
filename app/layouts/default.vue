@@ -15,13 +15,15 @@ const { cycle, modeIcon, modeLabel } = useDarkMode();
           <span class="font-display text-lg text-sand-900">AI Trip</span>
         </NuxtLink>
         <div class="flex items-center gap-3">
-          <button
-            class="rounded-lg p-1.5 text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
-            :title="`Theme: ${modeLabel}`"
-            @click="cycle"
-          >
-            <Icon :name="modeIcon" class="h-4 w-4" />
-          </button>
+          <ClientOnly>
+            <button
+              class="rounded-lg p-1.5 text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+              :title="`Theme: ${modeLabel}`"
+              @click="cycle"
+            >
+              <Icon :name="modeIcon" class="h-4 w-4" />
+            </button>
+          </ClientOnly>
           <template v-if="isLoggedIn">
             <NuxtLink
               to="/dashboard"

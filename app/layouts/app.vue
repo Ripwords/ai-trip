@@ -40,13 +40,15 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
           >
             <Icon name="lucide:shield" class="h-4 w-4" />
           </NuxtLink>
-          <button
-            class="flex h-9 w-9 items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
-            :title="`Theme: ${modeLabel}`"
-            @click="cycle"
-          >
-            <Icon :name="modeIcon" class="h-4 w-4" />
-          </button>
+          <ClientOnly>
+            <button
+              class="flex h-9 w-9 items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+              :title="`Theme: ${modeLabel}`"
+              @click="cycle"
+            >
+              <Icon :name="modeIcon" class="h-4 w-4" />
+            </button>
+          </ClientOnly>
 
           <!-- User pill with dropdown -->
           <div ref="menuRef" class="relative">
