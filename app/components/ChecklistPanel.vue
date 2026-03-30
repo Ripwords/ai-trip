@@ -4,12 +4,21 @@ interface ChecklistItem {
   text: string;
   checked: boolean;
   sortOrder: number;
+  category: string | null;
 }
 
 interface Checklist {
   id: string;
   name: string;
   items: ChecklistItem[];
+}
+
+interface PackingTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  isGlobal: boolean;
+  items: { text: string; category: string }[];
 }
 
 const props = defineProps<{
@@ -23,10 +32,18 @@ const { data: checklists, refresh } = await useFetch<Checklist[]>(
 const expandedLists = ref<Set<string>>(new Set());
 const newListName = ref("");
 const newItemTexts = ref<Record<string, string>>({});
+const newItemCategories = ref<Record<string, string>>({});
 const editingListId = ref<string | null>(null);
 const editingListName = ref("");
 const editingItemId = ref<string | null>(null);
 const editingItemText = ref("");
+
+// Template state
+const showTemplateModal = ref(false);
+const templateTargetChecklistId = ref<string | null>(null);
+const templates = ref<PackingTemplate[]>([]);
+const showSaveTemplateForm = ref<string | null>(null);
+const saveTemplateName = ref("");
 
 function toggleList(id: string) {
   if (expandedLists.value.has(id)) {
@@ -34,6 +51,41 @@ function toggleList(id: string) {
   } else {
     expandedLists.value.add(id);
   }
+}
+
+// Compute unique categories across all items for datalist suggestions
+const allCategories = computed(() => {
+  const cats = new Set<string>();
+  checklists.value?.forEach((cl) => {
+    cl.items.forEach((item) => {
+      if (item.category) cats.add(item.category);
+    });
+  });
+  return Array.from(cats).sort();
+});
+
+// Group items by category
+function groupByCategory(items: ChecklistItem[]): { category: string; items: ChecklistItem[] }[] {
+  const groups: Record<string, ChecklistItem[]> = {};
+  for (const item of items) {
+    const cat = item.category || "Uncategorized";
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(item);
+  }
+  return Object.entries(groups).map(([category, items]) => ({ category, items }));
+}
+
+const categoryColors: Record<string, string> = {
+  Clothes: "bg-ocean-50 text-ocean-700",
+  Toiletries: "bg-terra-50 text-terra-600",
+  Electronics: "bg-yellow-50 text-yellow-700",
+  Documents: "bg-sand-200 text-sand-700",
+  Gear: "bg-forest-50 text-forest-700",
+  Accessories: "bg-purple-50 text-purple-700",
+};
+
+function getCategoryClass(category: string): string {
+  return categoryColors[category] || "bg-sand-100 text-sand-600";
 }
 
 async function createChecklist() {
@@ -109,12 +161,13 @@ async function toggleItem(checklistId: string, item: ChecklistItem) {
 async function addItem(checklistId: string) {
   const text = (newItemTexts.value[checklistId] ?? "").trim();
   if (!text) return;
+  const category = (newItemCategories.value[checklistId] ?? "").trim() || undefined;
   try {
     await $fetch(
       `/api/trips/${props.tripId}/checklists/${checklistId}/items`,
       {
         method: "POST",
-        body: { text },
+        body: { text, category },
       }
     );
     newItemTexts.value[checklistId] = "";
@@ -156,6 +209,58 @@ async function deleteItem(checklistId: string, itemId: string) {
   } catch (e: unknown) {
     console.error("Failed to delete item:", e);
   }
+}
+
+// Template functions
+async function openTemplateModal(checklistId: string) {
+  templateTargetChecklistId.value = checklistId;
+  try {
+    templates.value = await $fetch<PackingTemplate[]>("/api/packing-templates");
+  } catch (e: unknown) {
+    console.error("Failed to load templates:", e);
+    templates.value = [];
+  }
+  showTemplateModal.value = true;
+}
+
+async function loadTemplate(templateId: string) {
+  if (!templateTargetChecklistId.value) return;
+  try {
+    await $fetch(
+      `/api/trips/${props.tripId}/checklists/${templateTargetChecklistId.value}/load-template`,
+      {
+        method: "POST",
+        body: { templateId },
+      }
+    );
+    showTemplateModal.value = false;
+    expandedLists.value.add(templateTargetChecklistId.value);
+    await refresh();
+  } catch (e: unknown) {
+    console.error("Failed to load template:", e);
+  }
+}
+
+async function saveAsTemplate(checklistId: string) {
+  const name = saveTemplateName.value.trim();
+  if (!name) return;
+  try {
+    await $fetch(
+      `/api/trips/${props.tripId}/checklists/${checklistId}/save-as-template`,
+      {
+        method: "POST",
+        body: { name },
+      }
+    );
+    showSaveTemplateForm.value = null;
+    saveTemplateName.value = "";
+  } catch (e: unknown) {
+    console.error("Failed to save template:", e);
+  }
+}
+
+function checkedCount(checklist: Checklist): number {
+  return checklist.items.filter((i) => i.checked).length;
 }
 </script>
 
@@ -210,9 +315,26 @@ async function deleteItem(checklistId: string, itemId: string) {
             </template>
             <template v-else>
               {{ checklist.name }}
+              <span v-if="checklist.items.length" class="text-xs font-normal text-sand-400">
+                ({{ checkedCount(checklist) }}/{{ checklist.items.length }})
+              </span>
             </template>
           </button>
           <div class="flex gap-1">
+            <button
+              class="rounded p-1 text-sand-400 hover:bg-ocean-50 hover:text-ocean-600"
+              title="Load from template"
+              @click.stop="openTemplateModal(checklist.id)"
+            >
+              <Icon name="lucide:package-plus" class="h-3.5 w-3.5" />
+            </button>
+            <button
+              class="rounded p-1 text-sand-400 hover:bg-forest-50 hover:text-forest-600"
+              title="Save as template"
+              @click.stop="showSaveTemplateForm = showSaveTemplateForm === checklist.id ? null : checklist.id; saveTemplateName = checklist.name"
+            >
+              <Icon name="lucide:save" class="h-3.5 w-3.5" />
+            </button>
             <button
               class="rounded p-1 text-sand-400 hover:bg-sand-100 hover:text-sand-600"
               title="Edit name"
@@ -230,54 +352,144 @@ async function deleteItem(checklistId: string, itemId: string) {
           </div>
         </div>
 
+        <!-- Save as template inline form -->
+        <div v-if="showSaveTemplateForm === checklist.id" class="border-t border-sand-200 px-3 py-2">
+          <form class="flex gap-2" @submit.prevent="saveAsTemplate(checklist.id)">
+            <input
+              v-model="saveTemplateName"
+              type="text"
+              placeholder="Template name..."
+              class="block flex-1 rounded-lg border border-sand-300 px-2 py-1.5 text-sm input-focus"
+            />
+            <button
+              type="submit"
+              class="rounded-lg bg-forest-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-forest-600"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              class="rounded-lg border border-sand-300 px-3 py-1.5 text-xs font-medium text-sand-600 hover:bg-sand-50"
+              @click="showSaveTemplateForm = null"
+            >
+              Cancel
+            </button>
+          </form>
+        </div>
+
         <!-- Items -->
         <div v-if="expandedLists.has(checklist.id)" class="border-t border-sand-200 px-3 py-2">
-          <div
-            v-for="item in checklist.items"
-            :key="item.id"
-            class="flex items-center justify-between py-1"
-          >
-            <label class="flex items-center gap-2 text-sm cursor-pointer min-w-0">
-              <input
-                type="checkbox"
-                :checked="item.checked"
-                class="shrink-0 rounded border-sand-300 text-terra-500 focus:ring-terra-500"
-                @change="toggleItem(checklist.id, item)"
-              />
-              <input
-                v-if="editingItemId === item.id"
-                v-model="editingItemText"
-                type="text"
-                class="min-w-0 flex-1 rounded border border-sand-300 px-1.5 py-0.5 text-sm input-focus"
-                @keydown.enter="saveItemText(checklist.id, item.id)"
-                @blur="saveItemText(checklist.id, item.id)"
-                @click.stop
-              />
-              <span
-                v-else
-                class="min-w-0 truncate"
-                :class="item.checked ? 'text-sand-400 line-through' : 'text-sand-700'"
-                @dblclick.prevent="startEditItem(item)"
-              >
-                {{ item.text }}
-              </span>
-            </label>
-            <button
-              class="rounded p-0.5 text-sand-300 hover:text-red-500"
-              @click="deleteItem(checklist.id, item.id)"
+          <!-- Group by category if any items have categories -->
+          <template v-if="checklist.items.some(i => i.category)">
+            <div
+              v-for="group in groupByCategory(checklist.items)"
+              :key="group.category"
+              class="mb-2 last:mb-0"
             >
-              <Icon name="lucide:x" class="h-3.5 w-3.5" />
-            </button>
-          </div>
+              <div class="mb-1 flex items-center gap-1.5">
+                <span
+                  class="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium"
+                  :class="getCategoryClass(group.category)"
+                >
+                  {{ group.category }}
+                </span>
+              </div>
+              <div
+                v-for="item in group.items"
+                :key="item.id"
+                class="flex items-center justify-between py-1 pl-1"
+              >
+                <label class="flex items-center gap-2 text-sm cursor-pointer min-w-0">
+                  <input
+                    type="checkbox"
+                    :checked="item.checked"
+                    class="shrink-0 rounded border-sand-300 text-terra-500 focus:ring-terra-500"
+                    @change="toggleItem(checklist.id, item)"
+                  />
+                  <input
+                    v-if="editingItemId === item.id"
+                    v-model="editingItemText"
+                    type="text"
+                    class="min-w-0 flex-1 rounded border border-sand-300 px-1.5 py-0.5 text-sm input-focus"
+                    @keydown.enter="saveItemText(checklist.id, item.id)"
+                    @blur="saveItemText(checklist.id, item.id)"
+                    @click.stop
+                  />
+                  <span
+                    v-else
+                    class="min-w-0 truncate"
+                    :class="item.checked ? 'text-sand-400 line-through' : 'text-sand-700'"
+                    @dblclick.prevent="startEditItem(item)"
+                  >
+                    {{ item.text }}
+                  </span>
+                </label>
+                <button
+                  class="rounded p-0.5 text-sand-300 hover:text-red-500"
+                  @click="deleteItem(checklist.id, item.id)"
+                >
+                  <Icon name="lucide:x" class="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <!-- Flat list (no categories) -->
+          <template v-else>
+            <div
+              v-for="item in checklist.items"
+              :key="item.id"
+              class="flex items-center justify-between py-1"
+            >
+              <label class="flex items-center gap-2 text-sm cursor-pointer min-w-0">
+                <input
+                  type="checkbox"
+                  :checked="item.checked"
+                  class="shrink-0 rounded border-sand-300 text-terra-500 focus:ring-terra-500"
+                  @change="toggleItem(checklist.id, item)"
+                />
+                <input
+                  v-if="editingItemId === item.id"
+                  v-model="editingItemText"
+                  type="text"
+                  class="min-w-0 flex-1 rounded border border-sand-300 px-1.5 py-0.5 text-sm input-focus"
+                  @keydown.enter="saveItemText(checklist.id, item.id)"
+                  @blur="saveItemText(checklist.id, item.id)"
+                  @click.stop
+                />
+                <span
+                  v-else
+                  class="min-w-0 truncate"
+                  :class="item.checked ? 'text-sand-400 line-through' : 'text-sand-700'"
+                  @dblclick.prevent="startEditItem(item)"
+                >
+                  {{ item.text }}
+                </span>
+              </label>
+              <button
+                class="rounded p-0.5 text-sand-300 hover:text-red-500"
+                @click="deleteItem(checklist.id, item.id)"
+              >
+                <Icon name="lucide:x" class="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </template>
 
           <!-- Add item -->
-          <div class="mt-1">
+          <div class="mt-1 flex gap-1.5">
             <input
               v-model="newItemTexts[checklist.id]"
               type="text"
               placeholder="Add item..."
-              class="block w-full rounded border border-sand-200 px-2 py-1 text-sm input-focus"
+              class="block flex-1 rounded border border-sand-200 px-2 py-1 text-sm input-focus"
               @keydown.enter="addItem(checklist.id)"
+            />
+            <input
+              v-model="newItemCategories[checklist.id]"
+              type="text"
+              list="category-suggestions"
+              placeholder="Category"
+              class="block w-24 rounded border border-sand-200 px-2 py-1 text-xs input-focus"
             />
           </div>
         </div>
@@ -287,5 +499,61 @@ async function deleteItem(checklistId: string, itemId: string) {
     <p v-else class="mt-4 text-center text-xs text-sand-400">
       No checklists yet. Create one above.
     </p>
+
+    <!-- Category datalist -->
+    <datalist id="category-suggestions">
+      <option v-for="cat in allCategories" :key="cat" :value="cat" />
+    </datalist>
+
+    <!-- Template selection modal -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="duration-200 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="duration-150 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div v-if="showTemplateModal" class="fixed inset-0 z-50 flex items-center justify-center">
+          <div class="fixed inset-0 bg-black/40" @click="showTemplateModal = false" />
+          <div class="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl mx-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-base font-semibold text-sand-900">Load Template</h3>
+              <button
+                class="rounded p-1 text-sand-400 hover:text-sand-600"
+                @click="showTemplateModal = false"
+              >
+                <Icon name="lucide:x" class="h-4 w-4" />
+              </button>
+            </div>
+            <p class="mt-1 text-xs text-sand-500">
+              Items will be added to your checklist. Existing items are kept.
+            </p>
+
+            <div v-if="templates.length" class="mt-4 max-h-80 space-y-2 overflow-y-auto">
+              <button
+                v-for="tmpl in templates"
+                :key="tmpl.id"
+                class="w-full rounded-xl border border-sand-200 p-3 text-left transition hover:border-terra-300 hover:bg-terra-50/30"
+                @click="loadTemplate(tmpl.id)"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-medium text-sand-900">{{ tmpl.name }}</span>
+                  <span class="flex items-center gap-1 text-xs text-sand-400">
+                    <Icon v-if="tmpl.isGlobal" name="lucide:globe" class="h-3 w-3" title="Built-in template" />
+                    {{ tmpl.items.length }} items
+                  </span>
+                </div>
+                <p v-if="tmpl.description" class="mt-0.5 text-xs text-sand-500">{{ tmpl.description }}</p>
+              </button>
+            </div>
+            <p v-else class="mt-4 text-center text-sm text-sand-400">
+              No templates available yet.
+            </p>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>

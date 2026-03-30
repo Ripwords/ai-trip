@@ -31,6 +31,7 @@ export const checklistItems = pgTable(
     text: text("text").notNull(),
     checked: boolean("checked").notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
+    category: text("category"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("idx_checklist_items_checklist_id").on(table.checklistId)]

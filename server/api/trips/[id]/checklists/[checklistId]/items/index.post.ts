@@ -38,6 +38,7 @@ export default defineEventHandler(async (event) => {
       text: body.text,
       checklistId,
       sortOrder,
+      category: body.category ?? undefined,
     })
     .returning();
 
