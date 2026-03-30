@@ -40,6 +40,17 @@ function getGoogleMapsUrl(activity: Activity): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.name)}`;
 }
 
+interface Participant {
+  userId: string;
+  name: string;
+  image: string | null;
+}
+
+interface Member {
+  userId: string;
+  user: { name: string; image: string | null };
+}
+
 const props = defineProps<{
   activity: Activity;
   index: number;
@@ -48,6 +59,8 @@ const props = defineProps<{
   isCollaborative?: boolean;
   voteCount?: number;
   commentCount?: number;
+  participants?: Participant[];
+  members?: Member[];
 }>();
 
 const emit = defineEmits<{
@@ -56,7 +69,18 @@ const emit = defineEmits<{
   click: [activity: Activity];
   vote: [activityId: string, vote: "up" | "down"];
   showComments: [activityId: string];
+  toggleParticipant: [activityId: string, userId: string];
 }>();
+
+const showParticipantPicker = ref(false);
+
+function isParticipant(userId: string): boolean {
+  return props.participants?.some((p) => p.userId === userId) ?? false;
+}
+
+function getInitials(name: string): string {
+  return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+}
 
 const typeBadgeClasses: Record<string, string> = {
   attraction: "bg-ocean-50 text-ocean-700",
@@ -209,6 +233,56 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
         </template>
         <span class="ml-1">{{ activity.rating }}</span>
       </span>
+    </div>
+
+    <!-- Participants -->
+    <div v-if="members && members.length > 1" class="mt-2 flex items-center gap-1.5">
+      <div class="flex -space-x-1.5">
+        <span
+          v-for="p in (participants ?? []).slice(0, 5)"
+          :key="p.userId"
+          class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white text-[8px] font-bold text-white"
+          :style="{ background: '#E85D3A' }"
+          :title="p.name"
+        >
+          {{ getInitials(p.name) }}
+        </span>
+      </div>
+      <button
+        v-if="!readonly"
+        class="relative inline-flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-sand-300 text-sand-400 transition hover:border-terra-400 hover:text-terra-500"
+        title="Assign members"
+        @click.stop="showParticipantPicker = !showParticipantPicker"
+      >
+        <Icon name="lucide:user-plus" class="h-3 w-3" />
+      </button>
+
+      <!-- Participant picker dropdown -->
+      <div
+        v-if="showParticipantPicker"
+        class="absolute z-20 mt-1 w-48 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
+        style="top: 100%"
+      >
+        <button
+          v-for="m in members"
+          :key="m.userId"
+          class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition hover:bg-sand-50"
+          @click.stop="emit('toggleParticipant', activity.id, m.userId); showParticipantPicker = false"
+        >
+          <span
+            class="inline-flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white"
+            :style="{ background: isParticipant(m.userId) ? '#E85D3A' : '#a8a29e' }"
+          >
+            {{ getInitials(m.user.name) }}
+          </span>
+          <span class="text-sand-700">{{ m.user.name }}</span>
+          <Icon
+            v-if="isParticipant(m.userId)"
+            name="lucide:check"
+            class="ml-auto h-3.5 w-3.5 text-forest-600"
+          />
+        </button>
+      </div>
     </div>
 
     <!-- Collaboration: vote + comment (only for group trips) -->

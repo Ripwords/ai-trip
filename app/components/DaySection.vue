@@ -36,12 +36,25 @@ interface Day {
   activities: Activity[];
 }
 
+interface Participant {
+  userId: string;
+  name: string;
+  image: string | null;
+}
+
+interface Member {
+  userId: string;
+  user: { name: string; image: string | null };
+}
+
 const props = defineProps<{
   day: Day;
   tripId: string;
   highlightedActivityId?: string | null;
   travelSegments?: TravelSegment[];
   readonly?: boolean;
+  participantsMap?: Record<string, Participant[]>;
+  members?: Member[];
 }>();
 
 const emit = defineEmits<{
@@ -51,6 +64,7 @@ const emit = defineEmits<{
   addActivity: [dayId: string];
   reordered: [];
   updateNotes: [notes: string];
+  toggleParticipant: [activityId: string, userId: string];
 }>();
 
 const mapsUrl = computed(() => getGoogleMapsDirectionsUrl(props.day.activities));
@@ -203,9 +217,12 @@ function timeToMinutes(time: string): number | null {
                   :index="index"
                   :highlighted="activity.id === highlightedActivityId"
                   :readonly="readonly"
+                  :participants="participantsMap?.[activity.id]"
+                  :members="members"
                   @edit="emit('editActivity', $event)"
                   @delete="emit('deleteActivity', $event)"
                   @click="emit('clickActivity', $event)"
+                  @toggle-participant="(activityId: string, userId: string) => emit('toggleParticipant', activityId, userId)"
                 />
               </div>
             </div>
