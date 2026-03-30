@@ -37,16 +37,19 @@ export default defineNuxtConfig({
     optimizeDeps: {
       include: [
         'better-auth/vue',
+        'better-auth/vue',
         '@vue/devtools-core',
         '@vue/devtools-kit',
         '@googlemaps/js-api-loader',
-        'dayjs',
-        'dayjs/plugin/updateLocale',
-        'dayjs/plugin/relativeTime',
-        'dayjs/plugin/utc',
+        'dayjs', // CJS
+        'dayjs/plugin/updateLocale', // CJS
+        'dayjs/plugin/relativeTime', // CJS
+        'dayjs/plugin/utc', // CJS
         '@better-auth/infra/client',
-        'vuedraggable',
+        'vuedraggable', // CJS
         'sortablejs',
+        'better-auth/client/plugins',
+        '@googlemaps/markerclusterer',
       ],
     },
   },
@@ -154,6 +157,7 @@ export default defineNuxtConfig({
           "https://places.googleapis.com",
           "https://fonts.googleapis.com",
           "https://accounts.google.com",
+          "https://*.public.blob.vercel-storage.com",
         ],
         "frame-src": ["https://maps.googleapis.com", "https://accounts.google.com"],
       },
