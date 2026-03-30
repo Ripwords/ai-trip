@@ -47,6 +47,25 @@ const markerColors: Record<string, string> = {
   entertainment: "#EC4899",
 };
 
+// Category filter
+const hiddenTypes = ref<Set<string>>(new Set());
+const uniqueTypes = computed(() => {
+  const types = new Set<string>();
+  for (const a of props.activities) {
+    if (a.type) types.add(a.type);
+  }
+  return Array.from(types).sort();
+});
+
+function toggleTypeFilter(type: string) {
+  if (hiddenTypes.value.has(type)) {
+    hiddenTypes.value.delete(type);
+  } else {
+    hiddenTypes.value.add(type);
+  }
+  if (isLoaded.value && map) updateMarkers();
+}
+
 function getMarkerColor(type: string): string {
   return markerColors[type] || "#3B82F6";
 }
@@ -174,7 +193,7 @@ function updateMarkers(
   // Use array index for marker numbering to match v-for index in DaySection
   const geoActivities = props.activities
     .map((a, i) => ({ ...a, displayIndex: i }))
-    .filter((a) => a.lat != null && a.lng != null);
+    .filter((a) => a.lat != null && a.lng != null && !hiddenTypes.value.has(a.type));
 
   if (geoActivities.length === 0) {
     map.setCenter({ lat: 0, lng: 0 });
@@ -237,7 +256,7 @@ function updatePolylines() {
   if (!map || props.showRoute === false) return;
 
   const geoActivities = props.activities
-    .filter((a) => a.lat != null && a.lng != null)
+    .filter((a) => a.lat != null && a.lng != null && !hiddenTypes.value.has(a.type))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
   if (geoActivities.length < 2) return;
@@ -311,5 +330,26 @@ defineExpose({ centerOnActivity });
       <Icon :name="mapModeIcon" class="h-4 w-4 text-sand-700" />
       <span class="text-xs font-medium text-sand-600">{{ mapModeLabel }}</span>
     </button>
+    <!-- Category filter -->
+    <div
+      v-if="uniqueTypes.length > 1"
+      class="absolute bottom-2 left-2 z-10 flex max-w-[calc(100%-80px)] flex-wrap gap-1"
+    >
+      <button
+        v-for="type in uniqueTypes"
+        :key="type"
+        class="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm transition"
+        :class="hiddenTypes.has(type)
+          ? 'bg-white/60 text-sand-400 line-through'
+          : 'bg-white/90 text-sand-700'"
+        @click="toggleTypeFilter(type)"
+      >
+        <span
+          class="inline-block h-2 w-2 rounded-full"
+          :style="{ background: hiddenTypes.has(type) ? '#d6d3d1' : (markerColors[type] || '#3B82F6') }"
+        />
+        {{ formatType(type) }}
+      </button>
+    </div>
   </div>
 </template>
