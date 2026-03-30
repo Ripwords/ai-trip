@@ -321,35 +321,72 @@ defineExpose({ centerOnActivity });
 <template>
   <div class="relative flex h-full w-full flex-col">
     <div ref="mapContainer" class="flex-1 rounded-lg" />
-    <!-- Map mode toggle: Light → Dark → Satellite → Light -->
+    <!-- Map mode toggle -->
     <button
-      class="absolute right-2 top-2 z-10 flex h-8 items-center gap-1.5 rounded-lg bg-white px-2.5 shadow-md transition hover:bg-sand-50"
+      class="map-btn absolute right-2 top-2 z-10 flex h-8 items-center gap-1.5 rounded-lg px-2.5 shadow-md transition"
       :title="mapModeLabel"
       @click="cycleMapMode"
     >
-      <Icon :name="mapModeIcon" class="h-4 w-4 text-sand-700" />
-      <span class="text-xs font-medium text-sand-600">{{ mapModeLabel }}</span>
+      <Icon :name="mapModeIcon" class="h-4 w-4" />
+      <span class="text-xs font-medium">{{ mapModeLabel }}</span>
     </button>
     <!-- Category filter -->
     <div
       v-if="uniqueTypes.length > 1"
-      class="absolute bottom-2 left-2 z-10 flex max-w-[calc(100%-80px)] flex-wrap gap-1"
+      class="absolute bottom-2 left-2 z-10 hidden max-w-[calc(100%-80px)] flex-wrap gap-1 lg:flex"
     >
       <button
         v-for="type in uniqueTypes"
         :key="type"
-        class="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm transition"
-        :class="hiddenTypes.has(type)
-          ? 'bg-white/60 text-sand-400 line-through'
-          : 'bg-white/90 text-sand-700'"
+        class="map-filter-pill flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium shadow-sm transition"
+        :class="{ 'is-hidden': hiddenTypes.has(type) }"
         @click="toggleTypeFilter(type)"
       >
         <span
           class="inline-block h-2 w-2 rounded-full"
-          :style="{ background: hiddenTypes.has(type) ? '#d6d3d1' : (markerColors[type] || '#3B82F6') }"
+          :style="{ background: hiddenTypes.has(type) ? '#78716c' : (markerColors[type] || '#3B82F6') }"
         />
         {{ formatType(type) }}
       </button>
     </div>
   </div>
 </template>
+
+<style scoped>
+.map-btn {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #3d3328;
+}
+.map-btn:hover { background: #ffffff; }
+
+.map-filter-pill {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #3d3328;
+}
+.map-filter-pill.is-hidden {
+  background: rgba(255, 255, 255, 0.5);
+  color: #9f8b6f;
+  text-decoration: line-through;
+}
+
+:global(.dark) .map-btn {
+  background: rgba(26, 23, 20, 0.85);
+  color: rgba(255, 255, 255, 0.8);
+}
+:global(.dark) .map-btn:hover {
+  background: rgba(26, 23, 20, 0.95);
+}
+
+:global(.dark) .map-filter-pill {
+  background: rgba(26, 23, 20, 0.85);
+  color: rgba(255, 255, 255, 0.8);
+}
+:global(.dark) .map-filter-pill.is-hidden {
+  background: rgba(26, 23, 20, 0.5);
+  color: rgba(255, 255, 255, 0.35);
+}
+</style>

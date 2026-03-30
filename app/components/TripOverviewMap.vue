@@ -18,6 +18,7 @@ interface DayWithActivities {
 
 const props = defineProps<{
   days: DayWithActivities[];
+  selectedDayId?: string | null;
 }>();
 
 const DAY_COLORS = [
@@ -33,9 +34,13 @@ const mapContainer = ref<HTMLElement | null>(null);
 const { isLoaded, loadMaps, loadMarker } = useGoogleMaps();
 const { isDark: siteIsDark } = useDarkMode();
 
+type MapMode = "light" | "dark" | "satellite";
+const mapMode = ref<MapMode>("light");
+
 let map: google.maps.Map | null = null;
 let markers: google.maps.marker.AdvancedMarkerElement[] = [];
 let clusterer: InstanceType<typeof import("@googlemaps/markerclusterer").MarkerClusterer> | null = null;
+let polylines: google.maps.Polyline[] = [];
 let MapClass: typeof google.maps.Map;
 let MarkerClass: typeof google.maps.marker.AdvancedMarkerElement;
 let MarkerClustererClass: typeof import("@googlemaps/markerclusterer").MarkerClusterer | null = null;
@@ -81,7 +86,7 @@ function toggleTypeFilter(type: string) {
   if (isLoaded.value && map) updateMarkers();
 }
 
-function createMarkerContent(dayNumber: number, color: string): HTMLElement {
+function createMarkerContent(label: string, color: string, dimmed: boolean): HTMLElement {
   const div = document.createElement("div");
   div.style.cssText = `
     width: 26px;
@@ -96,8 +101,10 @@ function createMarkerContent(dayNumber: number, color: string): HTMLElement {
     font-weight: 700;
     border: 2px solid white;
     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    opacity: ${dimmed ? "0.25" : "1"};
+    transition: opacity 0.2s;
   `;
-  div.textContent = `D${dayNumber}`;
+  div.textContent = label;
   return div;
 }
 
@@ -122,14 +129,12 @@ function createMap() {
   markers.forEach((m) => (m.map = null));
   markers = [];
 
-  const mapMode = siteIsDark.value ? "dark" : "light";
-
   map = new MapClass(mapContainer.value, {
     zoom: 12,
     center: { lat: 0, lng: 0 },
     mapId: "trip-overview-map",
-    mapTypeId: "roadmap",
-    colorScheme: mapMode === "dark" ? "DARK" : "LIGHT",
+    mapTypeId: mapMode.value === "satellite" ? "hybrid" : "roadmap",
+    colorScheme: mapMode.value === "dark" ? "DARK" : "LIGHT",
     disableDefaultUI: false,
     zoomControl: true,
     mapTypeControl: false,
@@ -140,6 +145,32 @@ function createMap() {
   updateMarkers();
 }
 
+function cycleMapMode() {
+  const modes: MapMode[] = ["light", "dark", "satellite"];
+  const current = modes.indexOf(mapMode.value);
+  mapMode.value = modes[(current + 1) % modes.length]!;
+  if (import.meta.client) {
+    localStorage.setItem("ov-map-mode", mapMode.value);
+  }
+  createMap();
+}
+
+const mapModeIcon = computed(() => {
+  switch (mapMode.value) {
+    case "light": return "lucide:moon";
+    case "dark": return "lucide:globe";
+    case "satellite": return "lucide:sun";
+  }
+});
+
+const mapModeLabel = computed(() => {
+  switch (mapMode.value) {
+    case "light": return "Dark mode";
+    case "dark": return "Satellite";
+    case "satellite": return "Light mode";
+  }
+});
+
 function updateMarkers() {
   if (!map) return;
 
@@ -149,29 +180,60 @@ function updateMarkers() {
   }
   markers.forEach((m) => (m.map = null));
   markers = [];
+  polylines.forEach((p) => p.setMap(null));
+  polylines = [];
 
+  const selectedDay = props.selectedDayId;
   const bounds = new google.maps.LatLngBounds();
+  const selectedBounds = new google.maps.LatLngBounds();
   let hasMarkers = false;
+  let hasSelectedMarkers = false;
 
   props.days.forEach((day, dayIndex) => {
     const color = getDayColor(dayIndex);
+    const isSelected = day.id === selectedDay;
+    const dimmed = !!selectedDay && !isSelected;
 
-    day.activities
-      .filter((a) => a.lat != null && a.lng != null && !hiddenTypes.value.has(a.type))
-      .forEach((activity) => {
-        const position = { lat: activity.lat!, lng: activity.lng! };
-        bounds.extend(position);
-        hasMarkers = true;
+    const geoActivities = day.activities
+      .filter((a) => a.lat != null && a.lng != null && !hiddenTypes.value.has(a.type));
 
-        const marker = new MarkerClass({
-          map,
-          position,
-          content: createMarkerContent(day.dayNumber, color),
-          title: `Day ${day.dayNumber}: ${activity.name}`,
-        });
+    geoActivities.forEach((activity, activityIndex) => {
+      const position = { lat: activity.lat!, lng: activity.lng! };
+      bounds.extend(position);
+      hasMarkers = true;
 
-        markers.push(marker);
+      if (isSelected) {
+        selectedBounds.extend(position);
+        hasSelectedMarkers = true;
+      }
+
+      const label = isSelected ? String(activityIndex + 1) : `D${day.dayNumber}`;
+      const marker = new MarkerClass({
+        map,
+        position,
+        content: createMarkerContent(label, color, dimmed),
+        title: `Day ${day.dayNumber}: ${activity.name}`,
       });
+
+      markers.push(marker);
+    });
+
+    // Draw polyline for selected day
+    if (isSelected && geoActivities.length >= 2) {
+      const path = geoActivities
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((a) => ({ lat: a.lat!, lng: a.lng! }));
+
+      const polyline = new google.maps.Polyline({
+        path,
+        strokeColor: color,
+        strokeWeight: 3,
+        strokeOpacity: 0.8,
+        geodesic: true,
+        map,
+      });
+      polylines.push(polyline);
+    }
   });
 
   if (!hasMarkers) {
@@ -180,10 +242,15 @@ function updateMarkers() {
     return;
   }
 
-  map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+  // Zoom to selected day's markers, or fit all
+  if (hasSelectedMarkers) {
+    map.fitBounds(selectedBounds, { top: 50, right: 50, bottom: 50, left: 50 });
+  } else {
+    map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+  }
 
-  // Apply clustering when there are many markers
-  if (MarkerClustererClass && markers.length > 10) {
+  // Apply clustering only when no day is selected and there are many markers
+  if (!selectedDay && MarkerClustererClass && markers.length > 10) {
     clusterer = new MarkerClustererClass({
       map,
       markers,
@@ -216,7 +283,7 @@ function updateMarkers() {
 }
 
 watch(
-  () => props.days,
+  [() => props.days, () => props.selectedDayId],
   () => {
     if (isLoaded.value && map) {
       updateMarkers();
@@ -225,13 +292,22 @@ watch(
   { deep: true }
 );
 
-watch(siteIsDark, () => {
-  if (isLoaded.value && map) {
+watch(siteIsDark, (dark) => {
+  if (!localStorage.getItem("ov-map-mode") && mapMode.value !== "satellite") {
+    mapMode.value = dark ? "dark" : "light";
     createMap();
   }
 });
 
 onMounted(() => {
+  if (import.meta.client) {
+    const saved = localStorage.getItem("ov-map-mode") as MapMode | null;
+    if (saved && ["light", "dark", "satellite"].includes(saved)) {
+      mapMode.value = saved;
+    } else {
+      mapMode.value = siteIsDark.value ? "dark" : "light";
+    }
+  }
   initMap();
 });
 </script>
@@ -240,15 +316,25 @@ onMounted(() => {
   <div v-if="hasGeocodedActivities" class="relative h-full">
     <div ref="mapContainer" class="h-full w-full" />
 
+    <!-- Map mode toggle -->
+    <button
+      class="map-btn absolute right-2 top-2 z-10 flex h-8 items-center gap-1.5 rounded-lg px-2.5 shadow-md transition"
+      :title="mapModeLabel"
+      @click="cycleMapMode"
+    >
+      <Icon :name="mapModeIcon" class="h-4 w-4" />
+      <span class="text-xs font-medium">{{ mapModeLabel }}</span>
+    </button>
+
     <!-- Day legend -->
     <div
       v-if="legendDays.length > 1"
-      class="absolute bottom-2 left-2 z-10 max-h-40 overflow-y-auto rounded-xl bg-white/90 px-3 py-2 shadow-md backdrop-blur-sm"
+      class="map-overlay absolute bottom-10 right-2 z-10 max-h-40 overflow-y-auto rounded-xl px-3 py-2 shadow-md"
     >
       <div
         v-for="day in legendDays"
         :key="day.id"
-        class="flex items-center gap-2 py-0.5 text-xs text-sand-700"
+        class="map-overlay-text flex items-center gap-2 py-0.5 text-xs"
       >
         <span
           class="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
@@ -261,20 +347,18 @@ onMounted(() => {
     <!-- Category filter -->
     <div
       v-if="uniqueTypes.length > 1"
-      class="absolute bottom-2 right-2 z-10 flex max-w-[50%] flex-wrap justify-end gap-1"
+      class="absolute bottom-2 right-2 z-10 hidden max-w-[50%] flex-wrap justify-end gap-1 lg:flex"
     >
       <button
         v-for="type in uniqueTypes"
         :key="type"
-        class="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm transition"
-        :class="hiddenTypes.has(type)
-          ? 'bg-white/60 text-sand-400 line-through'
-          : 'bg-white/90 text-sand-700'"
+        class="map-filter-pill flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium shadow-sm transition"
+        :class="{ 'is-hidden': hiddenTypes.has(type) }"
         @click="toggleTypeFilter(type)"
       >
         <span
           class="inline-block h-2 w-2 rounded-full"
-          :style="{ background: hiddenTypes.has(type) ? '#d6d3d1' : (markerColors[type] || '#3B82F6') }"
+          :style="{ background: hiddenTypes.has(type) ? '#78716c' : (markerColors[type] || '#3B82F6') }"
         />
         {{ formatType(type) }}
       </button>
@@ -285,3 +369,54 @@ onMounted(() => {
     <p class="text-sm text-sand-400">No locations to display on map yet.</p>
   </div>
 </template>
+
+<style scoped>
+.map-btn {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #3d3328;
+}
+.map-btn:hover { background: #ffffff; }
+
+:global(.dark) .map-btn {
+  background: rgba(26, 23, 20, 0.85);
+  color: rgba(255, 255, 255, 0.8);
+}
+:global(.dark) .map-btn:hover {
+  background: rgba(26, 23, 20, 0.95);
+}
+
+.map-overlay {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.map-overlay-text { color: #3d3328; }
+
+.map-filter-pill {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #3d3328;
+}
+.map-filter-pill.is-hidden {
+  background: rgba(255, 255, 255, 0.5);
+  color: #9f8b6f;
+  text-decoration: line-through;
+}
+
+:global(.dark) .map-overlay {
+  background: rgba(26, 23, 20, 0.85);
+}
+:global(.dark) .map-overlay-text { color: rgba(255, 255, 255, 0.8); }
+
+:global(.dark) .map-filter-pill {
+  background: rgba(26, 23, 20, 0.85);
+  color: rgba(255, 255, 255, 0.8);
+}
+:global(.dark) .map-filter-pill.is-hidden {
+  background: rgba(26, 23, 20, 0.5);
+  color: rgba(255, 255, 255, 0.35);
+}
+</style>
