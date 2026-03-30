@@ -8,9 +8,12 @@ const emit = defineEmits<{
 }>();
 
 const tabs = [
+  { value: "overview", label: "Overview", icon: "lucide:layout-dashboard" },
   { value: "itinerary", label: "Itinerary", icon: "lucide:map" },
   { value: "notes", label: "Notes", icon: "lucide:notebook-text" },
   { value: "expenses", label: "Expenses", icon: "lucide:wallet" },
+  { value: "reservations", label: "Bookings", icon: "lucide:ticket" },
+  { value: "documents", label: "Docs", icon: "lucide:paperclip" },
   { value: "team", label: "Team", icon: "lucide:users" },
 ];
 </script>

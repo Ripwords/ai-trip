@@ -51,6 +51,30 @@ const { data: tripMembers } = await useFetch<{
   status: string;
 }[]>(`/api/trips/${tripId}/members`);
 
+const { data: participantsMap, refresh: refreshParticipants } = await useFetch<
+  Record<string, { userId: string; name: string; image: string | null }[]>
+>(`/api/trips/${tripId}/participants`);
+
+async function handleToggleParticipant(activityId: string, userId: string) {
+  const current = participantsMap.value?.[activityId] ?? [];
+  const isAssigned = current.some((p) => p.userId === userId);
+  try {
+    if (isAssigned) {
+      await $fetch(`/api/trips/${tripId}/activities/${activityId}/participants/${userId}`, {
+        method: "DELETE",
+      });
+    } else {
+      await $fetch(`/api/trips/${tripId}/activities/${activityId}/participants`, {
+        method: "POST",
+        body: { userId },
+      });
+    }
+    await refreshParticipants();
+  } catch (e: unknown) {
+    console.error("Failed to toggle participant:", e);
+  }
+}
+
 const aiLoading = ref(false);
 const aiLoadingMode = ref<"generate" | "optimize" | "remove" | "reschedule">("generate");
 const lastSnapshot = ref<string | null>(null);
@@ -112,7 +136,16 @@ const logRefreshKey = ref(0);
 const storageKeyTab = `trip-${tripId}-tab`;
 const storageKeyDay = `trip-${tripId}-day`;
 
-const activeTab = ref<"itinerary" | "notes" | "expenses" | "team">("itinerary");
+type TabValue = "overview" | "itinerary" | "notes" | "expenses" | "reservations" | "documents" | "team";
+const validTabs: TabValue[] = ["overview", "itinerary", "notes", "expenses", "reservations", "documents", "team"];
+const activeTab = ref<TabValue>("overview");
+
+// Restore tab from sessionStorage on client mount
+onMounted(() => {
+  const stored = sessionStorage.getItem(`trip-${tripId}-tab`);
+  const match = validTabs.find((t) => t === stored);
+  if (match) activeTab.value = match;
+});
 const activeDayId = ref<string | null>(null);
 const showPrefsEditor = ref(false);
 
@@ -123,6 +156,38 @@ function handleExportKml() {
     date: d.date,
     activities: d.activities,
   })));
+}
+
+function handleNavigateToDay(dayId: string) {
+  activeDayId.value = dayId;
+  activeTab.value = "itinerary";
+  if (import.meta.client) {
+    sessionStorage.setItem(storageKeyTab, "itinerary");
+    sessionStorage.setItem(storageKeyDay, dayId);
+  }
+}
+
+const { downloadPdf } = useExportPdf();
+
+async function handleExportPdf() {
+  if (!trip.value) return;
+  try {
+    const reservations = await $fetch<{ type: string; status: string; name: string; confirmationNumber: string | null; provider: string | null; startDate: string | null; endDate: string | null; amount: string | null }[]>(
+      `/api/trips/${tripId}/reservations`
+    );
+    await downloadPdf({
+      destination: trip.value.destination,
+      startDate: trip.value.startDate,
+      endDate: trip.value.endDate,
+      currencyCode: trip.value.currencyCode ?? "USD",
+      budget: trip.value.budget ?? null,
+      days: sortedDays.value,
+      expenses: expensesList.value ?? [],
+      reservations,
+    });
+  } catch (e: unknown) {
+    console.error("Failed to export PDF:", e);
+  }
 }
 
 async function updateTripField(field: string, value: string) {
@@ -235,10 +300,6 @@ watch(
     // On first client-side run, auto-select today's day or restore from sessionStorage
     if (import.meta.client && !sessionRestored) {
       sessionRestored = true;
-      const storedTab = sessionStorage.getItem(storageKeyTab);
-      if (storedTab === "itinerary" || storedTab === "notes" || storedTab === "expenses" || storedTab === "team") {
-        activeTab.value = storedTab;
-      }
 
       // Priority 1: If one of the days matches today, jump to it
       const today = new Date().toISOString().slice(0, 10);
@@ -638,6 +699,13 @@ async function recomputeSegments(dayId: string) {
                   <Icon name="lucide:map" class="h-4 w-4 text-sand-400" />
                   Export KML
                 </button>
+                <button
+                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
+                  @click="handleExportPdf(); showMoreMenu = false"
+                >
+                  <Icon name="lucide:file-down" class="h-4 w-4 text-sand-400" />
+                  Export PDF
+                </button>
               </div>
             </Transition>
           </div>
@@ -756,7 +824,19 @@ async function recomputeSegments(dayId: string) {
       </div>
 
       <!-- Itinerary tab -->
-      <div v-if="activeTab === 'itinerary'" class="mt-6">
+      <!-- Overview tab -->
+      <div v-if="activeTab === 'overview'" class="mt-6">
+        <TripOverview
+          :trip="trip"
+          :sorted-days="sortedDays"
+          :expenses-list="expensesList ?? []"
+          :total-expenses="totalExpenses"
+          :currency-code="trip.currencyCode ?? 'USD'"
+          @navigate-to-day="handleNavigateToDay"
+        />
+      </div>
+
+      <div v-else-if="activeTab === 'itinerary'" class="mt-6">
         <!-- Day tabs (client-only to avoid hydration mismatch with sessionStorage) -->
         <ClientOnly>
           <div class="flex gap-1.5 overflow-x-auto pb-2 scrollbar-thin sm:gap-2">
@@ -906,12 +986,15 @@ async function recomputeSegments(dayId: string) {
                 :highlighted-activity-id="highlightedActivityId"
                 :travel-segments="activeDay.travelSegments"
                 :readonly="isViewer"
+                :participants-map="participantsMap ?? undefined"
+                :members="tripMembers?.filter(m => m.status === 'active')"
                 @edit-activity="handleEditActivity"
                 @delete-activity="handleDeleteActivity"
                 @click-activity="handleActivityClick"
                 @add-activity="handleAddActivity"
                 @reordered="refresh"
                 @update-notes="handleUpdateDayNotes"
+                @toggle-participant="handleToggleParticipant"
               />
 
               <!-- Ideas bucket (hidden for viewers) -->
@@ -970,6 +1053,19 @@ async function recomputeSegments(dayId: string) {
           :members="tripMembers?.filter(m => m.status === 'active') ?? []"
           @budget-updated="refresh"
         />
+      </div>
+
+      <!-- Bookings tab -->
+      <div v-else-if="activeTab === 'reservations'" class="mt-8 max-w-3xl">
+        <ReservationTracker
+          :trip-id="tripId"
+          :currency-code="trip.currencyCode ?? 'USD'"
+        />
+      </div>
+
+      <!-- Documents tab -->
+      <div v-else-if="activeTab === 'documents'" class="mt-8 max-w-3xl">
+        <DocumentPanel :trip-id="tripId" />
       </div>
 
       <!-- Team tab -->
