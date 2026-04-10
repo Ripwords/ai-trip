@@ -13,33 +13,16 @@ const { data: aiUsage } = await useFetch<{
   remaining: number;
 }>("/api/ai/usage");
 
-const { data: profile, refresh: refreshProfile } = await useFetch("/api/user/profile");
-const nationality = ref<string | null>(profile.value?.nationality ?? null);
-const savingNationality = ref(false);
+const { nationality, save: saveNationality, fetch: fetchNationality } = useNationality();
+await fetchNationality();
+
 const nationalityInitialized = ref(false);
-
-async function saveNationality() {
-  savingNationality.value = true;
-  try {
-    await $fetch("/api/user/profile", {
-      method: "PUT",
-      body: { nationality: nationality.value },
-    });
-    await refreshProfile();
-  } catch (e: unknown) {
-    console.error("Failed to save nationality:", e);
-  } finally {
-    savingNationality.value = false;
-  }
-}
-
-watch(nationality, () => {
-  // Skip the first change (initialization from profile)
+watch(nationality, (val) => {
   if (!nationalityInitialized.value) {
     nationalityInitialized.value = true;
     return;
   }
-  saveNationality();
+  saveNationality(val);
 });
 
 const { mode, setMode } = useDarkMode();

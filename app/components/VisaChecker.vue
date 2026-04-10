@@ -10,16 +10,9 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-// Fetch user profile for nationality (lazy — no SSR blocking)
-const { data: profile, refresh: refreshProfile } = useLazyFetch("/api/user/profile");
-const nationality = ref<string | null>(null);
-
-// Sync nationality from profile when it loads
-watch(profile, (p) => {
-  if (p?.nationality && !nationality.value) {
-    nationality.value = p.nationality;
-  }
-}, { immediate: true });
+// Shared nationality state (synced with settings page)
+const { nationality, save: saveNationality, fetch: fetchNationality } = useNationality();
+onMounted(() => { if (!nationality.value) fetchNationality(); });
 
 // Visa check state
 const visaResult = ref<{
@@ -35,20 +28,14 @@ const visaResult = ref<{
 const loading = ref(false);
 const error = ref<string | null>(null);
 
-// Save nationality on explicit user change (not on profile sync)
-const userChangedNationality = ref(false);
-watch(nationality, async (val, oldVal) => {
-  if (!userChangedNationality.value) {
-    userChangedNationality.value = true;
+// Save nationality when user changes it in the selector
+const nationalityInitialized = ref(false);
+watch(nationality, (val) => {
+  if (!nationalityInitialized.value) {
+    nationalityInitialized.value = true;
     return;
   }
-  if (val !== oldVal && val !== profile.value?.nationality) {
-    await $fetch("/api/user/profile", {
-      method: "PUT",
-      body: { nationality: val },
-    });
-    await refreshProfile();
-  }
+  saveNationality(val);
 });
 
 async function checkVisa() {
