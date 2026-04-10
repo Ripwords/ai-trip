@@ -36,11 +36,6 @@ export default defineNuxtConfig({
   experimental: {
     nitroAutoImports: true,
   },
-  nitro: {
-    externals: {
-      inline: ['unhead', '@unhead/vue', '@unhead/schema-org'],
-    },
-  },
   css: ["./app/assets/css/tailwind.css"],
   devtools: { enabled: true },
   modules: ["@nuxt/icon", "@nuxt/image", "nuxt-security", "dayjs-nuxt", "@vite-pwa/nuxt", "@nuxtjs/seo"],
@@ -48,7 +43,6 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()],
     optimizeDeps: {
       include: [
-        'better-auth/vue',
         'better-auth/vue',
         '@vue/devtools-core',
         '@vue/devtools-kit',
@@ -62,7 +56,10 @@ export default defineNuxtConfig({
         'sortablejs',
         'better-auth/client/plugins',
         '@googlemaps/markerclusterer',
-      ],
+        '@unhead/schema-org/vue',
+        'd3-geo',
+        'topojson-client',
+      ]
     },
   },
   runtimeConfig: {
