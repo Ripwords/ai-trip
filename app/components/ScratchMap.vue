@@ -38,7 +38,7 @@ const staticPaths = countriesGeo.features.map((f) => {
   };
 });
 
-// Reactive visited status (recomputes only when visitedCodes changes)
+// Reactive visited status
 const countryPaths = computed(() =>
   staticPaths.map((p) => ({
     ...p,
@@ -69,7 +69,6 @@ const transformStr = computed(
 );
 
 function clampTranslation() {
-  // Allow panning within reasonable bounds based on current scale
   const maxPan = 480 * (scale.value - 1);
   translateX.value = Math.max(-maxPan, Math.min(maxPan, translateX.value));
   const maxPanY = 300 * (scale.value - 1);
@@ -82,7 +81,6 @@ function handleWheel(e: WheelEvent) {
   if (!svg) return;
 
   const rect = svg.getBoundingClientRect();
-  // Mouse position in SVG coordinates
   const mouseX = ((e.clientX - rect.left) / rect.width) * 960;
   const mouseY = ((e.clientY - rect.top) / rect.height) * 600;
 
@@ -90,7 +88,6 @@ function handleWheel(e: WheelEvent) {
   const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
   const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, oldScale + delta * oldScale));
 
-  // Zoom toward mouse position
   const ratio = newScale / oldScale;
   translateX.value = mouseX - ratio * (mouseX - translateX.value);
   translateY.value = mouseY - ratio * (mouseY - translateY.value);
@@ -129,7 +126,6 @@ function handlePointerUp() {
 function zoomIn() {
   const oldScale = scale.value;
   scale.value = Math.min(MAX_SCALE, oldScale + ZOOM_STEP * oldScale);
-  // Zoom toward center
   const ratio = scale.value / oldScale;
   translateX.value = 480 - ratio * (480 - translateX.value);
   translateY.value = 300 - ratio * (300 - translateY.value);
@@ -158,7 +154,7 @@ function resetZoom() {
 </script>
 
 <template>
-  <div class="relative overflow-hidden rounded-2xl border border-sand-200 bg-ocean-100">
+  <div class="scratch-map relative overflow-hidden rounded-2xl border border-sand-200">
     <svg
       ref="svgRef"
       viewBox="0 0 960 600"
@@ -172,7 +168,7 @@ function resetZoom() {
       @pointercancel="handlePointerUp"
     >
       <!-- Ocean background -->
-      <rect width="960" height="600" class="fill-ocean-100" />
+      <rect width="960" height="600" class="map-ocean" />
 
       <!-- Transformable group for zoom/pan -->
       <g :transform="transformStr">
@@ -180,14 +176,14 @@ function resetZoom() {
           v-for="country in countryPaths"
           :key="country.id"
           :d="country.d"
-          class="stroke-sand-300 transition-colors duration-150"
+          class="map-border transition-colors duration-150"
           :class="[
             country.info ? 'cursor-pointer' : 'cursor-default',
             country.isVisited
-              ? 'fill-terra-400'
-              : 'fill-sand-200',
-            hoveredId === country.id && !country.isVisited ? 'fill-sand-300' : '',
-            hoveredId === country.id && country.isVisited ? 'fill-terra-500' : '',
+              ? 'map-visited'
+              : 'map-country',
+            hoveredId === country.id && !country.isVisited ? 'map-country-hover' : '',
+            hoveredId === country.id && country.isVisited ? 'map-visited-hover' : '',
           ]"
           :stroke-width="0.5 / scale"
           @click="handleClick(country.info)"
@@ -204,14 +200,14 @@ function resetZoom() {
     <!-- Zoom controls -->
     <div class="absolute right-4 top-4 flex flex-col gap-1">
       <button
-        class="flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 text-sand-700 shadow backdrop-blur-sm transition hover:bg-white"
+        class="map-btn flex h-8 w-8 items-center justify-center rounded-lg shadow transition"
         title="Zoom in"
         @click="zoomIn"
       >
         <Icon name="lucide:plus" class="h-4 w-4" />
       </button>
       <button
-        class="flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 text-sand-700 shadow backdrop-blur-sm transition hover:bg-white"
+        class="map-btn flex h-8 w-8 items-center justify-center rounded-lg shadow transition"
         title="Zoom out"
         @click="zoomOut"
       >
@@ -219,7 +215,7 @@ function resetZoom() {
       </button>
       <button
         v-if="scale > 1"
-        class="flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 text-sand-700 shadow backdrop-blur-sm transition hover:bg-white"
+        class="map-btn flex h-8 w-8 items-center justify-center rounded-lg shadow transition"
         title="Reset zoom"
         @click="resetZoom"
       >
@@ -228,16 +224,87 @@ function resetZoom() {
     </div>
 
     <!-- Stats overlay -->
-    <div class="absolute bottom-4 left-4 rounded-xl bg-white/80 px-4 py-2 backdrop-blur-sm">
-      <p class="text-sm font-medium text-sand-900">
-        <span class="text-lg font-bold text-terra-600">{{ visitedCodes.size }}</span>
+    <div class="map-overlay absolute bottom-4 left-4 rounded-xl px-4 py-2 backdrop-blur-sm">
+      <p class="map-overlay-text text-sm font-medium">
+        <span class="map-overlay-accent text-lg font-bold">{{ visitedCodes.size }}</span>
         / {{ countryPaths.filter(c => c.info).length }} countries visited
       </p>
     </div>
 
     <!-- Zoom level indicator -->
-    <div v-if="scale > 1" class="absolute bottom-4 right-4 rounded-lg bg-white/80 px-2.5 py-1 text-xs text-sand-500 backdrop-blur-sm">
+    <div v-if="scale > 1" class="map-overlay absolute bottom-4 right-4 rounded-lg px-2.5 py-1 text-xs backdrop-blur-sm">
       {{ Math.round(scale * 100) }}%
     </div>
   </div>
 </template>
+
+<style scoped>
+/*
+ * Map-specific color palette — independent from the theme auto-swap system.
+ * The global .dark class swaps sand/terra/ocean CSS vars which doesn't work
+ * well for data visualizations. These hardcoded values ensure the map looks
+ * intentional in both modes.
+ */
+
+/* ── Light Mode ────────────────────────────────────────── */
+.scratch-map {
+  --map-ocean: #dceef5;
+  --map-country: #e6ddd0;
+  --map-country-hover: #d6cab9;
+  --map-visited: #f07b5a;
+  --map-visited-hover: #e85d3a;
+  --map-border: #cfc2b2;
+  --map-overlay-bg: rgba(255, 255, 255, 0.82);
+  --map-overlay-text: #3d3328;
+  --map-overlay-accent: #d44425;
+  --map-btn-bg: rgba(255, 255, 255, 0.82);
+  --map-btn-text: #5a4b3a;
+  --map-btn-hover: rgba(255, 255, 255, 1);
+  background: var(--map-ocean);
+}
+
+/* ── Dark Mode — rich atlas aesthetic ──────────────────── */
+:global(.dark) .scratch-map {
+  --map-ocean: #0c1524;
+  --map-country: #1e3044;
+  --map-country-hover: #2a4460;
+  --map-visited: #f07b5a;
+  --map-visited-hover: #f7a48a;
+  --map-border: #152336;
+  --map-overlay-bg: rgba(12, 21, 36, 0.85);
+  --map-overlay-text: #c8d6e5;
+  --map-overlay-accent: #f07b5a;
+  --map-btn-bg: rgba(30, 48, 68, 0.85);
+  --map-btn-text: #c8d6e5;
+  --map-btn-hover: rgba(42, 68, 96, 0.95);
+  border-color: #1e3044;
+  background: var(--map-ocean);
+}
+
+/* ── SVG fills ─────────────────────────────────────────── */
+.map-ocean { fill: var(--map-ocean); }
+.map-country { fill: var(--map-country); }
+.map-country-hover { fill: var(--map-country-hover); }
+.map-visited { fill: var(--map-visited); }
+.map-visited-hover { fill: var(--map-visited-hover); }
+.map-border { stroke: var(--map-border); }
+
+/* ── Overlay elements ──────────────────────────────────── */
+.map-overlay {
+  background: var(--map-overlay-bg);
+}
+.map-overlay-text {
+  color: var(--map-overlay-text);
+}
+.map-overlay-accent {
+  color: var(--map-overlay-accent);
+}
+.map-btn {
+  background: var(--map-btn-bg);
+  color: var(--map-btn-text);
+  backdrop-filter: blur(8px);
+}
+.map-btn:hover {
+  background: var(--map-btn-hover);
+}
+</style>
