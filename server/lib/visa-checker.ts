@@ -1,8 +1,8 @@
 import { and, eq, gt } from "drizzle-orm";
 import { db } from "../db";
 import { visaCache } from "../db/schema";
-import { getModel } from "./ai-config";
-import { generateObject } from "ai";
+import { generateText, Output, stepCountIs } from "ai";
+import { google } from "@ai-sdk/google";
 import { z } from "zod";
 
 const visaResultSchema = z.object({
@@ -55,17 +55,19 @@ export async function checkVisaRequirements(
     };
   }
 
-  // Fetch from AI
-  const model = getModel();
-
+  // Use Gemini with Google Search grounding for up-to-date visa info
   let visaResult: VisaResult;
   try {
-    const result = await generateObject({
-      model,
-      schema: visaResultSchema,
-      prompt: `You are a travel visa expert. Research the current visa requirements for a traveler holding a ${passportCountryName} (${passportCountry}) passport who wants to visit ${destinationCountryName} (${destinationCountry}).
+    const model = google("gemini-3.1-flash-lite-preview");
 
-Provide accurate, up-to-date information about:
+    const result = await generateText({
+      model,
+      tools: { google_search: google.tools.googleSearch({ searchTypes: { webSearch: {} } }) },
+      output: Output.object({ schema: visaResultSchema }),
+      stopWhen: stepCountIs(5),
+      prompt: `You are a travel visa expert. Search the web for the CURRENT visa requirements for a traveler holding a ${passportCountryName} (${passportCountry}) passport who wants to visit ${destinationCountryName} (${destinationCountry}).
+
+Search for the latest official visa policy. Provide accurate, up-to-date information about:
 1. Whether a visa is required (visa_free, visa_on_arrival, e_visa, or visa_required)
 2. Maximum allowed stay in days (for visa-free or visa on arrival)
 3. What documents/requirements are needed
@@ -75,7 +77,8 @@ Provide accurate, up-to-date information about:
 
 Be specific and factual. If unsure about exact details, say so in the notes.`,
     });
-    visaResult = result.object;
+
+    visaResult = result.output!;
   } catch (error) {
     throw createError({
       statusCode: 503,
