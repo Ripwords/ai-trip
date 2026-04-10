@@ -733,8 +733,10 @@ async function recomputeSegments(dayId: string) {
                 <button
                   class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
                   @click="
-                    handleExportKml()
-                    showMoreMenu = false
+                    () => {
+                      handleExportKml()
+                      showMoreMenu = false
+                    }
                   "
                 >
                   <Icon name="lucide:map" class="h-4 w-4 text-sand-400" />
@@ -743,8 +745,10 @@ async function recomputeSegments(dayId: string) {
                 <button
                   class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
                   @click="
-                    handleExportPdf()
-                    showMoreMenu = false
+                    () => {
+                      handleExportPdf()
+                      showMoreMenu = false
+                    }
                   "
                 >
                   <Icon name="lucide:file-down" class="h-4 w-4 text-sand-400" />
@@ -933,8 +937,10 @@ async function recomputeSegments(dayId: string) {
           :ai-remaining="aiUsage?.remaining"
           class="mt-3"
           @done="
-            refresh()
-            refreshUsage()
+            () => {
+              refresh()
+              refreshUsage()
+            }
           "
         />
 
@@ -1022,8 +1028,10 @@ async function recomputeSegments(dayId: string) {
               class="shrink-0 text-forest-400 hover:text-forest-700"
               :class="{ 'ml-auto': !undoAvailable }"
               @click="
-                aiMessage = ''
-                lastSnapshot = null
+                () => {
+                  aiMessage = ''
+                  lastSnapshot = null
+                }
               "
             >
               <Icon name="lucide:x" class="h-3.5 w-3.5" />

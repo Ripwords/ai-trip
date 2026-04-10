@@ -320,8 +320,10 @@ function checkedCount(checklist: Checklist): number {
               class="rounded p-1 text-sand-400 hover:bg-forest-50 hover:text-forest-600"
               title="Save as template"
               @click.stop="
-                showSaveTemplateForm = showSaveTemplateForm === checklist.id ? null : checklist.id
-                saveTemplateName = checklist.name
+                () => {
+                  showSaveTemplateForm = showSaveTemplateForm === checklist.id ? null : checklist.id
+                  saveTemplateName = checklist.name
+                }
               "
             >
               <Icon name="lucide:save" class="h-3.5 w-3.5" />

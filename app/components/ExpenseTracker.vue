@@ -303,8 +303,10 @@ function getMemberName(userId: string | null): string {
           <button
             class="inline-flex items-center gap-1 rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600"
             @click="
-              resetForm()
-              showAddForm = !showAddForm
+              () => {
+                resetForm()
+                showAddForm = !showAddForm
+              }
             "
           >
             <Icon name="lucide:plus" class="h-3 w-3" />
@@ -368,8 +370,10 @@ function getMemberName(userId: string | null): string {
             type="button"
             class="rounded-lg border border-sand-300 px-3 py-2 text-sm font-medium text-sand-700 hover:bg-sand-50"
             @click="
-              showAddForm = false
-              resetForm()
+              () => {
+                showAddForm = false
+                resetForm()
+              }
             "
           >
             Cancel

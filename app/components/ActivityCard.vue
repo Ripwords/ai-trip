@@ -285,8 +285,10 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
           :key="m.userId"
           class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition hover:bg-sand-50"
           @click.stop="
-            emit('toggleParticipant', activity.id, m.userId)
-            showParticipantPicker = false
+            () => {
+              emit('toggleParticipant', activity.id, m.userId)
+              showParticipantPicker = false
+            }
           "
         >
           <span
