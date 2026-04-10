@@ -19,7 +19,9 @@
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt --write .",
     "fmt:check": "oxfmt --check .",
-    "fix": "oxlint --fix && oxfmt --write ."
+    "fix": "oxlint --fix && oxfmt --write .",
+    "check": "oxfmt --check . && oxlint",
+    "prepare": "husky"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.52",
@@ -65,6 +67,7 @@
     "@types/ws": "^8.18.1",
     "@vite-pwa/assets-generator": "^1.0.2",
     "drizzle-kit": "^0.31.0",
+    "husky": "^9.1.7",
     "oxfmt": "^0.44.0",
     "oxlint": "^1.59.0"
   }
