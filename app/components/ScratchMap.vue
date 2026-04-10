@@ -3,7 +3,7 @@ import { geoNaturalEarth1, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import { countryByNumeric, type CountryInfo } from "../data/countries";
-import worldTopoJson from "../data/countries-110m.json";
+import worldTopoJson from "../data/countries-50m.json";
 
 export type VisitType = "visited" | "layover" | "want_to_visit";
 
