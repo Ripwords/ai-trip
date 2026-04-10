@@ -54,6 +54,7 @@
     "@types/google.maps": "^3.58.1",
     "@types/pg": "^8.11.0",
     "@types/topojson-client": "^3.1.5",
+    "@types/topojson-specification": "^1.0.5",
     "@types/ws": "^8.18.1",
     "@vite-pwa/assets-generator": "^1.0.2",
     "drizzle-kit": "^0.31.0"
