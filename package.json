@@ -14,7 +14,12 @@
     "db:push": "bun run auth:gen && drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
     "docker:dev": "docker compose -f docker/docker-compose.dev.yml up -d",
-    "pwa:assets": "pwa-assets-generator --preset minimal-2023 public/image.png"
+    "pwa:assets": "pwa-assets-generator --preset minimal-2023 public/image.png",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt --write .",
+    "fmt:check": "oxfmt --check .",
+    "fix": "oxlint --fix && oxfmt --write ."
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.52",
@@ -59,6 +64,8 @@
     "@types/topojson-specification": "^1.0.5",
     "@types/ws": "^8.18.1",
     "@vite-pwa/assets-generator": "^1.0.2",
-    "drizzle-kit": "^0.31.0"
+    "drizzle-kit": "^0.31.0",
+    "oxfmt": "^0.44.0",
+    "oxlint": "^1.59.0"
   }
 }

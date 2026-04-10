@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": false,
+  "singleQuote": false,
+  "trailingComma": "all",
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "ignorePatterns": [
+    ".nuxt",
+    ".output",
+    "node_modules",
+    "dist",
+    "server/db/migrations"
+  ]
+}
