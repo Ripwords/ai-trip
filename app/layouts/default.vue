@@ -7,7 +7,7 @@ const { cycle, modeIcon, modeLabel } = useDarkMode();
 </script>
 
 <template>
-  <div class="min-h-screen bg-sand-50">
+  <div class="flex min-h-screen flex-col bg-sand-50">
     <header class="glass sticky top-0 z-50 border-b border-sand-200/50">
       <nav class="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
         <NuxtLink to="/" class="flex items-center gap-2">
@@ -43,8 +43,13 @@ const { cycle, modeIcon, modeLabel } = useDarkMode();
         </div>
       </nav>
     </header>
-    <main>
+    <main class="flex-1">
       <slot />
     </main>
+    <footer class="border-t border-sand-200/50 py-6 text-center text-xs text-sand-400">
+      <div class="mx-auto max-w-7xl px-6">
+        &copy; {{ new Date().getFullYear() }} AI Trip. AI-powered travel planning with Google Maps verified places.
+      </div>
+    </footer>
   </div>
 </template>

@@ -1,7 +1,18 @@
 <script setup lang="ts">
 import { authClient } from "../lib/auth-client";
 
-useHead({ title: "Log in — AI Trip" });
+useSeoMeta({
+  title: "Log In",
+  description: "Sign in to AI Trip to plan and manage your travel itineraries.",
+});
+
+useSchemaOrg([
+  defineWebPage({
+    "@type": "WebPage",
+    name: "Log In — AI Trip",
+    description: "Sign in to AI Trip to plan and manage your travel itineraries.",
+  }),
+]);
 
 const { data: session } = await authClient.useSession(useFetch);
 if (session.value?.user) {

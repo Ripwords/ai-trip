@@ -26,6 +26,7 @@
     "@neondatabase/serverless": "^1.0.2",
     "@nuxt/icon": "2.2.1",
     "@nuxt/image": "2.0.0",
+    "@nuxtjs/seo": "5.1.2",
     "@tailwindcss/vite": "^4.2.1",
     "@vercel/blob": "^2.3.2",
     "@vite-pwa/nuxt": "^1.1.1",

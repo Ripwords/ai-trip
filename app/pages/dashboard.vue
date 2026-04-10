@@ -1,6 +1,9 @@
 <script setup lang="ts">
 definePageMeta({ layout: "app" });
-useHead({ title: "My Trips — AI Trip" });
+useSeoMeta({
+  title: "My Trips",
+  description: "View and manage your AI-planned travel itineraries.",
+});
 
 const { data: trips, status, refresh } = await useFetch("/api/trips");
 

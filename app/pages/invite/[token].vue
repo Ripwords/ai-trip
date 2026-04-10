@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { authClient } from "../../lib/auth-client";
 
-useHead({ title: "Accept Invite — AI Trip" });
+useSeoMeta({
+  title: "Accept Invite",
+  description: "Accept an invitation to collaborate on a trip.",
+});
 
 const route = useRoute();
 const token = route.params.token as string;

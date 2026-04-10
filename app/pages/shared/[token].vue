@@ -37,11 +37,30 @@ const token = route.params.token as string;
 
 const { data: trip, error } = await useFetch<SharedTrip>(`/api/shared/${token}`);
 
-useHead({
-  title: computed(() =>
-    trip.value ? `${trip.value.destination} — Shared Trip` : "Shared Trip"
-  ),
+const sharedTitle = computed(() =>
+  trip.value ? `${trip.value.destination} — Shared Trip` : "Shared Trip"
+);
+const sharedDescription = computed(() =>
+  trip.value
+    ? `Check out this AI-planned itinerary for ${trip.value.destination} with ${trip.value.days?.length ?? 0} days of activities and verified places.`
+    : "View a shared AI-planned travel itinerary."
+);
+
+useSeoMeta({
+  title: sharedTitle,
+  description: sharedDescription,
+  ogTitle: sharedTitle,
+  ogDescription: sharedDescription,
 });
+
+useSchemaOrg([
+  defineWebPage({
+    "@type": "TouristTrip",
+    name: sharedTitle,
+    description: sharedDescription,
+    touristType: "Traveler",
+  }),
+]);
 
 const activeDayId = ref<string | null>(null);
 

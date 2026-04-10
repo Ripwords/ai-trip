@@ -1,6 +1,9 @@
 <script setup lang="ts">
 definePageMeta({ layout: "app" });
-useHead({ title: "New Trip — AI Trip" });
+useSeoMeta({
+  title: "New Trip",
+  description: "Create a new AI-powered travel itinerary with verified places from Google Maps.",
+});
 
 const destination = ref("");
 const startDate = ref("");

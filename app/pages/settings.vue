@@ -1,6 +1,9 @@
 <script setup lang="ts">
 definePageMeta({ layout: "app" });
-useHead({ title: "Settings — AI Trip" });
+useSeoMeta({
+  title: "Settings",
+  description: "Manage your AI Trip account settings and preferences.",
+});
 
 import { authClient } from "../lib/auth-client";
 const { data: session } = await authClient.useSession(useFetch);

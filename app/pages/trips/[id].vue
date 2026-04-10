@@ -10,10 +10,18 @@ const {
   refresh,
 } = await useFetch<TripResponse>(`/api/trips/${tripId}`);
 
-useHead({
-  title: computed(() =>
-    trip.value ? `${trip.value.destination} — AI Trip` : "Trip — AI Trip"
-  ),
+const tripTitle = computed(() =>
+  trip.value ? `${trip.value.destination}` : "Trip"
+);
+const tripDescription = computed(() =>
+  trip.value
+    ? `AI-planned itinerary for ${trip.value.destination}. View and edit your travel plans with verified places.`
+    : "View and edit your AI-planned travel itinerary."
+);
+
+useSeoMeta({
+  title: tripTitle,
+  description: tripDescription,
 });
 
 const { data: ideas, refresh: refreshIdeas } = await useFetch<

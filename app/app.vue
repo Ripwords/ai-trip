@@ -1,5 +1,19 @@
 <script setup lang="ts">
 const { $pwa } = useNuxtApp();
+
+useHead({
+  titleTemplate: "%s %separator %siteName",
+  templateParams: {
+    siteName: "AI Trip",
+    separator: "—",
+  },
+});
+
+useSeoMeta({
+  ogType: "website",
+  ogSiteName: "AI Trip",
+  twitterCard: "summary_large_image",
+});
 </script>
 
 <template>

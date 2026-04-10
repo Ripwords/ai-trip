@@ -1,7 +1,24 @@
 <script setup lang="ts">
 import { authClient } from "../lib/auth-client";
 
-useHead({ title: "AI Trip — Plan your trip with AI" });
+useSeoMeta({
+  title: "Plan Your Trip with AI",
+  description: "AI finds hidden gems and real places verified by Google Maps. No tourist traps — just authentic, editable itineraries.",
+  ogTitle: "AI Trip — Plan Your Trip with AI",
+  ogDescription: "AI-powered travel planner that finds hidden gems verified by Google Maps. Create authentic, editable itineraries in minutes.",
+});
+
+useSchemaOrg([
+  defineWebSite({
+    name: "AI Trip",
+    description: "AI-powered travel itinerary planner with real places verified by Google Maps",
+  }),
+  defineWebPage({
+    "@type": "WebPage",
+    name: "AI Trip — Plan Your Trip with AI",
+    description: "AI-powered travel planner that finds hidden gems verified by Google Maps. Create authentic, editable itineraries in minutes.",
+  }),
+]);
 
 // Non-blocking: render page immediately, check session on client
 const isLoggedIn = ref(false);

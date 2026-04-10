@@ -2,11 +2,18 @@ import tailwindcss from "@tailwindcss/vite";
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
+  site: {
+    url: process.env.NUXT_PUBLIC_BETTER_AUTH_URL || "",
+    name: "AI Trip",
+    description: "AI-powered travel itinerary planner with real places verified by Google Maps",
+    defaultLocale: "en",
+  },
+
   app: {
     head: {
+      htmlAttrs: { lang: "en" },
       meta: [
         { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1" },
-        { name: "description", content: "AI-powered travel itinerary planner with real places verified by Google Maps" },
         { name: "theme-color", content: "#e85d3a" },
       ],
       link: [
@@ -31,7 +38,7 @@ export default defineNuxtConfig({
   },
   css: ["./app/assets/css/tailwind.css"],
   devtools: { enabled: true },
-  modules: ["@nuxt/icon", "@nuxt/image", "nuxt-security", "dayjs-nuxt", "@vite-pwa/nuxt"],
+  modules: ["@nuxt/icon", "@nuxt/image", "nuxt-security", "dayjs-nuxt", "@vite-pwa/nuxt", "@nuxtjs/seo"],
   vite: {
     plugins: [tailwindcss()],
     optimizeDeps: {
@@ -166,6 +173,35 @@ export default defineNuxtConfig({
       tokensPerInterval: 300,
       interval: 60000,
       headers: true,
+    },
+  },
+
+  // Robots configuration
+  robots: {
+    disallow: ["/dashboard", "/settings", "/trips", "/invite", "/api"],
+    blockAiBots: true,
+  },
+
+  // Sitemap configuration
+  sitemap: {
+    exclude: ["/dashboard/**", "/settings/**", "/trips/**", "/invite/**", "/api/**"],
+    cacheMaxAgeSeconds: 600,
+  },
+
+  // Schema.org structured data
+  schemaOrg: {
+    identity: {
+      type: "Organization",
+      name: "AI Trip",
+      logo: "/image.png",
+    },
+  },
+
+  // OG Image defaults
+  ogImage: {
+    defaults: {
+      width: 1200,
+      height: 630,
     },
   },
 
