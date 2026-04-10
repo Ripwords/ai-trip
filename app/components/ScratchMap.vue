@@ -69,10 +69,14 @@ const transformStr = computed(
 );
 
 function clampTranslation() {
-  const maxPan = 480 * (scale.value - 1);
-  translateX.value = Math.max(-maxPan, Math.min(maxPan, translateX.value));
-  const maxPanY = 300 * (scale.value - 1);
-  translateY.value = Math.max(-maxPanY, Math.min(maxPanY, translateY.value));
+  // At scale S, content spans [0, 960*S] in viewBox coords after translate.
+  // To keep content covering the 960x600 viewBox:
+  //   tx must be in [960*(1-S), 0]
+  //   ty must be in [600*(1-S), 0]
+  const minTx = 960 * (1 - scale.value);
+  translateX.value = Math.max(minTx, Math.min(0, translateX.value));
+  const minTy = 600 * (1 - scale.value);
+  translateY.value = Math.max(minTy, Math.min(0, translateY.value));
 }
 
 function handleWheel(e: WheelEvent) {
