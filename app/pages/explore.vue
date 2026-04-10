@@ -79,11 +79,10 @@ function handleCheckVisa(country: CountryInfo) {
       />
     </div>
 
-    <!-- TODO: VisaChecker component (Task 13) -->
-    <!-- <VisaChecker
+    <VisaChecker
       v-if="showVisaChecker"
       :destination="visaDestination"
       @close="showVisaChecker = false"
-    /> -->
+    />
   </div>
 </template>
