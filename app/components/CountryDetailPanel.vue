@@ -14,12 +14,27 @@ const emit = defineEmits<{
   checkVisa: [country: CountryInfo];
 }>();
 
+const panelRef = ref<HTMLElement | null>(null);
+
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === "Escape" && props.country) emit("close");
 }
 
-onMounted(() => document.addEventListener("keydown", handleKeydown));
-onUnmounted(() => document.removeEventListener("keydown", handleKeydown));
+function handleClickOutside(e: MouseEvent) {
+  if (!props.country) return;
+  if (panelRef.value && !panelRef.value.contains(e.target as Node)) {
+    emit("close");
+  }
+}
+
+onMounted(() => {
+  document.addEventListener("keydown", handleKeydown);
+  document.addEventListener("pointerup", handleClickOutside);
+});
+onUnmounted(() => {
+  document.removeEventListener("keydown", handleKeydown);
+  document.removeEventListener("pointerup", handleClickOutside);
+});
 
 function handleSetType(type: VisitType) {
   if (!props.country) return;
@@ -43,6 +58,7 @@ function handleSetType(type: VisitType) {
   >
     <div
       v-if="country"
+      ref="panelRef"
       class="absolute inset-y-0 right-0 z-10 flex w-full max-w-sm flex-col border-l border-sand-200 bg-white shadow-xl"
     >
       <!-- Header -->
