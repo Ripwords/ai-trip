@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CountryInfo } from "../data/countries";
+import { countryByAlpha2 } from "../data/countries";
 
 const props = defineProps<{
   destination: CountryInfo | null;
@@ -9,9 +10,16 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-// Fetch user profile for nationality
-const { data: profile, refresh: refreshProfile } = await useFetch("/api/user/profile");
-const nationality = ref<string | null>(profile.value?.nationality ?? null);
+// Fetch user profile for nationality (lazy — no SSR blocking)
+const { data: profile, refresh: refreshProfile } = useLazyFetch("/api/user/profile");
+const nationality = ref<string | null>(null);
+
+// Sync nationality from profile when it loads
+watch(profile, (p) => {
+  if (p?.nationality && !nationality.value) {
+    nationality.value = p.nationality;
+  }
+}, { immediate: true });
 
 // Visa check state
 const visaResult = ref<{
@@ -27,9 +35,14 @@ const visaResult = ref<{
 const loading = ref(false);
 const error = ref<string | null>(null);
 
-// Save nationality on change
-watch(nationality, async (val) => {
-  if (val !== profile.value?.nationality) {
+// Save nationality on explicit user change (not on profile sync)
+const userChangedNationality = ref(false);
+watch(nationality, async (val, oldVal) => {
+  if (!userChangedNationality.value) {
+    userChangedNationality.value = true;
+    return;
+  }
+  if (val !== oldVal && val !== profile.value?.nationality) {
     await $fetch("/api/user/profile", {
       method: "PUT",
       body: { nationality: val },
@@ -45,12 +58,16 @@ async function checkVisa() {
   error.value = null;
   visaResult.value = null;
 
+  const passportName = countryByAlpha2.get(nationality.value)?.name ?? nationality.value;
+
   try {
     const result = await $fetch("/api/visa/check", {
       method: "POST",
       body: {
         destinationCountry: props.destination.alpha2,
+        destinationCountryName: props.destination.name,
         passportCountry: nationality.value,
+        passportCountryName: passportName,
       },
     });
     visaResult.value = result;
@@ -61,14 +78,13 @@ async function checkVisa() {
   }
 }
 
-// Auto-check if nationality is already set
+// Auto-check if nationality is already set when destination changes
 watch(
-  () => props.destination,
-  () => {
-    visaResult.value = null;
-    if (nationality.value && props.destination) checkVisa();
+  [() => props.destination, nationality],
+  ([dest, nat], [oldDest]) => {
+    if (dest !== oldDest) visaResult.value = null;
+    if (nat && dest && !visaResult.value && !loading.value) checkVisa();
   },
-  { immediate: true }
 );
 
 const statusConfig: Record<string, { label: string; color: string; icon: string }> = {

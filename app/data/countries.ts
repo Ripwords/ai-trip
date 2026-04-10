@@ -209,6 +209,14 @@ export const countries: CountryInfo[] = [
   { numeric: '776', alpha2: 'TO', name: 'Tonga', region: 'Oceania' },
   { numeric: '798', alpha2: 'TV', name: 'Tuvalu', region: 'Oceania' },
   { numeric: '548', alpha2: 'VU', name: 'Vanuatu', region: 'Oceania' },
+  // Territories and disputed regions present in Natural Earth 110m TopoJSON
+  { numeric: '158', alpha2: 'TW', name: 'Taiwan', region: 'Asia' },
+  { numeric: '630', alpha2: 'PR', name: 'Puerto Rico', region: 'Americas' },
+  { numeric: '304', alpha2: 'GL', name: 'Greenland', region: 'Americas' },
+  { numeric: '732', alpha2: 'EH', name: 'Western Sahara', region: 'Africa' },
+  { numeric: '540', alpha2: 'NC', name: 'New Caledonia', region: 'Oceania' },
+  { numeric: '238', alpha2: 'FK', name: 'Falkland Islands', region: 'Americas' },
+  { numeric: '260', alpha2: 'TF', name: 'French Southern Lands', region: 'Africa' },
 ]
 
 export const countryByNumeric: Map<string, CountryInfo> = new Map(

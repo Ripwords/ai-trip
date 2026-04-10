@@ -27,7 +27,9 @@ const CACHE_TTL_DAYS = 30;
 
 export async function checkVisaRequirements(
   passportCountry: string,
-  destinationCountry: string
+  destinationCountry: string,
+  passportCountryName: string,
+  destinationCountryName: string
 ): Promise<VisaCheckResult> {
   // Check cache first
   const cached = await db.query.visaCache.findFirst({
@@ -55,10 +57,13 @@ export async function checkVisaRequirements(
 
   // Fetch from AI
   const model = getModel();
-  const result = await generateObject({
-    model,
-    schema: visaResultSchema,
-    prompt: `You are a travel visa expert. Research the current visa requirements for a traveler holding a ${passportCountry} passport who wants to visit ${destinationCountry}.
+
+  let visaResult: VisaResult;
+  try {
+    const result = await generateObject({
+      model,
+      schema: visaResultSchema,
+      prompt: `You are a travel visa expert. Research the current visa requirements for a traveler holding a ${passportCountryName} (${passportCountry}) passport who wants to visit ${destinationCountryName} (${destinationCountry}).
 
 Provide accurate, up-to-date information about:
 1. Whether a visa is required (visa_free, visa_on_arrival, e_visa, or visa_required)
@@ -69,11 +74,16 @@ Provide accurate, up-to-date information about:
 6. Any additional notes (special conditions, transit visa needs, etc.)
 
 Be specific and factual. If unsure about exact details, say so in the notes.`,
-  });
+    });
+    visaResult = result.object;
+  } catch (error) {
+    throw createError({
+      statusCode: 503,
+      message: "Visa check is temporarily unavailable. Please try again later.",
+    });
+  }
 
-  const visaResult = result.object;
-
-  // Cache the result
+  // Cache the result (upsert to handle race conditions)
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + CACHE_TTL_DAYS);
 
@@ -92,7 +102,19 @@ Be specific and factual. If unsure about exact details, say so in the notes.`,
       fetchedAt: new Date(),
       expiresAt,
     })
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: [visaCache.passportCountry, visaCache.destinationCountry],
+      set: {
+        visaStatus: visaResult.visaStatus,
+        maxStayDays: visaResult.maxStayDays,
+        requirements: visaResult.requirements,
+        processingTime: visaResult.processingTime,
+        cost: visaResult.cost,
+        notes: visaResult.notes,
+        fetchedAt: new Date(),
+        expiresAt,
+      },
+    });
 
   return {
     ...visaResult,

@@ -6,7 +6,9 @@ import { checkVisaRequirements } from "../../lib/visa-checker";
 
 const bodySchema = z.object({
   destinationCountry: z.string().length(2).toUpperCase(),
+  destinationCountryName: z.string().min(1).max(100),
   passportCountry: z.string().length(2).toUpperCase().optional(),
+  passportCountryName: z.string().min(1).max(100).optional(),
 });
 
 export default defineEventHandler(async (event) => {
@@ -15,6 +17,7 @@ export default defineEventHandler(async (event) => {
 
   // Resolve passport country: explicit param > user profile
   let passportCountry = body.passportCountry;
+  let passportCountryName = body.passportCountryName;
 
   if (!passportCountry) {
     const profile = await db.query.userProfiles.findFirst({
@@ -45,6 +48,11 @@ export default defineEventHandler(async (event) => {
     };
   }
 
-  const result = await checkVisaRequirements(passportCountry, body.destinationCountry);
+  const result = await checkVisaRequirements(
+    passportCountry,
+    body.destinationCountry,
+    passportCountryName ?? passportCountry,
+    body.destinationCountryName
+  );
   return result;
 });

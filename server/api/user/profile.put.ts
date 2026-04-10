@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db";
 import { userProfiles } from "../../db/schema";
@@ -11,26 +10,17 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event);
   const body = await readValidatedBody(event, bodySchema.parse);
 
-  const existing = await db.query.userProfiles.findFirst({
-    where: eq(userProfiles.userId, session.user.id),
-  });
-
-  if (existing) {
-    const [updated] = await db
-      .update(userProfiles)
-      .set({ nationality: body.nationality })
-      .where(eq(userProfiles.userId, session.user.id))
-      .returning();
-    return updated;
-  }
-
-  const [created] = await db
+  const [result] = await db
     .insert(userProfiles)
     .values({
       userId: session.user.id,
       nationality: body.nationality,
     })
+    .onConflictDoUpdate({
+      target: userProfiles.userId,
+      set: { nationality: body.nationality },
+    })
     .returning();
 
-  return created;
+  return result;
 });
