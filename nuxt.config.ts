@@ -183,13 +183,13 @@ export default defineNuxtConfig({
 
   // Robots configuration
   robots: {
-    disallow: ["/dashboard", "/settings", "/trips", "/invite", "/api"],
+    disallow: ["/dashboard", "/settings", "/trips", "/invite", "/explore", "/api"],
     blockAiBots: true,
   },
 
   // Sitemap configuration
   sitemap: {
-    exclude: ["/dashboard/**", "/settings/**", "/trips/**", "/invite/**", "/api/**"],
+    exclude: ["/dashboard/**", "/settings/**", "/trips/**", "/invite/**", "/explore/**", "/api/**"],
     cacheMaxAgeSeconds: 600,
   },
 
@@ -224,6 +224,16 @@ export default defineNuxtConfig({
     "/api/auth/**": {
       security: {
         rateLimiter: { tokensPerInterval: 30, interval: 60000 },
+      },
+    },
+    "/api/visa/check": {
+      security: {
+        rateLimiter: { tokensPerInterval: 10, interval: 60000 },
+      },
+    },
+    "/api/visited-countries/**": {
+      security: {
+        rateLimiter: { tokensPerInterval: 60, interval: 60000 },
       },
     },
   },
