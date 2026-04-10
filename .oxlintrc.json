@@ -9,18 +9,16 @@
   "rules": {
     "no-unused-vars": "off",
     "typescript/no-unused-vars": "off",
-    "unicorn/filename-case": "off"
+    "unicorn/filename-case": "off",
+    "no-control-regex": "off",
+    "no-await-in-loop": "off",
+    "no-shadow": "off",
+    "unicorn/consistent-function-scoping": "off"
   },
   "env": {
     "builtin": true,
     "browser": true,
     "node": true
   },
-  "ignorePatterns": [
-    ".nuxt",
-    ".output",
-    "node_modules",
-    "dist",
-    "server/db/migrations"
-  ]
+  "ignorePatterns": [".nuxt", ".output", "node_modules", "dist", "server/db/migrations"]
 }

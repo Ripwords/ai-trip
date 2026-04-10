@@ -1,7 +1,7 @@
-import { eq, and } from "drizzle-orm";
-import { z } from "zod";
-import { db } from "../../db";
-import { visitedCountries } from "../../db/schema";
+import { eq, and } from "drizzle-orm"
+import { z } from "zod"
+import { db } from "../../db"
+import { visitedCountries } from "../../db/schema"
 
 const bodySchema = z.object({
   countryCode: z.string().length(2).toUpperCase(),
@@ -9,19 +9,19 @@ const bodySchema = z.object({
   visitType: z.enum(["visited", "layover", "want_to_visit"]).default("visited"),
   visitedAt: z.string().date().optional(),
   notes: z.string().max(500).optional(),
-});
+})
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event);
-  const body = await readValidatedBody(event, bodySchema.parse);
+  const session = await requireAuth(event)
+  const body = await readValidatedBody(event, bodySchema.parse)
 
   // Check if already marked
   const existing = await db.query.visitedCountries.findFirst({
     where: and(
       eq(visitedCountries.userId, session.user.id),
-      eq(visitedCountries.countryCode, body.countryCode)
+      eq(visitedCountries.countryCode, body.countryCode),
     ),
-  });
+  })
 
   // Upsert — allows changing visit type for an already-marked country
   const [result] = await db
@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
       target: [visitedCountries.userId, visitedCountries.countryCode],
       set: { visitType: body.visitType },
     })
-    .returning();
+    .returning()
 
-  return result;
-});
+  return result
+})

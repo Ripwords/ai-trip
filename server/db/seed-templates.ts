@@ -1,5 +1,5 @@
-import { db } from "./index";
-import { packingTemplates } from "./schema";
+import { db } from "./index"
+import { packingTemplates } from "./schema"
 
 const templates = [
   {
@@ -113,21 +113,21 @@ const templates = [
       { text: "Passport / ID", category: "Documents" },
     ],
   },
-];
+]
 
 async function seed() {
-  console.log("Seeding packing templates...");
+  console.log("Seeding packing templates...")
 
   for (const template of templates) {
-    await db.insert(packingTemplates).values(template);
+    await db.insert(packingTemplates).values(template)
   }
 
-  console.log(`Seeded ${templates.length} packing templates.`);
+  console.log(`Seeded ${templates.length} packing templates.`)
 }
 
 seed()
   .then(() => process.exit(0))
   .catch((err) => {
-    console.error("Seed failed:", err);
-    process.exit(1);
-  });
+    console.error("Seed failed:", err)
+    process.exit(1)
+  })

@@ -1,19 +1,14 @@
-import {
-  pgTable,
-  text,
-  uuid,
-  timestamp,
-  jsonb,
-  index,
-} from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
-import { trips } from "./trips";
-import { user } from "./auth-schema";
+import { pgTable, text, uuid, timestamp, jsonb, index } from "drizzle-orm/pg-core"
+import { relations } from "drizzle-orm"
+import { trips } from "./trips"
+import { user } from "./auth-schema"
 
 export const activityLog = pgTable(
   "activity_log",
   {
-    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
     tripId: uuid("trip_id")
       .notNull()
       .references(() => trips.id, { onDelete: "cascade" }),
@@ -32,10 +27,10 @@ export const activityLog = pgTable(
     index("idx_activity_log_trip_id").on(table.tripId),
     index("idx_activity_log_user_id").on(table.userId),
     index("idx_activity_log_created_at").on(table.createdAt),
-  ]
-);
+  ],
+)
 
 export const activityLogRelations = relations(activityLog, ({ one }) => ({
   trip: one(trips, { fields: [activityLog.tripId], references: [trips.id] }),
   user: one(user, { fields: [activityLog.userId], references: [user.id] }),
-}));
+}))

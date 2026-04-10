@@ -1,9 +1,9 @@
-import { and, eq } from "drizzle-orm";
-import { z } from "zod";
-import { db } from "../../../../../db";
-import { activities, itineraryDays } from "../../../../../db/schema";
-import { dayIdParamsSchema } from "../../../../../utils/schemas";
-import { computeAndSaveSegments } from "../../../../../lib/segments";
+import { and, eq } from "drizzle-orm"
+import { z } from "zod"
+import { db } from "../../../../../db"
+import { activities, itineraryDays } from "../../../../../db/schema"
+import { dayIdParamsSchema } from "../../../../../utils/schemas"
+import { computeAndSaveSegments } from "../../../../../lib/segments"
 
 const activitySnapshotSchema = z.object({
   name: z.string(),
@@ -24,31 +24,31 @@ const activitySnapshotSchema = z.object({
   sortOrder: z.number(),
   notes: z.string().nullable(),
   actualCost: z.string().nullable(),
-});
+})
 
 const restoreBodySchema = z.object({
   activities: z.array(activitySnapshotSchema),
-});
+})
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event);
-  const { id, dayId } = await getValidatedRouterParams(event, dayIdParamsSchema.parse);
-  const body = await readValidatedBody(event, restoreBodySchema.parse);
+  const session = await requireAuth(event)
+  const { id, dayId } = await getValidatedRouterParams(event, dayIdParamsSchema.parse)
+  const body = await readValidatedBody(event, restoreBodySchema.parse)
 
   // Verify trip access (owner or editor can undo)
-  await requireTripAccess(id, session.user.id, ["owner", "editor"]);
+  await requireTripAccess(id, session.user.id, ["owner", "editor"])
 
   // Verify day belongs to this trip
   const day = await db.query.itineraryDays.findFirst({
     where: and(eq(itineraryDays.id, dayId), eq(itineraryDays.tripId, id)),
-  });
+  })
   if (!day) {
-    throw createError({ statusCode: 404, message: "Day not found" });
+    throw createError({ statusCode: 404, message: "Day not found" })
   }
 
   // Atomic delete + re-insert
   await db.transaction(async (tx) => {
-    await tx.delete(activities).where(eq(activities.itineraryDayId, dayId));
+    await tx.delete(activities).where(eq(activities.itineraryDayId, dayId))
 
     if (body.activities.length > 0) {
       await tx.insert(activities).values(
@@ -72,13 +72,13 @@ export default defineEventHandler(async (event) => {
           sortOrder: a.sortOrder,
           notes: a.notes,
           actualCost: a.actualCost,
-        }))
-      );
+        })),
+      )
     }
-  });
+  })
 
   // Recompute travel segments
-  await computeAndSaveSegments(dayId);
+  await computeAndSaveSegments(dayId)
 
   // Audit log
   await logTripAction({
@@ -86,7 +86,7 @@ export default defineEventHandler(async (event) => {
     userId: session.user.id,
     action: "ai_undo",
     description: `Undid AI changes, restored ${body.activities.length} activities`,
-  });
+  })
 
-  return { success: true, restored: body.activities.length };
-});
+  return { success: true, restored: body.activities.length }
+})

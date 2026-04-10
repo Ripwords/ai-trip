@@ -1,8 +1,8 @@
 <script setup lang="ts">
 defineProps<{
-  durationText: string | null;
-  distanceText: string | null;
-}>();
+  durationText: string | null
+  distanceText: string | null
+}>()
 </script>
 
 <template>

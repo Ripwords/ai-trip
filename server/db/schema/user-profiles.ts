@@ -1,6 +1,6 @@
-import { pgTable, text, timestamp, uuid, uniqueIndex } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
-import { user } from "./auth-schema";
+import { pgTable, text, timestamp, uuid, uniqueIndex } from "drizzle-orm/pg-core"
+import { relations } from "drizzle-orm"
+import { user } from "./auth-schema"
 
 export const userProfiles = pgTable(
   "user_profiles",
@@ -15,11 +15,9 @@ export const userProfiles = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [
-    uniqueIndex("idx_user_profiles_user_id").on(table.userId),
-  ]
-);
+  (table) => [uniqueIndex("idx_user_profiles_user_id").on(table.userId)],
+)
 
 export const userProfilesRelations = relations(userProfiles, ({ one }) => ({
   user: one(user, { fields: [userProfiles.userId], references: [user.id] }),
-}));
+}))

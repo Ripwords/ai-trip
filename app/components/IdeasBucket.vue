@@ -1,35 +1,43 @@
 <script setup lang="ts">
 interface Idea {
-  id: string;
-  name: string;
-  type: string | null;
-  address: string | null;
-  lat: number | null;
-  lng: number | null;
-  placeId: string | null;
+  id: string
+  name: string
+  type: string | null
+  address: string | null
+  lat: number | null
+  lng: number | null
+  placeId: string | null
 }
 
 interface Day {
-  id: string;
-  dayNumber: number;
-  date: string;
+  id: string
+  dayNumber: number
+  date: string
 }
 
 const props = defineProps<{
-  tripId: string;
-  ideas: Idea[];
-  days: Day[];
-  activeDayId: string | null;
-}>();
+  tripId: string
+  ideas: Idea[]
+  days: Day[]
+  activeDayId: string | null
+}>()
 
 const emit = defineEmits<{
-  refresh: [];
-}>();
+  refresh: []
+}>()
 
-const expanded = ref(true);
+const expanded = ref(true)
 
-async function handlePlaceSelect(place: { name: string; placeId: string; lat: number; lng: number; rating?: number; formattedAddress?: string; types?: string[] }) {
-  if (!props.activeDayId) return;
+async function handlePlaceSelect(place: {
+  name: string
+  placeId: string
+  lat: number
+  lng: number
+  rating?: number
+  formattedAddress?: string
+  types?: string[]
+}) {
+  if (!props.activeDayId) return
 
   try {
     // Add directly to the current day as an activity
@@ -45,14 +53,22 @@ async function handlePlaceSelect(place: { name: string; placeId: string; lat: nu
         type: place.types?.[0] ?? "attraction",
         rating: place.rating ?? undefined,
       },
-    });
-    emit("refresh");
+    })
+    emit("refresh")
   } catch (e: unknown) {
-    console.error("Failed to add activity:", e);
+    console.error("Failed to add activity:", e)
   }
 }
 
-async function handleSaveToIdeas(place: { name: string; placeId: string; lat: number; lng: number; rating?: number; formattedAddress?: string; types?: string[] }) {
+async function handleSaveToIdeas(place: {
+  name: string
+  placeId: string
+  lat: number
+  lng: number
+  rating?: number
+  formattedAddress?: string
+  types?: string[]
+}) {
   try {
     await $fetch(`/api/trips/${props.tripId}/ideas`, {
       method: "POST",
@@ -65,10 +81,10 @@ async function handleSaveToIdeas(place: { name: string; placeId: string; lat: nu
         type: place.types?.[0] ?? null,
         rating: place.rating ?? undefined,
       },
-    });
-    emit("refresh");
+    })
+    emit("refresh")
   } catch (e: unknown) {
-    console.error("Failed to add idea:", e);
+    console.error("Failed to add idea:", e)
   }
 }
 
@@ -77,10 +93,10 @@ async function handlePromote(payload: { ideaId: string; itineraryDayId: string }
     await $fetch(`/api/trips/${props.tripId}/ideas/${payload.ideaId}/promote`, {
       method: "POST",
       body: { itineraryDayId: payload.itineraryDayId },
-    });
-    emit("refresh");
+    })
+    emit("refresh")
   } catch (e: unknown) {
-    console.error("Failed to promote idea:", e);
+    console.error("Failed to promote idea:", e)
   }
 }
 
@@ -88,17 +104,17 @@ async function handleDelete(ideaId: string) {
   try {
     await $fetch(`/api/trips/${props.tripId}/ideas/${ideaId}`, {
       method: "DELETE",
-    });
-    emit("refresh");
+    })
+    emit("refresh")
   } catch (e: unknown) {
-    console.error("Failed to delete idea:", e);
+    console.error("Failed to delete idea:", e)
   }
 }
 
 const activeDayLabel = computed(() => {
-  const day = props.days.find((d) => d.id === props.activeDayId);
-  return day ? `Day ${day.dayNumber}` : "";
-});
+  const day = props.days.find((d) => d.id === props.activeDayId)
+  return day ? `Day ${day.dayNumber}` : ""
+})
 </script>
 
 <template>
@@ -128,9 +144,7 @@ const activeDayLabel = computed(() => {
       <div v-if="ideas.length" class="space-y-2">
         <div class="flex items-center gap-2 pt-1">
           <Icon name="lucide:lightbulb" class="h-3.5 w-3.5 text-terra-400" />
-          <span class="text-xs font-medium text-sand-500">
-            Saved ideas ({{ ideas.length }})
-          </span>
+          <span class="text-xs font-medium text-sand-500"> Saved ideas ({{ ideas.length }}) </span>
         </div>
         <IdeaCard
           v-for="idea in ideas"

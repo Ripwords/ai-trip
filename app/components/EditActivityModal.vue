@@ -1,108 +1,112 @@
 <script setup lang="ts">
 interface Activity {
-  id: string;
-  name: string;
-  type: string;
-  description: string | null;
-  placeId: string | null;
-  suggestedTime: string | null;
-  estimatedDurationMinutes: number | null;
-  costEstimate: string | null;
-  notes: string | null;
-  actualCost: string | null;
-  openingHours?: string[] | null;
-  priceLevel?: number | null;
-  photos?: string[] | null;
-  [key: string]: unknown;
+  id: string
+  name: string
+  type: string
+  description: string | null
+  placeId: string | null
+  suggestedTime: string | null
+  estimatedDurationMinutes: number | null
+  costEstimate: string | null
+  notes: string | null
+  actualCost: string | null
+  openingHours?: string[] | null
+  priceLevel?: number | null
+  photos?: string[] | null
+  [key: string]: unknown
 }
 
 interface PlaceDetails {
-  openingHours?: string[];
-  priceLevel?: number | null;
-  photos?: string[];
-  editorialSummary?: string;
+  openingHours?: string[]
+  priceLevel?: number | null
+  photos?: string[]
+  editorialSummary?: string
 }
 
 function formatPriceLevel(level: number): string {
-  return "$".repeat(Math.min(level, 4));
+  return "$".repeat(Math.min(level, 4))
 }
 
 const props = defineProps<{
-  activity: Activity | null;
-  open: boolean;
-}>();
+  activity: Activity | null
+  open: boolean
+}>()
 
 // Lazy-load place details when modal opens
-const placeDetails = ref<PlaceDetails | null>(null);
-const detailsLoading = ref(false);
+const placeDetails = ref<PlaceDetails | null>(null)
+const detailsLoading = ref(false)
 
 watch(
   () => props.open,
   async (isOpen) => {
     if (isOpen && props.activity?.placeId && !props.activity.openingHours?.length) {
-      detailsLoading.value = true;
+      detailsLoading.value = true
       try {
-        const details = await $fetch<PlaceDetails>(`/api/places/${props.activity.placeId}/details`);
-        placeDetails.value = details;
+        const details = await $fetch<PlaceDetails>(`/api/places/${props.activity.placeId}/details`)
+        placeDetails.value = details
       } catch {
         // Graceful — details are optional
       } finally {
-        detailsLoading.value = false;
+        detailsLoading.value = false
       }
     } else {
-      placeDetails.value = null;
+      placeDetails.value = null
     }
-  }
-);
+  },
+)
 
 const resolvedPhotos = computed(() =>
-  props.activity?.photos?.length ? props.activity.photos : placeDetails.value?.photos ?? []
-);
+  props.activity?.photos?.length ? props.activity.photos : (placeDetails.value?.photos ?? []),
+)
 const resolvedOpeningHours = computed(() =>
-  props.activity?.openingHours?.length ? props.activity.openingHours : placeDetails.value?.openingHours ?? []
-);
-const resolvedPriceLevel = computed(() =>
-  props.activity?.priceLevel ?? placeDetails.value?.priceLevel ?? null
-);
+  props.activity?.openingHours?.length
+    ? props.activity.openingHours
+    : (placeDetails.value?.openingHours ?? []),
+)
+const resolvedPriceLevel = computed(
+  () => props.activity?.priceLevel ?? placeDetails.value?.priceLevel ?? null,
+)
 
-const mapsApiKey = useRuntimeConfig().public.googleMapsApiKey;
+const mapsApiKey = useRuntimeConfig().public.googleMapsApiKey
 
 const emit = defineEmits<{
-  save: [data: {
-    name: string;
-    description: string | null;
-    suggestedTime: string | null;
-    estimatedDurationMinutes: number | null;
-    costEstimate: string | null;
-    notes: string | null;
-    actualCost: string | null;
-  }];
-  close: [];
-}>();
+  save: [
+    data: {
+      name: string
+      description: string | null
+      suggestedTime: string | null
+      estimatedDurationMinutes: number | null
+      costEstimate: string | null
+      notes: string | null
+      actualCost: string | null
+    },
+  ]
+  close: []
+}>()
 
-const name = ref("");
-const description = ref("");
-const suggestedTime = ref("");
-const estimatedDurationMinutes = ref<number | null>(null);
-const costEstimate = ref("");
-const notes = ref("");
-const actualCost = ref("");
+const name = ref("")
+const description = ref("")
+const suggestedTime = ref("")
+const estimatedDurationMinutes = ref<number | null>(null)
+const costEstimate = ref("")
+const notes = ref("")
+const actualCost = ref("")
 
 watch(
   () => props.activity,
   (activity) => {
     if (activity) {
-      name.value = activity.name;
-      description.value = activity.description ?? "";
-      suggestedTime.value = activity.suggestedTime ?? "";
-      estimatedDurationMinutes.value = activity.estimatedDurationMinutes;
-      costEstimate.value = activity.costEstimate ?? "";
-      notes.value = activity.notes ?? "";
-      actualCost.value = activity.actualCost ?? "";
+      name.value = activity.name
+      description.value = activity.description ?? ""
+      suggestedTime.value = activity.suggestedTime ?? ""
+      estimatedDurationMinutes.value = activity.estimatedDurationMinutes
+      costEstimate.value = activity.costEstimate ?? ""
+      notes.value = activity.notes ?? ""
+      actualCost.value = activity.actualCost ?? ""
     }
   },
-  { immediate: true }
-);
+  { immediate: true },
+)
 
 function handleSave() {
   emit("save", {
@@ -113,20 +117,14 @@ function handleSave() {
     costEstimate: costEstimate.value || null,
     notes: notes.value || null,
     actualCost: actualCost.value || null,
-  });
+  })
 }
 </script>
 
 <template>
   <Teleport to="body">
-    <div
-      v-if="open"
-      class="fixed inset-0 z-50 flex items-center justify-center"
-    >
-      <div
-        class="fixed inset-0 bg-black/40"
-        @click="emit('close')"
-      />
+    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center">
+      <div class="fixed inset-0 bg-black/40" @click="emit('close')" />
       <div class="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl mx-4">
         <h2 class="text-lg font-display text-sand-900">Edit Activity</h2>
 
@@ -219,13 +217,21 @@ function handleSave() {
 
           <!-- Opening hours (lazy-loaded from Google Maps) -->
           <details v-if="resolvedOpeningHours.length" class="group">
-            <summary class="flex cursor-pointer items-center gap-1 text-sm font-medium text-sand-700">
+            <summary
+              class="flex cursor-pointer items-center gap-1 text-sm font-medium text-sand-700"
+            >
               <Icon name="lucide:clock" class="h-3.5 w-3.5" />
               Opening Hours
-              <span v-if="resolvedPriceLevel != null && resolvedPriceLevel > 0" class="ml-2 text-xs font-medium text-forest-600">
+              <span
+                v-if="resolvedPriceLevel != null && resolvedPriceLevel > 0"
+                class="ml-2 text-xs font-medium text-forest-600"
+              >
                 {{ formatPriceLevel(resolvedPriceLevel) }}
               </span>
-              <Icon name="lucide:chevron-down" class="ml-auto h-3.5 w-3.5 transition group-open:rotate-180" />
+              <Icon
+                name="lucide:chevron-down"
+                class="ml-auto h-3.5 w-3.5 transition group-open:rotate-180"
+              />
             </summary>
             <ul class="mt-2 space-y-0.5 text-sm text-sand-600">
               <li v-for="(hour, i) in resolvedOpeningHours" :key="i">{{ hour }}</li>

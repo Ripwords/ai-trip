@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { authClient } from "../lib/auth-client";
+import { authClient } from "../lib/auth-client"
 
-const { data: session } = await authClient.useSession(useFetch);
-const isLoggedIn = computed(() => !!session.value?.user);
-const { cycle, modeIcon, modeLabel } = useDarkMode();
+const { data: session } = await authClient.useSession(useFetch)
+const isLoggedIn = computed(() => !!session.value?.user)
+const { cycle, modeIcon, modeLabel } = useDarkMode()
 </script>
 
 <template>
@@ -48,7 +48,8 @@ const { cycle, modeIcon, modeLabel } = useDarkMode();
     </main>
     <footer class="border-t border-sand-200/50 py-6 text-center text-xs text-sand-400">
       <div class="mx-auto max-w-7xl px-6">
-        &copy; {{ new Date().getFullYear() }} AI Trip. AI-powered travel planning with Google Maps verified places.
+        &copy; {{ new Date().getFullYear() }} AI Trip. AI-powered travel planning with Google Maps
+        verified places.
       </div>
     </footer>
   </div>

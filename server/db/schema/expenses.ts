@@ -1,10 +1,8 @@
-import {
-  pgTable, uuid, text, numeric, timestamp, jsonb, index,
-} from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
-import { trips } from "./trips";
-import { activities } from "./activities";
-import { user } from "./auth-schema";
+import { pgTable, uuid, text, numeric, timestamp, jsonb, index } from "drizzle-orm/pg-core"
+import { relations } from "drizzle-orm"
+import { trips } from "./trips"
+import { activities } from "./activities"
+import { user } from "./auth-schema"
 
 export const expenses = pgTable(
   "expenses",
@@ -31,8 +29,8 @@ export const expenses = pgTable(
     index("idx_expenses_trip_id").on(table.tripId),
     index("idx_expenses_activity_id").on(table.activityId),
     index("idx_expenses_paid_by").on(table.paidById),
-  ]
-);
+  ],
+)
 
 export const expensesRelations = relations(expenses, ({ one }) => ({
   trip: one(trips, { fields: [expenses.tripId], references: [trips.id] }),
@@ -41,4 +39,4 @@ export const expensesRelations = relations(expenses, ({ one }) => ({
     references: [activities.id],
   }),
   paidBy: one(user, { fields: [expenses.paidById], references: [user.id] }),
-}));
+}))

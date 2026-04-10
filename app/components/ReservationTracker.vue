@@ -1,45 +1,51 @@
 <script setup lang="ts">
 interface Reservation {
-  id: string;
-  type: string;
-  status: string;
-  name: string;
-  confirmationNumber: string | null;
-  provider: string | null;
-  notes: string | null;
-  startDate: string | null;
-  endDate: string | null;
-  amount: string | null;
+  id: string
+  type: string
+  status: string
+  name: string
+  confirmationNumber: string | null
+  provider: string | null
+  notes: string | null
+  startDate: string | null
+  endDate: string | null
+  amount: string | null
 }
 
 const props = defineProps<{
-  tripId: string;
-  currencyCode: string;
-}>();
+  tripId: string
+  currencyCode: string
+}>()
 
 const { data: reservations, refresh } = await useFetch<Reservation[]>(
-  `/api/trips/${props.tripId}/reservations`
-);
+  `/api/trips/${props.tripId}/reservations`,
+)
 
-const showAddForm = ref(false);
-const editingId = ref<string | null>(null);
+const showAddForm = ref(false)
+const editingId = ref<string | null>(null)
 
 // Form fields
-const formType = ref("flight");
-const formStatus = ref("confirmed");
-const formName = ref("");
-const formConfirmation = ref("");
-const formProvider = ref("");
-const formNotes = ref("");
-const formStartDate = ref("");
-const formEndDate = ref("");
-const formAmount = ref("");
+const formType = ref("flight")
+const formStatus = ref("confirmed")
+const formName = ref("")
+const formConfirmation = ref("")
+const formProvider = ref("")
+const formNotes = ref("")
+const formStartDate = ref("")
+const formEndDate = ref("")
+const formAmount = ref("")
 
 const types = [
-  "flight", "accommodation", "restaurant", "car_rental", "activity", "transport", "other",
-] as const;
+  "flight",
+  "accommodation",
+  "restaurant",
+  "car_rental",
+  "activity",
+  "transport",
+  "other",
+] as const
 
-const statuses = ["confirmed", "pending", "cancelled"] as const;
+const statuses = ["confirmed", "pending", "cancelled"] as const
 
 const typeIcons: Record<string, string> = {
   flight: "lucide:plane",
@@ -49,43 +55,43 @@ const typeIcons: Record<string, string> = {
   activity: "lucide:ticket",
   transport: "lucide:bus",
   other: "lucide:package",
-};
+}
 
 const statusClasses: Record<string, string> = {
   confirmed: "bg-forest-50 text-forest-700",
   pending: "bg-yellow-50 text-yellow-700",
   cancelled: "bg-red-50 text-red-600",
-};
+}
 
 function resetForm() {
-  formType.value = "flight";
-  formStatus.value = "confirmed";
-  formName.value = "";
-  formConfirmation.value = "";
-  formProvider.value = "";
-  formNotes.value = "";
-  formStartDate.value = "";
-  formEndDate.value = "";
-  formAmount.value = "";
-  editingId.value = null;
+  formType.value = "flight"
+  formStatus.value = "confirmed"
+  formName.value = ""
+  formConfirmation.value = ""
+  formProvider.value = ""
+  formNotes.value = ""
+  formStartDate.value = ""
+  formEndDate.value = ""
+  formAmount.value = ""
+  editingId.value = null
 }
 
 function startEdit(r: Reservation) {
-  editingId.value = r.id;
-  formType.value = r.type;
-  formStatus.value = r.status;
-  formName.value = r.name;
-  formConfirmation.value = r.confirmationNumber ?? "";
-  formProvider.value = r.provider ?? "";
-  formNotes.value = r.notes ?? "";
-  formStartDate.value = r.startDate ? new Date(r.startDate).toISOString().slice(0, 16) : "";
-  formEndDate.value = r.endDate ? new Date(r.endDate).toISOString().slice(0, 16) : "";
-  formAmount.value = r.amount ?? "";
-  showAddForm.value = true;
+  editingId.value = r.id
+  formType.value = r.type
+  formStatus.value = r.status
+  formName.value = r.name
+  formConfirmation.value = r.confirmationNumber ?? ""
+  formProvider.value = r.provider ?? ""
+  formNotes.value = r.notes ?? ""
+  formStartDate.value = r.startDate ? new Date(r.startDate).toISOString().slice(0, 16) : ""
+  formEndDate.value = r.endDate ? new Date(r.endDate).toISOString().slice(0, 16) : ""
+  formAmount.value = r.amount ?? ""
+  showAddForm.value = true
 }
 
 async function submitReservation() {
-  if (!formName.value.trim()) return;
+  if (!formName.value.trim()) return
   try {
     const body: Record<string, unknown> = {
       type: formType.value,
@@ -97,28 +103,28 @@ async function submitReservation() {
       startDate: formStartDate.value ? new Date(formStartDate.value).toISOString() : undefined,
       endDate: formEndDate.value ? new Date(formEndDate.value).toISOString() : undefined,
       amount: formAmount.value || undefined,
-    };
+    }
 
     if (editingId.value) {
       await $fetch(`/api/trips/${props.tripId}/reservations/${editingId.value}`, {
         method: "PUT",
         body,
-      });
+      })
     } else {
       await $fetch(`/api/trips/${props.tripId}/reservations`, {
         method: "POST",
         body,
-      });
+      })
     }
-    resetForm();
-    showAddForm.value = false;
-    await refresh();
+    resetForm()
+    showAddForm.value = false
+    await refresh()
   } catch (e: unknown) {
-    console.error("Failed to save reservation:", e);
+    console.error("Failed to save reservation:", e)
   }
 }
 
-const { confirm } = useConfirm();
+const { confirm } = useConfirm()
 
 async function deleteReservation(id: string) {
   const ok = await confirm({
@@ -126,15 +132,15 @@ async function deleteReservation(id: string) {
     message: "Delete this reservation? This cannot be undone.",
     confirmText: "Delete",
     destructive: true,
-  });
-  if (!ok) return;
+  })
+  if (!ok) return
   try {
     await $fetch(`/api/trips/${props.tripId}/reservations/${id}`, {
       method: "DELETE",
-    });
-    await refresh();
+    })
+    await refresh()
   } catch (e: unknown) {
-    console.error("Failed to delete reservation:", e);
+    console.error("Failed to delete reservation:", e)
   }
 }
 
@@ -144,7 +150,7 @@ function formatCurrency(amount: string): string {
     currency: props.currencyCode || "USD",
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
-  }).format(parseFloat(amount));
+  }).format(parseFloat(amount))
 }
 
 function formatDate(dateStr: string): string {
@@ -154,19 +160,19 @@ function formatDate(dateStr: string): string {
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  });
+  })
 }
 
 function formatDateShort(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-  });
+  })
 }
 
-const showEndDate = computed(() =>
-  formType.value === "accommodation" || formType.value === "car_rental"
-);
+const showEndDate = computed(
+  () => formType.value === "accommodation" || formType.value === "car_rental",
+)
 </script>
 
 <template>
@@ -176,7 +182,10 @@ const showEndDate = computed(() =>
         <h3 class="text-sm font-semibold text-sand-900">Reservations</h3>
         <button
           class="inline-flex items-center gap-1 rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600"
-          @click="resetForm(); showAddForm = !showAddForm"
+          @click="
+            resetForm()
+            showAddForm = !showAddForm
+          "
         >
           <Icon name="lucide:plus" class="h-3 w-3" />
           Add
@@ -184,7 +193,11 @@ const showEndDate = computed(() =>
       </div>
 
       <!-- Add/Edit form -->
-      <form v-if="showAddForm" class="mt-4 space-y-3 border-b border-sand-100 pb-4" @submit.prevent="submitReservation">
+      <form
+        v-if="showAddForm"
+        class="mt-4 space-y-3 border-b border-sand-100 pb-4"
+        @submit.prevent="submitReservation"
+      >
         <div class="grid grid-cols-2 gap-3">
           <select
             v-model="formType"
@@ -226,7 +239,9 @@ const showEndDate = computed(() =>
         </div>
         <div class="grid gap-3" :class="showEndDate ? 'grid-cols-3' : 'grid-cols-2'">
           <div>
-            <label class="mb-1 block text-xs text-sand-500">{{ showEndDate ? 'Check-in' : 'Date' }}</label>
+            <label class="mb-1 block text-xs text-sand-500">{{
+              showEndDate ? "Check-in" : "Date"
+            }}</label>
             <input
               v-model="formStartDate"
               type="datetime-local"
@@ -262,7 +277,10 @@ const showEndDate = computed(() =>
           <button
             type="button"
             class="rounded-lg border border-sand-300 px-3 py-2 text-sm font-medium text-sand-700 hover:bg-sand-50"
-            @click="showAddForm = false; resetForm()"
+            @click="
+              showAddForm = false
+              resetForm()
+            "
           >
             Cancel
           </button>
@@ -304,13 +322,19 @@ const showEndDate = computed(() =>
                   </span>
                   <span v-if="r.provider" class="text-sand-400">{{ r.provider }}</span>
                 </div>
-                <div v-if="r.startDate || r.confirmationNumber" class="mt-1 flex flex-wrap items-center gap-2 text-xs text-sand-500">
+                <div
+                  v-if="r.startDate || r.confirmationNumber"
+                  class="mt-1 flex flex-wrap items-center gap-2 text-xs text-sand-500"
+                >
                   <span v-if="r.startDate" class="flex items-center gap-0.5">
                     <Icon name="lucide:calendar" class="h-3 w-3" />
                     {{ formatDateShort(r.startDate) }}
                     <template v-if="r.endDate"> &ndash; {{ formatDateShort(r.endDate) }}</template>
                   </span>
-                  <span v-if="r.confirmationNumber" class="flex items-center gap-0.5 font-mono text-sand-400">
+                  <span
+                    v-if="r.confirmationNumber"
+                    class="flex items-center gap-0.5 font-mono text-sand-400"
+                  >
                     <Icon name="lucide:hash" class="h-3 w-3" />
                     {{ r.confirmationNumber }}
                   </span>

@@ -1,13 +1,13 @@
 <script setup lang="ts">
 defineProps<{
-  disabled: boolean;
-  hasActivities: boolean;
-}>();
+  disabled: boolean
+  hasActivities: boolean
+}>()
 
 const emit = defineEmits<{
-  fillGaps: [];
-  optimizeRoute: [];
-}>();
+  fillGaps: []
+  optimizeRoute: []
+}>()
 </script>
 
 <template>

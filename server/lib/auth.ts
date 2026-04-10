@@ -16,10 +16,7 @@ export const auth = betterAuth({
   experimental: {
     joins: true, // Enable database joins for better performance
   },
-  trustedOrigins: [
-    "http://localhost:3000",
-    process.env.NUXT_PUBLIC_BETTER_AUTH_URL || "",
-  ],
+  trustedOrigins: ["http://localhost:3000", process.env.NUXT_PUBLIC_BETTER_AUTH_URL || ""],
   database: drizzleAdapter(db, { provider: "pg" }),
   socialProviders: {
     google: {
@@ -46,7 +43,7 @@ export const auth = betterAuth({
     generateId: undefined, // use default secure random ID generation
     ipAddress: {
       ipAddressHeaders: ["x-vercel-forwarded-for", "x-forwarded-for"],
-    }
+    },
   },
   // Auto-accept pending invites when a user signs in
   databaseHooks: {
@@ -63,7 +60,7 @@ export const auth = betterAuth({
             const pendingInvites = await db.query.tripMembers.findMany({
               where: and(
                 eq(tripMembers.invitedEmail, user.email),
-                eq(tripMembers.status, "pending")
+                eq(tripMembers.status, "pending"),
               ),
             })
 
@@ -90,7 +87,7 @@ export const auth = betterAuth({
 
             if (pendingInvites.length > 0) {
               console.log(
-                `[auth] Auto-accepted ${pendingInvites.length} pending invite(s) for ${user.email}`
+                `[auth] Auto-accepted ${pendingInvites.length} pending invite(s) for ${user.email}`,
               )
             }
           } catch (e) {

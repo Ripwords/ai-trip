@@ -1,12 +1,10 @@
-import {
-  pgTable, uuid, text, boolean, timestamp, jsonb, index,
-} from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
-import { user } from "./auth-schema";
+import { pgTable, uuid, text, boolean, timestamp, jsonb, index } from "drizzle-orm/pg-core"
+import { relations } from "drizzle-orm"
+import { user } from "./auth-schema"
 
 export interface PackingTemplateItem {
-  text: string;
-  category: string;
+  text: string
+  category: string
 }
 
 export const packingTemplates = pgTable(
@@ -23,9 +21,9 @@ export const packingTemplates = pgTable(
   (table) => [
     index("idx_packing_templates_user_id").on(table.userId),
     index("idx_packing_templates_is_global").on(table.isGlobal),
-  ]
-);
+  ],
+)
 
 export const packingTemplatesRelations = relations(packingTemplates, ({ one }) => ({
   user: one(user, { fields: [packingTemplates.userId], references: [user.id] }),
-}));
+}))

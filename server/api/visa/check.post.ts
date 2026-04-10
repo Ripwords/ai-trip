@@ -1,36 +1,37 @@
-import { z } from "zod";
-import { eq } from "drizzle-orm";
-import { db } from "../../db";
-import { userProfiles } from "../../db/schema";
-import { checkVisaRequirements } from "../../lib/visa-checker";
+import { z } from "zod"
+import { eq } from "drizzle-orm"
+import { db } from "../../db"
+import { userProfiles } from "../../db/schema"
+import { checkVisaRequirements } from "../../lib/visa-checker"
 
 const bodySchema = z.object({
   destinationCountry: z.string().length(2).toUpperCase(),
   destinationCountryName: z.string().min(1).max(100),
   passportCountry: z.string().length(2).toUpperCase().optional(),
   passportCountryName: z.string().min(1).max(100).optional(),
-});
+})
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event);
-  const body = await readValidatedBody(event, bodySchema.parse);
+  const session = await requireAuth(event)
+  const body = await readValidatedBody(event, bodySchema.parse)
 
   // Resolve passport country: explicit param > user profile
-  let passportCountry = body.passportCountry;
-  let passportCountryName = body.passportCountryName;
+  let passportCountry = body.passportCountry
+  let passportCountryName = body.passportCountryName
 
   if (!passportCountry) {
     const profile = await db.query.userProfiles.findFirst({
       where: eq(userProfiles.userId, session.user.id),
-    });
-    passportCountry = profile?.nationality ?? undefined;
+    })
+    passportCountry = profile?.nationality ?? undefined
   }
 
   if (!passportCountry) {
     throw createError({
       statusCode: 400,
-      message: "No passport nationality set. Please set your nationality in settings or provide passportCountry.",
-    });
+      message:
+        "No passport nationality set. Please set your nationality in settings or provide passportCountry.",
+    })
   }
 
   if (passportCountry === body.destinationCountry) {
@@ -45,14 +46,14 @@ export default defineEventHandler(async (event) => {
       destinationCountry: body.destinationCountry,
       cached: false,
       fetchedAt: new Date(),
-    };
+    }
   }
 
   const result = await checkVisaRequirements(
     passportCountry,
     body.destinationCountry,
     passportCountryName ?? passportCountry,
-    body.destinationCountryName
-  );
-  return result;
-});
+    body.destinationCountryName,
+  )
+  return result
+})

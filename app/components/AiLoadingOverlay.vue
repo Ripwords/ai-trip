@@ -1,8 +1,8 @@
 <script setup lang="ts">
 const props = defineProps<{
-  visible: boolean;
-  mode: "generate" | "optimize" | "remove" | "reschedule";
-}>();
+  visible: boolean
+  mode: "generate" | "optimize" | "remove" | "reschedule"
+}>()
 
 const stepSets: Record<string, { icon: string; text: string; detail: string }[]> = {
   generate: [
@@ -24,32 +24,32 @@ const stepSets: Record<string, { icon: string; text: string; detail: string }[]>
     { icon: "lucide:clock", text: "Analyzing your current schedule", detail: "Review" },
     { icon: "lucide:calendar-clock", text: "Adjusting times and order", detail: "Rescheduling" },
   ],
-};
+}
 
-const steps = computed(() => stepSets[props.mode] ?? stepSets.generate);
+const steps = computed(() => stepSets[props.mode] ?? stepSets.generate)
 
-const activeStep = ref(0);
-const activeStepData = computed(() => steps.value![activeStep.value]!);
-let interval: ReturnType<typeof setInterval> | null = null;
+const activeStep = ref(0)
+const activeStepData = computed(() => steps.value![activeStep.value]!)
+let interval: ReturnType<typeof setInterval> | null = null
 
 watch(
   () => props.visible,
   (visible) => {
     if (visible) {
-      activeStep.value = 0;
+      activeStep.value = 0
       interval = setInterval(() => {
-        activeStep.value = (activeStep.value + 1) % steps.value!.length;
-      }, 3000);
+        activeStep.value = (activeStep.value + 1) % steps.value!.length
+      }, 3000)
     } else {
-      if (interval) clearInterval(interval);
-      interval = null;
+      if (interval) clearInterval(interval)
+      interval = null
     }
-  }
-);
+  },
+)
 
 onUnmounted(() => {
-  if (interval) clearInterval(interval);
-});
+  if (interval) clearInterval(interval)
+})
 </script>
 
 <template>
@@ -116,7 +116,9 @@ onUnmounted(() => {
       <div class="relative z-10 flex flex-col items-center">
         <!-- Compass rose / pin marker -->
         <div class="relative mb-8">
-          <div class="compass-ring flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm shadow-sand-300/50 ring-1 ring-sand-200/60">
+          <div
+            class="compass-ring flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm shadow-sand-300/50 ring-1 ring-sand-200/60"
+          >
             <Transition
               mode="out-in"
               enter-active-class="duration-300 ease-out"
@@ -126,11 +128,7 @@ onUnmounted(() => {
               leave-from-class="opacity-100 translate-y-0"
               leave-to-class="opacity-0 translate-y-1"
             >
-              <Icon
-                :key="activeStep"
-                :name="activeStepData.icon"
-                class="h-6 w-6 text-terra-500"
-              />
+              <Icon :key="activeStep" :name="activeStepData.icon" class="h-6 w-6 text-terra-500" />
             </Transition>
           </div>
           <!-- Pulse ring -->
@@ -148,7 +146,9 @@ onUnmounted(() => {
           leave-to-class="opacity-0"
         >
           <div :key="activeStep" class="text-center">
-            <span class="mb-1.5 block font-display text-[11px] uppercase tracking-[0.2em] text-terra-400">
+            <span
+              class="mb-1.5 block font-display text-[11px] uppercase tracking-[0.2em] text-terra-400"
+            >
               {{ activeStepData.detail }}
             </span>
             <p class="text-sm font-medium text-sand-700">
@@ -208,10 +208,19 @@ onUnmounted(() => {
 }
 
 @keyframes drift {
-  0%, 100% { transform: translateX(0) translateY(0); }
-  25% { transform: translateX(8px) translateY(-3px); }
-  50% { transform: translateX(-4px) translateY(5px); }
-  75% { transform: translateX(6px) translateY(2px); }
+  0%,
+  100% {
+    transform: translateX(0) translateY(0);
+  }
+  25% {
+    transform: translateX(8px) translateY(-3px);
+  }
+  50% {
+    transform: translateX(-4px) translateY(5px);
+  }
+  75% {
+    transform: translateX(6px) translateY(2px);
+  }
 }
 
 /* Pulse ring */
@@ -240,7 +249,12 @@ onUnmounted(() => {
 }
 
 @keyframes breathe {
-  0%, 100% { box-shadow: 0 1px 3px rgba(61, 51, 40, 0.06); }
-  50% { box-shadow: 0 4px 16px rgba(232, 93, 58, 0.08); }
+  0%,
+  100% {
+    box-shadow: 0 1px 3px rgba(61, 51, 40, 0.06);
+  }
+  50% {
+    box-shadow: 0 4px 16px rgba(232, 93, 58, 0.08);
+  }
 }
 </style>

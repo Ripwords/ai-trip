@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import type { PlaceResult } from "~/composables/usePlaceSearch";
+import type { PlaceResult } from "~/composables/usePlaceSearch"
 
 const props = defineProps<{
-  open: boolean;
-  tripId: string;
-  dayId: string;
-  dayNumber: number;
-}>();
+  open: boolean
+  tripId: string
+  dayId: string
+  dayNumber: number
+}>()
 
 const emit = defineEmits<{
-  added: [];
-  close: [];
-}>();
+  added: []
+  close: []
+}>()
 
-const mode = ref<"search" | "manual">("search");
-const selectedPlace = ref<PlaceResult | null>(null);
-const submitting = ref(false);
+const mode = ref<"search" | "manual">("search")
+const selectedPlace = ref<PlaceResult | null>(null)
+const submitting = ref(false)
 
 // Manual mode fields
-const name = ref("");
-const type = ref("attraction");
-const description = ref("");
+const name = ref("")
+const type = ref("attraction")
+const description = ref("")
 
 const activityTypes = [
   "attraction",
@@ -29,15 +29,15 @@ const activityTypes = [
   "transport",
   "shopping",
   "entertainment",
-];
+]
 
 function handlePlaceSelect(place: PlaceResult) {
-  selectedPlace.value = place;
+  selectedPlace.value = place
 }
 
 async function handleSearchSubmit() {
-  if (!selectedPlace.value) return;
-  submitting.value = true;
+  if (!selectedPlace.value) return
+  submitting.value = true
   try {
     await $fetch(`/api/trips/${props.tripId}/activities`, {
       method: "POST",
@@ -51,20 +51,20 @@ async function handleSearchSubmit() {
         address: selectedPlace.value.formattedAddress ?? null,
         rating: selectedPlace.value.rating ?? undefined,
       },
-    });
-    emit("added");
-    emit("close");
-    resetForm();
+    })
+    emit("added")
+    emit("close")
+    resetForm()
   } catch (e: unknown) {
-    console.error("Failed to add activity:", e);
+    console.error("Failed to add activity:", e)
   } finally {
-    submitting.value = false;
+    submitting.value = false
   }
 }
 
 async function handleManualSubmit() {
-  if (!name.value.trim()) return;
-  submitting.value = true;
+  if (!name.value.trim()) return
+  submitting.value = true
   try {
     await $fetch(`/api/trips/${props.tripId}/activities`, {
       method: "POST",
@@ -74,53 +74,49 @@ async function handleManualSubmit() {
         type: type.value,
         description: description.value || null,
       },
-    });
-    emit("added");
-    emit("close");
-    resetForm();
+    })
+    emit("added")
+    emit("close")
+    resetForm()
   } catch (e: unknown) {
-    console.error("Failed to add activity:", e);
+    console.error("Failed to add activity:", e)
   } finally {
-    submitting.value = false;
+    submitting.value = false
   }
 }
 
 function resetForm() {
-  mode.value = "search";
-  selectedPlace.value = null;
-  name.value = "";
-  type.value = "attraction";
-  description.value = "";
+  mode.value = "search"
+  selectedPlace.value = null
+  name.value = ""
+  type.value = "attraction"
+  description.value = ""
 }
 </script>
 
 <template>
   <Teleport to="body">
-    <div
-      v-if="open"
-      class="fixed inset-0 z-50 flex items-center justify-center"
-    >
-      <div
-        class="fixed inset-0 bg-black/40"
-        @click="emit('close')"
-      />
+    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center">
+      <div class="fixed inset-0 bg-black/40" @click="emit('close')" />
       <div class="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl mx-4">
-        <h2 class="text-lg font-display text-sand-900">
-          Add Activity to Day {{ dayNumber }}
-        </h2>
+        <h2 class="text-lg font-display text-sand-900">Add Activity to Day {{ dayNumber }}</h2>
 
         <!-- Mode toggle -->
         <div class="mt-4 flex rounded-lg border border-sand-200 p-0.5">
           <button
             class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition"
-            :class="mode === 'search' ? 'bg-terra-500 text-white' : 'text-sand-600 hover:text-sand-900'"
+            :class="
+              mode === 'search' ? 'bg-terra-500 text-white' : 'text-sand-600 hover:text-sand-900'
+            "
             @click="mode = 'search'"
           >
             Search place
           </button>
           <button
             class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition"
-            :class="mode === 'manual' ? 'bg-terra-500 text-white' : 'text-sand-600 hover:text-sand-900'"
+            :class="
+              mode === 'manual' ? 'bg-terra-500 text-white' : 'text-sand-600 hover:text-sand-900'
+            "
             @click="mode = 'manual'"
           >
             Manual entry
@@ -129,20 +125,17 @@ function resetForm() {
 
         <!-- Search mode -->
         <div v-if="mode === 'search'" class="mt-4 space-y-4">
-          <PlaceSearchInput
-            placeholder="Search for a place..."
-            @select="handlePlaceSelect"
-          />
+          <PlaceSearchInput placeholder="Search for a place..." @select="handlePlaceSelect" />
 
-          <div
-            v-if="selectedPlace"
-            class="rounded-lg border border-terra-200 bg-terra-50 p-3"
-          >
+          <div v-if="selectedPlace" class="rounded-lg border border-terra-200 bg-terra-50 p-3">
             <p class="text-sm font-medium text-sand-900">{{ selectedPlace.name }}</p>
             <p v-if="selectedPlace.formattedAddress" class="mt-0.5 text-xs text-sand-500">
               {{ selectedPlace.formattedAddress }}
             </p>
-            <div v-if="selectedPlace.rating" class="mt-1 flex items-center gap-1 text-xs text-sand-500">
+            <div
+              v-if="selectedPlace.rating"
+              class="mt-1 flex items-center gap-1 text-xs text-sand-500"
+            >
               <Icon name="lucide:star" class="h-3 w-3 text-terra-400" />
               {{ selectedPlace.rating }}
             </div>

@@ -1,42 +1,42 @@
 <script setup lang="ts">
-import type { PlaceResult } from "~/composables/usePlaceSearch";
+import type { PlaceResult } from "~/composables/usePlaceSearch"
 
 defineProps<{
-  placeholder?: string;
-}>();
+  placeholder?: string
+}>()
 
 const emit = defineEmits<{
-  select: [place: PlaceResult];
-}>();
+  select: [place: PlaceResult]
+}>()
 
-const { query, results, isSearching } = usePlaceSearch();
-const showDropdown = ref(false);
-const wrapper = ref<HTMLElement | null>(null);
+const { query, results, isSearching } = usePlaceSearch()
+const showDropdown = ref(false)
+const wrapper = ref<HTMLElement | null>(null)
 
 function handleSelect(place: PlaceResult) {
-  emit("select", place);
-  query.value = "";
-  results.value = [];
-  showDropdown.value = false;
+  emit("select", place)
+  query.value = ""
+  results.value = []
+  showDropdown.value = false
 }
 
 function handleClickOutside(e: MouseEvent) {
   if (wrapper.value && !wrapper.value.contains(e.target as Node)) {
-    showDropdown.value = false;
+    showDropdown.value = false
   }
 }
 
 onMounted(() => {
-  document.addEventListener("click", handleClickOutside);
-});
+  document.addEventListener("click", handleClickOutside)
+})
 
 onUnmounted(() => {
-  document.removeEventListener("click", handleClickOutside);
-});
+  document.removeEventListener("click", handleClickOutside)
+})
 
 watch(results, (val) => {
-  if (val.length > 0) showDropdown.value = true;
-});
+  if (val.length > 0) showDropdown.value = true
+})
 </script>
 
 <template>

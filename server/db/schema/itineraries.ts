@@ -1,16 +1,8 @@
-import {
-  pgTable,
-  text,
-  integer,
-  date,
-  uuid,
-  index,
-  doublePrecision,
-} from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
-import { trips } from "./trips";
-import { activities } from "./activities";
-import { travelSegments } from "./travel-segments";
+import { pgTable, text, integer, date, uuid, index, doublePrecision } from "drizzle-orm/pg-core"
+import { relations } from "drizzle-orm"
+import { trips } from "./trips"
+import { activities } from "./activities"
+import { travelSegments } from "./travel-segments"
 
 export const itineraryDays = pgTable(
   "itinerary_days",
@@ -28,11 +20,11 @@ export const itineraryDays = pgTable(
     accommodationLat: doublePrecision("accommodation_lat"),
     accommodationLng: doublePrecision("accommodation_lng"),
   },
-  (table) => [index("idx_itinerary_days_trip_id").on(table.tripId)]
-);
+  (table) => [index("idx_itinerary_days_trip_id").on(table.tripId)],
+)
 
 export const itineraryDaysRelations = relations(itineraryDays, ({ one, many }) => ({
   trip: one(trips, { fields: [itineraryDays.tripId], references: [trips.id] }),
   activities: many(activities),
   travelSegments: many(travelSegments),
-}));
+}))

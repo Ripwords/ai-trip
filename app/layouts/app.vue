@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { authClient } from "../lib/auth-client";
+import { authClient } from "../lib/auth-client"
 
-const { data: session } = await authClient.useSession(useFetch);
-const { cycle, modeIcon, modeLabel } = useDarkMode();
+const { data: session } = await authClient.useSession(useFetch)
+const { cycle, modeIcon, modeLabel } = useDarkMode()
 
-const showUserMenu = ref(false);
-const menuRef = ref<HTMLElement | null>(null);
+const showUserMenu = ref(false)
+const menuRef = ref<HTMLElement | null>(null)
 
 async function logout() {
-  await authClient.signOut();
-  navigateTo("/login");
+  await authClient.signOut()
+  navigateTo("/login")
 }
 
 // Close on click outside
 function handleClickOutside(e: MouseEvent) {
   if (menuRef.value && !menuRef.value.contains(e.target as Node)) {
-    showUserMenu.value = false;
+    showUserMenu.value = false
   }
 }
 
-onMounted(() => document.addEventListener("click", handleClickOutside));
-onUnmounted(() => document.removeEventListener("click", handleClickOutside));
+onMounted(() => document.addEventListener("click", handleClickOutside))
+onUnmounted(() => document.removeEventListener("click", handleClickOutside))
 </script>
 
 <template>
@@ -75,7 +75,7 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
                 v-else
                 class="flex h-6 w-6 items-center justify-center rounded-full bg-terra-100 text-xs font-semibold text-terra-700"
               >
-                {{ session?.user?.name?.charAt(0)?.toUpperCase() || '?' }}
+                {{ session?.user?.name?.charAt(0)?.toUpperCase() || "?" }}
               </div>
               <span class="hidden text-sm font-medium text-sand-700 sm:inline">
                 {{ session?.user?.name }}

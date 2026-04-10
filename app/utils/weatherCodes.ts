@@ -1,6 +1,6 @@
 interface WeatherInfo {
-  label: string;
-  icon: string;
+  label: string
+  icon: string
 }
 
 const WMO_CODES: Record<number, WeatherInfo> = {
@@ -25,8 +25,8 @@ const WMO_CODES: Record<number, WeatherInfo> = {
   95: { label: "Thunderstorm", icon: "lucide:cloud-lightning" },
   96: { label: "Thunderstorm + hail", icon: "lucide:cloud-lightning" },
   99: { label: "Thunderstorm + hail", icon: "lucide:cloud-lightning" },
-};
+}
 
 export function getWeatherInfo(code: number): WeatherInfo {
-  return WMO_CODES[code] ?? { label: "Unknown", icon: "lucide:cloud" };
+  return WMO_CODES[code] ?? { label: "Unknown", icon: "lucide:cloud" }
 }

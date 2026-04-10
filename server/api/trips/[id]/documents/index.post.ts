@@ -1,9 +1,9 @@
-import { put } from "@vercel/blob";
-import { db } from "../../../../db";
-import { documents } from "../../../../db/schema";
-import { uuidParamsSchema } from "../../../../utils/schemas";
+import { put } from "@vercel/blob"
+import { db } from "../../../../db"
+import { documents } from "../../../../db/schema"
+import { uuidParamsSchema } from "../../../../utils/schemas"
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
@@ -17,42 +17,42 @@ const ALLOWED_MIME_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "text/plain",
   "text/csv",
-]);
+])
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event);
-  const { id } = await getValidatedRouterParams(event, uuidParamsSchema.parse);
+  const session = await requireAuth(event)
+  const { id } = await getValidatedRouterParams(event, uuidParamsSchema.parse)
 
-  await requireTripAccess(id, session.user.id, ["owner", "editor"]);
+  await requireTripAccess(id, session.user.id, ["owner", "editor"])
 
-  const formData = await readMultipartFormData(event);
+  const formData = await readMultipartFormData(event)
   if (!formData) {
-    throw createError({ statusCode: 400, message: "No file uploaded" });
+    throw createError({ statusCode: 400, message: "No file uploaded" })
   }
 
-  const fileField = formData.find((f) => f.name === "file");
+  const fileField = formData.find((f) => f.name === "file")
   if (!fileField || !fileField.data || !fileField.filename) {
-    throw createError({ statusCode: 400, message: "No file provided" });
+    throw createError({ statusCode: 400, message: "No file provided" })
   }
 
-  const mimeType = fileField.type || "application/octet-stream";
+  const mimeType = fileField.type || "application/octet-stream"
   if (!ALLOWED_MIME_TYPES.has(mimeType)) {
-    throw createError({ statusCode: 400, message: `File type not allowed: ${mimeType}` });
+    throw createError({ statusCode: 400, message: `File type not allowed: ${mimeType}` })
   }
 
   if (fileField.data.length > MAX_FILE_SIZE) {
-    throw createError({ statusCode: 400, message: "File too large (max 10MB)" });
+    throw createError({ statusCode: 400, message: "File too large (max 10MB)" })
   }
 
   // Get optional reservationId from form data
-  const reservationIdField = formData.find((f) => f.name === "reservationId");
-  const reservationId = reservationIdField?.data?.toString().trim() || undefined;
+  const reservationIdField = formData.find((f) => f.name === "reservationId")
+  const reservationId = reservationIdField?.data?.toString().trim() || undefined
 
   // Upload to Vercel Blob
   const blob = await put(`trips/${id}/${fileField.filename}`, fileField.data, {
     access: "public",
     contentType: mimeType,
-  });
+  })
 
   // Save metadata to DB
   const [doc] = await db
@@ -66,14 +66,14 @@ export default defineEventHandler(async (event) => {
       mimeType,
       uploadedById: session.user.id,
     })
-    .returning();
+    .returning()
 
   await logTripAction({
     tripId: id,
     userId: session.user.id,
     action: "document_uploaded",
     description: `Uploaded document: ${fileField.filename}`,
-  });
+  })
 
-  return doc;
-});
+  return doc
+})

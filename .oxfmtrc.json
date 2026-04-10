@@ -6,11 +6,5 @@
   "printWidth": 100,
   "tabWidth": 2,
   "useTabs": false,
-  "ignorePatterns": [
-    ".nuxt",
-    ".output",
-    "node_modules",
-    "dist",
-    "server/db/migrations"
-  ]
+  "ignorePatterns": [".nuxt", ".output", "node_modules", "dist", "server/db/migrations"]
 }

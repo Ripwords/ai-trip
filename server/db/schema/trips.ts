@@ -8,17 +8,17 @@ import {
   index,
   uniqueIndex,
   numeric,
-} from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
-import { user } from "./auth-schema";
-import { itineraryDays } from "./itineraries";
-import { tripIdeas } from "./trip-ideas";
-import { checklists } from "./checklists";
-import { expenses } from "./expenses";
-import { tripMembers } from "./trip-members";
-import { activityLog } from "./activity-log";
-import { reservations } from "./reservations";
-import { documents } from "./documents";
+} from "drizzle-orm/pg-core"
+import { relations } from "drizzle-orm"
+import { user } from "./auth-schema"
+import { itineraryDays } from "./itineraries"
+import { tripIdeas } from "./trip-ideas"
+import { checklists } from "./checklists"
+import { expenses } from "./expenses"
+import { tripMembers } from "./trip-members"
+import { activityLog } from "./activity-log"
+import { reservations } from "./reservations"
+import { documents } from "./documents"
 
 export const trips = pgTable(
   "trips",
@@ -46,8 +46,8 @@ export const trips = pgTable(
     index("idx_trips_user_id").on(table.userId),
     index("idx_trips_status").on(table.status),
     uniqueIndex("idx_trips_share_token").on(table.shareToken),
-  ]
-);
+  ],
+)
 
 export const tripsRelations = relations(trips, ({ one, many }) => ({
   user: one(user, { fields: [trips.userId], references: [user.id] }),
@@ -59,11 +59,11 @@ export const tripsRelations = relations(trips, ({ one, many }) => ({
   logs: many(activityLog),
   reservations: many(reservations),
   documents: many(documents),
-}));
+}))
 
 export interface TripPreferences {
-  budget?: "budget" | "moderate" | "luxury";
-  interests?: string[];
-  pace?: "relaxed" | "moderate" | "packed";
-  travelStyle?: string[];
+  budget?: "budget" | "moderate" | "luxury"
+  interests?: string[]
+  pace?: "relaxed" | "moderate" | "packed"
+  travelStyle?: string[]
 }

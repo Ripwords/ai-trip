@@ -1,25 +1,25 @@
-import { eq } from "drizzle-orm";
-import { db } from "../../../../db";
-import { tripMembers, trips } from "../../../../db/schema";
-import { uuidParamsSchema } from "../../../../utils/schemas";
+import { eq } from "drizzle-orm"
+import { db } from "../../../../db"
+import { tripMembers, trips } from "../../../../db/schema"
+import { uuidParamsSchema } from "../../../../utils/schemas"
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event);
-  const { id } = await getValidatedRouterParams(event, uuidParamsSchema.parse);
+  const session = await requireAuth(event)
+  const { id } = await getValidatedRouterParams(event, uuidParamsSchema.parse)
 
-  const access = await requireTripAccess(id, session.user.id);
+  const access = await requireTripAccess(id, session.user.id)
 
   // Get all members with user info
   const members = await db.query.tripMembers.findMany({
     where: eq(tripMembers.tripId, id),
     with: { user: true },
-  });
+  })
 
   // Also include the owner
   const trip = await db.query.trips.findFirst({
     where: eq(trips.id, id),
     with: { user: true },
-  });
+  })
 
   const ownerEntry = {
     id: "owner",
@@ -30,10 +30,10 @@ export default defineEventHandler(async (event) => {
     expiresAt: null as string | null,
     user: trip!.user,
     createdAt: trip!.createdAt,
-  };
+  }
 
   // Only owners can see pending invites
-  const showPending = access.role === "owner";
+  const showPending = access.role === "owner"
 
   const memberEntries = members
     .filter((m) => m.status === "active" || (showPending && m.status === "pending"))
@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
       expiresAt: m.expiresAt?.toISOString() ?? null,
       user: m.user,
       createdAt: m.createdAt,
-    }));
+    }))
 
-  return [ownerEntry, ...memberEntries];
-});
+  return [ownerEntry, ...memberEntries]
+})

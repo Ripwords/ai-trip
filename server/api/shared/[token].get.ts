@@ -1,14 +1,14 @@
-import { eq } from "drizzle-orm";
-import { z } from "zod";
-import { db } from "../../db";
-import { trips } from "../../db/schema";
+import { eq } from "drizzle-orm"
+import { z } from "zod"
+import { db } from "../../db"
+import { trips } from "../../db/schema"
 
 const paramsSchema = z.object({
   token: z.string().uuid(),
-});
+})
 
 export default defineEventHandler(async (event) => {
-  const { token } = await getValidatedRouterParams(event, paramsSchema.parse);
+  const { token } = await getValidatedRouterParams(event, paramsSchema.parse)
 
   const trip = await db.query.trips.findFirst({
     where: eq(trips.shareToken, token),
@@ -23,10 +23,10 @@ export default defineEventHandler(async (event) => {
         },
       },
     },
-  });
+  })
 
   if (!trip) {
-    throw createError({ statusCode: 404, message: "Shared trip not found" });
+    throw createError({ statusCode: 404, message: "Shared trip not found" })
   }
 
   // Return only public-safe fields — no preferences, notes, or costs
@@ -62,5 +62,5 @@ export default defineEventHandler(async (event) => {
         mode: s.mode,
       })),
     })),
-  };
-});
+  }
+})

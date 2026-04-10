@@ -1,6 +1,6 @@
-import { pgTable, text, timestamp, uuid, date, index, uniqueIndex } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
-import { user } from "./auth-schema";
+import { pgTable, text, timestamp, uuid, date, index, uniqueIndex } from "drizzle-orm/pg-core"
+import { relations } from "drizzle-orm"
+import { user } from "./auth-schema"
 
 export const visitedCountries = pgTable(
   "visited_countries",
@@ -19,9 +19,9 @@ export const visitedCountries = pgTable(
   (table) => [
     uniqueIndex("idx_visited_countries_user_country").on(table.userId, table.countryCode),
     index("idx_visited_countries_user_id").on(table.userId),
-  ]
-);
+  ],
+)
 
 export const visitedCountriesRelations = relations(visitedCountries, ({ one }) => ({
   user: one(user, { fields: [visitedCountries.userId], references: [user.id] }),
-}));
+}))

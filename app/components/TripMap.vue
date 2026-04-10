@@ -1,42 +1,42 @@
 <script setup lang="ts">
 /// <reference types="google.maps" />
 interface Activity {
-  id: string;
-  name: string;
-  type: string;
-  lat: number | null;
-  lng: number | null;
-  sortOrder: number;
+  id: string
+  name: string
+  type: string
+  lat: number | null
+  lng: number | null
+  sortOrder: number
 }
 
 interface Accommodation {
-  name: string | null;
-  lat: number | null;
-  lng: number | null;
+  name: string | null
+  lat: number | null
+  lng: number | null
 }
 
 const props = defineProps<{
-  activities: Activity[];
-  showRoute?: boolean;
-  accommodation?: Accommodation | null;
-}>();
+  activities: Activity[]
+  showRoute?: boolean
+  accommodation?: Accommodation | null
+}>()
 
 const emit = defineEmits<{
-  markerClick: [activity: Activity];
-}>();
+  markerClick: [activity: Activity]
+}>()
 
-const mapContainer = ref<HTMLElement | null>(null);
-const { isLoaded, loadMaps, loadMarker } = useGoogleMaps();
-const { isDark: siteIsDark } = useDarkMode();
-type MapMode = "light" | "dark" | "satellite";
-const mapMode = ref<MapMode>("light");
+const mapContainer = ref<HTMLElement | null>(null)
+const { isLoaded, loadMaps, loadMarker } = useGoogleMaps()
+const { isDark: siteIsDark } = useDarkMode()
+type MapMode = "light" | "dark" | "satellite"
+const mapMode = ref<MapMode>("light")
 
-let map: google.maps.Map | null = null;
-let markers: google.maps.marker.AdvancedMarkerElement[] = [];
-let accommodationMarker: google.maps.marker.AdvancedMarkerElement | null = null;
-let polylines: google.maps.Polyline[] = [];
-let MapClass: typeof google.maps.Map;
-let MarkerClass: typeof google.maps.marker.AdvancedMarkerElement;
+let map: google.maps.Map | null = null
+let markers: google.maps.marker.AdvancedMarkerElement[] = []
+let accommodationMarker: google.maps.marker.AdvancedMarkerElement | null = null
+let polylines: google.maps.Polyline[] = []
+let MapClass: typeof google.maps.Map
+let MarkerClass: typeof google.maps.marker.AdvancedMarkerElement
 
 const markerColors: Record<string, string> = {
   attraction: "#3B82F6",
@@ -45,33 +45,33 @@ const markerColors: Record<string, string> = {
   transport: "#6B7280",
   shopping: "#A855F7",
   entertainment: "#EC4899",
-};
+}
 
 // Category filter
-const hiddenTypes = ref<Set<string>>(new Set());
+const hiddenTypes = ref<Set<string>>(new Set())
 const uniqueTypes = computed(() => {
-  const types = new Set<string>();
+  const types = new Set<string>()
   for (const a of props.activities) {
-    if (a.type) types.add(a.type);
+    if (a.type) types.add(a.type)
   }
-  return Array.from(types).sort();
-});
+  return Array.from(types).toSorted()
+})
 
 function toggleTypeFilter(type: string) {
   if (hiddenTypes.value.has(type)) {
-    hiddenTypes.value.delete(type);
+    hiddenTypes.value.delete(type)
   } else {
-    hiddenTypes.value.add(type);
+    hiddenTypes.value.add(type)
   }
-  if (isLoaded.value && map) updateMarkers();
+  if (isLoaded.value && map) updateMarkers()
 }
 
 function getMarkerColor(type: string): string {
-  return markerColors[type] || "#3B82F6";
+  return markerColors[type] || "#3B82F6"
 }
 
 function createMarkerContent(index: number, type: string): HTMLElement {
-  const div = document.createElement("div");
+  const div = document.createElement("div")
   div.style.cssText = `
     width: 28px;
     height: 28px;
@@ -86,34 +86,34 @@ function createMarkerContent(index: number, type: string): HTMLElement {
     border: 2px solid white;
     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     cursor: pointer;
-  `;
-  div.textContent = String(index + 1);
-  return div;
+  `
+  div.textContent = String(index + 1)
+  return div
 }
 
 async function initMap() {
-  if (!mapContainer.value) return;
+  if (!mapContainer.value) return
 
   try {
-    const mapsLib = await loadMaps();
-    const markerLib = await loadMarker();
-    MapClass = mapsLib.Map;
-    MarkerClass = markerLib.AdvancedMarkerElement;
+    const mapsLib = await loadMaps()
+    const markerLib = await loadMarker()
+    MapClass = mapsLib.Map
+    MarkerClass = markerLib.AdvancedMarkerElement
 
-    createMap();
+    createMap()
   } catch {
     // Google Maps failed to load
   }
 }
 
 function createMap() {
-  if (!mapContainer.value || !MapClass) return;
+  if (!mapContainer.value || !MapClass) return
 
   // Clean up existing
-  markers.forEach((m) => (m.map = null));
-  markers = [];
-  polylines.forEach((p) => p.setMap(null));
-  polylines = [];
+  markers.forEach((m) => (m.map = null))
+  markers = []
+  polylines.forEach((p) => p.setMap(null))
+  polylines = []
 
   map = new MapClass(mapContainer.value, {
     zoom: 12,
@@ -126,39 +126,45 @@ function createMap() {
     mapTypeControl: false,
     streetViewControl: false,
     fullscreenControl: true,
-  });
+  })
 
-  updateMarkers();
+  updateMarkers()
 }
 
 function cycleMapMode() {
-  const modes: MapMode[] = ["light", "dark", "satellite"];
-  const current = modes.indexOf(mapMode.value);
-  mapMode.value = modes[(current + 1) % modes.length]!;
+  const modes: MapMode[] = ["light", "dark", "satellite"]
+  const current = modes.indexOf(mapMode.value)
+  mapMode.value = modes[(current + 1) % modes.length]!
   if (import.meta.client) {
-    localStorage.setItem("map-mode", mapMode.value);
+    localStorage.setItem("map-mode", mapMode.value)
   }
-  createMap();
+  createMap()
 }
 
 const mapModeIcon = computed(() => {
   switch (mapMode.value) {
-    case "light": return "lucide:moon";
-    case "dark": return "lucide:globe";
-    case "satellite": return "lucide:sun";
+    case "light":
+      return "lucide:moon"
+    case "dark":
+      return "lucide:globe"
+    case "satellite":
+      return "lucide:sun"
   }
-});
+})
 
 const mapModeLabel = computed(() => {
   switch (mapMode.value) {
-    case "light": return "Dark mode";
-    case "dark": return "Satellite";
-    case "satellite": return "Light mode";
+    case "light":
+      return "Dark mode"
+    case "dark":
+      return "Satellite"
+    case "satellite":
+      return "Light mode"
   }
-});
+})
 
 function createAccommodationMarkerContent(): HTMLElement {
-  const div = document.createElement("div");
+  const div = document.createElement("div")
   div.style.cssText = `
     width: 30px;
     height: 30px;
@@ -172,99 +178,97 @@ function createAccommodationMarkerContent(): HTMLElement {
     border: 2px solid white;
     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     cursor: pointer;
-  `;
-  div.innerHTML = "🏠";
-  return div;
+  `
+  div.innerHTML = "🏠"
+  return div
 }
 
-function updateMarkers(
-  AdvancedMarkerElement?: typeof google.maps.marker.AdvancedMarkerElement
-) {
-  if (!map) return;
+function updateMarkers(AdvancedMarkerElement?: typeof google.maps.marker.AdvancedMarkerElement) {
+  if (!map) return
 
-  markers.forEach((m) => (m.map = null));
-  markers = [];
+  markers.forEach((m) => (m.map = null))
+  markers = []
   if (accommodationMarker) {
-    accommodationMarker.map = null;
-    accommodationMarker = null;
+    accommodationMarker.map = null
+    accommodationMarker = null
   }
 
   // props.activities is already sorted by sortOrder from the API
   // Use array index for marker numbering to match v-for index in DaySection
   const geoActivities = props.activities
     .map((a, i) => ({ ...a, displayIndex: i }))
-    .filter((a) => a.lat != null && a.lng != null && !hiddenTypes.value.has(a.type));
+    .filter((a) => a.lat != null && a.lng != null && !hiddenTypes.value.has(a.type))
 
   if (geoActivities.length === 0) {
-    map.setCenter({ lat: 0, lng: 0 });
-    map.setZoom(2);
-    updatePolylines();
-    return;
+    map.setCenter({ lat: 0, lng: 0 })
+    map.setZoom(2)
+    updatePolylines()
+    return
   }
 
-  const MClass = AdvancedMarkerElement ?? MarkerClass;
+  const MClass = AdvancedMarkerElement ?? MarkerClass
 
-  const bounds = new google.maps.LatLngBounds();
+  const bounds = new google.maps.LatLngBounds()
 
   geoActivities.forEach((activity) => {
-    const position = { lat: activity.lat!, lng: activity.lng! };
-    bounds.extend(position);
+    const position = { lat: activity.lat!, lng: activity.lng! }
+    bounds.extend(position)
 
     const marker = new MClass({
       map,
       position,
       content: createMarkerContent(activity.displayIndex, activity.type),
       title: activity.name,
-    });
+    })
 
     marker.addEventListener("gmp-click", () => {
-      emit("markerClick", activity);
-    });
+      emit("markerClick", activity)
+    })
 
-    markers.push(marker);
-  });
+    markers.push(marker)
+  })
 
   // Add accommodation marker if available
   if (props.accommodation?.lat != null && props.accommodation?.lng != null) {
-    const accomPos = { lat: props.accommodation.lat, lng: props.accommodation.lng };
-    bounds.extend(accomPos);
+    const accomPos = { lat: props.accommodation.lat, lng: props.accommodation.lng }
+    bounds.extend(accomPos)
     accommodationMarker = new MClass({
       map,
       position: accomPos,
       content: createAccommodationMarkerContent(),
       title: props.accommodation.name ?? "Accommodation",
-    });
+    })
   }
 
   if (geoActivities.length === 1 && !accommodationMarker) {
     map.setCenter({
       lat: geoActivities[0]!.lat!,
       lng: geoActivities[0]!.lng!,
-    });
-    map.setZoom(15);
+    })
+    map.setZoom(15)
   } else {
-    map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+    map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 })
   }
 
-  updatePolylines();
+  updatePolylines()
 }
 
 function updatePolylines() {
-  polylines.forEach((p) => p.setMap(null));
-  polylines = [];
+  polylines.forEach((p) => p.setMap(null))
+  polylines = []
 
-  if (!map || props.showRoute === false) return;
+  if (!map || props.showRoute === false) return
 
   const geoActivities = props.activities
     .filter((a) => a.lat != null && a.lng != null && !hiddenTypes.value.has(a.type))
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+    .toSorted((a, b) => a.sortOrder - b.sortOrder)
 
-  if (geoActivities.length < 2) return;
+  if (geoActivities.length < 2) return
 
   const path = geoActivities.map((a) => ({
     lat: a.lat!,
     lng: a.lng!,
-  }));
+  }))
 
   const polyline = new google.maps.Polyline({
     path,
@@ -273,49 +277,49 @@ function updatePolylines() {
     strokeOpacity: 0.6,
     geodesic: true,
     map,
-  });
+  })
 
-  polylines.push(polyline);
+  polylines.push(polyline)
 }
 
 function centerOnActivity(activity: Activity) {
-  if (!map || activity.lat == null || activity.lng == null) return;
-  map.panTo({ lat: activity.lat, lng: activity.lng });
-  map.setZoom(16);
+  if (!map || activity.lat == null || activity.lng == null) return
+  map.panTo({ lat: activity.lat, lng: activity.lng })
+  map.setZoom(16)
 }
 
 watch(
   [() => props.activities, () => props.accommodation],
   () => {
     if (isLoaded.value && map) {
-      updateMarkers();
+      updateMarkers()
     }
   },
-  { deep: true }
-);
+  { deep: true },
+)
 
 // Sync map with site dark mode if user hasn't manually set a map preference
 watch(siteIsDark, (dark) => {
   if (!localStorage.getItem("map-mode") && mapMode.value !== "satellite") {
-    mapMode.value = dark ? "dark" : "light";
-    createMap();
+    mapMode.value = dark ? "dark" : "light"
+    createMap()
   }
-});
+})
 
 onMounted(() => {
   if (import.meta.client) {
-    const saved = localStorage.getItem("map-mode") as MapMode | null;
+    const saved = localStorage.getItem("map-mode") as MapMode | null
     if (saved && ["light", "dark", "satellite"].includes(saved)) {
-      mapMode.value = saved;
+      mapMode.value = saved
     } else {
       // Default: follow site theme
-      mapMode.value = siteIsDark.value ? "dark" : "light";
+      mapMode.value = siteIsDark.value ? "dark" : "light"
     }
   }
-  initMap();
-});
+  initMap()
+})
 
-defineExpose({ centerOnActivity });
+defineExpose({ centerOnActivity })
 </script>
 
 <template>
@@ -344,7 +348,9 @@ defineExpose({ centerOnActivity });
       >
         <span
           class="inline-block h-2 w-2 rounded-full"
-          :style="{ background: hiddenTypes.has(type) ? '#78716c' : (markerColors[type] || '#3B82F6') }"
+          :style="{
+            background: hiddenTypes.has(type) ? '#78716c' : markerColors[type] || '#3B82F6',
+          }"
         />
         {{ formatType(type) }}
       </button>
@@ -359,7 +365,9 @@ defineExpose({ centerOnActivity });
   -webkit-backdrop-filter: blur(8px);
   color: #3d3328;
 }
-.map-btn:hover { background: #ffffff; }
+.map-btn:hover {
+  background: #ffffff;
+}
 
 .map-filter-pill {
   background: rgba(255, 255, 255, 0.9);

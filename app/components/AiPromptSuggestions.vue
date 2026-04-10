@@ -1,19 +1,19 @@
 <script setup lang="ts">
 const props = defineProps<{
-  destination: string;
-  hasActivities: boolean;
-}>();
+  destination: string
+  hasActivities: boolean
+}>()
 
 const emit = defineEmits<{
-  select: [prompt: string];
-}>();
+  select: [prompt: string]
+}>()
 
 const emptyDaySuggestions = computed(() => [
   `Plan my full day in ${props.destination}`,
   "Find breakfast, lunch, and dinner spots",
   "Mix cultural sites with food stops",
   "Suggest hidden gems and local favorites",
-]);
+])
 
 const withActivitiesSuggestions = [
   "Add a coffee shop nearby",
@@ -22,11 +22,11 @@ const withActivitiesSuggestions = [
   "Optimize the route",
   "Fill the gaps",
   "Find a hotel nearby",
-];
+]
 
 const suggestions = computed(() =>
-  props.hasActivities ? withActivitiesSuggestions : emptyDaySuggestions.value
-);
+  props.hasActivities ? withActivitiesSuggestions : emptyDaySuggestions.value,
+)
 </script>
 
 <template>

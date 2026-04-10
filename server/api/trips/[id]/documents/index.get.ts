@@ -1,13 +1,13 @@
-import { eq } from "drizzle-orm";
-import { db } from "../../../../db";
-import { documents } from "../../../../db/schema";
-import { uuidParamsSchema } from "../../../../utils/schemas";
+import { eq } from "drizzle-orm"
+import { db } from "../../../../db"
+import { documents } from "../../../../db/schema"
+import { uuidParamsSchema } from "../../../../utils/schemas"
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event);
-  const { id } = await getValidatedRouterParams(event, uuidParamsSchema.parse);
+  const session = await requireAuth(event)
+  const { id } = await getValidatedRouterParams(event, uuidParamsSchema.parse)
 
-  await requireTripAccess(id, session.user.id);
+  await requireTripAccess(id, session.user.id)
 
   return db.query.documents.findMany({
     where: eq(documents.tripId, id),
@@ -17,5 +17,5 @@ export default defineEventHandler(async (event) => {
       },
     },
     orderBy: (d, { desc }) => [desc(d.createdAt)],
-  });
-});
+  })
+})

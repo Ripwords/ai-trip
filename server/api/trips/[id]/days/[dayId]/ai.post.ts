@@ -1,44 +1,45 @@
-import { and, eq, asc } from "drizzle-orm";
-import { z } from "zod";
-import { db } from "../../../../../db";
-import { trips, itineraryDays, activities, tripIdeas } from "../../../../../db/schema";
-import { dayIdParamsSchema } from "../../../../../utils/schemas";
-import { processUserRequest } from "../../../../../lib/ai";
-import { enrichItinerary } from "../../../../../lib/enrich";
-import { computeAndSaveSegments } from "../../../../../lib/segments";
-import { getDistanceMatrix } from "../../../../../lib/google-maps";
-import { sanitizePromptInput } from "../../../../../utils/sanitize";
+import { and, eq, asc } from "drizzle-orm"
+import { z } from "zod"
+import { db } from "../../../../../db"
+import { trips, itineraryDays, activities, tripIdeas } from "../../../../../db/schema"
+import { dayIdParamsSchema } from "../../../../../utils/schemas"
+import { processUserRequest } from "../../../../../lib/ai"
+import { enrichItinerary } from "../../../../../lib/enrich"
+import { computeAndSaveSegments } from "../../../../../lib/segments"
+import { getDistanceMatrix } from "../../../../../lib/google-maps"
+import { sanitizePromptInput } from "../../../../../utils/sanitize"
 
 const aiBodySchema = z.object({
   prompt: z.string().min(1).max(2000),
-});
+})
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event);
-  const { id, dayId } = await getValidatedRouterParams(event, dayIdParamsSchema.parse);
-  const body = await readValidatedBody(event, aiBodySchema.parse);
+  const session = await requireAuth(event)
+  const { id, dayId } = await getValidatedRouterParams(event, dayIdParamsSchema.parse)
+  const body = await readValidatedBody(event, aiBodySchema.parse)
 
   // Check AI usage limit
-  await checkAiLimit(session.user.id);
+  await checkAiLimit(session.user.id)
 
   // Sanitize prompt
-  const prompt = sanitizePromptInput(body.prompt);
+  const prompt = sanitizePromptInput(body.prompt)
   if (!prompt) {
     throw createError({
       statusCode: 400,
-      message: "Your prompt contains disallowed content. Please describe your travel preferences only.",
-    });
+      message:
+        "Your prompt contains disallowed content. Please describe your travel preferences only.",
+    })
   }
 
   // Verify trip access (owner or editor can use AI)
-  await requireTripAccess(id, session.user.id, ["owner", "editor"]);
+  await requireTripAccess(id, session.user.id, ["owner", "editor"])
 
   const trip = await db.query.trips.findFirst({
     where: eq(trips.id, id),
-  });
+  })
 
   if (!trip) {
-    throw createError({ statusCode: 404, message: "Trip not found" });
+    throw createError({ statusCode: 404, message: "Trip not found" })
   }
 
   // Get the day with activities
@@ -49,17 +50,17 @@ export default defineEventHandler(async (event) => {
         orderBy: (activities, { asc }) => [asc(activities.sortOrder)],
       },
     },
-  });
+  })
 
   if (!day) {
-    throw createError({ statusCode: 404, message: "Day not found" });
+    throw createError({ statusCode: 404, message: "Day not found" })
   }
 
   // Fetch saved ideas for AI context
   const savedIdeasRows = await db.query.tripIdeas.findMany({
     where: eq(tripIdeas.tripId, id),
     columns: { name: true, type: true, description: true },
-  });
+  })
 
   // Collect activities from OTHER days to avoid cross-day duplicates (especially restaurants)
   const allTripDays = await db.query.itineraryDays.findMany({
@@ -67,23 +68,23 @@ export default defineEventHandler(async (event) => {
     with: {
       activities: { columns: { name: true, type: true } },
     },
-  });
+  })
   const otherDayActivities = allTripDays
     .filter((d) => d.id !== dayId)
-    .flatMap((d) => d.activities.map((a) => ({ name: a.name, type: a.type })));
+    .flatMap((d) => d.activities.map((a) => ({ name: a.name, type: a.type })))
 
   // Derive day location from activities/accommodation
-  let dayLocation = trip.destination;
-  const addresses = day.activities.map((a) => a.address).filter((a): a is string => !!a);
+  let dayLocation = trip.destination
+  const addresses = day.activities.map((a) => a.address).filter((a): a is string => !!a)
   if (addresses.length > 0) {
-    dayLocation = `${addresses[0]} (near ${trip.destination})`;
+    dayLocation = `${addresses[0]} (near ${trip.destination})`
   }
   if (day.accommodationAddress) {
-    dayLocation = `${day.accommodationAddress} (near ${trip.destination})`;
+    dayLocation = `${day.accommodationAddress} (near ${trip.destination})`
   }
 
   // Process the user's request through the AI
-  let result;
+  let result
   try {
     result = await processUserRequest({
       prompt,
@@ -108,13 +109,13 @@ export default defineEventHandler(async (event) => {
       otherDayActivities,
       tripNotes: trip.tripNotes,
       savedIdeas: savedIdeasRows,
-    });
+    })
   } catch (e: unknown) {
-    console.error("[ai.post] AI processing failed:", e);
+    console.error("[ai.post] AI processing failed:", e)
     throw createError({
       statusCode: 502,
       message: "AI service is temporarily unavailable. Please try again.",
-    });
+    })
   }
 
   console.log("[ai.post] AI result:", {
@@ -125,49 +126,53 @@ export default defineEventHandler(async (event) => {
     removals: result.removals.length,
     updates: result.updates.length,
     shouldOptimize: result.shouldOptimize,
-  });
+  })
 
-  let addedCount = 0;
-  let removedCount = 0;
-  let updatedCount = 0;
-  let optimized = false;
+  let addedCount = 0
+  let removedCount = 0
+  let updatedCount = 0
+  let optimized = false
 
   // Handle removals
   if (result.removals.length > 0) {
     for (const removal of result.removals) {
       const match = day.activities.find(
-        (a) => a.name.toLowerCase().trim() === removal.name.toLowerCase().trim()
-      );
+        (a) => a.name.toLowerCase().trim() === removal.name.toLowerCase().trim(),
+      )
       if (match) {
-        await db.delete(activities).where(eq(activities.id, match.id));
-        removedCount++;
+        await db.delete(activities).where(eq(activities.id, match.id))
+        removedCount++
       }
     }
   }
 
   // Handle time/duration updates
   if (result.updates.length > 0) {
-    const isReschedule = result.intent === "reschedule";
+    const isReschedule = result.intent === "reschedule"
     for (const update of result.updates) {
       const match = day.activities.find(
-        (a) => a.name.toLowerCase().trim() === update.name.toLowerCase().trim()
-      );
-      if (!match) continue;
+        (a) => a.name.toLowerCase().trim() === update.name.toLowerCase().trim(),
+      )
+      if (!match) continue
 
       // For reschedule: always overwrite times. For other intents: only fill blanks.
       if (isReschedule) {
-        await db.update(activities).set({
-          suggestedTime: update.suggestedTime,
-          estimatedDurationMinutes: update.estimatedDurationMinutes,
-        }).where(eq(activities.id, match.id));
-        updatedCount++;
+        await db
+          .update(activities)
+          .set({
+            suggestedTime: update.suggestedTime,
+            estimatedDurationMinutes: update.estimatedDurationMinutes,
+          })
+          .where(eq(activities.id, match.id))
+        updatedCount++
       } else if (!match.suggestedTime || !match.estimatedDurationMinutes) {
-        const setFields: Record<string, unknown> = {};
-        if (!match.suggestedTime) setFields.suggestedTime = update.suggestedTime;
-        if (!match.estimatedDurationMinutes) setFields.estimatedDurationMinutes = update.estimatedDurationMinutes;
+        const setFields: Record<string, unknown> = {}
+        if (!match.suggestedTime) setFields.suggestedTime = update.suggestedTime
+        if (!match.estimatedDurationMinutes)
+          setFields.estimatedDurationMinutes = update.estimatedDurationMinutes
         if (Object.keys(setFields).length > 0) {
-          await db.update(activities).set(setFields).where(eq(activities.id, match.id));
-          updatedCount++;
+          await db.update(activities).set(setFields).where(eq(activities.id, match.id))
+          updatedCount++
         }
       }
     }
@@ -178,83 +183,101 @@ export default defineEventHandler(async (event) => {
     // Dedup against existing names
     const existingNames = new Set(
       day.activities
-        .filter((a) => !result.removals.some((r) => r.name.toLowerCase().trim() === a.name.toLowerCase().trim()))
-        .map((a) => a.name.toLowerCase().trim())
-    );
+        .filter(
+          (a) =>
+            !result.removals.some(
+              (r) => r.name.toLowerCase().trim() === a.name.toLowerCase().trim(),
+            ),
+        )
+        .map((a) => a.name.toLowerCase().trim()),
+    )
 
     const deduped = result.newActivities.filter((a) => {
-      const n = a.name.toLowerCase().trim();
-      return !existingNames.has(n) && ![...existingNames].some((e) => e.includes(n) || n.includes(e));
-    });
+      const n = a.name.toLowerCase().trim()
+      return (
+        !existingNames.has(n) && ![...existingNames].some((e) => e.includes(n) || n.includes(e))
+      )
+    })
 
-    console.log("[ai.post] After dedup:", { before: result.newActivities.length, after: deduped.length, existingNames: [...existingNames] });
+    console.log("[ai.post] After dedup:", {
+      before: result.newActivities.length,
+      after: deduped.length,
+      existingNames: [...existingNames],
+    })
 
     if (deduped.length > 0) {
       // Enrich with Google Maps (graceful — if enrichment fails, skip adding)
-      let enriched;
+      let enriched
       try {
         // Use first geo-located activity or accommodation as location bias for place search
-        const geoActivity = day.activities.find((a) => a.lat != null && a.lng != null);
+        const geoActivity = day.activities.find((a) => a.lat != null && a.lng != null)
         const destinationCoords = geoActivity
           ? { lat: geoActivity.lat!, lng: geoActivity.lng! }
-          : undefined;
+          : undefined
 
         enriched = await enrichItinerary(
           { days: [{ dayNumber: day.dayNumber, theme: "", activities: deduped }] },
           dayLocation,
-          destinationCoords
-      );
+          destinationCoords,
+        )
 
-      const enrichedActivities = enriched.days[0]?.activities ?? [];
-      console.log("[ai.post] After enrich:", { count: enrichedActivities.length, names: enrichedActivities.map((a) => a.name) });
+        const enrichedActivities = enriched.days[0]?.activities ?? []
+        console.log("[ai.post] After enrich:", {
+          count: enrichedActivities.length,
+          names: enrichedActivities.map((a) => a.name),
+        })
 
-      if (enrichedActivities.length > 0) {
-        const currentActivities = await db.query.activities.findMany({
-          where: eq(activities.itineraryDayId, dayId),
-          orderBy: [asc(activities.sortOrder)],
-        });
-        const maxSort = currentActivities.length > 0
-          ? Math.max(...currentActivities.map((a) => a.sortOrder))
-          : -1;
+        if (enrichedActivities.length > 0) {
+          const currentActivities = await db.query.activities.findMany({
+            where: eq(activities.itineraryDayId, dayId),
+            orderBy: [asc(activities.sortOrder)],
+          })
+          const maxSort =
+            currentActivities.length > 0
+              ? Math.max(...currentActivities.map((a) => a.sortOrder))
+              : -1
 
-        await db.insert(activities).values(
-          enrichedActivities.map((activity, index) => ({
-            itineraryDayId: dayId,
-            name: activity.name,
-            placeId: activity.placeId,
-            type: activity.type,
-            description: activity.description,
-            lat: activity.lat,
-            lng: activity.lng,
-            address: activity.address,
-            rating: activity.rating?.toString() ?? null,
-            priceLevel: activity.priceLevel,
-            openingHours: activity.openingHours,
-            photos: activity.photos,
-            suggestedTime: activity.suggestedTime,
-            estimatedDurationMinutes: activity.estimatedDurationMinutes,
-            costEstimate: activity.costEstimate.toString(),
-            tags: activity.tags,
-            sortOrder: maxSort + 1 + index,
-          }))
-        );
-        addedCount = enrichedActivities.length;
-      }
+          await db.insert(activities).values(
+            enrichedActivities.map((activity, index) => ({
+              itineraryDayId: dayId,
+              name: activity.name,
+              placeId: activity.placeId,
+              type: activity.type,
+              description: activity.description,
+              lat: activity.lat,
+              lng: activity.lng,
+              address: activity.address,
+              rating: activity.rating?.toString() ?? null,
+              priceLevel: activity.priceLevel,
+              openingHours: activity.openingHours,
+              photos: activity.photos,
+              suggestedTime: activity.suggestedTime,
+              estimatedDurationMinutes: activity.estimatedDurationMinutes,
+              costEstimate: activity.costEstimate.toString(),
+              tags: activity.tags,
+              sortOrder: maxSort + 1 + index,
+            })),
+          )
+          addedCount = enrichedActivities.length
+        }
       } catch (e: unknown) {
-        console.error("[ai.post] Enrichment failed, skipping new activities:", e);
+        console.error("[ai.post] Enrichment failed, skipping new activities:", e)
       }
     }
   }
 
   // Handle accommodation booking
   if (result.accommodation) {
-    await db.update(itineraryDays).set({
-      accommodationName: result.accommodation.name,
-      accommodationAddress: result.accommodation.address,
-      accommodationLat: result.accommodation.lat,
-      accommodationLng: result.accommodation.lng,
-      accommodationPlaceId: result.accommodation.placeId,
-    }).where(eq(itineraryDays.id, dayId));
+    await db
+      .update(itineraryDays)
+      .set({
+        accommodationName: result.accommodation.name,
+        accommodationAddress: result.accommodation.address,
+        accommodationLat: result.accommodation.lat,
+        accommodationLng: result.accommodation.lng,
+        accommodationPlaceId: result.accommodation.placeId,
+      })
+      .where(eq(itineraryDays.id, dayId))
   }
 
   // Handle AI-determined activity order (from optimize intent)
@@ -262,21 +285,21 @@ export default defineEventHandler(async (event) => {
     const currentActivities = await db.query.activities.findMany({
       where: eq(activities.itineraryDayId, dayId),
       orderBy: [asc(activities.sortOrder)],
-    });
+    })
 
     for (let i = 0; i < result.orderedActivities.length; i++) {
-      const ordered = result.orderedActivities[i]!;
+      const ordered = result.orderedActivities[i]!
       const match = currentActivities.find(
-        (a) => a.name.toLowerCase().trim() === ordered.name.toLowerCase().trim()
-      );
+        (a) => a.name.toLowerCase().trim() === ordered.name.toLowerCase().trim(),
+      )
       if (match) {
         await db
           .update(activities)
           .set({ sortOrder: i, suggestedTime: ordered.suggestedTime })
-          .where(eq(activities.id, match.id));
+          .where(eq(activities.id, match.id))
       }
     }
-    optimized = true;
+    optimized = true
   }
 
   // Handle route optimization
@@ -284,44 +307,49 @@ export default defineEventHandler(async (event) => {
     const allDayActivities = await db.query.activities.findMany({
       where: eq(activities.itineraryDayId, dayId),
       orderBy: [asc(activities.sortOrder)],
-    });
+    })
 
     if (allDayActivities.length >= 2) {
       // Get travel times
-      const geoActivities = allDayActivities.filter((a) => a.lat != null && a.lng != null);
-      const travelTimes: { fromId: string; toId: string; durationMinutes: number }[] = [];
+      const geoActivities = allDayActivities.filter((a) => a.lat != null && a.lng != null)
+      const travelTimes: { fromId: string; toId: string; durationMinutes: number }[] = []
 
       if (geoActivities.length >= 2) {
         try {
-          const origins = geoActivities.slice(0, -1).map((a) => ({ lat: a.lat!, lng: a.lng! }));
-          const destinations = geoActivities.slice(1).map((a) => ({ lat: a.lat!, lng: a.lng! }));
-          const matrix = await getDistanceMatrix(origins, destinations);
+          const origins = geoActivities.slice(0, -1).map((a) => ({ lat: a.lat!, lng: a.lng! }))
+          const destinations = geoActivities.slice(1).map((a) => ({ lat: a.lat!, lng: a.lng! }))
+          const matrix = await getDistanceMatrix(origins, destinations)
           for (let i = 0; i < origins.length; i++) {
-            const element = matrix[i]?.[i];
+            const element = matrix[i]?.[i]
             if (element?.duration?.value) {
               travelTimes.push({
                 fromId: geoActivities[i]!.id,
                 toId: geoActivities[i + 1]!.id,
                 durationMinutes: Math.ceil(element.duration.value / 60),
-              });
+              })
             }
           }
-        } catch { /* proceed without travel times */ }
+        } catch {
+          /* proceed without travel times */
+        }
       }
 
       // Compute schedule
-      const dayDate = day.date;
-      let startHour = 9;
-      let startMinute = 0;
+      const dayDate = day.date
+      let startHour = 9
+      let startMinute = 0
       const times = allDayActivities
         .map((a) => a.suggestedTime)
         .filter((t): t is string => !!t)
-        .map((t) => { const m = t.match(/^(\d{1,2}):(\d{2})/); return m ? parseInt(m[1]!) * 60 + parseInt(m[2]!) : null; })
-        .filter((m): m is number => m !== null);
+        .map((t) => {
+          const m = t.match(/^(\d{1,2}):(\d{2})/)
+          return m ? parseInt(m[1]!) * 60 + parseInt(m[2]!) : null
+        })
+        .filter((m): m is number => m !== null)
       if (times.length > 0) {
-        const earliest = Math.min(...times);
-        startHour = Math.floor(earliest / 60);
-        startMinute = earliest % 60;
+        const earliest = Math.min(...times)
+        startHour = Math.floor(earliest / 60)
+        startMinute = earliest % 60
       }
 
       const schedule = computeSchedule({
@@ -337,22 +365,25 @@ export default defineEventHandler(async (event) => {
         startHour,
         startMinute,
         bufferMinutes: 15,
-      });
+      })
 
       await Promise.all(
         schedule.map((s) =>
-          db.update(activities).set({ sortOrder: s.sortOrder, suggestedTime: s.suggestedTime }).where(eq(activities.id, s.id))
-        )
-      );
-      optimized = true;
+          db
+            .update(activities)
+            .set({ sortOrder: s.sortOrder, suggestedTime: s.suggestedTime })
+            .where(eq(activities.id, s.id)),
+        ),
+      )
+      optimized = true
     }
   }
 
   // Recompute segments
-  await computeAndSaveSegments(dayId);
+  await computeAndSaveSegments(dayId)
 
   // Increment AI usage counter (only after successful processing)
-  await incrementAiUsage(session.user.id);
+  await incrementAiUsage(session.user.id)
 
   // Audit log
   await logTripAction({
@@ -360,8 +391,13 @@ export default defineEventHandler(async (event) => {
     userId: session.user.id,
     action: "ai_prompt",
     description: `AI ${result.intent}: ${result.message}`,
-    metadata: { prompt: body.prompt, intent: result.intent, added: addedCount, removed: removedCount },
-  });
+    metadata: {
+      prompt: body.prompt,
+      intent: result.intent,
+      added: addedCount,
+      removed: removedCount,
+    },
+  })
 
   return {
     success: true,
@@ -371,5 +407,5 @@ export default defineEventHandler(async (event) => {
     optimized,
     intent: result.intent,
     message: result.message,
-  };
-});
+  }
+})

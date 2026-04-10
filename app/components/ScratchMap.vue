@@ -18,10 +18,7 @@ const emit = defineEmits<{
 
 // Convert TopoJSON to GeoJSON features
 const worldData = worldTopoJson as unknown as Topology
-const countriesGeo = feature(
-  worldData,
-  worldData.objects.countries as GeometryCollection,
-)
+const countriesGeo = feature(worldData, worldData.objects.countries as GeometryCollection)
 
 // SVG projection
 const projection = geoNaturalEarth1().scale(160).translate([480, 300])
@@ -43,7 +40,7 @@ const staticPaths = countriesGeo.features.map((f) => {
 const countryPaths = computed(() =>
   staticPaths.map((p) => {
     const visitType = p.info ? props.visitMap.get(p.info.alpha2) : undefined
-    return { ...p, visitType }
+    return Object.assign({}, p, { visitType })
   }),
 )
 
@@ -92,8 +89,7 @@ const layoverCount = computed(
   () => [...props.visitMap.values()].filter((v) => v === "layover").length,
 )
 const wantCount = computed(
-  () =>
-    [...props.visitMap.values()].filter((v) => v === "want_to_visit").length,
+  () => [...props.visitMap.values()].filter((v) => v === "want_to_visit").length,
 )
 
 // ── Zoom & Pan ──────────────────────────────────────────────────────
@@ -109,8 +105,7 @@ const MAX_SCALE = 100
 const ZOOM_STEP = 0.2
 
 const transformStr = computed(
-  () =>
-    `translate(${translateX.value},${translateY.value}) scale(${scale.value})`,
+  () => `translate(${translateX.value},${translateY.value}) scale(${scale.value})`,
 )
 
 function clampTranslation() {
@@ -131,10 +126,7 @@ function handleWheel(e: WheelEvent) {
 
   const oldScale = scale.value
   const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
-  const newScale = Math.max(
-    MIN_SCALE,
-    Math.min(MAX_SCALE, oldScale + delta * oldScale),
-  )
+  const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, oldScale + delta * oldScale))
 
   const ratio = newScale / oldScale
   translateX.value = mouseX - ratio * (mouseX - translateX.value)
@@ -252,11 +244,7 @@ function resetZoom() {
         @pointercancel="handlePointerUp($event)"
       >
         <!-- Ocean background -->
-        <rect
-          width="960"
-          height="600"
-          class="map-ocean"
-        />
+        <rect width="960" height="600" class="map-ocean" />
 
         <!-- Transformable group for zoom/pan -->
         <g :transform="transformStr">
@@ -272,9 +260,7 @@ function resetZoom() {
               country.visitType === 'layover' ? 'map-layover' : '',
               country.visitType === 'want_to_visit' ? 'map-want' : '',
               !country.visitType ? 'map-country' : '',
-              hoveredId === country.id && !country.visitType
-                ? 'map-country-hover'
-                : '',
+              hoveredId === country.id && !country.visitType ? 'map-country-hover' : '',
               hoveredId === country.id && country.visitType === 'visited'
                 ? 'map-visited-hover'
                 : '',
@@ -303,10 +289,7 @@ function resetZoom() {
       :style="{ left: `${tooltipX + 14}px`, top: `${tooltipY - 10}px` }"
     >
       {{ hoveredInfo.name }}
-      <span
-        v-if="tooltipLabel"
-        class="map-tooltip-badge ml-1.5 rounded px-1.5 py-0.5 text-xs"
-      >
+      <span v-if="tooltipLabel" class="map-tooltip-badge ml-1.5 rounded px-1.5 py-0.5 text-xs">
         {{ tooltipLabel }}
       </span>
     </div>
@@ -318,20 +301,14 @@ function resetZoom() {
         title="Zoom in"
         @click="zoomIn"
       >
-        <Icon
-          name="lucide:plus"
-          class="h-4 w-4"
-        />
+        <Icon name="lucide:plus" class="h-4 w-4" />
       </button>
       <button
         class="map-btn flex h-8 w-8 items-center justify-center rounded-lg shadow transition"
         title="Zoom out"
         @click="zoomOut"
       >
-        <Icon
-          name="lucide:minus"
-          class="h-4 w-4"
-        />
+        <Icon name="lucide:minus" class="h-4 w-4" />
       </button>
       <button
         v-if="scale > 1"
@@ -339,10 +316,7 @@ function resetZoom() {
         title="Reset zoom"
         @click="resetZoom"
       >
-        <Icon
-          name="lucide:maximize-2"
-          class="h-4 w-4"
-        />
+        <Icon name="lucide:maximize-2" class="h-4 w-4" />
       </button>
     </div>
 
@@ -351,15 +325,11 @@ function resetZoom() {
       class="map-overlay map-overlay-border absolute bottom-3 left-3 rounded-xl px-3 py-1.5 backdrop-blur-sm"
     >
       <p class="map-overlay-text text-sm font-medium">
-        <span class="map-overlay-accent text-lg font-bold">{{
-          visitedCount
-        }}</span>
+        <span class="map-overlay-accent text-lg font-bold">{{ visitedCount }}</span>
         visited
         <template v-if="layoverCount">
           <span class="mx-1 opacity-40">&middot;</span>
-          <span class="map-layover-accent text-lg font-bold">{{
-            layoverCount
-          }}</span>
+          <span class="map-layover-accent text-lg font-bold">{{ layoverCount }}</span>
           layover
         </template>
         <template v-if="wantCount">

@@ -1,114 +1,118 @@
 <script setup lang="ts">
-import draggable from "vuedraggable";
+import draggable from "vuedraggable"
 
 interface Activity {
-  id: string;
-  name: string;
-  type: string;
-  description: string | null;
-  lat: number | null;
-  lng: number | null;
-  address: string | null;
-  rating: string | null;
-  suggestedTime: string | null;
-  estimatedDurationMinutes: number | null;
-  costEstimate: string | null;
-  notes: string | null;
-  actualCost: string | null;
-  photos: string[] | null;
-  openingHours: string[] | null;
-  tags: string[] | null;
-  placeId: string | null;
-  sortOrder: number;
+  id: string
+  name: string
+  type: string
+  description: string | null
+  lat: number | null
+  lng: number | null
+  address: string | null
+  rating: string | null
+  suggestedTime: string | null
+  estimatedDurationMinutes: number | null
+  costEstimate: string | null
+  notes: string | null
+  actualCost: string | null
+  photos: string[] | null
+  openingHours: string[] | null
+  tags: string[] | null
+  placeId: string | null
+  sortOrder: number
 }
 
 interface TravelSegment {
-  fromActivityId: string;
-  durationText: string | null;
-  distanceText: string | null;
+  fromActivityId: string
+  durationText: string | null
+  distanceText: string | null
 }
 
 interface Day {
-  id: string;
-  dayNumber: number;
-  date: string;
-  notes: string | null;
-  activities: Activity[];
+  id: string
+  dayNumber: number
+  date: string
+  notes: string | null
+  activities: Activity[]
 }
 
 interface Participant {
-  userId: string;
-  name: string;
-  image: string | null;
+  userId: string
+  name: string
+  image: string | null
 }
 
 interface Member {
-  userId: string;
-  user: { name: string; image: string | null };
+  userId: string
+  user: { name: string; image: string | null }
 }
 
 const props = defineProps<{
-  day: Day;
-  tripId: string;
-  highlightedActivityId?: string | null;
-  travelSegments?: TravelSegment[];
-  readonly?: boolean;
-  participantsMap?: Record<string, Participant[]>;
-  members?: Member[];
-}>();
+  day: Day
+  tripId: string
+  highlightedActivityId?: string | null
+  travelSegments?: TravelSegment[]
+  readonly?: boolean
+  participantsMap?: Record<string, Participant[]>
+  members?: Member[]
+}>()
 
 const emit = defineEmits<{
-  editActivity: [activity: Activity];
-  deleteActivity: [activity: Activity];
-  clickActivity: [activity: Activity];
-  addActivity: [dayId: string];
-  reordered: [];
-  updateNotes: [notes: string];
-  toggleParticipant: [activityId: string, userId: string];
-}>();
+  editActivity: [activity: Activity]
+  deleteActivity: [activity: Activity]
+  clickActivity: [activity: Activity]
+  addActivity: [dayId: string]
+  reordered: []
+  updateNotes: [notes: string]
+  toggleParticipant: [activityId: string, userId: string]
+}>()
 
-const mapsUrl = computed(() => getGoogleMapsDirectionsUrl(props.day.activities));
+const mapsUrl = computed(() => getGoogleMapsDirectionsUrl(props.day.activities))
 
 // Drag and drop
-const localActivities = ref([...props.day.activities]);
-const isDragging = ref(false);
+const localActivities = ref([...props.day.activities])
+const isDragging = ref(false)
 
-watch(() => props.day.activities, (newActivities) => {
-  localActivities.value = [...newActivities];
-}, { deep: true });
+watch(
+  () => props.day.activities,
+  (newActivities) => {
+    localActivities.value = [...newActivities]
+  },
+  { deep: true },
+)
 
 async function handleDragEnd() {
-  isDragging.value = false;
-  const newOrder = localActivities.value.map((a) => a.id);
+  isDragging.value = false
+  const newOrder = localActivities.value.map((a) => a.id)
 
   // Check if order actually changed
-  const oldOrder = props.day.activities.map((a) => a.id);
-  if (JSON.stringify(newOrder) === JSON.stringify(oldOrder)) return;
+  const oldOrder = props.day.activities.map((a) => a.id)
+  if (JSON.stringify(newOrder) === JSON.stringify(oldOrder)) return
 
   try {
     await $fetch(`/api/trips/${props.tripId}/days/${props.day.id}/reorder`, {
       method: "PUT",
       body: { activityIds: newOrder },
-    });
-    emit("reordered");
+    })
+    emit("reordered")
   } catch (e) {
-    console.error("Failed to reorder:", e);
+    console.error("Failed to reorder:", e)
     // Revert on failure
-    localActivities.value = [...props.day.activities];
+    localActivities.value = [...props.day.activities]
   }
 }
 
 function getSegmentForActivity(activityId: string): TravelSegment | undefined {
-  return props.travelSegments?.find((s) => s.fromActivityId === activityId);
+  return props.travelSegments?.find((s) => s.fromActivityId === activityId)
 }
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr + "T00:00:00");
+  const date = new Date(dateStr + "T00:00:00")
   return date.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
-  });
+  })
 }
 
 /**
@@ -116,25 +120,25 @@ function formatDate(dateStr: string): string {
  * end time (start + duration), indicating an out-of-order schedule.
  */
 function isOutOfOrder(index: number): boolean {
-  if (index === 0) return false;
-  const prev = localActivities.value[index - 1];
-  const curr = localActivities.value[index];
-  if (!prev || !curr) return false;
-  if (!prev.suggestedTime || !curr.suggestedTime) return false;
+  if (index === 0) return false
+  const prev = localActivities.value[index - 1]
+  const curr = localActivities.value[index]
+  if (!prev || !curr) return false
+  if (!prev.suggestedTime || !curr.suggestedTime) return false
 
-  const prevMinutes = timeToMinutes(prev.suggestedTime);
-  const currMinutes = timeToMinutes(curr.suggestedTime);
-  if (prevMinutes === null || currMinutes === null) return false;
+  const prevMinutes = timeToMinutes(prev.suggestedTime)
+  const currMinutes = timeToMinutes(curr.suggestedTime)
+  if (prevMinutes === null || currMinutes === null) return false
 
   // Compare current start vs previous start (+ duration if available)
-  const prevEnd = prevMinutes + (prev.estimatedDurationMinutes ?? 0);
-  return currMinutes < prevEnd;
+  const prevEnd = prevMinutes + (prev.estimatedDurationMinutes ?? 0)
+  return currMinutes < prevEnd
 }
 
 function timeToMinutes(time: string): number | null {
-  const match = time.match(/^(\d{1,2}):(\d{2})/);
-  if (!match) return null;
-  return parseInt(match[1]!) * 60 + parseInt(match[2]!);
+  const match = time.match(/^(\d{1,2}):(\d{2})/)
+  if (!match) return null
+  return parseInt(match[1]!) * 60 + parseInt(match[2]!)
 }
 </script>
 
@@ -148,9 +152,7 @@ function timeToMinutes(time: string): number | null {
           {{ day.dayNumber }}
         </span>
         <div>
-          <h3 class="text-base font-semibold text-sand-900">
-            Day {{ day.dayNumber }}
-          </h3>
+          <h3 class="text-base font-semibold text-sand-900">Day {{ day.dayNumber }}</h3>
           <p class="text-sm text-sand-500">{{ formatDate(day.date) }}</p>
         </div>
       </div>
@@ -222,7 +224,10 @@ function timeToMinutes(time: string): number | null {
                   @edit="emit('editActivity', $event)"
                   @delete="emit('deleteActivity', $event)"
                   @click="emit('clickActivity', $event)"
-                  @toggle-participant="(activityId: string, userId: string) => emit('toggleParticipant', activityId, userId)"
+                  @toggle-participant="
+                    (activityId: string, userId: string) =>
+                      emit('toggleParticipant', activityId, userId)
+                  "
                 />
               </div>
             </div>

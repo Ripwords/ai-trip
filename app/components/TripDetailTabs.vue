@@ -1,11 +1,11 @@
 <script setup lang="ts">
 defineProps<{
-  modelValue: string;
-}>();
+  modelValue: string
+}>()
 
 const emit = defineEmits<{
-  "update:modelValue": [value: string];
-}>();
+  "update:modelValue": [value: string]
+}>()
 
 const tabs = [
   { value: "overview", label: "Overview", icon: "lucide:layout-dashboard" },
@@ -15,7 +15,7 @@ const tabs = [
   { value: "reservations", label: "Bookings", icon: "lucide:ticket" },
   { value: "documents", label: "Docs", icon: "lucide:paperclip" },
   { value: "team", label: "Team", icon: "lucide:users" },
-];
+]
 </script>
 
 <template>

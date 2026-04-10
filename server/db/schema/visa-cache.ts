@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, integer, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, integer, uniqueIndex } from "drizzle-orm/pg-core"
 
 export const visaCache = pgTable(
   "visa_cache",
@@ -18,5 +18,5 @@ export const visaCache = pgTable(
   },
   (table) => [
     uniqueIndex("idx_visa_cache_lookup").on(table.passportCountry, table.destinationCountry),
-  ]
-);
+  ],
+)

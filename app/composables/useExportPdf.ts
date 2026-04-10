@@ -1,48 +1,48 @@
 interface PdfActivity {
-  name: string;
-  type: string;
-  address: string | null;
-  suggestedTime: string | null;
-  estimatedDurationMinutes: number | null;
-  costEstimate: string | null;
-  notes: string | null;
+  name: string
+  type: string
+  address: string | null
+  suggestedTime: string | null
+  estimatedDurationMinutes: number | null
+  costEstimate: string | null
+  notes: string | null
 }
 
 interface PdfDay {
-  dayNumber: number;
-  date: string;
-  notes: string | null;
-  accommodationName: string | null;
-  activities: PdfActivity[];
+  dayNumber: number
+  date: string
+  notes: string | null
+  accommodationName: string | null
+  activities: PdfActivity[]
 }
 
 interface PdfReservation {
-  type: string;
-  status: string;
-  name: string;
-  confirmationNumber: string | null;
-  provider: string | null;
-  startDate: string | null;
-  endDate: string | null;
-  amount: string | null;
+  type: string
+  status: string
+  name: string
+  confirmationNumber: string | null
+  provider: string | null
+  startDate: string | null
+  endDate: string | null
+  amount: string | null
 }
 
 interface PdfExpense {
-  description: string;
-  amount: string;
-  category: string;
-  paidAt: string | null;
+  description: string
+  amount: string
+  category: string
+  paidAt: string | null
 }
 
 interface PdfTripData {
-  destination: string;
-  startDate: string;
-  endDate: string;
-  currencyCode: string;
-  budget: string | null;
-  days: PdfDay[];
-  expenses: PdfExpense[];
-  reservations: PdfReservation[];
+  destination: string
+  startDate: string
+  endDate: string
+  currencyCode: string
+  budget: string | null
+  days: PdfDay[]
+  expenses: PdfExpense[]
+  reservations: PdfReservation[]
 }
 
 function esc(str: string): string {
@@ -50,7 +50,7 @@ function esc(str: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
 }
 
 export function useExportPdf() {
@@ -61,14 +61,14 @@ export function useExportPdf() {
         month: "short",
         day: "numeric",
         year: "numeric",
-      });
+      })
     }
 
     function fmtDateShort(dateStr: string): string {
       return new Date(dateStr).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
-      });
+      })
     }
 
     function formatCurrency(amount: string): string {
@@ -77,19 +77,19 @@ export function useExportPdf() {
         currency: trip.currencyCode || "USD",
         minimumFractionDigits: 0,
         maximumFractionDigits: 2,
-      }).format(parseFloat(amount));
+      }).format(parseFloat(amount))
     }
 
     function formatType(type: string): string {
       return type
         .split("_")
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(" ");
+        .join(" ")
     }
 
-    const start = new Date(trip.startDate);
-    const end = new Date(trip.endDate);
-    const dayCount = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const start = new Date(trip.startDate)
+    const end = new Date(trip.endDate)
+    const dayCount = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
 
     // Build day sections
     const daySections = trip.days
@@ -106,9 +106,9 @@ export function useExportPdf() {
             <td>${esc(a.address || "-")}</td>
             <td>${a.estimatedDurationMinutes ? `${a.estimatedDurationMinutes} min` : "-"}</td>
             <td>${a.costEstimate ? esc(formatCurrency(a.costEstimate)) : "-"}</td>
-          </tr>`
+          </tr>`,
           )
-          .join("");
+          .join("")
 
         const activitiesTable =
           day.activities.length > 0
@@ -116,7 +116,7 @@ export function useExportPdf() {
             <thead><tr><th>Time</th><th>Activity</th><th>Address</th><th>Duration</th><th>Cost</th></tr></thead>
             <tbody>${activityRows}</tbody>
           </table>`
-            : `<p class="empty">No activities planned for this day.</p>`;
+            : `<p class="empty">No activities planned for this day.</p>`
 
         return `
         <div class="day-section">
@@ -127,19 +127,19 @@ export function useExportPdf() {
           ${day.accommodationName ? `<p class="accommodation">🏨 ${esc(day.accommodationName)}</p>` : ""}
           ${day.notes ? `<p class="day-notes">${esc(day.notes)}</p>` : ""}
           ${activitiesTable}
-        </div>`;
+        </div>`
       })
-      .join("");
+      .join("")
 
     // Build reservations section
-    let reservationsSection = "";
+    let reservationsSection = ""
     if (trip.reservations.length > 0) {
       const rows = trip.reservations
         .map((r) => {
-          let dates = "-";
+          let dates = "-"
           if (r.startDate) {
-            dates = fmtDateShort(r.startDate);
-            if (r.endDate) dates += ` – ${fmtDateShort(r.endDate)}`;
+            dates = fmtDateShort(r.startDate)
+            if (r.endDate) dates += ` – ${fmtDateShort(r.endDate)}`
           }
           return `<tr>
             <td>${esc(formatType(r.type))}</td>
@@ -148,9 +148,9 @@ export function useExportPdf() {
             <td class="mono">${esc(r.confirmationNumber || "-")}</td>
             <td>${esc(dates)}</td>
             <td>${r.amount ? esc(formatCurrency(r.amount)) : "-"}</td>
-          </tr>`;
+          </tr>`
         })
-        .join("");
+        .join("")
 
       reservationsSection = `
         <div class="page-break"></div>
@@ -158,35 +158,35 @@ export function useExportPdf() {
         <table>
           <thead><tr><th>Type</th><th>Name</th><th>Status</th><th>Confirmation #</th><th>Dates</th><th>Amount</th></tr></thead>
           <tbody>${rows}</tbody>
-        </table>`;
+        </table>`
     }
 
     // Build budget section
-    let budgetSection = "";
+    let budgetSection = ""
     if (trip.expenses.length > 0) {
-      const byCategory: Record<string, number> = {};
-      let total = 0;
+      const byCategory: Record<string, number> = {}
+      let total = 0
       for (const e of trip.expenses) {
-        const cat = e.category || "other";
-        byCategory[cat] = (byCategory[cat] ?? 0) + parseFloat(e.amount);
-        total += parseFloat(e.amount);
+        const cat = e.category || "other"
+        byCategory[cat] = (byCategory[cat] ?? 0) + parseFloat(e.amount)
+        total += parseFloat(e.amount)
       }
 
       const catRows = Object.entries(byCategory)
-        .sort(([, a], [, b]) => b - a)
+        .toSorted(([, a], [, b]) => b - a)
         .map(
           ([cat, amount]) => `<tr>
             <td>${esc(formatType(cat))}</td>
             <td>${esc(formatCurrency(String(amount)))}</td>
             <td>${((amount / total) * 100).toFixed(0)}%</td>
-          </tr>`
+          </tr>`,
         )
-        .join("");
+        .join("")
 
-      let budgetSummary = "";
+      let budgetSummary = ""
       if (trip.budget) {
-        const remaining = parseFloat(trip.budget) - total;
-        const isOver = remaining < 0;
+        const remaining = parseFloat(trip.budget) - total
+        const isOver = remaining < 0
         budgetSummary = `
           <div class="budget-summary">
             <div><span class="label">Budget:</span> ${esc(formatCurrency(trip.budget))}</div>
@@ -195,7 +195,7 @@ export function useExportPdf() {
               <span class="label">${isOver ? "Over budget:" : "Remaining:"}</span>
               ${esc(formatCurrency(String(Math.abs(remaining))))}
             </div>
-          </div>`;
+          </div>`
       }
 
       budgetSection = `
@@ -212,7 +212,7 @@ export function useExportPdf() {
             </tr>
           </tbody>
         </table>
-        ${budgetSummary}`;
+        ${budgetSummary}`
     }
 
     const html = `<!DOCTYPE html>
@@ -396,13 +396,13 @@ export function useExportPdf() {
   ${reservationsSection}
   ${budgetSection}
 </body>
-</html>`;
+</html>`
 
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-    printWindow.document.write(html);
-    printWindow.document.close();
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) return
+    printWindow.document.write(html)
+    printWindow.document.close()
   }
 
-  return { downloadPdf };
+  return { downloadPdf }
 }

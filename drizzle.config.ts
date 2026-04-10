@@ -1,4 +1,4 @@
-import { defineConfig } from "drizzle-kit";
+import { defineConfig } from "drizzle-kit"
 
 export default defineConfig({
   dialect: "postgresql",
@@ -9,4 +9,4 @@ export default defineConfig({
     // Falls back to DATABASE_URL for local dev
     url: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL!,
   },
-});
+})

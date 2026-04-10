@@ -1,9 +1,16 @@
 import {
-  pgTable, uuid, text, integer, numeric, doublePrecision,
-  jsonb, timestamp, index,
-} from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
-import { trips } from "./trips";
+  pgTable,
+  uuid,
+  text,
+  integer,
+  numeric,
+  doublePrecision,
+  jsonb,
+  timestamp,
+  index,
+} from "drizzle-orm/pg-core"
+import { relations } from "drizzle-orm"
+import { trips } from "./trips"
 
 export const tripIdeas = pgTable(
   "trip_ideas",
@@ -26,11 +33,9 @@ export const tripIdeas = pgTable(
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("idx_trip_ideas_trip_id").on(table.tripId),
-  ]
-);
+  (table) => [index("idx_trip_ideas_trip_id").on(table.tripId)],
+)
 
 export const tripIdeasRelations = relations(tripIdeas, ({ one }) => ({
   trip: one(trips, { fields: [tripIdeas.tripId], references: [trips.id] }),
-}));
+}))

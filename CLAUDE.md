@@ -33,7 +33,7 @@
 interface EnrichedLocation {
   name: string
   place_id: string
-  type: 'attraction' | 'restaurant' | 'hotel' | 'transport'
+  type: "attraction" | "restaurant" | "hotel" | "transport"
   description: string
   lat: number
   lng: number

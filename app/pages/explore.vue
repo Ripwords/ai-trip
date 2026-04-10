@@ -1,65 +1,65 @@
 <script setup lang="ts">
-import type { CountryInfo } from "../data/countries";
-import type { VisitType } from "../components/ScratchMap.vue";
+import type { CountryInfo } from "../data/countries"
+import type { VisitType } from "../components/ScratchMap.vue"
 
-definePageMeta({ layout: "app" });
+definePageMeta({ layout: "app" })
 useSeoMeta({
   title: "Explore",
   description: "Track countries you've visited on your scratch map.",
-});
+})
 
 // Fetch visited countries
-const { data: visitedList, refresh } = await useFetch("/api/visited-countries");
+const { data: visitedList, refresh } = await useFetch("/api/visited-countries")
 
 // Map of countryCode → visitType
 const visitMap = computed(() => {
-  const map = new Map<string, VisitType>();
+  const map = new Map<string, VisitType>()
   for (const v of visitedList.value ?? []) {
-    map.set(v.countryCode, (v.visitType as VisitType) ?? "visited");
+    map.set(v.countryCode, (v.visitType as VisitType) ?? "visited")
   }
-  return map;
-});
+  return map
+})
 
 // Selected country panel
-const selectedCountry = ref<CountryInfo | null>(null);
-const panelLoading = ref(false);
+const selectedCountry = ref<CountryInfo | null>(null)
+const panelLoading = ref(false)
 
 function handleCountryClick(country: CountryInfo) {
-  selectedCountry.value = country;
+  selectedCountry.value = country
 }
 
 function closePanel() {
-  selectedCountry.value = null;
+  selectedCountry.value = null
 }
 
 async function setVisitType(country: CountryInfo, type: VisitType | null) {
-  panelLoading.value = true;
+  panelLoading.value = true
   try {
     if (type === null) {
       // Remove
-      await $fetch(`/api/visited-countries/${country.alpha2}`, { method: "DELETE" });
+      await $fetch(`/api/visited-countries/${country.alpha2}`, { method: "DELETE" })
     } else {
       // Add or update (upsert)
       await $fetch("/api/visited-countries", {
         method: "POST",
         body: { countryCode: country.alpha2, countryName: country.name, visitType: type },
-      });
+      })
     }
-    await refresh();
+    await refresh()
   } catch (e: unknown) {
-    console.error("Failed to update visit type:", e);
+    console.error("Failed to update visit type:", e)
   } finally {
-    panelLoading.value = false;
+    panelLoading.value = false
   }
 }
 
 // Visa checker state
-const showVisaChecker = ref(false);
-const visaDestination = ref<CountryInfo | null>(null);
+const showVisaChecker = ref(false)
+const visaDestination = ref<CountryInfo | null>(null)
 
 function handleCheckVisa(country: CountryInfo) {
-  visaDestination.value = country;
-  showVisaChecker.value = true;
+  visaDestination.value = country
+  showVisaChecker.value = true
 }
 </script>
 
@@ -76,10 +76,7 @@ function handleCheckVisa(country: CountryInfo) {
 
     <!-- Map + Panel Container -->
     <div class="relative mt-6">
-      <ScratchMap
-        :visit-map="visitMap"
-        @country-click="handleCountryClick"
-      />
+      <ScratchMap :visit-map="visitMap" @country-click="handleCountryClick" />
       <CountryDetailPanel
         :country="selectedCountry"
         :visit-type="selectedCountry ? visitMap.get(selectedCountry.alpha2) : undefined"

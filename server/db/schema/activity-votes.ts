@@ -1,7 +1,7 @@
-import { pgTable, uuid, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
-import { activities } from "./activities";
-import { user } from "./auth-schema";
+import { pgTable, uuid, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core"
+import { relations } from "drizzle-orm"
+import { activities } from "./activities"
+import { user } from "./auth-schema"
 
 export const activityVotes = pgTable(
   "activity_votes",
@@ -16,12 +16,10 @@ export const activityVotes = pgTable(
     vote: text("vote").notNull(), // "up" or "down"
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    uniqueIndex("idx_activity_votes_unique").on(table.activityId, table.userId),
-  ]
-);
+  (table) => [uniqueIndex("idx_activity_votes_unique").on(table.activityId, table.userId)],
+)
 
 export const activityVotesRelations = relations(activityVotes, ({ one }) => ({
   activity: one(activities, { fields: [activityVotes.activityId], references: [activities.id] }),
   user: one(user, { fields: [activityVotes.userId], references: [user.id] }),
-}));
+}))

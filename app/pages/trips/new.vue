@@ -1,19 +1,19 @@
 <script setup lang="ts">
-definePageMeta({ layout: "app" });
+definePageMeta({ layout: "app" })
 useSeoMeta({
   title: "New Trip",
   description: "Create a new AI-powered travel itinerary with verified places from Google Maps.",
-});
+})
 
-const destination = ref("");
-const startDate = ref("");
-const endDate = ref("");
-const budget = ref<string>();
-const pace = ref<string>();
-const currencyCode = ref("USD");
-const travelStyle = ref<string[]>([]);
-const error = ref("");
-const loading = ref(false);
+const destination = ref("")
+const startDate = ref("")
+const endDate = ref("")
+const budget = ref<string>()
+const pace = ref<string>()
+const currencyCode = ref("USD")
+const travelStyle = ref<string[]>([])
+const error = ref("")
+const loading = ref(false)
 
 const currencies = [
   { code: "USD", label: "USD ($)" },
@@ -32,19 +32,28 @@ const currencies = [
   { code: "PHP", label: "PHP (₱)" },
   { code: "INR", label: "INR (₹)" },
   { code: "CNY", label: "CNY (¥)" },
-];
+]
 
-const travelStyleOptions = ["foodie", "culture", "adventure", "nature", "nightlife", "shopping", "relaxation", "photography"];
+const travelStyleOptions = [
+  "foodie",
+  "culture",
+  "adventure",
+  "nature",
+  "nightlife",
+  "shopping",
+  "relaxation",
+  "photography",
+]
 
 function toggleStyle(style: string) {
-  const idx = travelStyle.value.indexOf(style);
-  if (idx >= 0) travelStyle.value.splice(idx, 1);
-  else travelStyle.value.push(style);
+  const idx = travelStyle.value.indexOf(style)
+  if (idx >= 0) travelStyle.value.splice(idx, 1)
+  else travelStyle.value.push(style)
 }
 
 async function handleCreate() {
-  error.value = "";
-  loading.value = true;
+  error.value = ""
+  loading.value = true
 
   try {
     const trip = await $fetch("/api/trips", {
@@ -60,14 +69,14 @@ async function handleCreate() {
           travelStyle: travelStyle.value.length ? travelStyle.value : undefined,
         },
       },
-    });
+    })
 
-    navigateTo(`/trips/${trip!.id}`);
+    navigateTo(`/trips/${trip!.id}`)
   } catch (e: unknown) {
-    const err = e as { data?: { message?: string }; message?: string };
-    error.value = err.data?.message ?? err.message ?? "Failed to create trip";
+    const err = e as { data?: { message?: string }; message?: string }
+    error.value = err.data?.message ?? err.message ?? "Failed to create trip"
   } finally {
-    loading.value = false;
+    loading.value = false
   }
 }
 </script>
@@ -96,33 +105,17 @@ async function handleCreate() {
           <label for="startDate" class="block text-sm font-medium text-sand-700">
             Start date
           </label>
-          <input
-            id="startDate"
-            v-model="startDate"
-            type="date"
-            required
-            class="form-input"
-          />
+          <input id="startDate" v-model="startDate" type="date" required class="form-input" />
         </div>
         <div>
-          <label for="endDate" class="block text-sm font-medium text-sand-700">
-            End date
-          </label>
-          <input
-            id="endDate"
-            v-model="endDate"
-            type="date"
-            required
-            class="form-input"
-          />
+          <label for="endDate" class="block text-sm font-medium text-sand-700"> End date </label>
+          <input id="endDate" v-model="endDate" type="date" required class="form-input" />
         </div>
       </div>
 
       <div class="space-y-4 sm:grid sm:grid-cols-2 sm:gap-4 sm:space-y-0">
         <div>
-          <label for="budget" class="block text-sm font-medium text-sand-700">
-            Budget
-          </label>
+          <label for="budget" class="block text-sm font-medium text-sand-700"> Budget </label>
           <select id="budget" v-model="budget" class="form-input">
             <option value="">Any</option>
             <option value="budget">Budget</option>
@@ -131,9 +124,7 @@ async function handleCreate() {
           </select>
         </div>
         <div>
-          <label for="pace" class="block text-sm font-medium text-sand-700">
-            Pace
-          </label>
+          <label for="pace" class="block text-sm font-medium text-sand-700"> Pace </label>
           <select id="pace" v-model="pace" class="form-input">
             <option value="">Any</option>
             <option value="relaxed">Relaxed</option>
@@ -160,9 +151,11 @@ async function handleCreate() {
             :key="style"
             type="button"
             class="rounded-full border px-3 py-1 text-xs font-medium capitalize transition"
-            :class="travelStyle.includes(style)
-              ? 'border-terra-400 bg-terra-50 text-terra-700'
-              : 'border-sand-200 bg-sand-50 text-sand-600 hover:border-sand-300'"
+            :class="
+              travelStyle.includes(style)
+                ? 'border-terra-400 bg-terra-50 text-terra-700'
+                : 'border-sand-200 bg-sand-50 text-sand-600 hover:border-sand-300'
+            "
             @click="toggleStyle(style)"
           >
             {{ style }}
@@ -197,7 +190,9 @@ async function handleCreate() {
   background-color: var(--color-sand-50);
   appearance: none;
   -webkit-appearance: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .form-input:focus {

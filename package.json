@@ -1,7 +1,7 @@
 {
   "name": "ai-trip",
-  "type": "module",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "nuxt build",
     "vercel-build": "nuxt build && drizzle-kit migrate",

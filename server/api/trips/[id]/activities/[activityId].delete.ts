@@ -1,17 +1,14 @@
-import { eq } from "drizzle-orm";
-import { db } from "../../../../db";
-import { activities } from "../../../../db/schema";
-import { activityIdParamsSchema } from "../../../../utils/schemas";
-import { computeAndSaveSegments } from "../../../../lib/segments";
+import { eq } from "drizzle-orm"
+import { db } from "../../../../db"
+import { activities } from "../../../../db/schema"
+import { activityIdParamsSchema } from "../../../../utils/schemas"
+import { computeAndSaveSegments } from "../../../../lib/segments"
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event);
-  const { id, activityId } = await getValidatedRouterParams(
-    event,
-    activityIdParamsSchema.parse
-  );
+  const session = await requireAuth(event)
+  const { id, activityId } = await getValidatedRouterParams(event, activityIdParamsSchema.parse)
 
-  await requireTripAccess(id, session.user.id, ["owner", "editor"]);
+  await requireTripAccess(id, session.user.id, ["owner", "editor"])
 
   // Verify activity belongs to this trip
   const activity = await db.query.activities.findFirst({
@@ -19,18 +16,18 @@ export default defineEventHandler(async (event) => {
     with: {
       day: true,
     },
-  });
+  })
 
   if (!activity || activity.day.tripId !== id) {
-    throw createError({ statusCode: 404, message: "Activity not found" });
+    throw createError({ statusCode: 404, message: "Activity not found" })
   }
 
-  const activityName = activity.name;
-  const dayId = activity.day.id;
-  await db.delete(activities).where(eq(activities.id, activityId));
+  const activityName = activity.name
+  const dayId = activity.day.id
+  await db.delete(activities).where(eq(activities.id, activityId))
 
   // Recompute travel segments
-  await computeAndSaveSegments(dayId);
+  await computeAndSaveSegments(dayId)
 
   // Audit log
   await logTripAction({
@@ -38,7 +35,7 @@ export default defineEventHandler(async (event) => {
     userId: session.user.id,
     action: "activity_removed",
     description: `Removed "${activityName}"`,
-  });
+  })
 
-  return { success: true };
-});
+  return { success: true }
+})

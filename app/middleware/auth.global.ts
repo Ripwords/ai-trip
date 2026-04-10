@@ -1,14 +1,14 @@
-import { authClient } from "../lib/auth-client";
+import { authClient } from "../lib/auth-client"
 
-const PROTECTED_ROUTES = ["/dashboard", "/trips", "/explore"];
+const PROTECTED_ROUTES = ["/dashboard", "/trips", "/explore"]
 
 export default defineNuxtRouteMiddleware(async (to) => {
-  if (!PROTECTED_ROUTES.some((r) => to.path.startsWith(r))) return;
+  if (!PROTECTED_ROUTES.some((r) => to.path.startsWith(r))) return
 
-  const { data: session } = await authClient.useSession(useFetch);
-  const isAuthenticated = !!session.value?.user;
+  const { data: session } = await authClient.useSession(useFetch)
+  const isAuthenticated = !!session.value?.user
 
   if (!isAuthenticated) {
-    return navigateTo("/login");
+    return navigateTo("/login")
   }
-});
+})

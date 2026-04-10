@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { $pwa } = useNuxtApp();
+const { $pwa } = useNuxtApp()
 
 useHead({
   titleTemplate: "%s %separator %siteName",
@@ -7,13 +7,13 @@ useHead({
     siteName: "AI Trip",
     separator: "—",
   },
-});
+})
 
 useSeoMeta({
   ogType: "website",
   ogSiteName: "AI Trip",
   twitterCard: "summary_large_image",
-});
+})
 </script>
 
 <template>
@@ -38,10 +38,7 @@ useSeoMeta({
     >
       Reload
     </button>
-    <button
-      class="text-xs text-sand-400 hover:text-sand-600"
-      @click="$pwa?.cancelPrompt()"
-    >
+    <button class="text-xs text-sand-400 hover:text-sand-600" @click="$pwa?.cancelPrompt()">
       Later
     </button>
   </div>

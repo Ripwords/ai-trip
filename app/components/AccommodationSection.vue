@@ -1,28 +1,26 @@
 <script setup lang="ts">
-import type { PlaceResult } from "~/composables/usePlaceSearch";
+import type { PlaceResult } from "~/composables/usePlaceSearch"
 
 const props = defineProps<{
-  tripId: string;
-  dayId: string;
-  accommodationName: string | null;
-  accommodationAddress: string | null;
-  accommodationLat: number | null;
-  accommodationLng: number | null;
-}>();
+  tripId: string
+  dayId: string
+  accommodationName: string | null
+  accommodationAddress: string | null
+  accommodationLat: number | null
+  accommodationLng: number | null
+}>()
 
 const emit = defineEmits<{
-  updated: [];
-}>();
+  updated: []
+}>()
 
-const isEditing = ref(false);
-const isSaving = ref(false);
+const isEditing = ref(false)
+const isSaving = ref(false)
 
-const hasAccommodation = computed(
-  () => !!props.accommodationName
-);
+const hasAccommodation = computed(() => !!props.accommodationName)
 
 async function handlePlaceSelect(place: PlaceResult) {
-  isSaving.value = true;
+  isSaving.value = true
   try {
     await $fetch(`/api/trips/${props.tripId}/days/${props.dayId}/accommodation`, {
       method: "PUT",
@@ -32,18 +30,18 @@ async function handlePlaceSelect(place: PlaceResult) {
         accommodationLat: place.lat,
         accommodationLng: place.lng,
       },
-    });
-    isEditing.value = false;
-    emit("updated");
+    })
+    isEditing.value = false
+    emit("updated")
   } catch (e: unknown) {
-    console.error("Failed to set accommodation:", e);
+    console.error("Failed to set accommodation:", e)
   } finally {
-    isSaving.value = false;
+    isSaving.value = false
   }
 }
 
 async function handleClear() {
-  isSaving.value = true;
+  isSaving.value = true
   try {
     await $fetch(`/api/trips/${props.tripId}/days/${props.dayId}/accommodation`, {
       method: "PUT",
@@ -53,13 +51,13 @@ async function handleClear() {
         accommodationLat: null,
         accommodationLng: null,
       },
-    });
-    isEditing.value = false;
-    emit("updated");
+    })
+    isEditing.value = false
+    emit("updated")
   } catch (e: unknown) {
-    console.error("Failed to clear accommodation:", e);
+    console.error("Failed to clear accommodation:", e)
   } finally {
-    isSaving.value = false;
+    isSaving.value = false
   }
 }
 </script>
@@ -92,24 +90,15 @@ async function handleClear() {
           <Icon name="lucide:bed-double" class="h-4 w-4" />
           <span>Search accommodation</span>
         </div>
-        <button
-          class="text-xs text-sand-400 hover:text-sand-600"
-          @click="isEditing = false"
-        >
+        <button class="text-xs text-sand-400 hover:text-sand-600" @click="isEditing = false">
           Cancel
         </button>
       </div>
-      <PlaceSearchInput
-        placeholder="Search for a hotel, Airbnb..."
-        @select="handlePlaceSelect"
-      />
+      <PlaceSearchInput placeholder="Search for a hotel, Airbnb..." @select="handlePlaceSelect" />
     </div>
 
     <!-- Accommodation set -->
-    <div
-      v-else
-      class="rounded-2xl border border-ocean-200 bg-ocean-50 p-4"
-    >
+    <div v-else class="rounded-2xl border border-ocean-200 bg-ocean-50 p-4">
       <div class="flex items-start justify-between">
         <div class="flex items-start gap-3">
           <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ocean-100">

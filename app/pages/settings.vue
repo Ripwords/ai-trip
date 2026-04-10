@@ -1,43 +1,43 @@
 <script setup lang="ts">
-definePageMeta({ layout: "app" });
+definePageMeta({ layout: "app" })
 useSeoMeta({
   title: "Settings",
   description: "Manage your AI Trip account settings and preferences.",
-});
+})
 
-import { authClient } from "../lib/auth-client";
-const { data: session } = await authClient.useSession(useFetch);
+import { authClient } from "../lib/auth-client"
+const { data: session } = await authClient.useSession(useFetch)
 const { data: aiUsage } = await useFetch<{
-  used: number;
-  limit: number;
-  remaining: number;
-}>("/api/ai/usage");
+  used: number
+  limit: number
+  remaining: number
+}>("/api/ai/usage")
 
-const { nationality, save: saveNationality, fetch: fetchNationality } = useNationality();
-await fetchNationality();
+const { nationality, save: saveNationality, fetch: fetchNationality } = useNationality()
+await fetchNationality()
 
-const nationalityInitialized = ref(false);
+const nationalityInitialized = ref(false)
 watch(nationality, (val) => {
   if (!nationalityInitialized.value) {
-    nationalityInitialized.value = true;
-    return;
+    nationalityInitialized.value = true
+    return
   }
-  saveNationality(val);
-});
+  saveNationality(val)
+})
 
-const { mode, setMode } = useDarkMode();
+const { mode, setMode } = useDarkMode()
 
 const modeLabels: Record<string, string> = {
   light: "Light",
   dark: "Dark",
   system: "System",
-};
+}
 
 const modeIcons: Record<string, string> = {
   light: "lucide:sun",
   dark: "lucide:moon",
   system: "lucide:monitor",
-};
+}
 </script>
 
 <template>
@@ -82,7 +82,8 @@ const modeIcons: Record<string, string> = {
       <div v-if="aiUsage" class="mt-4">
         <div class="flex items-baseline justify-between">
           <p class="text-sm text-sand-600">
-            <span class="font-semibold text-sand-900">{{ aiUsage.used }}</span> / {{ aiUsage.limit }} prompts used
+            <span class="font-semibold text-sand-900">{{ aiUsage.used }}</span> /
+            {{ aiUsage.limit }} prompts used
           </p>
           <p class="text-xs text-sand-400">Resets monthly</p>
         </div>
@@ -104,9 +105,11 @@ const modeIcons: Record<string, string> = {
           v-for="m in ['light', 'dark', 'system']"
           :key="m"
           class="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition"
-          :class="mode === m
-            ? 'border-terra-400 bg-terra-50 text-terra-700'
-            : 'border-sand-200 text-sand-600 hover:border-sand-300'"
+          :class="
+            mode === m
+              ? 'border-terra-400 bg-terra-50 text-terra-700'
+              : 'border-sand-200 text-sand-600 hover:border-sand-300'
+          "
           @click="setMode(m as 'light' | 'dark' | 'system')"
         >
           <Icon :name="modeIcons[m] ?? 'lucide:sun'" class="h-4 w-4" />

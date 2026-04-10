@@ -1,51 +1,53 @@
 <script setup lang="ts">
-import type { CountryInfo } from "../data/countries";
-import { countryByAlpha2 } from "../data/countries";
+import type { CountryInfo } from "../data/countries"
+import { countryByAlpha2 } from "../data/countries"
 
 const props = defineProps<{
-  destination: CountryInfo | null;
-}>();
+  destination: CountryInfo | null
+}>()
 
 const emit = defineEmits<{
-  close: [];
-}>();
+  close: []
+}>()
 
 // Shared nationality state (synced with settings page)
-const { nationality, save: saveNationality, fetch: fetchNationality } = useNationality();
-onMounted(() => { if (!nationality.value) fetchNationality(); });
+const { nationality, save: saveNationality, fetch: fetchNationality } = useNationality()
+onMounted(() => {
+  if (!nationality.value) fetchNationality()
+})
 
 // Visa check state
 const visaResult = ref<{
-  visaStatus: string;
-  maxStayDays: number | null;
-  requirements: string;
-  processingTime: string | null;
-  cost: string | null;
-  notes: string | null;
-  cached: boolean;
-  fetchedAt: string;
-} | null>(null);
-const loading = ref(false);
-const error = ref<string | null>(null);
+  visaStatus: string
+  maxStayDays: number | null
+  requirements: string
+  processingTime: string | null
+  cost: string | null
+  notes: string | null
+  cached: boolean
+  fetchedAt: string
+} | null>(null)
+const loading = ref(false)
+const error = ref<string | null>(null)
 
 // Save nationality when user changes it in the selector
-const nationalityInitialized = ref(false);
+const nationalityInitialized = ref(false)
 watch(nationality, (val) => {
   if (!nationalityInitialized.value) {
-    nationalityInitialized.value = true;
-    return;
+    nationalityInitialized.value = true
+    return
   }
-  saveNationality(val);
-});
+  saveNationality(val)
+})
 
 async function checkVisa() {
-  if (!nationality.value || !props.destination) return;
+  if (!nationality.value || !props.destination) return
 
-  loading.value = true;
-  error.value = null;
-  visaResult.value = null;
+  loading.value = true
+  error.value = null
+  visaResult.value = null
 
-  const passportName = countryByAlpha2.get(nationality.value)?.name ?? nationality.value;
+  const passportName = countryByAlpha2.get(nationality.value)?.name ?? nationality.value
 
   try {
     const result = await $fetch("/api/visa/check", {
@@ -56,42 +58,56 @@ async function checkVisa() {
         passportCountry: nationality.value,
         passportCountryName: passportName,
       },
-    });
-    visaResult.value = result;
+    })
+    visaResult.value = result
   } catch (e: unknown) {
-    error.value = e instanceof Error ? e.message : "Failed to check visa requirements";
+    error.value = e instanceof Error ? e.message : "Failed to check visa requirements"
   } finally {
-    loading.value = false;
+    loading.value = false
   }
 }
 
 // Auto-check if nationality is already set when destination changes
-watch(
-  [() => props.destination, nationality],
-  ([dest, nat], [oldDest]) => {
-    if (dest !== oldDest) visaResult.value = null;
-    if (nat && dest && !visaResult.value && !loading.value) checkVisa();
-  },
-);
+watch([() => props.destination, nationality], ([dest, nat], [oldDest]) => {
+  if (dest !== oldDest) visaResult.value = null
+  if (nat && dest && !visaResult.value && !loading.value) checkVisa()
+})
 
 const statusConfig: Record<string, { label: string; color: string; icon: string }> = {
-  visa_free: { label: "Visa Free", color: "text-green-600 bg-green-50 border-green-200", icon: "lucide:check-circle" },
-  visa_on_arrival: { label: "Visa on Arrival", color: "text-blue-600 bg-blue-50 border-blue-200", icon: "lucide:clock" },
-  e_visa: { label: "e-Visa Required", color: "text-amber-600 bg-amber-50 border-amber-200", icon: "lucide:globe" },
-  visa_required: { label: "Visa Required", color: "text-red-600 bg-red-50 border-red-200", icon: "lucide:shield-alert" },
-};
+  visa_free: {
+    label: "Visa Free",
+    color: "text-green-600 bg-green-50 border-green-200",
+    icon: "lucide:check-circle",
+  },
+  visa_on_arrival: {
+    label: "Visa on Arrival",
+    color: "text-blue-600 bg-blue-50 border-blue-200",
+    icon: "lucide:clock",
+  },
+  e_visa: {
+    label: "e-Visa Required",
+    color: "text-amber-600 bg-amber-50 border-amber-200",
+    icon: "lucide:globe",
+  },
+  visa_required: {
+    label: "Visa Required",
+    color: "text-red-600 bg-red-50 border-red-200",
+    icon: "lucide:shield-alert",
+  },
+}
 </script>
 
 <template>
   <!-- Modal backdrop -->
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="emit('close')">
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    @click.self="emit('close')"
+  >
     <div class="w-full max-w-lg rounded-2xl border border-sand-200 bg-white shadow-2xl">
       <!-- Header -->
       <div class="flex items-center justify-between border-b border-sand-200 px-6 py-4">
         <div>
-          <h2 class="font-display text-lg text-sand-900">
-            Visa Requirements
-          </h2>
+          <h2 class="font-display text-lg text-sand-900">Visa Requirements</h2>
           <p v-if="destination" class="text-sm text-sand-500">
             Travelling to {{ destination.name }}
           </p>
@@ -130,7 +146,10 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
         </div>
 
         <!-- Error -->
-        <div v-if="error" class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+        <div
+          v-if="error"
+          class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600"
+        >
           {{ error }}
         </div>
 
@@ -139,7 +158,10 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
           <!-- Status badge -->
           <div
             class="flex items-center gap-2 rounded-xl border px-4 py-3"
-            :class="statusConfig[visaResult.visaStatus]?.color ?? 'text-sand-600 bg-sand-50 border-sand-200'"
+            :class="
+              statusConfig[visaResult.visaStatus]?.color ??
+              'text-sand-600 bg-sand-50 border-sand-200'
+            "
           >
             <Icon
               :name="statusConfig[visaResult.visaStatus]?.icon ?? 'lucide:info'"
@@ -155,7 +177,9 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
 
           <!-- Requirements -->
           <div v-if="visaResult.requirements" class="rounded-xl border border-sand-200 p-4">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-sand-500">Requirements</h3>
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-sand-500">
+              Requirements
+            </h3>
             <p class="mt-1 whitespace-pre-line text-sm text-sand-700">
               {{ visaResult.requirements }}
             </p>
@@ -179,7 +203,9 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
 
           <!-- Notes -->
           <div v-if="visaResult.notes" class="rounded-xl border border-sand-200 bg-sand-50 p-4">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-sand-500">Additional Notes</h3>
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-sand-500">
+              Additional Notes
+            </h3>
             <p class="mt-1 whitespace-pre-line text-sm text-sand-600">
               {{ visaResult.notes }}
             </p>
@@ -187,7 +213,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
 
           <!-- Cache indicator -->
           <p class="text-center text-xs text-sand-400">
-            {{ visaResult.cached ? 'Cached result' : 'Fresh lookup' }}
+            {{ visaResult.cached ? "Cached result" : "Fresh lookup" }}
             &middot; Last checked {{ new Date(visaResult.fetchedAt).toLocaleDateString() }}
           </p>
         </div>

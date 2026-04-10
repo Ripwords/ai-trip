@@ -1,78 +1,78 @@
 <script setup lang="ts">
 interface ChecklistItem {
-  id: string;
-  text: string;
-  checked: boolean;
-  sortOrder: number;
-  category: string | null;
+  id: string
+  text: string
+  checked: boolean
+  sortOrder: number
+  category: string | null
 }
 
 interface Checklist {
-  id: string;
-  name: string;
-  items: ChecklistItem[];
+  id: string
+  name: string
+  items: ChecklistItem[]
 }
 
 interface PackingTemplate {
-  id: string;
-  name: string;
-  description: string | null;
-  isGlobal: boolean;
-  items: { text: string; category: string }[];
+  id: string
+  name: string
+  description: string | null
+  isGlobal: boolean
+  items: { text: string; category: string }[]
 }
 
 const props = defineProps<{
-  tripId: string;
-}>();
+  tripId: string
+}>()
 
 const { data: checklists, refresh } = await useFetch<Checklist[]>(
-  `/api/trips/${props.tripId}/checklists`
-);
+  `/api/trips/${props.tripId}/checklists`,
+)
 
-const expandedLists = ref<Set<string>>(new Set());
-const newListName = ref("");
-const newItemTexts = ref<Record<string, string>>({});
-const newItemCategories = ref<Record<string, string>>({});
-const editingListId = ref<string | null>(null);
-const editingListName = ref("");
-const editingItemId = ref<string | null>(null);
-const editingItemText = ref("");
+const expandedLists = ref<Set<string>>(new Set())
+const newListName = ref("")
+const newItemTexts = ref<Record<string, string>>({})
+const newItemCategories = ref<Record<string, string>>({})
+const editingListId = ref<string | null>(null)
+const editingListName = ref("")
+const editingItemId = ref<string | null>(null)
+const editingItemText = ref("")
 
 // Template state
-const showTemplateModal = ref(false);
-const templateTargetChecklistId = ref<string | null>(null);
-const templates = ref<PackingTemplate[]>([]);
-const showSaveTemplateForm = ref<string | null>(null);
-const saveTemplateName = ref("");
+const showTemplateModal = ref(false)
+const templateTargetChecklistId = ref<string | null>(null)
+const templates = ref<PackingTemplate[]>([])
+const showSaveTemplateForm = ref<string | null>(null)
+const saveTemplateName = ref("")
 
 function toggleList(id: string) {
   if (expandedLists.value.has(id)) {
-    expandedLists.value.delete(id);
+    expandedLists.value.delete(id)
   } else {
-    expandedLists.value.add(id);
+    expandedLists.value.add(id)
   }
 }
 
 // Compute unique categories across all items for datalist suggestions
 const allCategories = computed(() => {
-  const cats = new Set<string>();
+  const cats = new Set<string>()
   checklists.value?.forEach((cl) => {
     cl.items.forEach((item) => {
-      if (item.category) cats.add(item.category);
-    });
-  });
-  return Array.from(cats).sort();
-});
+      if (item.category) cats.add(item.category)
+    })
+  })
+  return Array.from(cats).toSorted()
+})
 
 // Group items by category
 function groupByCategory(items: ChecklistItem[]): { category: string; items: ChecklistItem[] }[] {
-  const groups: Record<string, ChecklistItem[]> = {};
+  const groups: Record<string, ChecklistItem[]> = {}
   for (const item of items) {
-    const cat = item.category || "Uncategorized";
-    if (!groups[cat]) groups[cat] = [];
-    groups[cat].push(item);
+    const cat = item.category || "Uncategorized"
+    if (!groups[cat]) groups[cat] = []
+    groups[cat].push(item)
   }
-  return Object.entries(groups).map(([category, items]) => ({ category, items }));
+  return Object.entries(groups).map(([category, items]) => ({ category, items }))
 }
 
 const categoryColors: Record<string, string> = {
@@ -82,28 +82,28 @@ const categoryColors: Record<string, string> = {
   Documents: "bg-sand-200 text-sand-700",
   Gear: "bg-forest-50 text-forest-700",
   Accessories: "bg-purple-50 text-purple-700",
-};
+}
 
 function getCategoryClass(category: string): string {
-  return categoryColors[category] || "bg-sand-100 text-sand-600";
+  return categoryColors[category] || "bg-sand-100 text-sand-600"
 }
 
 async function createChecklist() {
-  const name = newListName.value.trim();
-  if (!name) return;
+  const name = newListName.value.trim()
+  if (!name) return
   try {
     await $fetch(`/api/trips/${props.tripId}/checklists`, {
       method: "POST",
       body: { name },
-    });
-    newListName.value = "";
-    await refresh();
+    })
+    newListName.value = ""
+    await refresh()
   } catch (e: unknown) {
-    console.error("Failed to create checklist:", e);
+    console.error("Failed to create checklist:", e)
   }
 }
 
-const { confirm } = useConfirm();
+const { confirm } = useConfirm()
 
 async function deleteChecklist(checklistId: string) {
   const ok = await confirm({
@@ -111,156 +111,144 @@ async function deleteChecklist(checklistId: string) {
     message: "Delete this checklist and all its items?",
     confirmText: "Delete",
     destructive: true,
-  });
-  if (!ok) return;
+  })
+  if (!ok) return
   try {
     await $fetch(`/api/trips/${props.tripId}/checklists/${checklistId}`, {
       method: "DELETE",
-    });
-    await refresh();
+    })
+    await refresh()
   } catch (e: unknown) {
-    console.error("Failed to delete checklist:", e);
+    console.error("Failed to delete checklist:", e)
   }
 }
 
 function startEditList(checklist: Checklist) {
-  editingListId.value = checklist.id;
-  editingListName.value = checklist.name;
+  editingListId.value = checklist.id
+  editingListName.value = checklist.name
 }
 
 async function saveListName(checklistId: string) {
-  const name = editingListName.value.trim();
-  if (!name) return;
+  const name = editingListName.value.trim()
+  if (!name) return
   try {
     await $fetch(`/api/trips/${props.tripId}/checklists/${checklistId}`, {
       method: "PUT",
       body: { name },
-    });
-    editingListId.value = null;
-    await refresh();
+    })
+    editingListId.value = null
+    await refresh()
   } catch (e: unknown) {
-    console.error("Failed to update checklist:", e);
+    console.error("Failed to update checklist:", e)
   }
 }
 
 async function toggleItem(checklistId: string, item: ChecklistItem) {
   try {
-    await $fetch(
-      `/api/trips/${props.tripId}/checklists/${checklistId}/items/${item.id}`,
-      {
-        method: "PUT",
-        body: { checked: !item.checked },
-      }
-    );
-    await refresh();
+    await $fetch(`/api/trips/${props.tripId}/checklists/${checklistId}/items/${item.id}`, {
+      method: "PUT",
+      body: { checked: !item.checked },
+    })
+    await refresh()
   } catch (e: unknown) {
-    console.error("Failed to toggle item:", e);
+    console.error("Failed to toggle item:", e)
   }
 }
 
 async function addItem(checklistId: string) {
-  const text = (newItemTexts.value[checklistId] ?? "").trim();
-  if (!text) return;
-  const category = (newItemCategories.value[checklistId] ?? "").trim() || undefined;
+  const text = (newItemTexts.value[checklistId] ?? "").trim()
+  if (!text) return
+  const category = (newItemCategories.value[checklistId] ?? "").trim() || undefined
   try {
-    await $fetch(
-      `/api/trips/${props.tripId}/checklists/${checklistId}/items`,
-      {
-        method: "POST",
-        body: { text, category },
-      }
-    );
-    newItemTexts.value[checklistId] = "";
-    await refresh();
+    await $fetch(`/api/trips/${props.tripId}/checklists/${checklistId}/items`, {
+      method: "POST",
+      body: { text, category },
+    })
+    newItemTexts.value[checklistId] = ""
+    await refresh()
   } catch (e: unknown) {
-    console.error("Failed to add item:", e);
+    console.error("Failed to add item:", e)
   }
 }
 
 function startEditItem(item: ChecklistItem) {
-  editingItemId.value = item.id;
-  editingItemText.value = item.text;
+  editingItemId.value = item.id
+  editingItemText.value = item.text
 }
 
 async function saveItemText(checklistId: string, itemId: string) {
-  const text = editingItemText.value.trim();
-  if (!text) return;
+  const text = editingItemText.value.trim()
+  if (!text) return
   try {
-    await $fetch(
-      `/api/trips/${props.tripId}/checklists/${checklistId}/items/${itemId}`,
-      { method: "PUT", body: { text } }
-    );
-    editingItemId.value = null;
-    await refresh();
+    await $fetch(`/api/trips/${props.tripId}/checklists/${checklistId}/items/${itemId}`, {
+      method: "PUT",
+      body: { text },
+    })
+    editingItemId.value = null
+    await refresh()
   } catch (e: unknown) {
-    console.error("Failed to update item:", e);
+    console.error("Failed to update item:", e)
   }
 }
 
 async function deleteItem(checklistId: string, itemId: string) {
   try {
-    await $fetch(
-      `/api/trips/${props.tripId}/checklists/${checklistId}/items/${itemId}`,
-      {
-        method: "DELETE",
-      }
-    );
-    await refresh();
+    await $fetch(`/api/trips/${props.tripId}/checklists/${checklistId}/items/${itemId}`, {
+      method: "DELETE",
+    })
+    await refresh()
   } catch (e: unknown) {
-    console.error("Failed to delete item:", e);
+    console.error("Failed to delete item:", e)
   }
 }
 
 // Template functions
 async function openTemplateModal(checklistId: string) {
-  templateTargetChecklistId.value = checklistId;
+  templateTargetChecklistId.value = checklistId
   try {
-    templates.value = await $fetch<PackingTemplate[]>("/api/packing-templates");
+    templates.value = await $fetch<PackingTemplate[]>("/api/packing-templates")
   } catch (e: unknown) {
-    console.error("Failed to load templates:", e);
-    templates.value = [];
+    console.error("Failed to load templates:", e)
+    templates.value = []
   }
-  showTemplateModal.value = true;
+  showTemplateModal.value = true
 }
 
 async function loadTemplate(templateId: string) {
-  if (!templateTargetChecklistId.value) return;
+  if (!templateTargetChecklistId.value) return
   try {
     await $fetch(
       `/api/trips/${props.tripId}/checklists/${templateTargetChecklistId.value}/load-template`,
       {
         method: "POST",
         body: { templateId },
-      }
-    );
-    showTemplateModal.value = false;
-    expandedLists.value.add(templateTargetChecklistId.value);
-    await refresh();
+      },
+    )
+    showTemplateModal.value = false
+    expandedLists.value.add(templateTargetChecklistId.value)
+    await refresh()
   } catch (e: unknown) {
-    console.error("Failed to load template:", e);
+    console.error("Failed to load template:", e)
   }
 }
 
 async function saveAsTemplate(checklistId: string) {
-  const name = saveTemplateName.value.trim();
-  if (!name) return;
+  const name = saveTemplateName.value.trim()
+  if (!name) return
   try {
-    await $fetch(
-      `/api/trips/${props.tripId}/checklists/${checklistId}/save-as-template`,
-      {
-        method: "POST",
-        body: { name },
-      }
-    );
-    showSaveTemplateForm.value = null;
-    saveTemplateName.value = "";
+    await $fetch(`/api/trips/${props.tripId}/checklists/${checklistId}/save-as-template`, {
+      method: "POST",
+      body: { name },
+    })
+    showSaveTemplateForm.value = null
+    saveTemplateName.value = ""
   } catch (e: unknown) {
-    console.error("Failed to save template:", e);
+    console.error("Failed to save template:", e)
   }
 }
 
 function checkedCount(checklist: Checklist): number {
-  return checklist.items.filter((i) => i.checked).length;
+  return checklist.items.filter((i) => i.checked).length
 }
 </script>
 
@@ -331,7 +319,10 @@ function checkedCount(checklist: Checklist): number {
             <button
               class="rounded p-1 text-sand-400 hover:bg-forest-50 hover:text-forest-600"
               title="Save as template"
-              @click.stop="showSaveTemplateForm = showSaveTemplateForm === checklist.id ? null : checklist.id; saveTemplateName = checklist.name"
+              @click.stop="
+                showSaveTemplateForm = showSaveTemplateForm === checklist.id ? null : checklist.id
+                saveTemplateName = checklist.name
+              "
             >
               <Icon name="lucide:save" class="h-3.5 w-3.5" />
             </button>
@@ -353,7 +344,10 @@ function checkedCount(checklist: Checklist): number {
         </div>
 
         <!-- Save as template inline form -->
-        <div v-if="showSaveTemplateForm === checklist.id" class="border-t border-sand-200 px-3 py-2">
+        <div
+          v-if="showSaveTemplateForm === checklist.id"
+          class="border-t border-sand-200 px-3 py-2"
+        >
           <form class="flex gap-2" @submit.prevent="saveAsTemplate(checklist.id)">
             <input
               v-model="saveTemplateName"
@@ -380,7 +374,7 @@ function checkedCount(checklist: Checklist): number {
         <!-- Items -->
         <div v-if="expandedLists.has(checklist.id)" class="border-t border-sand-200 px-3 py-2">
           <!-- Group by category if any items have categories -->
-          <template v-if="checklist.items.some(i => i.category)">
+          <template v-if="checklist.items.some((i) => i.category)">
             <div
               v-for="group in groupByCategory(checklist.items)"
               :key="group.category"
@@ -541,16 +535,21 @@ function checkedCount(checklist: Checklist): number {
                 <div class="flex items-center justify-between">
                   <span class="text-sm font-medium text-sand-900">{{ tmpl.name }}</span>
                   <span class="flex items-center gap-1 text-xs text-sand-400">
-                    <Icon v-if="tmpl.isGlobal" name="lucide:globe" class="h-3 w-3" title="Built-in template" />
+                    <Icon
+                      v-if="tmpl.isGlobal"
+                      name="lucide:globe"
+                      class="h-3 w-3"
+                      title="Built-in template"
+                    />
                     {{ tmpl.items.length }} items
                   </span>
                 </div>
-                <p v-if="tmpl.description" class="mt-0.5 text-xs text-sand-500">{{ tmpl.description }}</p>
+                <p v-if="tmpl.description" class="mt-0.5 text-xs text-sand-500">
+                  {{ tmpl.description }}
+                </p>
               </button>
             </div>
-            <p v-else class="mt-4 text-center text-sm text-sand-400">
-              No templates available yet.
-            </p>
+            <p v-else class="mt-4 text-center text-sm text-sand-400">No templates available yet.</p>
           </div>
         </div>
       </Transition>

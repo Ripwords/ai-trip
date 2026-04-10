@@ -1,9 +1,9 @@
-import { and, eq, gt } from "drizzle-orm";
-import { db } from "../db";
-import { visaCache } from "../db/schema";
-import { generateText, Output, stepCountIs } from "ai";
-import { google } from "@ai-sdk/google";
-import { z } from "zod";
+import { and, eq, gt } from "drizzle-orm"
+import { db } from "../db"
+import { visaCache } from "../db/schema"
+import { generateText, Output, stepCountIs } from "ai"
+import { google } from "@ai-sdk/google"
+import { z } from "zod"
 
 const visaResultSchema = z.object({
   visaStatus: z.enum(["visa_free", "visa_on_arrival", "e_visa", "visa_required"]),
@@ -11,34 +11,37 @@ const visaResultSchema = z.object({
   requirements: z.string().describe("Summary of visa requirements, documents needed, etc."),
   processingTime: z.string().nullable().describe("Typical processing time"),
   cost: z.string().nullable().describe("Visa cost if applicable"),
-  notes: z.string().nullable().describe("Additional relevant info like COVID rules, transit visa needs"),
-});
+  notes: z
+    .string()
+    .nullable()
+    .describe("Additional relevant info like COVID rules, transit visa needs"),
+})
 
-export type VisaResult = z.infer<typeof visaResultSchema>;
+export type VisaResult = z.infer<typeof visaResultSchema>
 
 export interface VisaCheckResult extends VisaResult {
-  passportCountry: string;
-  destinationCountry: string;
-  cached: boolean;
-  fetchedAt: Date;
+  passportCountry: string
+  destinationCountry: string
+  cached: boolean
+  fetchedAt: Date
 }
 
-const CACHE_TTL_DAYS = 30;
+const CACHE_TTL_DAYS = 30
 
 export async function checkVisaRequirements(
   passportCountry: string,
   destinationCountry: string,
   passportCountryName: string,
-  destinationCountryName: string
+  destinationCountryName: string,
 ): Promise<VisaCheckResult> {
   // Check cache first
   const cached = await db.query.visaCache.findFirst({
     where: and(
       eq(visaCache.passportCountry, passportCountry),
       eq(visaCache.destinationCountry, destinationCountry),
-      gt(visaCache.expiresAt, new Date())
+      gt(visaCache.expiresAt, new Date()),
     ),
-  });
+  })
 
   if (cached) {
     return {
@@ -52,13 +55,13 @@ export async function checkVisaRequirements(
       destinationCountry: cached.destinationCountry,
       cached: true,
       fetchedAt: cached.fetchedAt,
-    };
+    }
   }
 
   // Use Gemini with Google Search grounding for up-to-date visa info
-  let visaResult: VisaResult;
+  let visaResult: VisaResult
   try {
-    const model = google("gemini-3.1-flash-lite-preview");
+    const model = google("gemini-3.1-flash-lite-preview")
 
     const result = await generateText({
       model,
@@ -76,19 +79,19 @@ Search for the latest official visa policy. Provide accurate, up-to-date informa
 6. Any additional notes (special conditions, transit visa needs, etc.)
 
 Be specific and factual. If unsure about exact details, say so in the notes.`,
-    });
+    })
 
-    visaResult = result.output!;
+    visaResult = result.output!
   } catch (error) {
     throw createError({
       statusCode: 503,
       message: "Visa check is temporarily unavailable. Please try again later.",
-    });
+    })
   }
 
   // Cache the result (upsert to handle race conditions)
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + CACHE_TTL_DAYS);
+  const expiresAt = new Date()
+  expiresAt.setDate(expiresAt.getDate() + CACHE_TTL_DAYS)
 
   await db
     .insert(visaCache)
@@ -117,7 +120,7 @@ Be specific and factual. If unsure about exact details, say so in the notes.`,
         fetchedAt: new Date(),
         expiresAt,
       },
-    });
+    })
 
   return {
     ...visaResult,
@@ -125,5 +128,5 @@ Be specific and factual. If unsure about exact details, say so in the notes.`,
     destinationCountry,
     cached: false,
     fetchedAt: new Date(),
-  };
+  }
 }

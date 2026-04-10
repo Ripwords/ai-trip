@@ -2,71 +2,78 @@
 /// <reference types="google.maps" />
 
 interface Activity {
-  id: string;
-  name: string;
-  type: string;
-  lat: number | null;
-  lng: number | null;
-  sortOrder: number;
+  id: string
+  name: string
+  type: string
+  lat: number | null
+  lng: number | null
+  sortOrder: number
 }
 
 interface DayWithActivities {
-  id: string;
-  dayNumber: number;
-  activities: Activity[];
+  id: string
+  dayNumber: number
+  activities: Activity[]
 }
 
 const props = defineProps<{
-  days: DayWithActivities[];
-  selectedDayId?: string | null;
-}>();
+  days: DayWithActivities[]
+  selectedDayId?: string | null
+}>()
 
 const DAY_COLORS = [
-  "#E85D3A", "#3B82F6", "#22C55E", "#F59E0B", "#A855F7",
-  "#EC4899", "#14B8A6", "#F97316", "#6366F1", "#84CC16",
-];
+  "#E85D3A",
+  "#3B82F6",
+  "#22C55E",
+  "#F59E0B",
+  "#A855F7",
+  "#EC4899",
+  "#14B8A6",
+  "#F97316",
+  "#6366F1",
+  "#84CC16",
+]
 
 function getDayColor(dayIndex: number): string {
-  return DAY_COLORS[dayIndex % DAY_COLORS.length]!;
+  return DAY_COLORS[dayIndex % DAY_COLORS.length]!
 }
 
-const mapContainer = ref<HTMLElement | null>(null);
-const { isLoaded, loadMaps, loadMarker } = useGoogleMaps();
-const { isDark: siteIsDark } = useDarkMode();
+const mapContainer = ref<HTMLElement | null>(null)
+const { isLoaded, loadMaps, loadMarker } = useGoogleMaps()
+const { isDark: siteIsDark } = useDarkMode()
 
-type MapMode = "light" | "dark" | "satellite";
-const mapMode = ref<MapMode>("light");
+type MapMode = "light" | "dark" | "satellite"
+const mapMode = ref<MapMode>("light")
 
-let map: google.maps.Map | null = null;
-let markers: google.maps.marker.AdvancedMarkerElement[] = [];
-let clusterer: InstanceType<typeof import("@googlemaps/markerclusterer").MarkerClusterer> | null = null;
-let polylines: google.maps.Polyline[] = [];
-let MapClass: typeof google.maps.Map;
-let MarkerClass: typeof google.maps.marker.AdvancedMarkerElement;
-let MarkerClustererClass: typeof import("@googlemaps/markerclusterer").MarkerClusterer | null = null;
+let map: google.maps.Map | null = null
+let markers: google.maps.marker.AdvancedMarkerElement[] = []
+let clusterer: InstanceType<typeof import("@googlemaps/markerclusterer").MarkerClusterer> | null =
+  null
+let polylines: google.maps.Polyline[] = []
+let MapClass: typeof google.maps.Map
+let MarkerClass: typeof google.maps.marker.AdvancedMarkerElement
+let MarkerClustererClass: typeof import("@googlemaps/markerclusterer").MarkerClusterer | null = null
 
 // Days that have at least one geocoded activity (for legend)
 const legendDays = computed(() =>
   props.days
     .map((d, i) => ({ ...d, colorIndex: i }))
-    .filter((d) =>
-      d.activities.some((a) => a.lat != null && a.lng != null)
-    )
-);
+    .filter((d) => d.activities.some((a) => a.lat != null && a.lng != null)),
+)
 
-const hasGeocodedActivities = computed(() => legendDays.value.length > 0);
+const hasGeocodedActivities = computed(() => legendDays.value.length > 0)
 
 // Category filter
-const hiddenTypes = ref<Set<string>>(new Set());
+const hiddenTypes = ref<Set<string>>(new Set())
 const uniqueTypes = computed(() => {
-  const types = new Set<string>();
+  const types = new Set<string>()
   for (const day of props.days) {
     for (const a of day.activities) {
-      if (a.type) types.add(a.type);
+      if (a.type) types.add(a.type)
     }
   }
-  return Array.from(types).sort();
-});
+  return Array.from(types).toSorted()
+})
 
 const markerColors: Record<string, string> = {
   attraction: "#3B82F6",
@@ -75,19 +82,19 @@ const markerColors: Record<string, string> = {
   transport: "#6B7280",
   shopping: "#A855F7",
   entertainment: "#EC4899",
-};
+}
 
 function toggleTypeFilter(type: string) {
   if (hiddenTypes.value.has(type)) {
-    hiddenTypes.value.delete(type);
+    hiddenTypes.value.delete(type)
   } else {
-    hiddenTypes.value.add(type);
+    hiddenTypes.value.add(type)
   }
-  if (isLoaded.value && map) updateMarkers();
+  if (isLoaded.value && map) updateMarkers()
 }
 
 function createMarkerContent(label: string, color: string, dimmed: boolean): HTMLElement {
-  const div = document.createElement("div");
+  const div = document.createElement("div")
   div.style.cssText = `
     width: 26px;
     height: 26px;
@@ -103,31 +110,31 @@ function createMarkerContent(label: string, color: string, dimmed: boolean): HTM
     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     opacity: ${dimmed ? "0.25" : "1"};
     transition: opacity 0.2s;
-  `;
-  div.textContent = label;
-  return div;
+  `
+  div.textContent = label
+  return div
 }
 
 async function initMap() {
-  if (!mapContainer.value) return;
+  if (!mapContainer.value) return
   try {
-    const mapsLib = await loadMaps();
-    const markerLib = await loadMarker();
-    const clustererMod = await import("@googlemaps/markerclusterer");
-    MapClass = mapsLib.Map;
-    MarkerClass = markerLib.AdvancedMarkerElement;
-    MarkerClustererClass = clustererMod.MarkerClusterer;
-    createMap();
+    const mapsLib = await loadMaps()
+    const markerLib = await loadMarker()
+    const clustererMod = await import("@googlemaps/markerclusterer")
+    MapClass = mapsLib.Map
+    MarkerClass = markerLib.AdvancedMarkerElement
+    MarkerClustererClass = clustererMod.MarkerClusterer
+    createMap()
   } catch {
     // Google Maps failed to load
   }
 }
 
 function createMap() {
-  if (!mapContainer.value || !MapClass) return;
+  if (!mapContainer.value || !MapClass) return
 
-  markers.forEach((m) => (m.map = null));
-  markers = [];
+  markers.forEach((m) => (m.map = null))
+  markers = []
 
   map = new MapClass(mapContainer.value, {
     zoom: 12,
@@ -140,89 +147,96 @@ function createMap() {
     mapTypeControl: false,
     streetViewControl: false,
     fullscreenControl: true,
-  });
+  })
 
-  updateMarkers();
+  updateMarkers()
 }
 
 function cycleMapMode() {
-  const modes: MapMode[] = ["light", "dark", "satellite"];
-  const current = modes.indexOf(mapMode.value);
-  mapMode.value = modes[(current + 1) % modes.length]!;
+  const modes: MapMode[] = ["light", "dark", "satellite"]
+  const current = modes.indexOf(mapMode.value)
+  mapMode.value = modes[(current + 1) % modes.length]!
   if (import.meta.client) {
-    localStorage.setItem("ov-map-mode", mapMode.value);
+    localStorage.setItem("ov-map-mode", mapMode.value)
   }
-  createMap();
+  createMap()
 }
 
 const mapModeIcon = computed(() => {
   switch (mapMode.value) {
-    case "light": return "lucide:moon";
-    case "dark": return "lucide:globe";
-    case "satellite": return "lucide:sun";
+    case "light":
+      return "lucide:moon"
+    case "dark":
+      return "lucide:globe"
+    case "satellite":
+      return "lucide:sun"
   }
-});
+})
 
 const mapModeLabel = computed(() => {
   switch (mapMode.value) {
-    case "light": return "Dark mode";
-    case "dark": return "Satellite";
-    case "satellite": return "Light mode";
+    case "light":
+      return "Dark mode"
+    case "dark":
+      return "Satellite"
+    case "satellite":
+      return "Light mode"
   }
-});
+})
 
 function updateMarkers() {
-  if (!map) return;
+  if (!map) return
 
   if (clusterer) {
-    clusterer.clearMarkers();
-    clusterer = null;
+    clusterer.clearMarkers()
+    clusterer = null
   }
-  markers.forEach((m) => (m.map = null));
-  markers = [];
-  polylines.forEach((p) => p.setMap(null));
-  polylines = [];
+  markers.forEach((m) => (m.map = null))
+  markers = []
+  polylines.forEach((p) => p.setMap(null))
+  polylines = []
 
-  const selectedDay = props.selectedDayId;
-  const bounds = new google.maps.LatLngBounds();
-  const selectedBounds = new google.maps.LatLngBounds();
-  let hasMarkers = false;
-  let hasSelectedMarkers = false;
+  const selectedDay = props.selectedDayId
+  const bounds = new google.maps.LatLngBounds()
+  const selectedBounds = new google.maps.LatLngBounds()
+  let hasMarkers = false
+  let hasSelectedMarkers = false
 
   props.days.forEach((day, dayIndex) => {
-    const color = getDayColor(dayIndex);
-    const isSelected = day.id === selectedDay;
-    const dimmed = !!selectedDay && !isSelected;
+    const color = getDayColor(dayIndex)
+    const isSelected = day.id === selectedDay
+    const dimmed = !!selectedDay && !isSelected
 
-    const geoActivities = day.activities
-      .filter((a) => a.lat != null && a.lng != null && !hiddenTypes.value.has(a.type));
+    const geoActivities = day.activities.filter(
+      (a) => a.lat != null && a.lng != null && !hiddenTypes.value.has(a.type),
+    )
 
     geoActivities.forEach((activity, activityIndex) => {
-      const position = { lat: activity.lat!, lng: activity.lng! };
-      bounds.extend(position);
-      hasMarkers = true;
+      const position = { lat: activity.lat!, lng: activity.lng! }
+      bounds.extend(position)
+      hasMarkers = true
 
       if (isSelected) {
-        selectedBounds.extend(position);
-        hasSelectedMarkers = true;
+        selectedBounds.extend(position)
+        hasSelectedMarkers = true
       }
 
-      const label = isSelected ? String(activityIndex + 1) : `D${day.dayNumber}`;
+      const label = isSelected ? String(activityIndex + 1) : `D${day.dayNumber}`
       const marker = new MarkerClass({
         map,
         position,
         content: createMarkerContent(label, color, dimmed),
         title: `Day ${day.dayNumber}: ${activity.name}`,
-      });
+      })
 
-      markers.push(marker);
-    });
+      markers.push(marker)
+    })
 
     // Draw polyline for selected day
     if (isSelected && geoActivities.length >= 2) {
       const path = geoActivities
-        .sort((a, b) => a.sortOrder - b.sortOrder)
-        .map((a) => ({ lat: a.lat!, lng: a.lng! }));
+        .toSorted((a, b) => a.sortOrder - b.sortOrder)
+        .map((a) => ({ lat: a.lat!, lng: a.lng! }))
 
       const polyline = new google.maps.Polyline({
         path,
@@ -231,22 +245,22 @@ function updateMarkers() {
         strokeOpacity: 0.8,
         geodesic: true,
         map,
-      });
-      polylines.push(polyline);
+      })
+      polylines.push(polyline)
     }
-  });
+  })
 
   if (!hasMarkers) {
-    map.setCenter({ lat: 0, lng: 0 });
-    map.setZoom(2);
-    return;
+    map.setCenter({ lat: 0, lng: 0 })
+    map.setZoom(2)
+    return
   }
 
   // Zoom to selected day's markers, or fit all
   if (hasSelectedMarkers) {
-    map.fitBounds(selectedBounds, { top: 50, right: 50, bottom: 50, left: 50 });
+    map.fitBounds(selectedBounds, { top: 50, right: 50, bottom: 50, left: 50 })
   } else {
-    map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+    map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 })
   }
 
   // Apply clustering only when no day is selected and there are many markers
@@ -256,7 +270,7 @@ function updateMarkers() {
       markers,
       renderer: {
         render({ count, position }) {
-          const div = document.createElement("div");
+          const div = document.createElement("div")
           div.style.cssText = `
             width: 34px;
             height: 34px;
@@ -270,15 +284,15 @@ function updateMarkers() {
             font-weight: 700;
             border: 3px solid white;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-          `;
-          div.textContent = String(count);
+          `
+          div.textContent = String(count)
           return new MarkerClass({
             position,
             content: div,
-          });
+          })
         },
       },
-    });
+    })
   }
 }
 
@@ -286,30 +300,30 @@ watch(
   [() => props.days, () => props.selectedDayId],
   () => {
     if (isLoaded.value && map) {
-      updateMarkers();
+      updateMarkers()
     }
   },
-  { deep: true }
-);
+  { deep: true },
+)
 
 watch(siteIsDark, (dark) => {
   if (!localStorage.getItem("ov-map-mode") && mapMode.value !== "satellite") {
-    mapMode.value = dark ? "dark" : "light";
-    createMap();
+    mapMode.value = dark ? "dark" : "light"
+    createMap()
   }
-});
+})
 
 onMounted(() => {
   if (import.meta.client) {
-    const saved = localStorage.getItem("ov-map-mode") as MapMode | null;
+    const saved = localStorage.getItem("ov-map-mode") as MapMode | null
     if (saved && ["light", "dark", "satellite"].includes(saved)) {
-      mapMode.value = saved;
+      mapMode.value = saved
     } else {
-      mapMode.value = siteIsDark.value ? "dark" : "light";
+      mapMode.value = siteIsDark.value ? "dark" : "light"
     }
   }
-  initMap();
-});
+  initMap()
+})
 </script>
 
 <template>
@@ -358,7 +372,9 @@ onMounted(() => {
       >
         <span
           class="inline-block h-2 w-2 rounded-full"
-          :style="{ background: hiddenTypes.has(type) ? '#78716c' : (markerColors[type] || '#3B82F6') }"
+          :style="{
+            background: hiddenTypes.has(type) ? '#78716c' : markerColors[type] || '#3B82F6',
+          }"
         />
         {{ formatType(type) }}
       </button>
@@ -377,7 +393,9 @@ onMounted(() => {
   -webkit-backdrop-filter: blur(8px);
   color: #3d3328;
 }
-.map-btn:hover { background: #ffffff; }
+.map-btn:hover {
+  background: #ffffff;
+}
 
 :global(.dark) .map-btn {
   background: rgba(26, 23, 20, 0.85);
@@ -392,7 +410,9 @@ onMounted(() => {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
-.map-overlay-text { color: #3d3328; }
+.map-overlay-text {
+  color: #3d3328;
+}
 
 .map-filter-pill {
   background: rgba(255, 255, 255, 0.9);
@@ -409,7 +429,9 @@ onMounted(() => {
 :global(.dark) .map-overlay {
   background: rgba(26, 23, 20, 0.85);
 }
-:global(.dark) .map-overlay-text { color: rgba(255, 255, 255, 0.8); }
+:global(.dark) .map-overlay-text {
+  color: rgba(255, 255, 255, 0.8);
+}
 
 :global(.dark) .map-filter-pill {
   background: rgba(26, 23, 20, 0.85);

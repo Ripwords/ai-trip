@@ -1,31 +1,31 @@
-import { Resend } from "resend";
+import { Resend } from "resend"
 
-let _resend: Resend | null = null;
+let _resend: Resend | null = null
 
 function getResend(): Resend {
   if (!_resend) {
-    const key = process.env.RESEND_API_KEY;
-    if (!key) throw new Error("RESEND_API_KEY is not set");
-    _resend = new Resend(key);
+    const key = process.env.RESEND_API_KEY
+    if (!key) throw new Error("RESEND_API_KEY is not set")
+    _resend = new Resend(key)
   }
-  return _resend;
+  return _resend
 }
 
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "AI Trip <noreply@aitrip.app>";
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "AI Trip <noreply@aitrip.app>"
 
 export async function sendTripInviteEmail(params: {
-  to: string;
-  inviterName: string;
-  tripDestination: string;
-  role: string;
-  acceptUrl: string;
-  expiresAt: Date;
+  to: string
+  inviterName: string
+  tripDestination: string
+  role: string
+  acceptUrl: string
+  expiresAt: Date
 }) {
   const expiresFormatted = params.expiresAt.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
-  });
+  })
 
   await getResend().emails.send({
     from: FROM_EMAIL,
@@ -53,5 +53,5 @@ export async function sendTripInviteEmail(params: {
         </p>
       </div>
     `,
-  });
+  })
 }

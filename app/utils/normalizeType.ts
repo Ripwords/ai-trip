@@ -39,9 +39,9 @@ const TYPE_MAP: Record<string, string> = {
   mosque: "attraction",
   synagogue: "attraction",
   place_of_worship: "attraction",
-};
+}
 
 export function normalizeGooglePlaceType(googleType: string | undefined | null): string {
-  if (!googleType) return "attraction";
-  return TYPE_MAP[googleType] ?? googleType.replace(/_/g, " ");
+  if (!googleType) return "attraction"
+  return TYPE_MAP[googleType] ?? googleType.replace(/_/g, " ")
 }

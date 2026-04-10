@@ -1,4 +1,4 @@
-import tailwindcss from "@tailwindcss/vite";
+import tailwindcss from "@tailwindcss/vite"
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -38,28 +38,35 @@ export default defineNuxtConfig({
   },
   css: ["./app/assets/css/tailwind.css"],
   devtools: { enabled: true },
-  modules: ["@nuxt/icon", "@nuxt/image", "nuxt-security", "dayjs-nuxt", "@vite-pwa/nuxt", "@nuxtjs/seo"],
+  modules: [
+    "@nuxt/icon",
+    "@nuxt/image",
+    "nuxt-security",
+    "dayjs-nuxt",
+    "@vite-pwa/nuxt",
+    "@nuxtjs/seo",
+  ],
   vite: {
     plugins: [tailwindcss()],
     optimizeDeps: {
       include: [
-        'better-auth/vue',
-        '@vue/devtools-core',
-        '@vue/devtools-kit',
-        '@googlemaps/js-api-loader',
-        'dayjs', // CJS
-        'dayjs/plugin/updateLocale', // CJS
-        'dayjs/plugin/relativeTime', // CJS
-        'dayjs/plugin/utc', // CJS
-        '@better-auth/infra/client',
-        'vuedraggable', // CJS
-        'sortablejs',
-        'better-auth/client/plugins',
-        '@googlemaps/markerclusterer',
-        '@unhead/schema-org/vue',
-        'd3-geo',
-        'topojson-client',
-      ]
+        "better-auth/vue",
+        "@vue/devtools-core",
+        "@vue/devtools-kit",
+        "@googlemaps/js-api-loader",
+        "dayjs", // CJS
+        "dayjs/plugin/updateLocale", // CJS
+        "dayjs/plugin/relativeTime", // CJS
+        "dayjs/plugin/utc", // CJS
+        "@better-auth/infra/client",
+        "vuedraggable", // CJS
+        "sortablejs",
+        "better-auth/client/plugins",
+        "@googlemaps/markerclusterer",
+        "@unhead/schema-org/vue",
+        "d3-geo",
+        "topojson-client",
+      ],
     },
   },
   runtimeConfig: {
@@ -144,12 +151,7 @@ export default defineNuxtConfig({
       crossOriginEmbedderPolicy: "unsafe-none",
       contentSecurityPolicy: {
         "default-src": ["'self'"],
-        "script-src": [
-          "'self'",
-          "'unsafe-inline'",
-          "'unsafe-eval'",
-          "https://maps.googleapis.com",
-        ],
+        "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://maps.googleapis.com"],
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
         "img-src": [
@@ -234,4 +236,4 @@ export default defineNuxtConfig({
       },
     },
   },
-});
+})

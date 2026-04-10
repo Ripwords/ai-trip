@@ -1,13 +1,13 @@
 <script setup lang="ts">
-definePageMeta({ layout: "app" });
+definePageMeta({ layout: "app" })
 useSeoMeta({
   title: "My Trips",
   description: "View and manage your AI-planned travel itineraries.",
-});
+})
 
-const { data: trips, status, refresh } = await useFetch("/api/trips");
+const { data: trips, status, refresh } = await useFetch("/api/trips")
 
-const { confirm } = useConfirm();
+const { confirm } = useConfirm()
 
 async function handleDelete(tripId: string, destination: string) {
   const ok = await confirm({
@@ -15,28 +15,28 @@ async function handleDelete(tripId: string, destination: string) {
     message: `Delete trip to "${destination}"? This cannot be undone.`,
     confirmText: "Delete",
     destructive: true,
-  });
-  if (!ok) return;
+  })
+  if (!ok) return
 
   try {
-    await $fetch(`/api/trips/${tripId}`, { method: "DELETE" });
-    await refresh();
+    await $fetch(`/api/trips/${tripId}`, { method: "DELETE" })
+    await refresh()
   } catch (e: unknown) {
-    console.error("Failed to delete trip:", e);
+    console.error("Failed to delete trip:", e)
   }
 }
 
 function formatDateRange(start: string, end: string): string {
-  const s = new Date(start + "T00:00:00");
-  const e = new Date(end + "T00:00:00");
-  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-  return `${s.toLocaleDateString("en-US", opts)} - ${e.toLocaleDateString("en-US", { ...opts, year: "numeric" })}`;
+  const s = new Date(start + "T00:00:00")
+  const e = new Date(end + "T00:00:00")
+  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" }
+  return `${s.toLocaleDateString("en-US", opts)} - ${e.toLocaleDateString("en-US", { ...opts, year: "numeric" })}`
 }
 
 function getDayCount(start: string, end: string): number {
-  const s = new Date(start);
-  const e = new Date(end);
-  return Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const s = new Date(start)
+  const e = new Date(end)
+  return Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1
 }
 </script>
 
@@ -84,10 +84,7 @@ function getDayCount(start: string, end: string): number {
         :key="trip.id"
         class="card-hover group relative rounded-2xl border border-sand-200 bg-white"
       >
-        <NuxtLink
-          :to="`/trips/${trip.id}`"
-          class="block p-6"
-        >
+        <NuxtLink :to="`/trips/${trip.id}`" class="block p-6">
           <h2 class="font-display text-lg text-sand-900">
             {{ trip.destination }}
           </h2>

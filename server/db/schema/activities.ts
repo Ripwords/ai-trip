@@ -7,11 +7,11 @@ import {
   jsonb,
   index,
   doublePrecision,
-} from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
-import { itineraryDays } from "./itineraries";
-import { travelSegments } from "./travel-segments";
-import { expenses } from "./expenses";
+} from "drizzle-orm/pg-core"
+import { relations } from "drizzle-orm"
+import { itineraryDays } from "./itineraries"
+import { travelSegments } from "./travel-segments"
+import { expenses } from "./expenses"
 
 export const activities = pgTable(
   "activities",
@@ -46,8 +46,8 @@ export const activities = pgTable(
   (table) => [
     index("idx_activities_day_id").on(table.itineraryDayId),
     index("idx_activities_place_id").on(table.placeId),
-  ]
-);
+  ],
+)
 
 export const activitiesRelations = relations(activities, ({ one, many }) => ({
   day: one(itineraryDays, {
@@ -57,4 +57,4 @@ export const activitiesRelations = relations(activities, ({ one, many }) => ({
   segmentsFrom: many(travelSegments, { relationName: "segmentFrom" }),
   segmentsTo: many(travelSegments, { relationName: "segmentTo" }),
   expenses: many(expenses),
-}));
+}))

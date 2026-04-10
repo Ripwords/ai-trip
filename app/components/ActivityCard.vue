@@ -1,85 +1,90 @@
 <script setup lang="ts">
 interface Activity {
-  id: string;
-  name: string;
-  type: string;
-  description: string | null;
-  placeId: string | null;
-  lat: number | null;
-  lng: number | null;
-  address: string | null;
-  rating: string | null;
-  priceLevel: number | null;
-  suggestedTime: string | null;
-  estimatedDurationMinutes: number | null;
-  costEstimate: string | null;
-  notes: string | null;
-  actualCost: string | null;
-  photos: string[];
-  openingHours: string[] | null;
-  tags: string[];
-  sortOrder: number;
+  id: string
+  name: string
+  type: string
+  description: string | null
+  placeId: string | null
+  lat: number | null
+  lng: number | null
+  address: string | null
+  rating: string | null
+  priceLevel: number | null
+  suggestedTime: string | null
+  estimatedDurationMinutes: number | null
+  costEstimate: string | null
+  notes: string | null
+  actualCost: string | null
+  photos: string[]
+  openingHours: string[] | null
+  tags: string[]
+  sortOrder: number
 }
 
 function formatPriceLevel(level: number): string {
-  return "$".repeat(Math.min(level, 4));
+  return "$".repeat(Math.min(level, 4))
 }
 
 function getGoogleMapsUrl(activity: Activity): string {
   // Use query_place_id for precise matching, with query as fallback display
   // The api=1 format works cross-platform (iOS, Android, web)
   if (activity.placeId && activity.lat && activity.lng) {
-    return `https://www.google.com/maps/search/?api=1&query=${activity.lat},${activity.lng}&query_place_id=${activity.placeId}`;
+    return `https://www.google.com/maps/search/?api=1&query=${activity.lat},${activity.lng}&query_place_id=${activity.placeId}`
   }
   if (activity.lat && activity.lng) {
-    return `https://www.google.com/maps/search/?api=1&query=${activity.lat},${activity.lng}`;
+    return `https://www.google.com/maps/search/?api=1&query=${activity.lat},${activity.lng}`
   }
   if (activity.address) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.address)}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.address)}`
   }
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.name)}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.name)}`
 }
 
 interface Participant {
-  userId: string;
-  name: string;
-  image: string | null;
+  userId: string
+  name: string
+  image: string | null
 }
 
 interface Member {
-  userId: string;
-  user: { name: string; image: string | null };
+  userId: string
+  user: { name: string; image: string | null }
 }
 
 const props = defineProps<{
-  activity: Activity;
-  index: number;
-  highlighted?: boolean;
-  readonly?: boolean;
-  isCollaborative?: boolean;
-  voteCount?: number;
-  commentCount?: number;
-  participants?: Participant[];
-  members?: Member[];
-}>();
+  activity: Activity
+  index: number
+  highlighted?: boolean
+  readonly?: boolean
+  isCollaborative?: boolean
+  voteCount?: number
+  commentCount?: number
+  participants?: Participant[]
+  members?: Member[]
+}>()
 
 const emit = defineEmits<{
-  edit: [activity: Activity];
-  delete: [activity: Activity];
-  click: [activity: Activity];
-  vote: [activityId: string, vote: "up" | "down"];
-  showComments: [activityId: string];
-  toggleParticipant: [activityId: string, userId: string];
-}>();
+  edit: [activity: Activity]
+  delete: [activity: Activity]
+  click: [activity: Activity]
+  vote: [activityId: string, vote: "up" | "down"]
+  showComments: [activityId: string]
+  toggleParticipant: [activityId: string, userId: string]
+}>()
 
-const showParticipantPicker = ref(false);
+const showParticipantPicker = ref(false)
 
 function isParticipant(userId: string): boolean {
-  return props.participants?.some((p) => p.userId === userId) ?? false;
+  return props.participants?.some((p) => p.userId === userId) ?? false
 }
 
 function getInitials(name: string): string {
-  return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase()
 }
 
 const typeBadgeClasses: Record<string, string> = {
@@ -91,32 +96,36 @@ const typeBadgeClasses: Record<string, string> = {
   entertainment: "bg-forest-50 text-forest-700",
   park: "bg-forest-50 text-forest-700",
   nature: "bg-forest-50 text-forest-700",
-};
+}
 
 function getBadgeClass(type: string): string {
-  return typeBadgeClasses[type] || "bg-sand-100 text-sand-700";
+  return typeBadgeClasses[type] || "bg-sand-100 text-sand-700"
 }
 
 function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes}min`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m ? `${h}h ${m}min` : `${h}h`;
+  if (minutes < 60) return `${minutes}min`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return m ? `${h}h ${m}min` : `${h}h`
 }
 
 function starFill(rating: string | null, position: number): "full" | "half" | "empty" {
-  if (!rating) return "empty";
-  const val = parseFloat(rating);
-  if (position <= Math.floor(val)) return "full";
-  if (position === Math.floor(val) + 1 && val % 1 >= 0.25) return "half";
-  return "empty";
+  if (!rating) return "empty"
+  const val = parseFloat(rating)
+  if (position <= Math.floor(val)) return "full"
+  if (position === Math.floor(val) + 1 && val % 1 >= 0.25) return "half"
+  return "empty"
 }
 </script>
 
 <template>
   <div
     class="group rounded-2xl border bg-white p-5 transition cursor-pointer hover:shadow-md"
-    :class="highlighted ? 'border-terra-500 bg-terra-50 shadow-md' : 'border-sand-200 hover:border-sand-300'"
+    :class="
+      highlighted
+        ? 'border-terra-500 bg-terra-50 shadow-md'
+        : 'border-sand-200 hover:border-sand-300'
+    "
     @click="emit('click', activity)"
   >
     <div class="flex items-start justify-between gap-3">
@@ -144,17 +153,17 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
               <Icon name="lucide:clock" class="h-3 w-3" />
               {{ formatTime12h(activity.suggestedTime) }}
             </span>
-            <span
-              v-if="activity.estimatedDurationMinutes"
-              class="text-sm text-sand-500"
-            >
+            <span v-if="activity.estimatedDurationMinutes" class="text-sm text-sand-500">
               {{ formatDuration(activity.estimatedDurationMinutes) }}
             </span>
           </div>
         </div>
       </div>
 
-      <div v-if="!readonly" class="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100 transition">
+      <div
+        v-if="!readonly"
+        class="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100 transition"
+      >
         <button
           class="rounded-lg p-1.5 text-sand-400 hover:bg-terra-50 hover:text-terra-600"
           title="Edit"
@@ -172,10 +181,7 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
       </div>
     </div>
 
-    <p
-      v-if="activity.description"
-      class="mt-2 text-sm leading-relaxed text-sand-600 line-clamp-2"
-    >
+    <p v-if="activity.description" class="mt-2 text-sm leading-relaxed text-sand-600 line-clamp-2">
       {{ activity.description }}
     </p>
 
@@ -199,15 +205,26 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
         @click.stop
       >
         <Icon name="lucide:map-pin" class="h-3.5 w-3.5 shrink-0" />
-        <span v-if="activity.address" class="truncate underline decoration-ocean-300 underline-offset-2 hover:decoration-terra-400">{{ activity.address }}</span>
-        <span v-else class="truncate underline decoration-ocean-300 underline-offset-2 hover:decoration-terra-400">View on map</span>
+        <span
+          v-if="activity.address"
+          class="truncate underline decoration-ocean-300 underline-offset-2 hover:decoration-terra-400"
+          >{{ activity.address }}</span
+        >
+        <span
+          v-else
+          class="truncate underline decoration-ocean-300 underline-offset-2 hover:decoration-terra-400"
+          >View on map</span
+        >
         <Icon name="lucide:external-link" class="h-3 w-3 shrink-0 opacity-50" />
       </a>
       <span v-if="activity.costEstimate" class="flex items-center gap-1">
         <Icon name="lucide:dollar-sign" class="h-3.5 w-3.5" />
         {{ parseFloat(activity.costEstimate).toFixed(0) }}
       </span>
-      <span v-if="activity.priceLevel != null && activity.priceLevel > 0" class="text-xs font-medium text-forest-600">
+      <span
+        v-if="activity.priceLevel != null && activity.priceLevel > 0"
+        class="text-xs font-medium text-forest-600"
+      >
         {{ formatPriceLevel(activity.priceLevel) }}
       </span>
       <span v-if="activity.actualCost" class="flex items-center gap-1 text-forest-600 font-medium">
@@ -267,7 +284,10 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
           v-for="m in members"
           :key="m.userId"
           class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition hover:bg-sand-50"
-          @click.stop="emit('toggleParticipant', activity.id, m.userId); showParticipantPicker = false"
+          @click.stop="
+            emit('toggleParticipant', activity.id, m.userId)
+            showParticipantPicker = false
+          "
         >
           <span
             class="inline-flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white"

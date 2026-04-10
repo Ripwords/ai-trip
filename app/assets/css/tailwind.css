@@ -1,11 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&display=swap");
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-display: 'DM Serif Display', serif;
-  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-display: "DM Serif Display", serif;
+  --font-sans: "DM Sans", system-ui, sans-serif;
 
   --color-sand-50: #faf8f5;
   --color-sand-100: #f3efe8;
@@ -114,10 +114,18 @@
 }
 
 /* White elements need to become dark in dark mode */
-.dark .bg-white { background-color: #1e1b18 !important; }
-.dark .bg-white\/60 { background-color: rgba(30, 27, 24, 0.6) !important; }
-.dark .bg-white\/70 { background-color: rgba(30, 27, 24, 0.7) !important; }
-.dark .bg-white\/80 { background-color: rgba(30, 27, 24, 0.8) !important; }
+.dark .bg-white {
+  background-color: #1e1b18 !important;
+}
+.dark .bg-white\/60 {
+  background-color: rgba(30, 27, 24, 0.6) !important;
+}
+.dark .bg-white\/70 {
+  background-color: rgba(30, 27, 24, 0.7) !important;
+}
+.dark .bg-white\/80 {
+  background-color: rgba(30, 27, 24, 0.8) !important;
+}
 
 /* Glass effect in dark mode */
 .dark .glass {
@@ -164,7 +172,9 @@
 
 /* Card hover lift */
 .card-hover {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 .card-hover:hover {
   transform: translateY(-2px);
@@ -173,8 +183,12 @@
 
 /* Shimmer animation */
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(400%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
 }
 .animate-shimmer {
   animation: shimmer 1.5s ease-in-out infinite;
@@ -190,7 +204,7 @@
 
 /* Subtle grain texture */
 .grain::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
@@ -200,7 +214,9 @@
 
 /* Input focus ring */
 .input-focus {
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .input-focus:focus {
   border-color: var(--color-terra-400);
@@ -221,5 +237,8 @@
 /* Smooth transition when toggling dark mode */
 html.transitioning,
 html.transitioning * {
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease !important;
 }

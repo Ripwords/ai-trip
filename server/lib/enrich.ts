@@ -1,25 +1,25 @@
-import type { AIItineraryOutput, AIActivity } from "./ai";
-import { searchPlace } from "./google-maps";
+import type { AIItineraryOutput, AIActivity } from "./ai"
+import { searchPlace } from "./google-maps"
 
 interface EnrichedActivity extends AIActivity {
-  placeId: string | null;
-  lat: number | null;
-  lng: number | null;
-  rating: number | null;
-  address: string | null;
-  photos: string[];
-  openingHours: string[];
-  priceLevel: number | null;
+  placeId: string | null
+  lat: number | null
+  lng: number | null
+  rating: number | null
+  address: string | null
+  photos: string[]
+  openingHours: string[]
+  priceLevel: number | null
 }
 
 interface EnrichedDay {
-  dayNumber: number;
-  theme: string;
-  activities: EnrichedActivity[];
+  dayNumber: number
+  theme: string
+  activities: EnrichedActivity[]
 }
 
 export interface EnrichedItinerary {
-  days: EnrichedDay[];
+  days: EnrichedDay[]
 }
 
 /**
@@ -31,11 +31,11 @@ export interface EnrichedItinerary {
 async function enrichActivity(
   activity: AIActivity,
   destination: string,
-  destinationCoords?: { lat: number; lng: number }
+  destinationCoords?: { lat: number; lng: number },
 ): Promise<EnrichedActivity> {
   try {
-    const candidates = await searchPlace(`${activity.name} ${destination}`, destinationCoords);
-    const topResult = candidates[0];
+    const candidates = await searchPlace(`${activity.name} ${destination}`, destinationCoords)
+    const topResult = candidates[0]
 
     if (topResult) {
       return {
@@ -48,7 +48,7 @@ async function enrichActivity(
         photos: [],
         openingHours: [],
         priceLevel: null,
-      };
+      }
     }
   } catch {
     // If Google Maps lookup fails, return activity without enrichment
@@ -64,7 +64,7 @@ async function enrichActivity(
     photos: [],
     openingHours: [],
     priceLevel: null,
-  };
+  }
 }
 
 /**
@@ -74,28 +74,28 @@ async function enrichActivity(
 export async function enrichItinerary(
   aiOutput: AIItineraryOutput,
   destination: string,
-  destinationCoords?: { lat: number; lng: number }
+  destinationCoords?: { lat: number; lng: number },
 ): Promise<EnrichedItinerary> {
-  const enrichedDays: EnrichedDay[] = [];
+  const enrichedDays: EnrichedDay[] = []
 
   for (const day of aiOutput.days) {
-    const enrichedActivities: EnrichedActivity[] = [];
-    const batchSize = 5;
+    const enrichedActivities: EnrichedActivity[] = []
+    const batchSize = 5
 
     for (let i = 0; i < day.activities.length; i += batchSize) {
-      const batch = day.activities.slice(i, i + batchSize);
+      const batch = day.activities.slice(i, i + batchSize)
       const results = await Promise.all(
-        batch.map((activity) => enrichActivity(activity, destination, destinationCoords))
-      );
-      enrichedActivities.push(...results);
+        batch.map((activity) => enrichActivity(activity, destination, destinationCoords)),
+      )
+      enrichedActivities.push(...results)
     }
 
     enrichedDays.push({
       dayNumber: day.dayNumber,
       theme: day.theme,
       activities: enrichedActivities,
-    });
+    })
   }
 
-  return { days: enrichedDays };
+  return { days: enrichedDays }
 }

@@ -1,45 +1,45 @@
 <script setup lang="ts">
-import { countries, countryByAlpha2 } from "../data/countries";
+import { countries, countryByAlpha2 } from "../data/countries"
 
 const props = defineProps<{
-  modelValue: string | null;
-}>();
+  modelValue: string | null
+}>()
 
 const emit = defineEmits<{
-  "update:modelValue": [value: string | null];
-}>();
+  "update:modelValue": [value: string | null]
+}>()
 
-const searchQuery = ref("");
-const isOpen = ref(false);
-const dropdownRef = ref<HTMLElement | null>(null);
+const searchQuery = ref("")
+const isOpen = ref(false)
+const dropdownRef = ref<HTMLElement | null>(null)
 
 const selectedName = computed(() => {
-  if (!props.modelValue) return null;
-  return countryByAlpha2.get(props.modelValue)?.name ?? props.modelValue;
-});
+  if (!props.modelValue) return null
+  return countryByAlpha2.get(props.modelValue)?.name ?? props.modelValue
+})
 
 const filteredCountries = computed(() => {
-  if (!searchQuery.value) return countries;
-  const q = searchQuery.value.toLowerCase();
+  if (!searchQuery.value) return countries
+  const q = searchQuery.value.toLowerCase()
   return countries.filter(
-    (c) => c.name.toLowerCase().includes(q) || c.alpha2.toLowerCase().includes(q)
-  );
-});
+    (c) => c.name.toLowerCase().includes(q) || c.alpha2.toLowerCase().includes(q),
+  )
+})
 
 function select(alpha2: string) {
-  emit("update:modelValue", alpha2);
-  isOpen.value = false;
-  searchQuery.value = "";
+  emit("update:modelValue", alpha2)
+  isOpen.value = false
+  searchQuery.value = ""
 }
 
 function handleClickOutside(e: MouseEvent) {
   if (dropdownRef.value && !dropdownRef.value.contains(e.target as Node)) {
-    isOpen.value = false;
+    isOpen.value = false
   }
 }
 
-onMounted(() => document.addEventListener("click", handleClickOutside));
-onUnmounted(() => document.removeEventListener("click", handleClickOutside));
+onMounted(() => document.addEventListener("click", handleClickOutside))
+onUnmounted(() => document.removeEventListener("click", handleClickOutside))
 </script>
 
 <template>
@@ -49,7 +49,7 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
       @click.stop="isOpen = !isOpen"
     >
       <span :class="selectedName ? 'text-sand-900' : 'text-sand-400'">
-        {{ selectedName ?? 'Select your passport nationality' }}
+        {{ selectedName ?? "Select your passport nationality" }}
       </span>
       <Icon
         name="lucide:chevron-down"
