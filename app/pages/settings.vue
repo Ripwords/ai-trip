@@ -13,6 +13,35 @@ const { data: aiUsage } = await useFetch<{
   remaining: number;
 }>("/api/ai/usage");
 
+const { data: profile, refresh: refreshProfile } = await useFetch("/api/user/profile");
+const nationality = ref<string | null>(profile.value?.nationality ?? null);
+const savingNationality = ref(false);
+const nationalityInitialized = ref(false);
+
+async function saveNationality() {
+  savingNationality.value = true;
+  try {
+    await $fetch("/api/user/profile", {
+      method: "PUT",
+      body: { nationality: nationality.value },
+    });
+    await refreshProfile();
+  } catch (e: unknown) {
+    console.error("Failed to save nationality:", e);
+  } finally {
+    savingNationality.value = false;
+  }
+}
+
+watch(nationality, () => {
+  // Skip the first change (initialization from profile)
+  if (!nationalityInitialized.value) {
+    nationalityInitialized.value = true;
+    return;
+  }
+  saveNationality();
+});
+
 const { mode, setMode } = useDarkMode();
 
 const modeLabels: Record<string, string> = {
@@ -52,6 +81,15 @@ const modeIcons: Record<string, string> = {
           <p class="font-medium text-sand-900">{{ session.user.name }}</p>
           <p class="text-sm text-sand-500">{{ session.user.email }}</p>
         </div>
+      </div>
+    </div>
+
+    <!-- Nationality / Passport -->
+    <div class="rounded-2xl border border-sand-200 bg-white p-6">
+      <h2 class="text-sm font-semibold text-sand-900">Passport Nationality</h2>
+      <p class="mt-1 text-xs text-sand-500">Used for visa requirement checks</p>
+      <div class="mt-4">
+        <NationalitySelector v-model="nationality" />
       </div>
     </div>
 

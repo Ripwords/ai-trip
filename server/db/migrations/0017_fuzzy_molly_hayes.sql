@@ -1,0 +1,1 @@
+ALTER TABLE "visited_countries" ADD COLUMN "visit_type" text DEFAULT 'visited' NOT NULL;

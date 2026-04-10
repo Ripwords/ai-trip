@@ -1,6 +1,6 @@
 import { authClient } from "../lib/auth-client";
 
-const PROTECTED_ROUTES = ["/dashboard", "/trips"];
+const PROTECTED_ROUTES = ["/dashboard", "/trips", "/explore"];
 
 export default defineNuxtRouteMiddleware(async (to) => {
   if (!PROTECTED_ROUTES.some((r) => to.path.startsWith(r))) return;
