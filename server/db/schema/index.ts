@@ -17,3 +17,4 @@ export * from "./documents";
 export * from "./activity-participants";
 export * from "./visited-countries";
 export * from "./user-profiles";
+export * from "./visa-cache";
