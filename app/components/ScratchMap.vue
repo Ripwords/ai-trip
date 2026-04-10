@@ -241,4 +241,3 @@ function resetZoom() {
     </div>
   </div>
 </template>
-</script>
