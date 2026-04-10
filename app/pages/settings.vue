@@ -85,8 +85,8 @@ const modeIcons: Record<string, string> = {
     </div>
 
     <!-- Nationality / Passport -->
-    <div class="rounded-2xl border border-sand-200 bg-white p-6 dark:border-sand-700 dark:bg-sand-800">
-      <h2 class="text-sm font-semibold text-sand-900 dark:text-sand-100">Passport Nationality</h2>
+    <div class="rounded-2xl border border-sand-200 bg-white p-6">
+      <h2 class="text-sm font-semibold text-sand-900">Passport Nationality</h2>
       <p class="mt-1 text-xs text-sand-500">Used for visa requirement checks</p>
       <div class="mt-4">
         <NationalitySelector v-model="nationality" />

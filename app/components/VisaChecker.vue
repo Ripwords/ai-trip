@@ -98,11 +98,11 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
 <template>
   <!-- Modal backdrop -->
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="emit('close')">
-    <div class="w-full max-w-lg rounded-2xl border border-sand-200 bg-white shadow-2xl dark:border-sand-700 dark:bg-sand-900">
+    <div class="w-full max-w-lg rounded-2xl border border-sand-200 bg-white shadow-2xl">
       <!-- Header -->
-      <div class="flex items-center justify-between border-b border-sand-200 px-6 py-4 dark:border-sand-700">
+      <div class="flex items-center justify-between border-b border-sand-200 px-6 py-4">
         <div>
-          <h2 class="font-display text-lg text-sand-900 dark:text-sand-100">
+          <h2 class="font-display text-lg text-sand-900">
             Visa Requirements
           </h2>
           <p v-if="destination" class="text-sm text-sand-500">
@@ -110,7 +110,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
           </p>
         </div>
         <button
-          class="rounded-lg p-2 text-sand-400 transition hover:bg-sand-100 dark:hover:bg-sand-800"
+          class="rounded-lg p-2 text-sand-400 transition hover:bg-sand-100"
           @click="emit('close')"
         >
           <Icon name="lucide:x" class="h-5 w-5" />
@@ -121,7 +121,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
       <div class="space-y-4 p-6">
         <!-- Nationality selector -->
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-sand-700 dark:text-sand-300">
+          <label class="mb-1.5 block text-sm font-medium text-sand-700">
             Your passport nationality
           </label>
           <NationalitySelector v-model="nationality" />
@@ -167,33 +167,33 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
           </div>
 
           <!-- Requirements -->
-          <div v-if="visaResult.requirements" class="rounded-xl border border-sand-200 p-4 dark:border-sand-700">
+          <div v-if="visaResult.requirements" class="rounded-xl border border-sand-200 p-4">
             <h3 class="text-xs font-semibold uppercase tracking-wider text-sand-500">Requirements</h3>
-            <p class="mt-1 whitespace-pre-line text-sm text-sand-700 dark:text-sand-300">
+            <p class="mt-1 whitespace-pre-line text-sm text-sand-700">
               {{ visaResult.requirements }}
             </p>
           </div>
 
           <!-- Details grid -->
           <div class="grid grid-cols-2 gap-3">
-            <div v-if="visaResult.processingTime" class="rounded-xl border border-sand-200 p-3 dark:border-sand-700">
+            <div v-if="visaResult.processingTime" class="rounded-xl border border-sand-200 p-3">
               <p class="text-xs text-sand-500">Processing Time</p>
-              <p class="mt-0.5 text-sm font-medium text-sand-900 dark:text-sand-100">
+              <p class="mt-0.5 text-sm font-medium text-sand-900">
                 {{ visaResult.processingTime }}
               </p>
             </div>
-            <div v-if="visaResult.cost" class="rounded-xl border border-sand-200 p-3 dark:border-sand-700">
+            <div v-if="visaResult.cost" class="rounded-xl border border-sand-200 p-3">
               <p class="text-xs text-sand-500">Cost</p>
-              <p class="mt-0.5 text-sm font-medium text-sand-900 dark:text-sand-100">
+              <p class="mt-0.5 text-sm font-medium text-sand-900">
                 {{ visaResult.cost }}
               </p>
             </div>
           </div>
 
           <!-- Notes -->
-          <div v-if="visaResult.notes" class="rounded-xl border border-sand-200 bg-sand-50 p-4 dark:border-sand-700 dark:bg-sand-800">
+          <div v-if="visaResult.notes" class="rounded-xl border border-sand-200 bg-sand-50 p-4">
             <h3 class="text-xs font-semibold uppercase tracking-wider text-sand-500">Additional Notes</h3>
-            <p class="mt-1 whitespace-pre-line text-sm text-sand-600 dark:text-sand-400">
+            <p class="mt-1 whitespace-pre-line text-sm text-sand-600">
               {{ visaResult.notes }}
             </p>
           </div>
