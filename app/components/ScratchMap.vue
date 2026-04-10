@@ -140,15 +140,27 @@ function handleWheel(e: WheelEvent) {
   }
 }
 
+const didDrag = ref(false);
+const DRAG_THRESHOLD = 4; // px — movement below this counts as a click
+
 function handlePointerDown(e: PointerEvent) {
   if (scale.value <= MIN_SCALE) return;
   isPanning.value = true;
+  didDrag.value = false;
   panStart.value = { x: e.clientX, y: e.clientY };
   (e.currentTarget as HTMLElement)?.setPointerCapture(e.pointerId);
 }
 
 function handlePointerMove(e: PointerEvent) {
   if (!isPanning.value || !svgRef.value) return;
+
+  const totalDx = Math.abs(e.clientX - panStart.value.x);
+  const totalDy = Math.abs(e.clientY - panStart.value.y);
+
+  // Only start actual panning after exceeding threshold
+  if (!didDrag.value && totalDx < DRAG_THRESHOLD && totalDy < DRAG_THRESHOLD) return;
+  didDrag.value = true;
+
   const rect = svgRef.value.getBoundingClientRect();
   const dx = ((e.clientX - panStart.value.x) / rect.width) * 960;
   const dy = ((e.clientY - panStart.value.y) / rect.height) * 600;
@@ -158,8 +170,20 @@ function handlePointerMove(e: PointerEvent) {
   panStart.value = { x: e.clientX, y: e.clientY };
 }
 
-function handlePointerUp() {
+function handlePointerUp(e: PointerEvent) {
+  const wasDrag = didDrag.value;
   isPanning.value = false;
+  didDrag.value = false;
+
+  // If it was a click (not a drag) while zoomed, find the country under cursor
+  if (!wasDrag && scale.value > MIN_SCALE) {
+    const target = (e.target as Element)?.closest?.("[data-cid]");
+    if (target) {
+      const cid = target.getAttribute("data-cid");
+      const country = countryPaths.value.find((c) => c.id === cid);
+      if (country?.info) handleClick(country.info);
+    }
+  }
 }
 
 function zoomIn() {
@@ -207,8 +231,8 @@ function resetZoom() {
       @wheel="handleWheel"
       @pointerdown="handlePointerDown"
       @pointermove="handlePointerMove"
-      @pointerup="handlePointerUp"
-      @pointercancel="handlePointerUp"
+      @pointerup="handlePointerUp($event)"
+      @pointercancel="handlePointerUp($event)"
     >
       <!-- Ocean background -->
       <rect width="960" height="600" class="map-ocean" />
@@ -219,6 +243,7 @@ function resetZoom() {
           v-for="country in countryPaths"
           :key="country.id"
           :d="country.d"
+          :data-cid="country.id"
           class="map-border transition-colors duration-150"
           :class="[
             country.info ? 'cursor-pointer' : 'cursor-default',
@@ -278,7 +303,7 @@ function resetZoom() {
     </div>
 
     <!-- Stats overlay -->
-    <div class="map-overlay absolute bottom-3 left-3 rounded-xl px-3 py-1.5 backdrop-blur-sm">
+    <div class="map-overlay map-overlay-border absolute bottom-3 left-3 rounded-xl px-3 py-1.5 backdrop-blur-sm">
       <p class="map-overlay-text text-sm font-medium">
         <span class="map-overlay-accent text-lg font-bold">{{ visitedCount }}</span>
         visited
@@ -296,7 +321,7 @@ function resetZoom() {
     </div>
 
     <!-- Zoom level indicator -->
-    <div v-if="scale > 1" class="map-overlay absolute bottom-3 right-3 rounded-lg px-2.5 py-1 text-xs backdrop-blur-sm">
+    <div v-if="scale > 1" class="map-overlay map-overlay-border absolute bottom-3 right-3 rounded-lg px-2.5 py-1 text-xs backdrop-blur-sm">
       {{ Math.round(scale * 100) }}%
     </div>
   </div>
@@ -315,7 +340,8 @@ function resetZoom() {
   --map-want: #a78bfa;
   --map-want-hover: #8b5cf6;
   --map-border: #cfc2b2;
-  --map-overlay-bg: rgba(255, 255, 255, 0.82);
+  --map-overlay-bg: rgba(255, 255, 255, 0.92);
+  --map-overlay-border: rgba(0, 0, 0, 0.08);
   --map-overlay-text: #3d3328;
   --map-overlay-accent: #d44425;
   --map-layover-accent-color: #2e8a9e;
@@ -341,7 +367,8 @@ function resetZoom() {
   --map-want: #8b5cf6;
   --map-want-hover: #a78bfa;
   --map-border: #152336;
-  --map-overlay-bg: rgba(12, 21, 36, 0.85);
+  --map-overlay-bg: rgba(12, 21, 36, 0.92);
+  --map-overlay-border: rgba(255, 255, 255, 0.1);
   --map-overlay-text: #c8d6e5;
   --map-overlay-accent: #f07b5a;
   --map-layover-accent-color: #7dc3d4;
@@ -379,6 +406,7 @@ function resetZoom() {
 
 /* ── Overlay elements ──────────────────────────────────── */
 .map-overlay { background: var(--map-overlay-bg); }
+.map-overlay-border { border: 1px solid var(--map-overlay-border); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
 .map-overlay-text { color: var(--map-overlay-text); }
 .map-overlay-accent { color: var(--map-overlay-accent); }
 .map-layover-accent { color: var(--map-layover-accent-color); }
