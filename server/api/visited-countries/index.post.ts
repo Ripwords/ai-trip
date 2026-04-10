@@ -6,7 +6,7 @@ import { visitedCountries } from "../../db/schema";
 const bodySchema = z.object({
   countryCode: z.string().length(2).toUpperCase(),
   countryName: z.string().min(1).max(100),
-  visitType: z.enum(["visited", "layover"]).default("visited"),
+  visitType: z.enum(["visited", "layover", "want_to_visit"]).default("visited"),
   visitedAt: z.string().date().optional(),
   notes: z.string().max(500).optional(),
 });

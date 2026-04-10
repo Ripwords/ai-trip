@@ -100,6 +100,27 @@ function handleSetType(type: VisitType) {
           </div>
         </button>
 
+        <!-- Want to visit button -->
+        <button
+          class="flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition"
+          :class="visitType === 'want_to_visit'
+            ? 'border-purple-300 bg-purple-50 text-purple-700'
+            : 'border-sand-200 text-sand-700 hover:border-sand-300 hover:bg-sand-50'"
+          :disabled="loading"
+          @click="handleSetType('want_to_visit')"
+        >
+          <Icon
+            :name="visitType === 'want_to_visit' ? 'lucide:check-circle-2' : 'lucide:circle'"
+            class="h-5 w-5 shrink-0"
+          />
+          <div>
+            <p class="font-medium">Want to visit</p>
+            <p class="text-xs opacity-70">
+              {{ visitType === 'want_to_visit' ? 'Click to remove' : 'On your bucket list' }}
+            </p>
+          </div>
+        </button>
+
         <div class="my-2 border-t border-sand-100" />
 
         <!-- Visa check button -->
