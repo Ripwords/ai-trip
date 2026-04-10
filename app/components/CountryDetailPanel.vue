@@ -14,6 +14,13 @@ const emit = defineEmits<{
   checkVisa: [country: CountryInfo];
 }>();
 
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape" && props.country) emit("close");
+}
+
+onMounted(() => document.addEventListener("keydown", handleKeydown));
+onUnmounted(() => document.removeEventListener("keydown", handleKeydown));
+
 function handleSetType(type: VisitType) {
   if (!props.country) return;
   // If already this type, clear it (toggle off)
