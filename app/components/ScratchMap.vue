@@ -33,8 +33,8 @@ const mapLoaded = ref(false);
 const staticPaths = ref<CountryPath[]>([]);
 
 onMounted(async () => {
-  const topoModule = await import("../data/countries-10m.json");
-  const worldData = topoModule.default as unknown as Topology;
+  const response = await fetch("/data/countries-10m.json");
+  const worldData = (await response.json()) as Topology;
   const countriesGeo = feature(
     worldData,
     worldData.objects.countries as GeometryCollection
