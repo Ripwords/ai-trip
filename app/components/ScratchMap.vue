@@ -141,31 +141,30 @@ function handleWheel(e: WheelEvent) {
 }
 
 const didDrag = ref(false);
-const DRAG_THRESHOLD = 4; // px — movement below this counts as a click
+const pointerOrigin = ref({ x: 0, y: 0 });
+const DRAG_THRESHOLD = 5; // px
 
 function handlePointerDown(e: PointerEvent) {
-  if (scale.value <= MIN_SCALE) return;
   isPanning.value = true;
   didDrag.value = false;
   panStart.value = { x: e.clientX, y: e.clientY };
-  (e.currentTarget as HTMLElement)?.setPointerCapture(e.pointerId);
+  pointerOrigin.value = { x: e.clientX, y: e.clientY };
 }
 
 function handlePointerMove(e: PointerEvent) {
   if (!isPanning.value || !svgRef.value) return;
+  if (scale.value <= MIN_SCALE) return;
 
-  const totalDx = Math.abs(e.clientX - panStart.value.x);
-  const totalDy = Math.abs(e.clientY - panStart.value.y);
-
-  // Only start actual panning after exceeding threshold
-  if (!didDrag.value && totalDx < DRAG_THRESHOLD && totalDy < DRAG_THRESHOLD) return;
+  const dx = Math.abs(e.clientX - pointerOrigin.value.x);
+  const dy = Math.abs(e.clientY - pointerOrigin.value.y);
+  if (!didDrag.value && dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return;
   didDrag.value = true;
 
   const rect = svgRef.value.getBoundingClientRect();
-  const dx = ((e.clientX - panStart.value.x) / rect.width) * 960;
-  const dy = ((e.clientY - panStart.value.y) / rect.height) * 600;
-  translateX.value += dx;
-  translateY.value += dy;
+  const movX = ((e.clientX - panStart.value.x) / rect.width) * 960;
+  const movY = ((e.clientY - panStart.value.y) / rect.height) * 600;
+  translateX.value += movX;
+  translateY.value += movY;
   clampTranslation();
   panStart.value = { x: e.clientX, y: e.clientY };
 }
@@ -175,13 +174,19 @@ function handlePointerUp(e: PointerEvent) {
   isPanning.value = false;
   didDrag.value = false;
 
-  // If it was a click (not a drag) while zoomed, find the country under cursor
-  if (!wasDrag && scale.value > MIN_SCALE) {
-    const target = (e.target as Element)?.closest?.("[data-cid]");
-    if (target) {
-      const cid = target.getAttribute("data-cid");
-      const country = countryPaths.value.find((c) => c.id === cid);
-      if (country?.info) handleClick(country.info);
+  // If it wasn't a drag, treat as a click — find country under cursor
+  if (!wasDrag) {
+    // Use elementsFromPoint to find the path under the cursor
+    const els = document.elementsFromPoint(e.clientX, e.clientY);
+    for (const el of els) {
+      const cid = (el as HTMLElement).dataset?.cid;
+      if (cid) {
+        const country = countryPaths.value.find((c) => c.id === cid);
+        if (country?.info) {
+          handleClick(country.info);
+          break;
+        }
+      }
     }
   }
 }
@@ -217,52 +222,58 @@ function resetZoom() {
 </script>
 
 <template>
+  <!-- Outer wrapper: holds overlays, no overflow clipping -->
   <div
     ref="mapContainerRef"
-    class="scratch-map relative overflow-hidden rounded-2xl border border-sand-200"
+    class="scratch-map relative rounded-2xl border border-sand-200"
     @mousemove="handleMouseMove"
   >
-    <svg
-      ref="svgRef"
-      viewBox="0 0 960 600"
-      class="w-full select-none"
-      :class="{ 'cursor-grab': scale > 1.05, 'cursor-grabbing': isPanning }"
-      xmlns="http://www.w3.org/2000/svg"
-      @wheel="handleWheel"
-      @pointerdown="handlePointerDown"
-      @pointermove="handlePointerMove"
-      @pointerup="handlePointerUp($event)"
-      @pointercancel="handlePointerUp($event)"
-    >
-      <!-- Ocean background -->
-      <rect width="960" height="600" class="map-ocean" />
+    <!-- Inner SVG container: overflow-hidden for zoom/pan clipping -->
+    <div class="overflow-hidden rounded-2xl">
+      <svg
+        ref="svgRef"
+        viewBox="0 0 960 600"
+        class="block w-full select-none"
+        :class="{ 'cursor-grab': scale > 1.05, 'cursor-grabbing': isPanning }"
+        xmlns="http://www.w3.org/2000/svg"
+        @wheel="handleWheel"
+        @pointerdown="handlePointerDown"
+        @pointermove="handlePointerMove"
+        @pointerup="handlePointerUp($event)"
+        @pointercancel="handlePointerUp($event)"
+      >
+        <!-- Ocean background -->
+        <rect width="960" height="600" class="map-ocean" />
 
-      <!-- Transformable group for zoom/pan -->
-      <g :transform="transformStr">
-        <path
-          v-for="country in countryPaths"
-          :key="country.id"
-          :d="country.d"
-          :data-cid="country.id"
-          class="map-border transition-colors duration-150"
-          :class="[
-            country.info ? 'cursor-pointer' : 'cursor-default',
-            country.visitType === 'visited' ? 'map-visited' : '',
-            country.visitType === 'layover' ? 'map-layover' : '',
-            country.visitType === 'want_to_visit' ? 'map-want' : '',
-            !country.visitType ? 'map-country' : '',
-            hoveredId === country.id && !country.visitType ? 'map-country-hover' : '',
-            hoveredId === country.id && country.visitType === 'visited' ? 'map-visited-hover' : '',
-            hoveredId === country.id && country.visitType === 'layover' ? 'map-layover-hover' : '',
-            hoveredId === country.id && country.visitType === 'want_to_visit' ? 'map-want-hover' : '',
-          ]"
-          :stroke-width="0.5 / scale"
-          @click="handleClick(country.info)"
-          @mouseenter="handleMouseEnter(country.id, country.info)"
-          @mouseleave="handleMouseLeave"
-        />
-      </g>
-    </svg>
+        <!-- Transformable group for zoom/pan -->
+        <g :transform="transformStr">
+          <path
+            v-for="country in countryPaths"
+            :key="country.id"
+            :d="country.d"
+            :data-cid="country.id"
+            class="map-border transition-colors duration-150"
+            :class="[
+              country.info ? 'cursor-pointer' : 'cursor-default',
+              country.visitType === 'visited' ? 'map-visited' : '',
+              country.visitType === 'layover' ? 'map-layover' : '',
+              country.visitType === 'want_to_visit' ? 'map-want' : '',
+              !country.visitType ? 'map-country' : '',
+              hoveredId === country.id && !country.visitType ? 'map-country-hover' : '',
+              hoveredId === country.id && country.visitType === 'visited' ? 'map-visited-hover' : '',
+              hoveredId === country.id && country.visitType === 'layover' ? 'map-layover-hover' : '',
+              hoveredId === country.id && country.visitType === 'want_to_visit' ? 'map-want-hover' : '',
+            ]"
+            :stroke-width="0.5 / scale"
+            @click="handleClick(country.info)"
+            @mouseenter="handleMouseEnter(country.id, country.info)"
+            @mouseleave="handleMouseLeave"
+          />
+        </g>
+      </svg>
+    </div>
+
+    <!-- Everything below is outside overflow-hidden, so never clipped -->
 
     <!-- Floating tooltip -->
     <div
@@ -277,7 +288,7 @@ function resetZoom() {
     </div>
 
     <!-- Zoom controls -->
-    <div class="absolute right-4 top-4 flex flex-col gap-1">
+    <div class="absolute right-3 top-3 flex flex-col gap-1">
       <button
         class="map-btn flex h-8 w-8 items-center justify-center rounded-lg shadow transition"
         title="Zoom in"
@@ -321,7 +332,7 @@ function resetZoom() {
     </div>
 
     <!-- Zoom level indicator -->
-    <div v-if="scale > 1" class="map-overlay map-overlay-border absolute bottom-3 right-3 rounded-lg px-2.5 py-1 text-xs backdrop-blur-sm">
+    <div v-if="scale > 1" class="map-overlay map-overlay-border map-overlay-text absolute bottom-3 right-3 rounded-lg px-2.5 py-1 text-xs font-medium backdrop-blur-sm">
       {{ Math.round(scale * 100) }}%
     </div>
   </div>
