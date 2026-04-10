@@ -3,6 +3,7 @@ import { geoNaturalEarth1, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import { countryByNumeric, type CountryInfo } from "../data/countries";
+import worldTopoJson from "../data/countries-50m.json";
 
 export type VisitType = "visited" | "layover" | "want_to_visit";
 
@@ -15,6 +16,13 @@ const emit = defineEmits<{
   countryClick: [country: CountryInfo];
 }>();
 
+// Convert TopoJSON to GeoJSON features
+const worldData = worldTopoJson as unknown as Topology;
+const countriesGeo = feature(
+  worldData,
+  worldData.objects.countries as GeometryCollection
+);
+
 // SVG projection
 const projection = geoNaturalEarth1()
   .scale(160)
@@ -22,39 +30,20 @@ const projection = geoNaturalEarth1()
 
 const pathGenerator = geoPath().projection(projection);
 
-interface CountryPath {
-  d: string;
-  id: string;
-  info: CountryInfo | undefined;
-}
-
-// Lazy-load the 10m TopoJSON (~3.6MB) so it doesn't block initial render
-const mapLoaded = ref(false);
-const staticPaths = ref<CountryPath[]>([]);
-
-onMounted(async () => {
-  const response = await fetch("/data/countries-10m.json");
-  const worldData = (await response.json()) as Topology;
-  const countriesGeo = feature(
-    worldData,
-    worldData.objects.countries as GeometryCollection
-  );
-
-  staticPaths.value = countriesGeo.features.map((f) => {
-    const numericId = String(f.id);
-    const info = countryByNumeric.get(numericId.padStart(3, "0"));
-    return {
-      d: pathGenerator(f) ?? "",
-      id: numericId,
-      info,
-    };
-  });
-  mapLoaded.value = true;
+// Pre-compute static paths (only depends on GeoJSON, never changes)
+const staticPaths = countriesGeo.features.map((f) => {
+  const numericId = String(f.id);
+  const info = countryByNumeric.get(numericId.padStart(3, "0"));
+  return {
+    d: pathGenerator(f) ?? "",
+    id: numericId,
+    info,
+  };
 });
 
 // Reactive visit status
 const countryPaths = computed(() =>
-  staticPaths.value.map((p) => {
+  staticPaths.map((p) => {
     const visitType = p.info ? props.visitMap.get(p.info.alpha2) : undefined;
     return { ...p, visitType };
   })
@@ -239,16 +228,8 @@ function resetZoom() {
     class="scratch-map relative rounded-2xl border border-sand-200"
     @mousemove="handleMouseMove"
   >
-    <!-- Loading indicator -->
-    <div v-if="!mapLoaded" class="flex items-center justify-center rounded-2xl" style="aspect-ratio: 960/600">
-      <div class="map-overlay-text flex items-center gap-2 text-sm">
-        <Icon name="lucide:loader" class="h-5 w-5 animate-spin" />
-        Loading map...
-      </div>
-    </div>
-
     <!-- Inner SVG container: overflow-hidden for zoom/pan clipping -->
-    <div v-else class="overflow-hidden rounded-2xl">
+    <div class="overflow-hidden rounded-2xl">
       <svg
         ref="svgRef"
         viewBox="0 0 960 600"
