@@ -1,190 +1,199 @@
 <script setup lang="ts">
-import { geoNaturalEarth1, geoPath } from "d3-geo";
-import { feature } from "topojson-client";
-import type { Topology, GeometryCollection } from "topojson-specification";
-import { countryByNumeric, type CountryInfo } from "../data/countries";
-import worldTopoJson from "../data/countries-50m.json";
+import { geoNaturalEarth1, geoPath } from "d3-geo"
+import { feature } from "topojson-client"
+import type { Topology, GeometryCollection } from "topojson-specification"
+import { countryByNumeric, type CountryInfo } from "../data/countries"
+import worldTopoJson from "../data/countries-50m.json"
 
-export type VisitType = "visited" | "layover" | "want_to_visit";
+export type VisitType = "visited" | "layover" | "want_to_visit"
 
 const props = defineProps<{
   /** Map of country alpha-2 code → visit type */
-  visitMap: Map<string, VisitType>;
-}>();
+  visitMap: Map<string, VisitType>
+}>()
 
 const emit = defineEmits<{
-  countryClick: [country: CountryInfo];
-}>();
+  countryClick: [country: CountryInfo]
+}>()
 
 // Convert TopoJSON to GeoJSON features
-const worldData = worldTopoJson as unknown as Topology;
+const worldData = worldTopoJson as unknown as Topology
 const countriesGeo = feature(
   worldData,
-  worldData.objects.countries as GeometryCollection
-);
+  worldData.objects.countries as GeometryCollection,
+)
 
 // SVG projection
-const projection = geoNaturalEarth1()
-  .scale(160)
-  .translate([480, 300]);
+const projection = geoNaturalEarth1().scale(160).translate([480, 300])
 
-const pathGenerator = geoPath().projection(projection);
+const pathGenerator = geoPath().projection(projection)
 
 // Pre-compute static paths (only depends on GeoJSON, never changes)
 const staticPaths = countriesGeo.features.map((f) => {
-  const numericId = String(f.id);
-  const info = countryByNumeric.get(numericId.padStart(3, "0"));
+  const numericId = String(f.id)
+  const info = countryByNumeric.get(numericId.padStart(3, "0"))
   return {
     d: pathGenerator(f) ?? "",
     id: numericId,
     info,
-  };
-});
+  }
+})
 
 // Reactive visit status
 const countryPaths = computed(() =>
   staticPaths.map((p) => {
-    const visitType = p.info ? props.visitMap.get(p.info.alpha2) : undefined;
-    return { ...p, visitType };
-  })
-);
+    const visitType = p.info ? props.visitMap.get(p.info.alpha2) : undefined
+    return { ...p, visitType }
+  }),
+)
 
 function handleClick(info: CountryInfo | undefined) {
-  if (info) emit("countryClick", info);
+  if (info) emit("countryClick", info)
 }
 
 // ── Hover & Tooltip ─────────────────────────────────────────────────
-const hoveredId = ref<string | null>(null);
-const hoveredInfo = ref<CountryInfo | null>(null);
-const tooltipX = ref(0);
-const tooltipY = ref(0);
-const mapContainerRef = ref<HTMLElement | null>(null);
+const hoveredId = ref<string | null>(null)
+const hoveredInfo = ref<CountryInfo | null>(null)
+const tooltipX = ref(0)
+const tooltipY = ref(0)
+const mapContainerRef = ref<HTMLElement | null>(null)
 
 function handleMouseEnter(id: string, info: CountryInfo | undefined) {
-  hoveredId.value = id;
-  hoveredInfo.value = info ?? null;
+  hoveredId.value = id
+  hoveredInfo.value = info ?? null
 }
 
 function handleMouseLeave() {
-  hoveredId.value = null;
-  hoveredInfo.value = null;
+  hoveredId.value = null
+  hoveredInfo.value = null
 }
 
 function handleMouseMove(e: MouseEvent) {
-  if (!mapContainerRef.value) return;
-  const rect = mapContainerRef.value.getBoundingClientRect();
-  tooltipX.value = e.clientX - rect.left;
-  tooltipY.value = e.clientY - rect.top;
+  if (!mapContainerRef.value) return
+  const rect = mapContainerRef.value.getBoundingClientRect()
+  tooltipX.value = e.clientX - rect.left
+  tooltipY.value = e.clientY - rect.top
 }
 
 const tooltipLabel = computed(() => {
-  if (!hoveredInfo.value) return null;
-  const vt = props.visitMap.get(hoveredInfo.value.alpha2);
-  if (vt === "visited") return "Visited";
-  if (vt === "layover") return "Layover";
-  if (vt === "want_to_visit") return "Want to visit";
-  return null;
-});
+  if (!hoveredInfo.value) return null
+  const vt = props.visitMap.get(hoveredInfo.value.alpha2)
+  if (vt === "visited") return "Visited"
+  if (vt === "layover") return "Layover"
+  if (vt === "want_to_visit") return "Want to visit"
+  return null
+})
 
 // Stats
-const visitedCount = computed(() => [...props.visitMap.values()].filter((v) => v === "visited").length);
-const layoverCount = computed(() => [...props.visitMap.values()].filter((v) => v === "layover").length);
-const wantCount = computed(() => [...props.visitMap.values()].filter((v) => v === "want_to_visit").length);
+const visitedCount = computed(
+  () => [...props.visitMap.values()].filter((v) => v === "visited").length,
+)
+const layoverCount = computed(
+  () => [...props.visitMap.values()].filter((v) => v === "layover").length,
+)
+const wantCount = computed(
+  () =>
+    [...props.visitMap.values()].filter((v) => v === "want_to_visit").length,
+)
 
 // ── Zoom & Pan ──────────────────────────────────────────────────────
-const svgRef = ref<SVGSVGElement | null>(null);
-const scale = ref(1);
-const translateX = ref(0);
-const translateY = ref(0);
-const isPanning = ref(false);
-const panStart = ref({ x: 0, y: 0 });
+const svgRef = ref<SVGSVGElement | null>(null)
+const scale = ref(1)
+const translateX = ref(0)
+const translateY = ref(0)
+const isPanning = ref(false)
+const panStart = ref({ x: 0, y: 0 })
 
-const MIN_SCALE = 1;
-const MAX_SCALE = 30;
-const ZOOM_STEP = 0.2;
+const MIN_SCALE = 1
+const MAX_SCALE = 100
+const ZOOM_STEP = 0.2
 
 const transformStr = computed(
-  () => `translate(${translateX.value},${translateY.value}) scale(${scale.value})`
-);
+  () =>
+    `translate(${translateX.value},${translateY.value}) scale(${scale.value})`,
+)
 
 function clampTranslation() {
-  const minTx = 960 * (1 - scale.value);
-  translateX.value = Math.max(minTx, Math.min(0, translateX.value));
-  const minTy = 600 * (1 - scale.value);
-  translateY.value = Math.max(minTy, Math.min(0, translateY.value));
+  const minTx = 960 * (1 - scale.value)
+  translateX.value = Math.max(minTx, Math.min(0, translateX.value))
+  const minTy = 600 * (1 - scale.value)
+  translateY.value = Math.max(minTy, Math.min(0, translateY.value))
 }
 
 function handleWheel(e: WheelEvent) {
-  e.preventDefault();
-  const svg = svgRef.value;
-  if (!svg) return;
+  e.preventDefault()
+  const svg = svgRef.value
+  if (!svg) return
 
-  const rect = svg.getBoundingClientRect();
-  const mouseX = ((e.clientX - rect.left) / rect.width) * 960;
-  const mouseY = ((e.clientY - rect.top) / rect.height) * 600;
+  const rect = svg.getBoundingClientRect()
+  const mouseX = ((e.clientX - rect.left) / rect.width) * 960
+  const mouseY = ((e.clientY - rect.top) / rect.height) * 600
 
-  const oldScale = scale.value;
-  const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-  const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, oldScale + delta * oldScale));
+  const oldScale = scale.value
+  const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
+  const newScale = Math.max(
+    MIN_SCALE,
+    Math.min(MAX_SCALE, oldScale + delta * oldScale),
+  )
 
-  const ratio = newScale / oldScale;
-  translateX.value = mouseX - ratio * (mouseX - translateX.value);
-  translateY.value = mouseY - ratio * (mouseY - translateY.value);
-  scale.value = newScale;
+  const ratio = newScale / oldScale
+  translateX.value = mouseX - ratio * (mouseX - translateX.value)
+  translateY.value = mouseY - ratio * (mouseY - translateY.value)
+  scale.value = newScale
 
   if (newScale <= MIN_SCALE) {
-    translateX.value = 0;
-    translateY.value = 0;
+    translateX.value = 0
+    translateY.value = 0
   } else {
-    clampTranslation();
+    clampTranslation()
   }
 }
 
-const didDrag = ref(false);
-const pointerOrigin = ref({ x: 0, y: 0 });
-const DRAG_THRESHOLD = 5; // px
+const didDrag = ref(false)
+const pointerOrigin = ref({ x: 0, y: 0 })
+const DRAG_THRESHOLD = 5 // px
 
 function handlePointerDown(e: PointerEvent) {
-  isPanning.value = true;
-  didDrag.value = false;
-  panStart.value = { x: e.clientX, y: e.clientY };
-  pointerOrigin.value = { x: e.clientX, y: e.clientY };
+  isPanning.value = true
+  didDrag.value = false
+  panStart.value = { x: e.clientX, y: e.clientY }
+  pointerOrigin.value = { x: e.clientX, y: e.clientY }
 }
 
 function handlePointerMove(e: PointerEvent) {
-  if (!isPanning.value || !svgRef.value) return;
-  if (scale.value <= MIN_SCALE) return;
+  if (!isPanning.value || !svgRef.value) return
+  if (scale.value <= MIN_SCALE) return
 
-  const dx = Math.abs(e.clientX - pointerOrigin.value.x);
-  const dy = Math.abs(e.clientY - pointerOrigin.value.y);
-  if (!didDrag.value && dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return;
-  didDrag.value = true;
+  const dx = Math.abs(e.clientX - pointerOrigin.value.x)
+  const dy = Math.abs(e.clientY - pointerOrigin.value.y)
+  if (!didDrag.value && dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return
+  didDrag.value = true
 
-  const rect = svgRef.value.getBoundingClientRect();
-  const movX = ((e.clientX - panStart.value.x) / rect.width) * 960;
-  const movY = ((e.clientY - panStart.value.y) / rect.height) * 600;
-  translateX.value += movX;
-  translateY.value += movY;
-  clampTranslation();
-  panStart.value = { x: e.clientX, y: e.clientY };
+  const rect = svgRef.value.getBoundingClientRect()
+  const movX = ((e.clientX - panStart.value.x) / rect.width) * 960
+  const movY = ((e.clientY - panStart.value.y) / rect.height) * 600
+  translateX.value += movX
+  translateY.value += movY
+  clampTranslation()
+  panStart.value = { x: e.clientX, y: e.clientY }
 }
 
 function handlePointerUp(e: PointerEvent) {
-  const wasDrag = didDrag.value;
-  isPanning.value = false;
-  didDrag.value = false;
+  const wasDrag = didDrag.value
+  isPanning.value = false
+  didDrag.value = false
 
   // If it wasn't a drag, treat as a click — find country under cursor
   if (!wasDrag) {
     // Use elementsFromPoint to find the path under the cursor
-    const els = document.elementsFromPoint(e.clientX, e.clientY);
+    const els = document.elementsFromPoint(e.clientX, e.clientY)
     for (const el of els) {
-      const cid = (el as HTMLElement).dataset?.cid;
+      const cid = (el as HTMLElement).dataset?.cid
       if (cid) {
-        const country = countryPaths.value.find((c) => c.id === cid);
+        const country = countryPaths.value.find((c) => c.id === cid)
         if (country?.info) {
-          handleClick(country.info);
-          break;
+          handleClick(country.info)
+          break
         }
       }
     }
@@ -192,32 +201,32 @@ function handlePointerUp(e: PointerEvent) {
 }
 
 function zoomIn() {
-  const oldScale = scale.value;
-  scale.value = Math.min(MAX_SCALE, oldScale + ZOOM_STEP * oldScale);
-  const ratio = scale.value / oldScale;
-  translateX.value = 480 - ratio * (480 - translateX.value);
-  translateY.value = 300 - ratio * (300 - translateY.value);
-  clampTranslation();
+  const oldScale = scale.value
+  scale.value = Math.min(MAX_SCALE, oldScale + ZOOM_STEP * oldScale)
+  const ratio = scale.value / oldScale
+  translateX.value = 480 - ratio * (480 - translateX.value)
+  translateY.value = 300 - ratio * (300 - translateY.value)
+  clampTranslation()
 }
 
 function zoomOut() {
-  const oldScale = scale.value;
-  scale.value = Math.max(MIN_SCALE, oldScale - ZOOM_STEP * oldScale);
+  const oldScale = scale.value
+  scale.value = Math.max(MIN_SCALE, oldScale - ZOOM_STEP * oldScale)
   if (scale.value <= MIN_SCALE) {
-    translateX.value = 0;
-    translateY.value = 0;
+    translateX.value = 0
+    translateY.value = 0
   } else {
-    const ratio = scale.value / oldScale;
-    translateX.value = 480 - ratio * (480 - translateX.value);
-    translateY.value = 300 - ratio * (300 - translateY.value);
-    clampTranslation();
+    const ratio = scale.value / oldScale
+    translateX.value = 480 - ratio * (480 - translateX.value)
+    translateY.value = 300 - ratio * (300 - translateY.value)
+    clampTranslation()
   }
 }
 
 function resetZoom() {
-  scale.value = 1;
-  translateX.value = 0;
-  translateY.value = 0;
+  scale.value = 1
+  translateX.value = 0
+  translateY.value = 0
 }
 </script>
 
@@ -243,7 +252,11 @@ function resetZoom() {
         @pointercancel="handlePointerUp($event)"
       >
         <!-- Ocean background -->
-        <rect width="960" height="600" class="map-ocean" />
+        <rect
+          width="960"
+          height="600"
+          class="map-ocean"
+        />
 
         <!-- Transformable group for zoom/pan -->
         <g :transform="transformStr">
@@ -259,10 +272,18 @@ function resetZoom() {
               country.visitType === 'layover' ? 'map-layover' : '',
               country.visitType === 'want_to_visit' ? 'map-want' : '',
               !country.visitType ? 'map-country' : '',
-              hoveredId === country.id && !country.visitType ? 'map-country-hover' : '',
-              hoveredId === country.id && country.visitType === 'visited' ? 'map-visited-hover' : '',
-              hoveredId === country.id && country.visitType === 'layover' ? 'map-layover-hover' : '',
-              hoveredId === country.id && country.visitType === 'want_to_visit' ? 'map-want-hover' : '',
+              hoveredId === country.id && !country.visitType
+                ? 'map-country-hover'
+                : '',
+              hoveredId === country.id && country.visitType === 'visited'
+                ? 'map-visited-hover'
+                : '',
+              hoveredId === country.id && country.visitType === 'layover'
+                ? 'map-layover-hover'
+                : '',
+              hoveredId === country.id && country.visitType === 'want_to_visit'
+                ? 'map-want-hover'
+                : '',
             ]"
             :stroke-width="0.5 / scale"
             @click="handleClick(country.info)"
@@ -282,7 +303,10 @@ function resetZoom() {
       :style="{ left: `${tooltipX + 14}px`, top: `${tooltipY - 10}px` }"
     >
       {{ hoveredInfo.name }}
-      <span v-if="tooltipLabel" class="map-tooltip-badge ml-1.5 rounded px-1.5 py-0.5 text-xs">
+      <span
+        v-if="tooltipLabel"
+        class="map-tooltip-badge ml-1.5 rounded px-1.5 py-0.5 text-xs"
+      >
         {{ tooltipLabel }}
       </span>
     </div>
@@ -294,14 +318,20 @@ function resetZoom() {
         title="Zoom in"
         @click="zoomIn"
       >
-        <Icon name="lucide:plus" class="h-4 w-4" />
+        <Icon
+          name="lucide:plus"
+          class="h-4 w-4"
+        />
       </button>
       <button
         class="map-btn flex h-8 w-8 items-center justify-center rounded-lg shadow transition"
         title="Zoom out"
         @click="zoomOut"
       >
-        <Icon name="lucide:minus" class="h-4 w-4" />
+        <Icon
+          name="lucide:minus"
+          class="h-4 w-4"
+        />
       </button>
       <button
         v-if="scale > 1"
@@ -309,18 +339,27 @@ function resetZoom() {
         title="Reset zoom"
         @click="resetZoom"
       >
-        <Icon name="lucide:maximize-2" class="h-4 w-4" />
+        <Icon
+          name="lucide:maximize-2"
+          class="h-4 w-4"
+        />
       </button>
     </div>
 
     <!-- Stats overlay -->
-    <div class="map-overlay map-overlay-border absolute bottom-3 left-3 rounded-xl px-3 py-1.5 backdrop-blur-sm">
+    <div
+      class="map-overlay map-overlay-border absolute bottom-3 left-3 rounded-xl px-3 py-1.5 backdrop-blur-sm"
+    >
       <p class="map-overlay-text text-sm font-medium">
-        <span class="map-overlay-accent text-lg font-bold">{{ visitedCount }}</span>
+        <span class="map-overlay-accent text-lg font-bold">{{
+          visitedCount
+        }}</span>
         visited
         <template v-if="layoverCount">
           <span class="mx-1 opacity-40">&middot;</span>
-          <span class="map-layover-accent text-lg font-bold">{{ layoverCount }}</span>
+          <span class="map-layover-accent text-lg font-bold">{{
+            layoverCount
+          }}</span>
           layover
         </template>
         <template v-if="wantCount">
@@ -332,7 +371,10 @@ function resetZoom() {
     </div>
 
     <!-- Zoom level indicator -->
-    <div v-if="scale > 1" class="map-overlay map-overlay-border map-overlay-text absolute bottom-3 right-3 rounded-lg px-2.5 py-1 text-xs font-medium backdrop-blur-sm">
+    <div
+      v-if="scale > 1"
+      class="map-overlay map-overlay-border map-overlay-text absolute bottom-3 right-3 rounded-lg px-2.5 py-1 text-xs font-medium backdrop-blur-sm"
+    >
       {{ Math.round(scale * 100) }}%
     </div>
   </div>
@@ -395,16 +437,36 @@ function resetZoom() {
 }
 
 /* ── SVG fills ─────────────────────────────────────────── */
-.map-ocean { fill: var(--map-ocean); }
-.map-country { fill: var(--map-country); }
-.map-country-hover { fill: var(--map-country-hover); }
-.map-visited { fill: var(--map-visited); }
-.map-visited-hover { fill: var(--map-visited-hover); }
-.map-layover { fill: var(--map-layover); }
-.map-layover-hover { fill: var(--map-layover-hover); }
-.map-want { fill: var(--map-want); }
-.map-want-hover { fill: var(--map-want-hover); }
-.map-border { stroke: var(--map-border); }
+.map-ocean {
+  fill: var(--map-ocean);
+}
+.map-country {
+  fill: var(--map-country);
+}
+.map-country-hover {
+  fill: var(--map-country-hover);
+}
+.map-visited {
+  fill: var(--map-visited);
+}
+.map-visited-hover {
+  fill: var(--map-visited-hover);
+}
+.map-layover {
+  fill: var(--map-layover);
+}
+.map-layover-hover {
+  fill: var(--map-layover-hover);
+}
+.map-want {
+  fill: var(--map-want);
+}
+.map-want-hover {
+  fill: var(--map-want-hover);
+}
+.map-border {
+  stroke: var(--map-border);
+}
 
 /* ── Tooltip ─────────────────────────────────────────── */
 .map-tooltip {
@@ -416,16 +478,31 @@ function resetZoom() {
 }
 
 /* ── Overlay elements ──────────────────────────────────── */
-.map-overlay { background: var(--map-overlay-bg); }
-.map-overlay-border { border: 1px solid var(--map-overlay-border); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-.map-overlay-text { color: var(--map-overlay-text); }
-.map-overlay-accent { color: var(--map-overlay-accent); }
-.map-layover-accent { color: var(--map-layover-accent-color); }
-.map-want-accent { color: var(--map-want-accent-color); }
+.map-overlay {
+  background: var(--map-overlay-bg);
+}
+.map-overlay-border {
+  border: 1px solid var(--map-overlay-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.map-overlay-text {
+  color: var(--map-overlay-text);
+}
+.map-overlay-accent {
+  color: var(--map-overlay-accent);
+}
+.map-layover-accent {
+  color: var(--map-layover-accent-color);
+}
+.map-want-accent {
+  color: var(--map-want-accent-color);
+}
 .map-btn {
   background: var(--map-btn-bg);
   color: var(--map-btn-text);
   backdrop-filter: blur(8px);
 }
-.map-btn:hover { background: var(--map-btn-hover); }
+.map-btn:hover {
+  background: var(--map-btn-hover);
+}
 </style>
