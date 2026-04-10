@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
     const profile = await db.query.userProfiles.findFirst({
       where: eq(userProfiles.userId, session.user.id),
     });
-    passportCountry = profile?.nationality ?? null;
+    passportCountry = profile?.nationality ?? undefined;
   }
 
   if (!passportCountry) {
