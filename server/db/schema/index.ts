@@ -15,3 +15,5 @@ export * from "./reservations";
 export * from "./packing-templates";
 export * from "./documents";
 export * from "./activity-participants";
+export * from "./visited-countries";
+export * from "./user-profiles";
