@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CountryInfo } from "../data/countries";
+import type { VisitType } from "../components/ScratchMap.vue";
 
 definePageMeta({ layout: "app" });
 useSeoMeta({
@@ -9,7 +10,15 @@ useSeoMeta({
 
 // Fetch visited countries
 const { data: visitedList, refresh } = await useFetch("/api/visited-countries");
-const visitedCodes = computed(() => new Set(visitedList.value?.map((v) => v.countryCode) ?? []));
+
+// Map of countryCode → visitType
+const visitMap = computed(() => {
+  const map = new Map<string, VisitType>();
+  for (const v of visitedList.value ?? []) {
+    map.set(v.countryCode, (v.visitType as VisitType) ?? "visited");
+  }
+  return map;
+});
 
 // Selected country panel
 const selectedCountry = ref<CountryInfo | null>(null);
@@ -23,20 +32,22 @@ function closePanel() {
   selectedCountry.value = null;
 }
 
-async function toggleVisited(country: CountryInfo) {
+async function setVisitType(country: CountryInfo, type: VisitType | null) {
   panelLoading.value = true;
   try {
-    if (visitedCodes.value.has(country.alpha2)) {
+    if (type === null) {
+      // Remove
       await $fetch(`/api/visited-countries/${country.alpha2}`, { method: "DELETE" });
     } else {
+      // Add or update (upsert)
       await $fetch("/api/visited-countries", {
         method: "POST",
-        body: { countryCode: country.alpha2, countryName: country.name },
+        body: { countryCode: country.alpha2, countryName: country.name, visitType: type },
       });
     }
     await refresh();
   } catch (e: unknown) {
-    console.error("Failed to toggle visited status:", e);
+    console.error("Failed to update visit type:", e);
   } finally {
     panelLoading.value = false;
   }
@@ -66,15 +77,15 @@ function handleCheckVisa(country: CountryInfo) {
     <!-- Map + Panel Container -->
     <div class="relative mt-6">
       <ScratchMap
-        :visited-codes="visitedCodes"
+        :visit-map="visitMap"
         @country-click="handleCountryClick"
       />
       <CountryDetailPanel
         :country="selectedCountry"
-        :is-visited="!!selectedCountry && visitedCodes.has(selectedCountry.alpha2)"
+        :visit-type="selectedCountry ? visitMap.get(selectedCountry.alpha2) : undefined"
         :loading="panelLoading"
         @close="closePanel"
-        @toggle-visited="toggleVisited"
+        @set-visit-type="setVisitType"
         @check-visa="handleCheckVisa"
       />
     </div>

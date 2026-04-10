@@ -6,6 +6,7 @@ import { visitedCountries } from "../../db/schema";
 const bodySchema = z.object({
   countryCode: z.string().length(2).toUpperCase(),
   countryName: z.string().min(1).max(100),
+  visitType: z.enum(["visited", "layover"]).default("visited"),
   visitedAt: z.string().date().optional(),
   notes: z.string().max(500).optional(),
 });
@@ -22,18 +23,20 @@ export default defineEventHandler(async (event) => {
     ),
   });
 
-  if (existing) {
-    throw createError({ statusCode: 409, message: "Country already marked as visited" });
-  }
-
+  // Upsert — allows changing visit type for an already-marked country
   const [result] = await db
     .insert(visitedCountries)
     .values({
       userId: session.user.id,
       countryCode: body.countryCode,
       countryName: body.countryName,
+      visitType: body.visitType,
       visitedAt: body.visitedAt ?? null,
       notes: body.notes ?? null,
+    })
+    .onConflictDoUpdate({
+      target: [visitedCountries.userId, visitedCountries.countryCode],
+      set: { visitType: body.visitType },
     })
     .returning();
 

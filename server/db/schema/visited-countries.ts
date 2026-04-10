@@ -11,6 +11,7 @@ export const visitedCountries = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     countryCode: text("country_code").notNull(), // ISO 3166-1 alpha-2
     countryName: text("country_name").notNull(),
+    visitType: text("visit_type").notNull().default("visited"), // "visited" | "layover"
     visitedAt: date("visited_at"), // optional: when they visited
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

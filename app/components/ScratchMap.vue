@@ -5,8 +5,11 @@ import type { Topology, GeometryCollection } from "topojson-specification";
 import { countryByNumeric, type CountryInfo } from "../data/countries";
 import worldTopoJson from "../data/countries-110m.json";
 
+export type VisitType = "visited" | "layover";
+
 const props = defineProps<{
-  visitedCodes: Set<string>;
+  /** Map of country alpha-2 code → visit type */
+  visitMap: Map<string, VisitType>;
 }>();
 
 const emit = defineEmits<{
@@ -27,7 +30,7 @@ const projection = geoNaturalEarth1()
 
 const pathGenerator = geoPath().projection(projection);
 
-// Pre-compute static paths (only depends on GeoJSON, never changes)
+// Pre-compute static paths
 const staticPaths = countriesGeo.features.map((f) => {
   const numericId = String(f.id);
   const info = countryByNumeric.get(numericId.padStart(3, "0"));
@@ -38,19 +41,54 @@ const staticPaths = countriesGeo.features.map((f) => {
   };
 });
 
-// Reactive visited status
+// Reactive visit status
 const countryPaths = computed(() =>
-  staticPaths.map((p) => ({
-    ...p,
-    isVisited: p.info ? props.visitedCodes.has(p.info.alpha2) : false,
-  }))
+  staticPaths.map((p) => {
+    const visitType = p.info ? props.visitMap.get(p.info.alpha2) : undefined;
+    return { ...p, visitType };
+  })
 );
 
 function handleClick(info: CountryInfo | undefined) {
-  if (info) emit("countryClick", info);
+  // Only open sidebar when zoomed out (scale ~1)
+  if (info && scale.value <= 1.05) emit("countryClick", info);
 }
 
+// ── Hover & Tooltip ─────────────────────────────────────────────────
 const hoveredId = ref<string | null>(null);
+const hoveredInfo = ref<CountryInfo | null>(null);
+const tooltipX = ref(0);
+const tooltipY = ref(0);
+const mapContainerRef = ref<HTMLElement | null>(null);
+
+function handleMouseEnter(id: string, info: CountryInfo | undefined) {
+  hoveredId.value = id;
+  hoveredInfo.value = info ?? null;
+}
+
+function handleMouseLeave() {
+  hoveredId.value = null;
+  hoveredInfo.value = null;
+}
+
+function handleMouseMove(e: MouseEvent) {
+  if (!mapContainerRef.value) return;
+  const rect = mapContainerRef.value.getBoundingClientRect();
+  tooltipX.value = e.clientX - rect.left;
+  tooltipY.value = e.clientY - rect.top;
+}
+
+const tooltipLabel = computed(() => {
+  if (!hoveredInfo.value) return null;
+  const vt = props.visitMap.get(hoveredInfo.value.alpha2);
+  if (vt === "visited") return "Visited";
+  if (vt === "layover") return "Layover";
+  return null;
+});
+
+// Stats
+const visitedCount = computed(() => [...props.visitMap.values()].filter((v) => v === "visited").length);
+const layoverCount = computed(() => [...props.visitMap.values()].filter((v) => v === "layover").length);
 
 // ── Zoom & Pan ──────────────────────────────────────────────────────
 const svgRef = ref<SVGSVGElement | null>(null);
@@ -69,10 +107,6 @@ const transformStr = computed(
 );
 
 function clampTranslation() {
-  // At scale S, content spans [0, 960*S] in viewBox coords after translate.
-  // To keep content covering the 960x600 viewBox:
-  //   tx must be in [960*(1-S), 0]
-  //   ty must be in [600*(1-S), 0]
   const minTx = 960 * (1 - scale.value);
   translateX.value = Math.max(minTx, Math.min(0, translateX.value));
   const minTy = 600 * (1 - scale.value);
@@ -158,12 +192,16 @@ function resetZoom() {
 </script>
 
 <template>
-  <div class="scratch-map relative overflow-hidden rounded-2xl border border-sand-200">
+  <div
+    ref="mapContainerRef"
+    class="scratch-map relative overflow-hidden rounded-2xl border border-sand-200"
+    @mousemove="handleMouseMove"
+  >
     <svg
       ref="svgRef"
       viewBox="0 0 960 600"
       class="w-full select-none"
-      :class="{ 'cursor-grab': scale > 1, 'cursor-grabbing': isPanning }"
+      :class="{ 'cursor-grab': scale > 1.05, 'cursor-grabbing': isPanning }"
       xmlns="http://www.w3.org/2000/svg"
       @wheel="handleWheel"
       @pointerdown="handlePointerDown"
@@ -182,24 +220,33 @@ function resetZoom() {
           :d="country.d"
           class="map-border transition-colors duration-150"
           :class="[
-            country.info ? 'cursor-pointer' : 'cursor-default',
-            country.isVisited
-              ? 'map-visited'
-              : 'map-country',
-            hoveredId === country.id && !country.isVisited ? 'map-country-hover' : '',
-            hoveredId === country.id && country.isVisited ? 'map-visited-hover' : '',
+            country.info && scale <= 1.05 ? 'cursor-pointer' : 'cursor-default',
+            country.visitType === 'visited' ? 'map-visited' : '',
+            country.visitType === 'layover' ? 'map-layover' : '',
+            !country.visitType ? 'map-country' : '',
+            hoveredId === country.id && !country.visitType ? 'map-country-hover' : '',
+            hoveredId === country.id && country.visitType === 'visited' ? 'map-visited-hover' : '',
+            hoveredId === country.id && country.visitType === 'layover' ? 'map-layover-hover' : '',
           ]"
           :stroke-width="0.5 / scale"
           @click="handleClick(country.info)"
-          @mouseenter="hoveredId = country.id"
-          @mouseleave="hoveredId = null"
-        >
-          <title v-if="country.info">
-            {{ country.info.name }}{{ country.isVisited ? ' (visited)' : '' }}
-          </title>
-        </path>
+          @mouseenter="handleMouseEnter(country.id, country.info)"
+          @mouseleave="handleMouseLeave"
+        />
       </g>
     </svg>
+
+    <!-- Floating tooltip -->
+    <div
+      v-if="hoveredInfo"
+      class="map-tooltip pointer-events-none absolute z-20 rounded-lg px-3 py-1.5 text-sm font-medium shadow-lg"
+      :style="{ left: `${tooltipX + 14}px`, top: `${tooltipY - 10}px` }"
+    >
+      {{ hoveredInfo.name }}
+      <span v-if="tooltipLabel" class="map-tooltip-badge ml-1.5 rounded px-1.5 py-0.5 text-xs">
+        {{ tooltipLabel }}
+      </span>
+    </div>
 
     <!-- Zoom controls -->
     <div class="absolute right-4 top-4 flex flex-col gap-1">
@@ -230,26 +277,24 @@ function resetZoom() {
     <!-- Stats overlay -->
     <div class="map-overlay absolute bottom-4 left-4 rounded-xl px-4 py-2 backdrop-blur-sm">
       <p class="map-overlay-text text-sm font-medium">
-        <span class="map-overlay-accent text-lg font-bold">{{ visitedCodes.size }}</span>
-        / {{ countryPaths.filter(c => c.info).length }} countries visited
+        <span class="map-overlay-accent text-lg font-bold">{{ visitedCount }}</span>
+        visited
+        <template v-if="layoverCount">
+          <span class="mx-1 opacity-40">&middot;</span>
+          <span class="map-layover-accent text-lg font-bold">{{ layoverCount }}</span>
+          layover
+        </template>
       </p>
     </div>
 
-    <!-- Zoom level indicator -->
-    <div v-if="scale > 1" class="map-overlay absolute bottom-4 right-4 rounded-lg px-2.5 py-1 text-xs backdrop-blur-sm">
-      {{ Math.round(scale * 100) }}%
+    <!-- Zoom hint when zoomed -->
+    <div v-if="scale > 1.05" class="map-overlay absolute bottom-4 right-4 rounded-lg px-2.5 py-1 text-xs backdrop-blur-sm">
+      {{ Math.round(scale * 100) }}% &middot; zoom out to select
     </div>
   </div>
 </template>
 
 <style scoped>
-/*
- * Map-specific color palette — independent from the theme auto-swap system.
- * The global .dark class swaps sand/terra/ocean CSS vars which doesn't work
- * well for data visualizations. These hardcoded values ensure the map looks
- * intentional in both modes.
- */
-
 /* ── Light Mode ────────────────────────────────────────── */
 .scratch-map {
   --map-ocean: #dceef5;
@@ -257,30 +302,42 @@ function resetZoom() {
   --map-country-hover: #d6cab9;
   --map-visited: #f07b5a;
   --map-visited-hover: #e85d3a;
+  --map-layover: #7dc3d4;
+  --map-layover-hover: #4aa5b9;
   --map-border: #cfc2b2;
   --map-overlay-bg: rgba(255, 255, 255, 0.82);
   --map-overlay-text: #3d3328;
   --map-overlay-accent: #d44425;
+  --map-layover-accent-color: #2e8a9e;
   --map-btn-bg: rgba(255, 255, 255, 0.82);
   --map-btn-text: #5a4b3a;
   --map-btn-hover: rgba(255, 255, 255, 1);
+  --map-tooltip-bg: #3d3328;
+  --map-tooltip-text: #faf8f5;
+  --map-tooltip-badge-bg: rgba(255, 255, 255, 0.18);
   background: var(--map-ocean);
 }
 
-/* ── Dark Mode — rich atlas aesthetic ──────────────────── */
+/* ── Dark Mode ─────────────────────────────────────────── */
 :global(.dark) .scratch-map {
   --map-ocean: #0c1524;
   --map-country: #1e3044;
   --map-country-hover: #2a4460;
   --map-visited: #f07b5a;
   --map-visited-hover: #f7a48a;
+  --map-layover: #4aa5b9;
+  --map-layover-hover: #7dc3d4;
   --map-border: #152336;
   --map-overlay-bg: rgba(12, 21, 36, 0.85);
   --map-overlay-text: #c8d6e5;
   --map-overlay-accent: #f07b5a;
+  --map-layover-accent-color: #7dc3d4;
   --map-btn-bg: rgba(30, 48, 68, 0.85);
   --map-btn-text: #c8d6e5;
   --map-btn-hover: rgba(42, 68, 96, 0.95);
+  --map-tooltip-bg: #1e3044;
+  --map-tooltip-text: #e2e8f0;
+  --map-tooltip-badge-bg: rgba(255, 255, 255, 0.12);
   border-color: #1e3044;
   background: var(--map-ocean);
 }
@@ -291,24 +348,28 @@ function resetZoom() {
 .map-country-hover { fill: var(--map-country-hover); }
 .map-visited { fill: var(--map-visited); }
 .map-visited-hover { fill: var(--map-visited-hover); }
+.map-layover { fill: var(--map-layover); }
+.map-layover-hover { fill: var(--map-layover-hover); }
 .map-border { stroke: var(--map-border); }
 
+/* ── Tooltip ─────────────────────────────────────────── */
+.map-tooltip {
+  background: var(--map-tooltip-bg);
+  color: var(--map-tooltip-text);
+}
+.map-tooltip-badge {
+  background: var(--map-tooltip-badge-bg);
+}
+
 /* ── Overlay elements ──────────────────────────────────── */
-.map-overlay {
-  background: var(--map-overlay-bg);
-}
-.map-overlay-text {
-  color: var(--map-overlay-text);
-}
-.map-overlay-accent {
-  color: var(--map-overlay-accent);
-}
+.map-overlay { background: var(--map-overlay-bg); }
+.map-overlay-text { color: var(--map-overlay-text); }
+.map-overlay-accent { color: var(--map-overlay-accent); }
+.map-layover-accent { color: var(--map-layover-accent-color); }
 .map-btn {
   background: var(--map-btn-bg);
   color: var(--map-btn-text);
   backdrop-filter: blur(8px);
 }
-.map-btn:hover {
-  background: var(--map-btn-hover);
-}
+.map-btn:hover { background: var(--map-btn-hover); }
 </style>
