@@ -34,8 +34,12 @@ export default defineNuxtConfig({
     experimental: {
       tasks: true,
     },
+    scheduledTasks: {
+      // Import visa requirements dataset on the 1st of each month at 3am
+      "0 3 1 * *": "import-visa-data",
+    },
   },
-  css: ["./app/assets/css/tailwind.css"],
+  css: ["~/assets/css/tailwind.css"],
   devtools: { enabled: true },
   modules: [
     "@nuxt/icon",
