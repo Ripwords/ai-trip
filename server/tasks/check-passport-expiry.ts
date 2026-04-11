@@ -39,7 +39,12 @@ export default defineTask({
         lastExpiryReminder: userPassports.lastExpiryReminder,
       })
       .from(userPassports)
-      .where(and(isNotNull(userPassports.expiryDate), gt(userPassports.expiryDate, new Date().toISOString().split("T")[0]!)))
+      .where(
+        and(
+          isNotNull(userPassports.expiryDate),
+          gt(userPassports.expiryDate, new Date().toISOString().split("T")[0]!),
+        ),
+      )
 
     const now = new Date()
     let sent = 0
@@ -93,10 +98,7 @@ export default defineTask({
           `[passport-expiry] Sent ${currentMilestone.label} reminder to ${userData.email} for ${passport.countryCode} passport`,
         )
       } catch (e) {
-        console.error(
-          `[passport-expiry] Failed to send reminder to ${userData.email}:`,
-          e,
-        )
+        console.error(`[passport-expiry] Failed to send reminder to ${userData.email}:`, e)
       }
     }
 
