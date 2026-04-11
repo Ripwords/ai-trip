@@ -29,7 +29,11 @@ export default defineNuxtConfig({
   },
   experimental: {
     nitroAutoImports: true,
-    tasks: true,
+  },
+  nitro: {
+    experimental: {
+      tasks: true,
+    },
   },
   css: ["./app/assets/css/tailwind.css"],
   devtools: { enabled: true },

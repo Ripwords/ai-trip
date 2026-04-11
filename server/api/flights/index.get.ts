@@ -1,4 +1,5 @@
-import { eq, and } from "drizzle-orm"
+import { eq, and, type SQL } from "drizzle-orm"
+import { z } from "zod"
 import { db } from "../../db"
 import { flights } from "../../db/schema"
 
@@ -10,7 +11,7 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const query = await getValidatedQuery(event, querySchema.parse)
 
-  const conditions = [eq(flights.userId, session.user.id)]
+  const conditions: SQL[] = [eq(flights.userId, session.user.id)]
   if (query.tripId) {
     conditions.push(eq(flights.tripId, query.tripId))
   }

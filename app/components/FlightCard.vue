@@ -28,13 +28,31 @@ const emit = defineEmits<{
 }>()
 
 const statusConfig: Record<string, { label: string; color: string }> = {
-  scheduled: { label: "Scheduled", color: "bg-sand-100 text-sand-700 dark:bg-sand-800 dark:text-sand-300" },
-  delayed: { label: "Delayed", color: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300" },
-  landed: { label: "Landed", color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" },
-  cancelled: { label: "Cancelled", color: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" },
+  scheduled: {
+    label: "Scheduled",
+    color: "bg-sand-100 text-sand-700 dark:bg-sand-800 dark:text-sand-300",
+  },
+  delayed: {
+    label: "Delayed",
+    color: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+  },
+  landed: {
+    label: "Landed",
+    color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  },
+  cancelled: {
+    label: "Cancelled",
+    color: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+  },
 }
 
-const statusBadge = computed(() => statusConfig[props.flight.status] ?? statusConfig.scheduled)
+const statusBadge = computed(
+  () =>
+    statusConfig[props.flight.status] ?? {
+      label: "Scheduled",
+      color: "bg-sand-100 text-sand-700 dark:bg-sand-800 dark:text-sand-300",
+    },
+)
 
 const arrivalCountry = computed(() => {
   if (!props.flight.arrivalAirport) return null
@@ -80,10 +98,7 @@ function selectTrip(tripId: string | null) {
         </p>
       </div>
       <div class="flex items-center gap-2">
-        <span
-          class="rounded-full px-2.5 py-0.5 text-xs font-medium"
-          :class="statusBadge.color"
-        >
+        <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="statusBadge.color">
           {{ statusBadge.label }}
         </span>
         <button
@@ -135,10 +150,7 @@ function selectTrip(tripId: string | null) {
           <Icon name="lucide:map-pin" class="h-3 w-3" />
           {{ flight.trip.destination }}
         </NuxtLink>
-        <button
-          class="text-xs text-sand-400 hover:text-sand-600"
-          @click="selectTrip(null)"
-        >
+        <button class="text-xs text-sand-400 hover:text-sand-600" @click="selectTrip(null)">
           Unlink
         </button>
       </template>
