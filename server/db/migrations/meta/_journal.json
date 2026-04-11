@@ -141,6 +141,13 @@
       "when": 1775878912978,
       "tag": "0019_whole_roland_deschain",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1775884595416,
+      "tag": "0020_mixed_firestar",
+      "breakpoints": true
     }
   ]
 }
