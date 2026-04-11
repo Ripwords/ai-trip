@@ -222,6 +222,9 @@ function getTouchCenter(t1: Touch, t2: Touch): { x: number; y: number } {
   }
 }
 
+const touchStartPos = ref({ x: 0, y: 0 })
+const TAP_THRESHOLD = 10 // px — max movement to count as a tap
+
 function handleTouchStart(e: TouchEvent) {
   if (e.touches.length === 2) {
     e.preventDefault()
@@ -231,6 +234,8 @@ function handleTouchStart(e: TouchEvent) {
     lastPinchDist.value = getTouchDistance(e.touches[0]!, e.touches[1]!)
     const center = getTouchCenter(e.touches[0]!, e.touches[1]!)
     lastPinchCenter.value = center
+  } else if (e.touches.length === 1) {
+    touchStartPos.value = { x: e.touches[0]!.clientX, y: e.touches[0]!.clientY }
   }
 }
 
@@ -263,8 +268,34 @@ function handleTouchMove(e: TouchEvent) {
 }
 
 function handleTouchEnd(e: TouchEvent) {
+  const wasPinching = isPinching.value
   if (e.touches.length < 2) {
     isPinching.value = false
+  }
+
+  // Single-finger tap detection: touch-action:none suppresses click events,
+  // so we detect taps here and trigger the country click manually.
+  if (
+    e.touches.length === 0 &&
+    !wasPinching &&
+    e.changedTouches.length === 1
+  ) {
+    const touch = e.changedTouches[0]!
+    const dx = Math.abs(touch.clientX - touchStartPos.value.x)
+    const dy = Math.abs(touch.clientY - touchStartPos.value.y)
+    if (dx < TAP_THRESHOLD && dy < TAP_THRESHOLD) {
+      const els = document.elementsFromPoint(touch.clientX, touch.clientY)
+      for (const el of els) {
+        const cid = (el as HTMLElement).dataset?.cid
+        if (cid) {
+          const country = countryPaths.value.find((c) => c.id === cid)
+          if (country?.info) {
+            handleClick(country.info)
+            break
+          }
+        }
+      }
+    }
   }
 }
 
