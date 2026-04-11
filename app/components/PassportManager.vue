@@ -186,34 +186,33 @@ function isExpiringSoon(date: string): boolean {
                 </span>
               </div>
             </div>
-            <button
-              class="rounded-lg p-1.5 text-sand-400 hover:bg-sand-50 hover:text-sand-600"
-              title="Edit"
-              @click="startEditing(passport)"
-            >
-              <Icon name="lucide:pencil" class="h-3.5 w-3.5" />
-            </button>
-            <button
-              v-if="!passport.isDefault"
-              class="rounded-lg p-1.5 text-sand-400 hover:bg-sand-50 hover:text-terra-500"
-              title="Set as default"
-              @click="setDefault(passport.id)"
-            >
-              <Icon name="lucide:star" class="h-3.5 w-3.5" />
-            </button>
-            <Icon
-              v-else
-              name="lucide:star"
-              class="h-3.5 w-3.5 text-terra-500"
-              title="Default passport"
-            />
-            <button
-              class="rounded-lg p-1.5 text-sand-400 hover:bg-red-50 hover:text-red-500"
-              title="Remove"
-              @click="removePassport(passport.id)"
-            >
-              <Icon name="lucide:trash-2" class="h-3.5 w-3.5" />
-            </button>
+            <div class="flex shrink-0 items-center gap-1">
+              <button
+                class="rounded-lg p-1.5 text-sand-400 hover:bg-sand-50 hover:text-sand-600"
+                title="Edit"
+                @click="startEditing(passport)"
+              >
+                <Icon name="lucide:pencil" class="h-3.5 w-3.5" />
+              </button>
+              <button
+                v-if="!passport.isDefault"
+                class="rounded-lg p-1.5 text-sand-400 hover:bg-sand-50 hover:text-terra-500"
+                title="Set as default"
+                @click="setDefault(passport.id)"
+              >
+                <Icon name="lucide:star" class="h-3.5 w-3.5" />
+              </button>
+              <div v-else class="p-1.5">
+                <Icon name="lucide:star" class="h-3.5 w-3.5 text-terra-500" title="Default passport" />
+              </div>
+              <button
+                class="rounded-lg p-1.5 text-sand-400 hover:bg-red-50 hover:text-red-500"
+                title="Remove"
+                @click="removePassport(passport.id)"
+              >
+                <Icon name="lucide:trash-2" class="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </template>
 
