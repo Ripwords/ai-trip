@@ -156,7 +156,7 @@ onMounted(() => {
             <div
               class="ml-3 flex-1 rounded-md bg-sand-100 px-3 py-1 text-[11px] text-sand-400 font-mono"
             >
-              {{ siteURL.slice(7) }}/trips/tokyo-adventure
+              {{ siteURL.slice(8) }}/trips/tokyo-adventure
             </div>
           </div>
           <!-- Mock app content: Trip detail -->
