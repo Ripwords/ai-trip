@@ -1,6 +1,7 @@
 import { db } from "../db"
 import { visaRequirements } from "../db/schema"
 import { sql } from "drizzle-orm"
+import { countryNameToAlpha2 } from "../utils/country-name-map"
 
 const DATASET_URL =
   "https://raw.githubusercontent.com/ilyankou/passport-index-dataset/master/passport-index-tidy.csv"
@@ -73,10 +74,17 @@ function parseCsv(text: string): VisaRow[] {
     // Skip self-referencing entries
     if (passport === destination) continue
 
+    // Convert country names to alpha-2 codes if needed
+    const passportCode = countryNameToAlpha2(passport) ?? passport
+    const destinationCode = countryNameToAlpha2(destination) ?? destination
+
+    // Skip entries we can't map to alpha-2 codes
+    if (passportCode.length !== 2 || destinationCode.length !== 2) continue
+
     const { visaStatus, maxStayDays } = normalizeStatus(value)
     rows.push({
-      passportCountry: passport,
-      destinationCountry: destination,
+      passportCountry: passportCode,
+      destinationCountry: destinationCode,
       visaStatus,
       maxStayDays,
     })
