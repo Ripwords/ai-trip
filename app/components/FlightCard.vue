@@ -54,6 +54,19 @@ const statusBadge = computed(
     },
 )
 
+// Extract 2-letter IATA airline code from flight number (e.g. "TR" from "TR638")
+const airlineCode = computed(() => {
+  const match = props.flight.flightNumber.match(/^([A-Z]{2})\d/)
+  return match?.[1] ?? null
+})
+
+const airlineLogoUrl = computed(() => {
+  if (!airlineCode.value) return null
+  return `https://airlabs.co/img/airline/m/${airlineCode.value}.png`
+})
+
+const logoError = ref(false)
+
 const arrivalCountry = computed(() => {
   if (!props.flight.arrivalAirport) return null
   return iataToCountry[props.flight.arrivalAirport] ?? null
@@ -84,18 +97,31 @@ function selectTrip(tripId: string | null) {
 </script>
 
 <template>
-  <div
-    class="rounded-2xl border border-sand-200 bg-white p-5 transition hover:shadow-md"
-  >
-    <!-- Header: airline + flight number + status -->
+  <div class="rounded-2xl border border-sand-200 bg-white p-5 transition hover:shadow-md">
+    <!-- Header: airline logo + name + flight number + status -->
     <div class="flex items-start justify-between">
-      <div>
-        <p class="text-sm text-sand-500">
-          {{ flight.airline ?? "Unknown Airline" }}
-        </p>
-        <p class="font-display text-lg text-sand-900">
-          {{ flight.flightNumber }}
-        </p>
+      <div class="flex items-center gap-3">
+        <img
+          v-if="airlineLogoUrl && !logoError"
+          :src="airlineLogoUrl"
+          :alt="flight.airline ?? 'Airline'"
+          class="h-8 w-8 shrink-0 rounded-lg object-contain"
+          @error="logoError = true"
+        />
+        <div
+          v-else
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sand-100 text-xs font-bold text-sand-500"
+        >
+          {{ airlineCode ?? "?" }}
+        </div>
+        <div>
+          <p class="text-sm text-sand-500">
+            {{ flight.airline ?? "Unknown Airline" }}
+          </p>
+          <p class="font-display text-lg text-sand-900">
+            {{ flight.flightNumber }}
+          </p>
+        </div>
       </div>
       <div class="flex items-center gap-2">
         <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="statusBadge.color">
