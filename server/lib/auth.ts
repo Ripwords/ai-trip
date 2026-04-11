@@ -16,10 +16,25 @@ export const auth = betterAuth({
   experimental: {
     joins: true, // Enable database joins for better performance
   },
-  trustedOrigins: [
-    "http://localhost:3000",
-    process.env.NUXT_PUBLIC_BETTER_AUTH_URL || "",
-  ].filter(Boolean),
+  trustedOrigins: (() => {
+    const origins = ["http://localhost:3000"]
+    const baseUrl = process.env.NUXT_PUBLIC_BETTER_AUTH_URL
+    if (baseUrl) {
+      origins.push(baseUrl)
+      // Also trust www/non-www variant to prevent origin mismatch
+      try {
+        const url = new URL(baseUrl)
+        if (url.hostname.startsWith("www.")) {
+          origins.push(baseUrl.replace("www.", ""))
+        } else {
+          origins.push(baseUrl.replace("://", "://www."))
+        }
+      } catch {
+        // Invalid URL, skip
+      }
+    }
+    return origins
+  })(),
   database: drizzleAdapter(db, { provider: "pg" }),
   socialProviders: {
     google: {
