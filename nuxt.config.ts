@@ -108,8 +108,10 @@ export default defineNuxtConfig({
       ],
     },
     workbox: {
-      navigateFallback: "/",
-      globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2}"],
+      // No navigateFallback — this is an SSR app, not SPA.
+      // Navigation requests should go to the server for proper auth redirects.
+      navigateFallback: null,
+      globPatterns: ["**/*.{js,css,png,svg,ico,woff2}"],
       runtimeCaching: [
         {
           urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
