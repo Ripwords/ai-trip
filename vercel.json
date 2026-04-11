@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/import-visa-data",
+      "schedule": "0 3 1 1,7 *"
+    },
+    {
+      "path": "/api/cron/check-passport-expiry",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}
