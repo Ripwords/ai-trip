@@ -275,11 +275,7 @@ function handleTouchEnd(e: TouchEvent) {
 
   // Single-finger tap detection: touch-action:none suppresses click events,
   // so we detect taps here and trigger the country click manually.
-  if (
-    e.touches.length === 0 &&
-    !wasPinching &&
-    e.changedTouches.length === 1
-  ) {
+  if (e.touches.length === 0 && !wasPinching && e.changedTouches.length === 1) {
     const touch = e.changedTouches[0]!
     const dx = Math.abs(touch.clientX - touchStartPos.value.x)
     const dy = Math.abs(touch.clientY - touchStartPos.value.y)
