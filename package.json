@@ -8,7 +8,6 @@
     "dev": "nuxt dev --host",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "node scripts/fix-samlify.js && nuxt prepare",
     "auth:gen": "better-auth generate --config ./server/lib/auth.ts --output ./server/db/schema/auth-schema.ts -y",
     "db:gen": "bun run auth:gen && drizzle-kit generate",
     "db:push": "bun run auth:gen && drizzle-kit push",
