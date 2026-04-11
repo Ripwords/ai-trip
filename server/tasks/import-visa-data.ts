@@ -49,11 +49,13 @@ function parseCsv(text: string): VisaRow[] {
   const cols = header.split(",").map((c) => c.trim())
   const passportIdx = cols.indexOf("Passport")
   const destinationIdx = cols.indexOf("Destination")
-  const valueIdx = cols.indexOf("Value")
+  // Support both old ("Value") and new ("Requirement") header names
+  let valueIdx = cols.indexOf("Value")
+  if (valueIdx === -1) valueIdx = cols.indexOf("Requirement")
 
   if (passportIdx === -1 || destinationIdx === -1 || valueIdx === -1) {
     throw new Error(
-      `Unexpected CSV headers: ${cols.join(", ")}. Expected: Passport, Destination, Value`,
+      `Unexpected CSV headers: ${cols.join(", ")}. Expected: Passport, Destination, Value/Requirement`,
     )
   }
 
