@@ -41,10 +41,6 @@ export default defineNuxtConfig({
     "@nuxtjs/seo",
   ],
   vite: {
-    define: {
-      // Show detailed hydration mismatch info in production builds
-      __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: true,
-    },
     plugins: [tailwindcss()],
     optimizeDeps: {
       include: [
