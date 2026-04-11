@@ -5,16 +5,16 @@
  */
 const DATASET_NAME_OVERRIDES: Record<string, string> = {
   "Cape Verde": "CV",
-  "Congo": "CG",
+  Congo: "CG",
   "DR Congo": "CD",
   "Ivory Coast": "CI",
-  "Kosovo": "XK",
-  "Macao": "MO",
+  Kosovo: "XK",
+  Macao: "MO",
   "North Korea": "KP",
   "Sao Tome and Principe": "ST",
   "South Korea": "KR",
-  "Swaziland": "SZ",
-  "Vatican": "VA",
+  Swaziland: "SZ",
+  Vatican: "VA",
 }
 
 // Build reverse lookup: name → alpha-2 from the canonical countries list.
