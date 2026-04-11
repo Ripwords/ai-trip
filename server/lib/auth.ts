@@ -20,17 +20,19 @@ export const auth = betterAuth({
     const origins = ["http://localhost:3000"]
     const baseUrl = process.env.NUXT_PUBLIC_BETTER_AUTH_URL
     if (baseUrl) {
-      origins.push(baseUrl)
-      // Also trust www/non-www variant to prevent origin mismatch
+      // Normalize: use URL.origin to strip trailing slashes and paths
       try {
         const url = new URL(baseUrl)
+        const origin = url.origin // e.g. "https://plantrip.my"
+        origins.push(origin)
+        // Also trust www/non-www variant
         if (url.hostname.startsWith("www.")) {
-          origins.push(baseUrl.replace("www.", ""))
+          origins.push(origin.replace("://www.", "://"))
         } else {
-          origins.push(baseUrl.replace("://", "://www."))
+          origins.push(origin.replace("://", "://www."))
         }
       } catch {
-        // Invalid URL, skip
+        origins.push(baseUrl)
       }
     }
     return origins

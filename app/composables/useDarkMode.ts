@@ -5,11 +5,9 @@ const COOKIE_NAME = "theme-mode"
 let mediaQuery: MediaQueryList | null = null
 
 export function useDarkMode() {
-  // Use cookie instead of localStorage so the server can read the preference
-  // and render the correct theme — eliminates SSR hydration mismatch
   const mode = useCookie<ThemeMode>(COOKIE_NAME, {
     default: () => "system",
-    maxAge: 60 * 60 * 24 * 365, // 1 year
+    maxAge: 60 * 60 * 24 * 365,
     path: "/",
     sameSite: "lax",
   })
@@ -22,47 +20,43 @@ export function useDarkMode() {
     return false
   })
 
-  // Apply the dark class to <html> via useHead so it works in SSR
-  useHead({
-    htmlAttrs: {
-      class: computed(() => (isDark.value ? "dark" : "")),
-    },
-  })
-
   if (import.meta.client && !mediaQuery) {
     mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
     mediaQuery.addEventListener("change", () => {
-      // Force reactivity update when system preference changes
+      // Trigger reactivity for system mode by toggling the cookie
       if (mode.value === "system") {
-        // Toggle to trigger recomputation
-        const current = mode.value
         mode.value = "light"
         nextTick(() => {
-          mode.value = current
+          mode.value = "system"
         })
       }
     })
 
     // Migrate from localStorage to cookie (one-time)
     const saved = localStorage.getItem("theme-mode") as ThemeMode | null
-    if (
-      saved &&
-      ["light", "dark", "system"].includes(saved) &&
-      !document.cookie.includes(COOKIE_NAME)
-    ) {
+    if (saved && ["light", "dark", "system"].includes(saved)) {
       mode.value = saved
       localStorage.removeItem("theme-mode")
     }
   }
 
+  // Apply dark class to <html> on client — direct DOM manipulation avoids
+  // hydration issues from multiple useHead calls across components
+  if (import.meta.client) {
+    watch(
+      isDark,
+      (dark) => {
+        document.documentElement.classList.add("transitioning")
+        document.documentElement.classList.toggle("dark", dark)
+        setTimeout(() => {
+          document.documentElement.classList.remove("transitioning")
+        }, 300)
+      },
+      { immediate: true },
+    )
+  }
+
   function setMode(newMode: ThemeMode) {
-    // Add transitioning class for smooth color change
-    if (import.meta.client) {
-      document.documentElement.classList.add("transitioning")
-      setTimeout(() => {
-        document.documentElement.classList.remove("transitioning")
-      }, 300)
-    }
     mode.value = newMode
   }
 
