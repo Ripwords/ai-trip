@@ -14,7 +14,6 @@ const { data: passports, refresh } = await useFetch<Passport[]>("/api/user/passp
 
 // Add form state
 const newCountryCode = ref("")
-const newLabel = ref("")
 const newPassportNumber = ref("")
 const newExpiryDate = ref("")
 const adding = ref(false)
@@ -23,7 +22,6 @@ const adding = ref(false)
 const editingId = ref<string | null>(null)
 const editPassportNumber = ref("")
 const editExpiryDate = ref("")
-const editLabel = ref("")
 
 // Visibility toggle for passport numbers
 const visibleNumbers = ref<Set<string>>(new Set())
@@ -55,7 +53,6 @@ function startEditing(passport: Passport) {
   editingId.value = passport.id
   editPassportNumber.value = passport.passportNumber ?? ""
   editExpiryDate.value = passport.expiryDate ?? ""
-  editLabel.value = passport.label ?? ""
 }
 
 function cancelEditing() {
@@ -66,7 +63,6 @@ async function saveEdit(id: string) {
   await $fetch(`/api/user/passports/${id}`, {
     method: "PATCH",
     body: {
-      label: editLabel.value || null,
       passportNumber: editPassportNumber.value || null,
       expiryDate: editExpiryDate.value || null,
     },
@@ -83,13 +79,11 @@ async function addPassport() {
       method: "POST",
       body: {
         countryCode: newCountryCode.value,
-        label: newLabel.value || null,
         passportNumber: newPassportNumber.value || null,
         expiryDate: newExpiryDate.value || null,
       },
     })
     newCountryCode.value = ""
-    newLabel.value = ""
     newPassportNumber.value = ""
     newExpiryDate.value = ""
     await refresh()
@@ -155,9 +149,6 @@ function isExpiringSoon(date: string): boolean {
                   {{ countryName(passport.countryCode) }}
                 </span>
                 <span class="text-xs text-sand-400">{{ passport.countryCode }}</span>
-                <span v-if="passport.label" class="text-xs text-sand-500">
-                  ({{ passport.label }})
-                </span>
               </div>
               <div class="mt-1.5 flex flex-wrap items-center gap-3 text-xs">
                 <span v-if="passport.passportNumber" class="flex items-center gap-1 text-sand-600">
@@ -182,9 +173,7 @@ function isExpiringSoon(date: string): boolean {
                 <span
                   v-if="passport.expiryDate"
                   class="flex items-center gap-1"
-                  :class="
-                    isExpiringSoon(passport.expiryDate) ? 'text-red-600' : 'text-sand-500'
-                  "
+                  :class="isExpiringSoon(passport.expiryDate) ? 'text-red-600' : 'text-sand-500'"
                 >
                   <Icon name="lucide:calendar" class="h-3 w-3" />
                   Exp {{ formatExpiryDate(passport.expiryDate) }}
@@ -237,13 +226,7 @@ function isExpiringSoon(date: string): boolean {
               </span>
               <span class="text-xs text-sand-400">{{ passport.countryCode }}</span>
             </div>
-            <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <input
-                v-model="editLabel"
-                type="text"
-                placeholder="Label (optional)"
-                class="rounded-lg border border-sand-200 bg-sand-50 px-3 py-1.5 text-sm text-sand-900 placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
-              />
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <input
                 v-model="editPassportNumber"
                 type="text"
@@ -290,15 +273,9 @@ function isExpiringSoon(date: string): boolean {
           </option>
         </select>
         <input
-          v-model="newLabel"
-          type="text"
-          placeholder="Label (optional)"
-          class="rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
-        />
-        <input
           v-model="newPassportNumber"
           type="text"
-          placeholder="Passport number (encrypted)"
+          placeholder="Passport number"
           class="rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm font-mono text-sand-900 placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
         />
         <input
