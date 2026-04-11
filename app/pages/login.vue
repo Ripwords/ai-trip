@@ -14,10 +14,7 @@ useSchemaOrg([
   }),
 ])
 
-const { data: session } = await authClient.useSession(useFetch)
-if (session.value?.user) {
-  navigateTo("/dashboard")
-}
+// Auth redirect for logged-in users is handled by auth.global.ts middleware
 
 const loading = ref(false)
 const error = ref("")

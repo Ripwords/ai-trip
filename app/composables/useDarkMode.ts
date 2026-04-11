@@ -12,23 +12,16 @@ export function useDarkMode() {
     sameSite: "lax",
   })
 
-  const isDark = computed(() => {
-    if (mode.value === "dark") return true
-    if (mode.value === "light") return false
-    // "system" — check media query on client, default to false on server
-    if (import.meta.client && mediaQuery) return mediaQuery.matches
-    return false
-  })
+  // Shared state from the dark-mode plugin — useHead reads this
+  const isDark = useState("dark-mode", () => false)
 
   if (import.meta.client && !mediaQuery) {
     mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
+
+    // Update isDark when system preference changes
     mediaQuery.addEventListener("change", () => {
-      // Trigger reactivity for system mode by toggling the cookie
       if (mode.value === "system") {
-        mode.value = "light"
-        nextTick(() => {
-          mode.value = "system"
-        })
+        isDark.value = mediaQuery!.matches
       }
     })
 
@@ -38,25 +31,30 @@ export function useDarkMode() {
       mode.value = saved
       localStorage.removeItem("theme-mode")
     }
+
+    // Apply system preference now (post-hydration for "system" mode users)
+    if (mode.value === "system" && mediaQuery.matches) {
+      isDark.value = true
+    }
   }
 
-  // Apply dark class to <html> on client — direct DOM manipulation avoids
-  // hydration issues from multiple useHead calls across components
-  if (import.meta.client) {
-    watch(
-      isDark,
-      (dark) => {
-        document.documentElement.classList.add("transitioning")
-        document.documentElement.classList.toggle("dark", dark)
-        setTimeout(() => {
-          document.documentElement.classList.remove("transitioning")
-        }, 300)
-      },
-      { immediate: true },
-    )
-  }
+  // Keep isDark in sync when mode changes (e.g. user toggles theme)
+  watch(mode, (newMode) => {
+    if (newMode === "dark") isDark.value = true
+    else if (newMode === "light") isDark.value = false
+    else if (newMode === "system" && import.meta.client) {
+      isDark.value = mediaQuery?.matches ?? false
+    }
+  })
 
   function setMode(newMode: ThemeMode) {
+    // Smooth transition
+    if (import.meta.client) {
+      document.documentElement.classList.add("transitioning")
+      setTimeout(() => {
+        document.documentElement.classList.remove("transitioning")
+      }, 300)
+    }
     mode.value = newMode
   }
 
