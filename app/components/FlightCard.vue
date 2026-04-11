@@ -54,18 +54,35 @@ const statusBadge = computed(
     },
 )
 
-// Extract 2-letter IATA airline code from flight number (e.g. "TR" from "TR638")
+// Extract IATA airline code from flight number (e.g. "TR" from "TR638", "D7" from "D7523")
+// IATA codes: 2 letters, letter+digit, or digit+letter
 const airlineCode = computed(() => {
-  const match = props.flight.flightNumber.match(/^([A-Z]{2})\d/)
-  return match?.[1] ?? null
+  const match = props.flight.flightNumber.match(/^([A-Z\d]{2})\d/i)
+  return match?.[1]?.toUpperCase() ?? null
 })
+
+// Try primary source first, fall back to secondary
+const primaryLogoFailed = ref(false)
+const secondaryLogoFailed = ref(false)
 
 const airlineLogoUrl = computed(() => {
   if (!airlineCode.value) return null
-  return `https://airlabs.co/img/airline/m/${airlineCode.value}.png`
+  if (!primaryLogoFailed.value) {
+    return `https://airlabs.co/img/airline/m/${airlineCode.value}.png`
+  }
+  if (!secondaryLogoFailed.value) {
+    return `https://pics.avs.io/60/60/${airlineCode.value}.png`
+  }
+  return null
 })
 
-const logoError = ref(false)
+function onLogoError() {
+  if (!primaryLogoFailed.value) {
+    primaryLogoFailed.value = true
+  } else {
+    secondaryLogoFailed.value = true
+  }
+}
 
 const arrivalCountry = computed(() => {
   if (!props.flight.arrivalAirport) return null
@@ -106,17 +123,18 @@ function unlinkTrip() {
     <div class="flex items-start justify-between">
       <div class="flex items-center gap-3">
         <img
-          v-if="airlineLogoUrl && !logoError"
+          v-if="airlineLogoUrl"
+          :key="airlineLogoUrl"
           :src="airlineLogoUrl"
           :alt="flight.airline ?? 'Airline'"
           class="h-8 w-8 shrink-0 rounded-lg object-contain"
-          @error="logoError = true"
+          @error="onLogoError"
         />
         <div
           v-else
-          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sand-100 text-xs font-bold text-sand-500"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sand-100"
         >
-          {{ airlineCode ?? "?" }}
+          <Icon name="lucide:plane" class="h-4 w-4 text-sand-400" />
         </div>
         <div>
           <p class="text-sm text-sand-500">
