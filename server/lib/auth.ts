@@ -16,7 +16,10 @@ export const auth = betterAuth({
   experimental: {
     joins: true, // Enable database joins for better performance
   },
-  trustedOrigins: ["http://localhost:3000", process.env.NUXT_PUBLIC_BETTER_AUTH_URL || ""],
+  trustedOrigins: [
+    "http://localhost:3000",
+    process.env.NUXT_PUBLIC_BETTER_AUTH_URL || "",
+  ].filter(Boolean),
   database: drizzleAdapter(db, { provider: "pg" }),
   socialProviders: {
     google: {

@@ -20,13 +20,7 @@ export default defineNuxtConfig({
         { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
         { rel: "apple-touch-icon", href: "/apple-touch-icon-180x180.png" },
       ],
-      script: [
-        {
-          // Prevent flash of wrong theme — runs before any rendering
-          innerHTML: `(function(){try{var m=localStorage.getItem('theme-mode');if(m==='dark'||(m!=='light'&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')}catch(e){}})()`,
-          type: "text/javascript",
-        },
-      ],
+      script: [],
     },
   },
   compatibilityDate: "2025-07-15",
@@ -223,6 +217,7 @@ export default defineNuxtConfig({
     "/api/auth/**": {
       security: {
         rateLimiter: { tokensPerInterval: 30, interval: 60000 },
+        xssValidator: false,
       },
     },
     "/api/visa/check": {
