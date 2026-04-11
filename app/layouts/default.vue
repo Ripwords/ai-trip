@@ -24,22 +24,12 @@ const { cycle, modeIcon, modeLabel } = useDarkMode()
               <Icon :name="modeIcon" class="h-4 w-4" />
             </button>
           </ClientOnly>
-          <ClientOnly>
-            <NuxtLink
-              :to="isLoggedIn ? '/dashboard' : '/login'"
-              class="rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-terra-600 hover:shadow-md"
-            >
-              {{ isLoggedIn ? "Dashboard" : "Sign in" }}
-            </NuxtLink>
-            <template #fallback>
-              <NuxtLink
-                to="/login"
-                class="rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-terra-600 hover:shadow-md"
-              >
-                Sign in
-              </NuxtLink>
-            </template>
-          </ClientOnly>
+          <NuxtLink
+            :to="isLoggedIn ? '/dashboard' : '/login'"
+            class="rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-terra-600 hover:shadow-md"
+          >
+            {{ isLoggedIn ? "Dashboard" : "Sign in" }}
+          </NuxtLink>
         </div>
       </nav>
     </header>

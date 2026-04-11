@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { authClient } from "../lib/auth-client"
-
 useSeoMeta({
   title: "Plan Your Trip with AI",
   description:
@@ -23,16 +21,8 @@ useSchemaOrg([
   }),
 ])
 
-const isLoggedIn = ref(false)
-
-onMounted(async () => {
-  try {
-    const { data } = await authClient.useSession(useFetch)
-    isLoggedIn.value = !!data.value?.user
-  } catch {
-    // Not logged in
-  }
-})
+// Authenticated users are redirected to /dashboard by auth middleware,
+// so anyone seeing this page is a guest.
 
 // Intersection observer for scroll-triggered animations
 const visibleSections = reactive(new Set<number>())
@@ -111,11 +101,11 @@ onMounted(() => {
         <!-- CTA -->
         <div class="mt-10 flex items-center gap-4">
           <NuxtLink
-            :to="isLoggedIn ? '/dashboard' : '/login'"
+            to="/login"
             class="group relative overflow-hidden rounded-xl bg-terra-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all hover:bg-terra-600 hover:shadow-xl hover:shadow-terra-500/30"
           >
             <span class="relative z-10">{{
-              isLoggedIn ? "Go to Dashboard" : "Get started free"
+              "Get started free"
             }}</span>
           </NuxtLink>
         </div>
@@ -1194,11 +1184,11 @@ onMounted(() => {
           Join travelers who plan smarter with AI-powered itineraries and real, verified places.
         </p>
         <NuxtLink
-          :to="isLoggedIn ? '/dashboard' : '/login'"
+          to="/login"
           class="mt-8 inline-flex items-center gap-2 rounded-xl bg-terra-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all hover:bg-terra-600 hover:shadow-xl hover:shadow-terra-500/30"
         >
           <Icon name="lucide:sparkles" class="h-4 w-4" />
-          {{ isLoggedIn ? "Go to Dashboard" : "Get started free" }}
+          {{ "Get started free" }}
         </NuxtLink>
       </div>
     </section>

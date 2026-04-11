@@ -285,10 +285,6 @@ function handleSetType(type: VisitType) {
     leave-from-class="opacity-100"
     leave-to-class="opacity-0"
   >
-    <div
-      v-if="country"
-      class="fixed inset-0 z-40 bg-black/20 sm:hidden"
-      @click="emit('close')"
-    />
+    <div v-if="country" class="fixed inset-0 z-40 bg-black/20 sm:hidden" @click="emit('close')" />
   </Transition>
 </template>
