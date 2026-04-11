@@ -7,21 +7,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (!needsAuth && !guestOnly) return
 
-  // Use $fetch with manually forwarded cookies for SSR compatibility.
-  // authClient.useSession(useFetch) doesn't reliably detect sessions
-  // on the server during middleware, causing the server to render the
-  // wrong layout (landing page instead of dashboard).
+  // useRequestFetch returns a $fetch that auto-forwards cookies/headers
+  // during SSR — unlike authClient.useSession(useFetch) which fails to
+  // detect sessions on the server during middleware.
   let isAuthenticated = false
   try {
-    const headers: Record<string, string> = {}
-    if (import.meta.server) {
-      const event = useRequestEvent()
-      const cookie = event?.node.req.headers.cookie
-      if (cookie) headers.cookie = cookie
-    }
-    const session = await $fetch<{ user?: unknown }>("/api/auth/get-session", {
-      headers,
-    })
+    const fetchWithCookies = useRequestFetch()
+    const session = await fetchWithCookies<{ user?: unknown }>("/api/auth/get-session")
     isAuthenticated = !!session?.user
   } catch {
     // Session fetch failed — treat as unauthenticated
