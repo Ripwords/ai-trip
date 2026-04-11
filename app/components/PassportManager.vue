@@ -231,10 +231,11 @@ function isExpiringSoon(date: string): boolean {
             </div>
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <input
-                v-model="editPassportNumber"
+                :value="editPassportNumber"
                 type="text"
                 placeholder="Passport number"
-                class="rounded-lg border border-sand-200 bg-sand-50 px-3 py-1.5 text-sm font-mono text-sand-900 placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
+                class="rounded-lg border border-sand-200 bg-sand-50 px-3 py-1.5 text-sm font-mono uppercase text-sand-900 placeholder:normal-case placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
+                @input="editPassportNumber = ($event.target as HTMLInputElement).value.toUpperCase()"
               />
               <input
                 v-model="editExpiryDate"
@@ -276,10 +277,11 @@ function isExpiringSoon(date: string): boolean {
           </option>
         </select>
         <input
-          v-model="newPassportNumber"
+          :value="newPassportNumber"
           type="text"
           placeholder="Passport number"
-          class="rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm font-mono text-sand-900 placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
+          class="rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm font-mono uppercase text-sand-900 placeholder:normal-case placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
+          @input="newPassportNumber = ($event.target as HTMLInputElement).value.toUpperCase()"
         />
         <input
           v-model="newExpiryDate"
