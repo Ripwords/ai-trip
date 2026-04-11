@@ -12,9 +12,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: "en" },
-      meta: [
-        { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1" },
-      ],
+      meta: [{ name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1" }],
       link: [
         { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
         { rel: "apple-touch-icon", href: "/apple-touch-icon-180x180.png" },
@@ -232,9 +230,9 @@ export default defineNuxtConfig({
         xssValidator: false,
       },
     },
-    "/api/visa/check": {
+    "/api/visa/**": {
       security: {
-        rateLimiter: { tokensPerInterval: 10, interval: 60000 },
+        rateLimiter: { tokensPerInterval: 120, interval: 60000 },
       },
     },
     "/api/visited-countries/**": {
