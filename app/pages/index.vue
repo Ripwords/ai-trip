@@ -1005,7 +1005,7 @@ onMounted(() => {
                 >
                   <Icon name="lucide:check" class="h-3 w-3" />
                 </span>
-                Share your travel stats with friends
+                Instant visa requirement checks per country
               </li>
             </ul>
           </div>
@@ -1282,7 +1282,7 @@ onMounted(() => {
                 >
                   <Icon name="lucide:check" class="h-3 w-3" />
                 </span>
-                Live flight status with gate and terminal info
+                Flight status with gate and terminal info
               </li>
               <li class="flex items-start gap-3 text-sm text-sand-700">
                 <span

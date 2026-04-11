@@ -13,6 +13,48 @@ function getResend(): Resend {
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "AI Trip <noreply@aitrip.app>"
 
+export async function sendPassportExpiryEmail(params: {
+  to: string
+  userName: string
+  countryName: string
+  expiryDate: string
+  milestone: string // "6 months", "3 months", "1 month"
+  settingsUrl: string
+}) {
+  const expiryFormatted = new Date(params.expiryDate + "T00:00:00").toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  })
+
+  await getResend().emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    subject: `Your ${params.countryName} passport expires in ${params.milestone}`,
+    html: `
+      <div style="font-family: 'DM Sans', system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+        <h2 style="color: #3d3328; font-size: 22px; margin: 0;">Passport Expiry Reminder</h2>
+        <p style="color: #6e5c46; font-size: 15px; line-height: 1.6; margin-top: 12px;">
+          Hi ${params.userName}, your <strong>${params.countryName}</strong> passport expires on
+          <strong>${expiryFormatted}</strong> — that's in about <strong>${params.milestone}</strong>.
+        </p>
+        <p style="color: #6e5c46; font-size: 15px; line-height: 1.6;">
+          Many countries require at least 6 months of passport validity for entry.
+          If you have upcoming trips, consider renewing soon.
+        </p>
+        <a href="${params.settingsUrl}"
+           style="display: inline-block; background: #e85d3a; color: white; text-decoration: none;
+                  padding: 12px 28px; border-radius: 12px; font-size: 14px; font-weight: 600; margin-top: 20px;">
+          View Passport Details
+        </a>
+        <p style="color: #b8a78f; font-size: 12px; margin-top: 24px;">
+          You're receiving this because you saved this passport in AI Trip.
+        </p>
+      </div>
+    `,
+  })
+}
+
 export async function sendTripInviteEmail(params: {
   to: string
   inviterName: string

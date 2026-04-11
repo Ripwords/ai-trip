@@ -14,6 +14,7 @@ export const userPassports = pgTable(
     label: text("label"),
     passportNumber: encryptedText("passport_number"), // AES-256-GCM encrypted
     expiryDate: date("expiry_date"),
+    lastExpiryReminder: text("last_expiry_reminder"), // "6m", "3m", "1m" — tracks which milestone was sent
     isDefault: boolean("is_default").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

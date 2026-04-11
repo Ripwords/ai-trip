@@ -1,0 +1,1 @@
+ALTER TABLE "user_passports" ADD COLUMN "last_expiry_reminder" text;

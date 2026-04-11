@@ -37,6 +37,8 @@ export default defineNuxtConfig({
     scheduledTasks: {
       // Import visa requirements dataset every 6 months (Jan 1 and Jul 1 at 3am)
       "0 3 1 1,7 *": "import-visa-data",
+      // Check passport expiry reminders daily at 9am
+      "0 9 * * *": "check-passport-expiry",
     },
   },
   css: ["~/assets/css/tailwind.css"],
