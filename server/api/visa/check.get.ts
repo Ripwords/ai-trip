@@ -59,7 +59,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Return the most favorable result
-  const best = results.sort(
+  const best = results.toSorted(
     (a, b) =>
       (VISA_STATUS_PRIORITY[a.visaStatus] ?? 99) - (VISA_STATUS_PRIORITY[b.visaStatus] ?? 99),
   )[0]!
