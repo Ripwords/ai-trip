@@ -235,7 +235,9 @@ function isExpiringSoon(date: string): boolean {
                 type="text"
                 placeholder="Passport number"
                 class="rounded-lg border border-sand-200 bg-sand-50 px-3 py-1.5 text-sm font-mono uppercase text-sand-900 placeholder:normal-case placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
-                @input="editPassportNumber = ($event.target as HTMLInputElement).value.toUpperCase()"
+                @input="
+                  editPassportNumber = ($event.target as HTMLInputElement).value.toUpperCase()
+                "
               />
               <input
                 v-model="editExpiryDate"

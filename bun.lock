@@ -55,6 +55,7 @@
     },
   },
   "overrides": {
+    "samlify>camelcase": "6.3.0",
     "vite": "npm:vite@latest",
   },
   "packages": {

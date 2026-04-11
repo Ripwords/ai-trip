@@ -1244,7 +1244,9 @@ onMounted(() => {
                     </div>
                   </div>
                   <div class="flex items-center gap-1">
-                    <span class="font-mono text-xs text-sand-500">&#8226;&#8226;&#8226;&#8226;8695</span>
+                    <span class="font-mono text-xs text-sand-500"
+                      >&#8226;&#8226;&#8226;&#8226;8695</span
+                    >
                     <Icon name="lucide:eye" class="h-3 w-3 text-sand-400" />
                   </div>
                 </div>

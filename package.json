@@ -73,7 +73,7 @@
     "oxlint": "^1.59.0"
   },
   "overrides": {
-    "vite": "npm:vite@latest",
-    "samlify>camelcase": "6.3.0"
+    "samlify>camelcase": "6.3.0",
+    "vite": "npm:vite@latest"
   }
 }
