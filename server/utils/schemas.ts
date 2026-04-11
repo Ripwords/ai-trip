@@ -257,3 +257,35 @@ export const documentIdParamsSchema = z.object({
   id: z.string().uuid(),
   documentId: z.string().uuid(),
 })
+
+// Passports
+export const createPassportSchema = z.object({
+  countryCode: z.string().length(2).toUpperCase(),
+  label: z.string().max(100).nullish(),
+  isDefault: z.boolean().optional(),
+})
+
+export const updatePassportSchema = z.object({
+  label: z.string().max(100).nullish(),
+  isDefault: z.boolean().optional(),
+})
+
+// Flights
+export const createFlightSchema = z.object({
+  flightNumber: z
+    .string()
+    .min(3)
+    .max(10)
+    .transform((v) => v.toUpperCase().replace(/\s/g, "")),
+  flightDate: z.string().date(),
+  tripId: z.string().uuid().nullish(),
+})
+
+export const updateFlightSchema = z.object({
+  tripId: z.string().uuid().nullish(),
+})
+
+// Visa check (new GET-based)
+export const visaCheckQuerySchema = z.object({
+  destination: z.string().length(2).toUpperCase(),
+})
