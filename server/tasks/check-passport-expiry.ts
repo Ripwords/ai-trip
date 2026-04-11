@@ -83,7 +83,6 @@ export default defineTask({
           userName: userData.name ?? "Traveler",
           countryName: countryName(passport.countryCode),
           expiryDate: passport.expiryDate,
-          milestone: currentMilestone.label,
           settingsUrl,
         })
 

@@ -13,12 +13,27 @@ function getResend(): Resend {
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "AI Trip <noreply@aitrip.app>"
 
+function formatTimeUntil(expiryDate: string): string {
+  const now = new Date()
+  const expiry = new Date(expiryDate + "T00:00:00")
+  const diffMs = expiry.getTime() - now.getTime()
+  const totalDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+
+  if (totalDays <= 0) return "already expired"
+
+  const months = Math.floor(totalDays / 30)
+  const days = totalDays % 30
+
+  if (months === 0) return `${days} day${days !== 1 ? "s" : ""}`
+  if (days === 0) return `${months} month${months !== 1 ? "s" : ""}`
+  return `${months} month${months !== 1 ? "s" : ""} and ${days} day${days !== 1 ? "s" : ""}`
+}
+
 export async function sendPassportExpiryEmail(params: {
   to: string
   userName: string
   countryName: string
   expiryDate: string
-  milestone: string // "6 months", "3 months", "1 month"
   settingsUrl: string
 }) {
   const expiryFormatted = new Date(params.expiryDate + "T00:00:00").toLocaleDateString("en-US", {
@@ -26,17 +41,18 @@ export async function sendPassportExpiryEmail(params: {
     day: "numeric",
     year: "numeric",
   })
+  const timeUntil = formatTimeUntil(params.expiryDate)
 
   await getResend().emails.send({
     from: FROM_EMAIL,
     to: params.to,
-    subject: `Your ${params.countryName} passport expires in ${params.milestone}`,
+    subject: `Your ${params.countryName} passport expires in ${timeUntil}`,
     html: `
       <div style="font-family: 'DM Sans', system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
         <h2 style="color: #3d3328; font-size: 22px; margin: 0;">Passport Expiry Reminder</h2>
         <p style="color: #6e5c46; font-size: 15px; line-height: 1.6; margin-top: 12px;">
           Hi ${params.userName}, your <strong>${params.countryName}</strong> passport expires on
-          <strong>${expiryFormatted}</strong> — that's in about <strong>${params.milestone}</strong>.
+          <strong>${expiryFormatted}</strong> — that's in <strong>${timeUntil}</strong>.
         </p>
         <p style="color: #6e5c46; font-size: 15px; line-height: 1.6;">
           Many countries require at least 6 months of passport validity for entry.
