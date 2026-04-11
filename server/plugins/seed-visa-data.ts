@@ -1,12 +1,11 @@
 import { db } from "../db"
-import { visaRequirements } from "../db/schema"
 
 /**
  * On server startup, check if the visa_requirements table is empty.
  * If so, run the import task to seed it. This handles first deployment
  * without needing a manual import step.
  */
-export default defineNitroPlugin(async (nitroApp) => {
+export default defineNitroPlugin(async () => {
   try {
     const existing = await db.query.visaRequirements.findFirst()
     if (existing) return // Already seeded, skip
