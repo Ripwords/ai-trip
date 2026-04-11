@@ -19,7 +19,7 @@ interface Flight {
 
 const props = defineProps<{
   flight: Flight
-  trips?: { id: string; destination: string }[]
+  showLinkToTrip?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -88,11 +88,15 @@ function formatDate(dateStr: string): string {
   })
 }
 
-const showTripDropdown = ref(false)
+const showTripPicker = ref(false)
 
-function selectTrip(tripId: string | null) {
+function onTripSelected(tripId: string) {
   emit("linkTrip", props.flight.id, tripId)
-  showTripDropdown.value = false
+  showTripPicker.value = false
+}
+
+function unlinkTrip() {
+  emit("linkTrip", props.flight.id, null)
 }
 </script>
 
@@ -176,33 +180,23 @@ function selectTrip(tripId: string | null) {
           <Icon name="lucide:map-pin" class="h-3 w-3" />
           {{ flight.trip.destination }}
         </NuxtLink>
-        <button class="text-xs text-sand-400 hover:text-sand-600" @click="selectTrip(null)">
+        <button class="text-xs text-sand-400 hover:text-sand-600" @click="unlinkTrip">
           Unlink
         </button>
       </template>
-      <template v-else-if="trips && trips.length > 0">
-        <div class="relative">
-          <button
-            class="inline-flex items-center gap-1 rounded-full border border-dashed border-sand-300 px-2.5 py-1 text-xs text-sand-500 transition hover:border-sand-400 hover:text-sand-700"
-            @click="showTripDropdown = !showTripDropdown"
-          >
-            <Icon name="lucide:link" class="h-3 w-3" />
-            Link to trip
-          </button>
-          <div
-            v-if="showTripDropdown"
-            class="absolute left-0 top-full z-10 mt-1 w-48 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
-          >
-            <button
-              v-for="trip in trips"
-              :key="trip.id"
-              class="block w-full px-3 py-2 text-left text-xs text-sand-700 hover:bg-sand-50"
-              @click="selectTrip(trip.id)"
-            >
-              {{ trip.destination }}
-            </button>
-          </div>
-        </div>
+      <template v-else-if="showLinkToTrip">
+        <button
+          class="inline-flex items-center gap-1 rounded-full border border-dashed border-sand-300 px-2.5 py-1 text-xs text-sand-500 transition hover:border-sand-400 hover:text-sand-700"
+          @click="showTripPicker = true"
+        >
+          <Icon name="lucide:link" class="h-3 w-3" />
+          Link to trip
+        </button>
+        <TripPickerModal
+          :open="showTripPicker"
+          @select="onTripSelected"
+          @close="showTripPicker = false"
+        />
       </template>
     </div>
   </div>

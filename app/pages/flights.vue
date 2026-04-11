@@ -22,10 +22,6 @@ interface Flight {
 }
 
 const { data: flights, refresh } = await useFetch<Flight[]>("/api/flights")
-const { data: trips } = await useFetch<{ id: string; destination: string }[]>("/api/trips", {
-  transform: (data: { id: string; destination: string }[]) =>
-    data.map((t) => ({ id: t.id, destination: t.destination })),
-})
 
 // Add flight form
 const newFlightNumber = ref("")
@@ -98,9 +94,7 @@ const showPast = ref(false)
       @submit.prevent="addFlight"
     >
       <div class="flex-1">
-        <label class="mb-1 block text-xs font-medium text-sand-600">
-          Flight number
-        </label>
+        <label class="mb-1 block text-xs font-medium text-sand-600"> Flight number </label>
         <input
           v-model="newFlightNumber"
           type="text"
@@ -109,9 +103,7 @@ const showPast = ref(false)
         />
       </div>
       <div class="flex-1">
-        <label class="mb-1 block text-xs font-medium text-sand-600">
-          Date
-        </label>
+        <label class="mb-1 block text-xs font-medium text-sand-600"> Date </label>
         <input
           v-model="newFlightDate"
           type="date"
@@ -137,7 +129,7 @@ const showPast = ref(false)
           v-for="flight in upcomingFlights"
           :key="flight.id"
           :flight="flight"
-          :trips="trips ?? []"
+          show-link-to-trip
           @link-trip="linkTrip"
           @delete="deleteFlight"
         />
@@ -150,9 +142,7 @@ const showPast = ref(false)
       class="rounded-2xl border border-dashed border-sand-300 p-12 text-center"
     >
       <Icon name="lucide:plane" class="mx-auto h-10 w-10 text-sand-300" />
-      <p class="mt-3 text-sm text-sand-500">
-        No flights yet. Add a flight above to get started.
-      </p>
+      <p class="mt-3 text-sm text-sand-500">No flights yet. Add a flight above to get started.</p>
     </div>
 
     <!-- Past flights (collapsed) -->
@@ -169,7 +159,7 @@ const showPast = ref(false)
           v-for="flight in pastFlights"
           :key="flight.id"
           :flight="flight"
-          :trips="trips ?? []"
+          show-link-to-trip
           @link-trip="linkTrip"
           @delete="deleteFlight"
         />
