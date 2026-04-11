@@ -8,8 +8,12 @@ const showUserMenu = ref(false)
 const menuRef = ref<HTMLElement | null>(null)
 
 async function logout() {
-  await authClient.signOut()
-  navigateTo("/login")
+  try {
+    await authClient.signOut()
+  } catch {
+    // Sign-out may fail if session already expired — redirect anyway
+  }
+  await navigateTo("/login", { external: true })
 }
 
 // Close on click outside
