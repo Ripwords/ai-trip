@@ -128,6 +128,12 @@ onMounted(() => {
             <Icon name="lucide:heart" class="h-3.5 w-3.5 text-terra-500" />
             Local favorites first
           </div>
+          <div
+            class="flex items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-xs font-medium text-sand-700 backdrop-blur-sm border border-sand-200/60"
+          >
+            <Icon name="lucide:plane" class="h-3.5 w-3.5 text-terra-500" />
+            Flight tracking
+          </div>
         </div>
       </div>
 
@@ -1161,6 +1167,138 @@ onMounted(() => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Feature 6: Flight Tracking & Visa -->
+    <section data-section="5" class="relative overflow-hidden bg-sand-100/50 py-24 sm:py-32">
+      <div class="mx-auto max-w-7xl px-6">
+        <div class="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
+          <!-- Mock: Flight card + visa badge -->
+          <div
+            class="order-2 lg:order-1 transition-all duration-700 delay-200"
+            :class="
+              visibleSections.has(5) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+            "
+          >
+            <div class="space-y-3">
+              <!-- Mock flight card -->
+              <div
+                class="rounded-2xl border border-sand-200/80 bg-white p-5 shadow-lg shadow-sand-900/5"
+              >
+                <div class="flex items-center gap-3">
+                  <div
+                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sand-100"
+                  >
+                    <Icon name="lucide:plane" class="h-5 w-5 text-sand-500" />
+                  </div>
+                  <div>
+                    <p class="text-xs text-sand-500">Singapore Airlines</p>
+                    <p class="font-display text-lg text-sand-900">SQ638</p>
+                  </div>
+                  <span
+                    class="ml-auto rounded-full bg-forest-50 px-2.5 py-0.5 text-xs font-medium text-forest-700"
+                    >On Time</span
+                  >
+                </div>
+                <div class="mt-4 flex items-center gap-3">
+                  <div class="text-center">
+                    <p class="font-display text-xl text-sand-900">SIN</p>
+                    <p class="text-xs text-sand-500">08:15</p>
+                  </div>
+                  <div class="flex flex-1 items-center">
+                    <div class="h-px flex-1 bg-sand-200" />
+                    <Icon name="lucide:plane" class="mx-2 h-4 w-4 text-sand-400" />
+                    <div class="h-px flex-1 bg-sand-200" />
+                  </div>
+                  <div class="text-center">
+                    <p class="font-display text-xl text-sand-900">NRT</p>
+                    <p class="text-xs text-sand-500">16:30</p>
+                  </div>
+                </div>
+                <div class="mt-3 flex items-center gap-2 text-xs text-sand-500">
+                  <span>Wed, Apr 15</span>
+                  <span>&#183; Terminal 3</span>
+                  <span>&#183; Gate C22</span>
+                  <span
+                    class="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700"
+                  >
+                    <Icon name="lucide:check-circle" class="h-2.5 w-2.5" />
+                    Visa Free (30d)
+                  </span>
+                </div>
+              </div>
+
+              <!-- Mock passport card -->
+              <div
+                class="rounded-2xl border border-sand-200/80 bg-white p-5 shadow-lg shadow-sand-900/5"
+              >
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <Icon name="lucide:book-open" class="h-5 w-5 text-terra-500" />
+                    <div>
+                      <p class="text-sm font-medium text-sand-900">Malaysia</p>
+                      <p class="text-xs text-sand-500">MY &#183; Exp Jul 2027</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <span class="font-mono text-xs text-sand-500">&#8226;&#8226;&#8226;&#8226;8695</span>
+                    <Icon name="lucide:eye" class="h-3 w-3 text-sand-400" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Text -->
+          <div
+            class="order-1 lg:order-2 transition-all duration-700"
+            :class="
+              visibleSections.has(5) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+            "
+          >
+            <div
+              class="inline-flex items-center gap-2 rounded-full bg-ocean-50 px-3 py-1 text-xs font-medium text-ocean-700"
+            >
+              <Icon name="lucide:plane" class="h-3.5 w-3.5" />
+              Flight Tracking
+            </div>
+            <h2 class="mt-4 font-display text-3xl text-sand-900 sm:text-4xl lg:text-5xl">
+              Track flights.
+              <span class="text-gradient">Check visas instantly.</span>
+            </h2>
+            <p class="mt-4 max-w-md text-base leading-relaxed text-sand-600">
+              Add your flight numbers to see live gate info, terminal details, and delay updates.
+              Visa requirements are checked automatically based on your passport.
+            </p>
+            <ul class="mt-6 space-y-3">
+              <li class="flex items-start gap-3 text-sm text-sand-700">
+                <span
+                  class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest-100 text-forest-600"
+                >
+                  <Icon name="lucide:check" class="h-3 w-3" />
+                </span>
+                Live flight status with gate and terminal info
+              </li>
+              <li class="flex items-start gap-3 text-sm text-sand-700">
+                <span
+                  class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest-100 text-forest-600"
+                >
+                  <Icon name="lucide:check" class="h-3 w-3" />
+                </span>
+                Automatic visa checks for 199 countries
+              </li>
+              <li class="flex items-start gap-3 text-sm text-sand-700">
+                <span
+                  class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest-100 text-forest-600"
+                >
+                  <Icon name="lucide:check" class="h-3 w-3" />
+                </span>
+                Encrypted passport storage with expiry alerts
+              </li>
+            </ul>
           </div>
         </div>
       </div>
