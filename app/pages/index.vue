@@ -104,9 +104,7 @@ onMounted(() => {
             to="/login"
             class="group relative overflow-hidden rounded-xl bg-terra-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all hover:bg-terra-600 hover:shadow-xl hover:shadow-terra-500/30"
           >
-            <span class="relative z-10">{{
-              "Get started free"
-            }}</span>
+            <span class="relative z-10">{{ "Get started free" }}</span>
           </NuxtLink>
         </div>
 
