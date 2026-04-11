@@ -27,6 +27,6 @@ export default defineEventHandler(async (event) => {
 
   return db.query.flights.findMany({
     where: eq(flights.tripId, id),
-    orderBy: (f, { asc }) => [asc(f.flightDate)],
+    orderBy: (f, { asc }) => [asc(f.flightDate), asc(f.departureTime)],
   })
 })
