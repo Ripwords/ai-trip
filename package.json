@@ -13,6 +13,7 @@
     "db:gen": "bun run auth:gen && drizzle-kit generate",
     "db:push": "bun run auth:gen && drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
+    "db:seed-test": "tsx server/db/seed-test-data.ts",
     "docker:dev": "docker compose -f docker/docker-compose.dev.yml up -d",
     "pwa:assets": "pwa-assets-generator --preset minimal-2023 public/image.png",
     "lint": "oxlint",
@@ -25,7 +26,7 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.52",
-    "@better-auth/infra": "^0.1.13",
+    "@better-auth/infra": "^0.2.0",
     "@googlemaps/js-api-loader": "^2.0.2",
     "@googlemaps/markerclusterer": "^2.6.2",
     "@mastra/core": "^1.15.0",

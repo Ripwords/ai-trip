@@ -127,6 +127,20 @@
       "when": 1775838135261,
       "tag": "0017_fuzzy_molly_hayes",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1775878900502,
+      "tag": "0018_wet_black_widow",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1775878912978,
+      "tag": "0019_whole_roland_deschain",
+      "breakpoints": true
     }
   ]
 }

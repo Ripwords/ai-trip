@@ -30,7 +30,16 @@ export default defineNuxtConfig({
   experimental: {
     nitroAutoImports: true,
   },
-  css: ["./app/assets/css/tailwind.css"],
+  nitro: {
+    experimental: {
+      tasks: true,
+    },
+    scheduledTasks: {
+      // Import visa requirements dataset every 6 months (Jan 1 and Jul 1 at 3am)
+      "0 3 1 1,7 *": "import-visa-data",
+    },
+  },
+  css: ["~/assets/css/tailwind.css"],
   devtools: { enabled: true },
   modules: [
     "@nuxt/icon",

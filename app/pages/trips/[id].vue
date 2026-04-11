@@ -46,6 +46,10 @@ const { data: aiUsage, refresh: refreshUsage } = await useFetch<{
   remaining: number
 }>("/api/ai/usage")
 
+const { data: tripFlights, refresh: refreshFlights } = await useFetch(
+  `/api/trips/${tripId}/flights`,
+)
+
 const { data: tripMembers } = await useFetch<
   {
     userId: string
@@ -157,6 +161,7 @@ type TabValue =
   | "reservations"
   | "documents"
   | "team"
+  | "flights"
 const validTabs: TabValue[] = [
   "overview",
   "itinerary",
@@ -165,6 +170,7 @@ const validTabs: TabValue[] = [
   "reservations",
   "documents",
   "team",
+  "flights",
 ]
 const activeTab = ref<TabValue>("overview")
 
@@ -244,6 +250,46 @@ async function updateTripField(field: string, value: string) {
 }
 
 const { confirm } = useConfirm()
+
+// Trip flights
+const tripFlightNumber = ref("")
+const tripFlightDate = ref("")
+const addingTripFlight = ref(false)
+
+async function addTripFlight() {
+  if (!tripFlightNumber.value || !tripFlightDate.value) return
+  addingTripFlight.value = true
+  try {
+    await $fetch("/api/flights", {
+      method: "POST",
+      body: {
+        flightNumber: tripFlightNumber.value,
+        flightDate: tripFlightDate.value,
+        tripId: tripId,
+      },
+    })
+    tripFlightNumber.value = ""
+    tripFlightDate.value = ""
+    await refreshFlights()
+  } catch (e: unknown) {
+    console.error("Failed to add flight:", e)
+  } finally {
+    addingTripFlight.value = false
+  }
+}
+
+async function deleteTripFlight(flightId: string) {
+  const ok = await confirm({
+    title: "Delete flight",
+    message: "Are you sure you want to delete this flight?",
+    confirmText: "Delete",
+    destructive: true,
+  })
+  if (!ok) return
+  await $fetch(`/api/flights/${flightId}`, { method: "DELETE" })
+  await refreshFlights()
+}
+
 const currencyConverting = ref(false)
 
 async function handleCurrencyChange(newCurrency: string) {
@@ -1174,6 +1220,57 @@ async function recomputeSegments(dayId: string) {
           @changed="logRefreshKey++"
         />
         <TripActivityLog :key="logRefreshKey" :trip-id="tripId" />
+      </div>
+
+      <!-- Flights tab -->
+      <div v-else-if="activeTab === 'flights'" class="mt-8 max-w-3xl space-y-4">
+        <h2 class="font-display text-lg text-sand-900">Flights</h2>
+
+        <!-- Add flight form (auto-links to this trip) -->
+        <form
+          class="flex flex-col gap-3 rounded-2xl border border-sand-200 bg-white p-5 sm:flex-row sm:items-end"
+          @submit.prevent="addTripFlight"
+        >
+          <div class="flex-1">
+            <label class="mb-1 block text-xs font-medium text-sand-600">Flight number</label>
+            <input
+              v-model="tripFlightNumber"
+              type="text"
+              placeholder="e.g. SQ638"
+              class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
+            />
+          </div>
+          <div class="flex-1">
+            <label class="mb-1 block text-xs font-medium text-sand-600">Date</label>
+            <input
+              v-model="tripFlightDate"
+              type="date"
+              class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
+            />
+          </div>
+          <button
+            type="submit"
+            :disabled="addingTripFlight || !tripFlightNumber || !tripFlightDate"
+            class="rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white transition hover:bg-terra-600 disabled:opacity-50"
+          >
+            {{ addingTripFlight ? "Adding..." : "Add Flight" }}
+          </button>
+        </form>
+
+        <div v-if="tripFlights?.length" class="space-y-3">
+          <FlightCard
+            v-for="flight in tripFlights"
+            :key="(flight as Record<string, unknown>).id as string"
+            :flight="flight"
+            @delete="deleteTripFlight"
+          />
+        </div>
+        <div v-else class="rounded-2xl border border-dashed border-sand-300 p-8 text-center">
+          <Icon name="lucide:plane" class="mx-auto h-8 w-8 text-sand-300" />
+          <p class="mt-2 text-sm text-sand-500">
+            No flights yet. Add a flight above to track it with this trip.
+          </p>
+        </div>
       </div>
     </div>
 

@@ -13,18 +13,6 @@ const { data: aiUsage } = await useFetch<{
   remaining: number
 }>("/api/ai/usage")
 
-const { nationality, save: saveNationality, fetch: fetchNationality } = useNationality()
-await fetchNationality()
-
-const nationalityInitialized = ref(false)
-watch(nationality, (val) => {
-  if (!nationalityInitialized.value) {
-    nationalityInitialized.value = true
-    return
-  }
-  saveNationality(val)
-})
-
 const { mode, setMode } = useDarkMode()
 
 const modeLabels: Record<string, string> = {
@@ -67,12 +55,14 @@ const modeIcons: Record<string, string> = {
       </div>
     </div>
 
-    <!-- Nationality / Passport -->
+    <!-- Passports -->
     <div class="rounded-2xl border border-sand-200 bg-white p-6">
-      <h2 class="text-sm font-semibold text-sand-900">Passport Nationality</h2>
-      <p class="mt-1 text-xs text-sand-500">Used for visa requirement checks</p>
+      <h2 class="text-sm font-semibold text-sand-900">Passports</h2>
+      <p class="mt-1 text-xs text-sand-500">
+        Used for visa requirement checks. Add multiple if you hold dual citizenship.
+      </p>
       <div class="mt-4">
-        <NationalitySelector v-model="nationality" />
+        <PassportManager />
       </div>
     </div>
 

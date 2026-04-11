@@ -15,6 +15,7 @@ const tabs = [
   { value: "reservations", label: "Bookings", icon: "lucide:ticket" },
   { value: "documents", label: "Docs", icon: "lucide:paperclip" },
   { value: "team", label: "Team", icon: "lucide:users" },
+  { value: "flights", label: "Flights", icon: "lucide:plane" },
 ]
 </script>
 
