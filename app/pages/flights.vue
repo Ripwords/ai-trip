@@ -73,12 +73,29 @@ async function deleteFlight(flightId: string) {
 
 const today = new Date().toISOString().split("T")[0]!
 
-const upcomingFlights = computed(() => (flights.value ?? []).filter((f) => f.flightDate >= today))
+function compareByDeparture(a: Flight, b: Flight): number {
+  const dateCmp = a.flightDate.localeCompare(b.flightDate)
+  if (dateCmp !== 0) return dateCmp
+  // Same date: sort by local departure time
+  if (a.departureTime && b.departureTime) {
+    const aLocal = new Date(a.departureTime).toLocaleTimeString("en-US", { hour12: false })
+    const bLocal = new Date(b.departureTime).toLocaleTimeString("en-US", { hour12: false })
+    return aLocal.localeCompare(bLocal)
+  }
+  // Null times go last
+  if (!a.departureTime) return 1
+  if (!b.departureTime) return -1
+  return 0
+}
+
+const upcomingFlights = computed(() =>
+  (flights.value ?? []).filter((f) => f.flightDate >= today).toSorted(compareByDeparture),
+)
 
 const pastFlights = computed(() =>
   (flights.value ?? [])
     .filter((f) => f.flightDate < today)
-    .sort((a, b) => b.flightDate.localeCompare(a.flightDate)),
+    .toSorted((a, b) => -compareByDeparture(a, b)),
 )
 
 const showPast = ref(false)
