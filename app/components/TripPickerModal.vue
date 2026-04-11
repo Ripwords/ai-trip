@@ -21,11 +21,13 @@ const { data: trips } = await useFetch<
 })
 
 const search = ref("")
+const today = new Date().toISOString().split("T")[0]!
 
 const filtered = computed(() => {
+  const upcoming = (trips.value ?? []).filter((t) => t.endDate >= today)
   const q = search.value.toLowerCase().trim()
-  if (!q) return trips.value ?? []
-  return (trips.value ?? []).filter((t) => t.destination.toLowerCase().includes(q))
+  if (!q) return upcoming
+  return upcoming.filter((t) => t.destination.toLowerCase().includes(q))
 })
 
 function formatDateRange(start: string, end: string): string {
@@ -110,10 +112,7 @@ watch(
               </div>
               <Icon name="lucide:chevron-right" class="h-4 w-4 text-sand-400" />
             </button>
-            <p
-              v-if="filtered.length === 0"
-              class="px-3 py-6 text-center text-sm text-sand-400"
-            >
+            <p v-if="filtered.length === 0" class="px-3 py-6 text-center text-sm text-sand-400">
               {{ search ? "No trips match your search" : "No trips yet" }}
             </p>
           </div>
