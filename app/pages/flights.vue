@@ -82,6 +82,23 @@ const pastFlights = computed(() =>
 )
 
 const showPast = ref(false)
+
+// Pagination for upcoming
+const upcomingPage = ref(1)
+const perPage = 5
+const upcomingTotalPages = computed(() => Math.ceil(upcomingFlights.value.length / perPage))
+const paginatedUpcoming = computed(() => {
+  const start = (upcomingPage.value - 1) * perPage
+  return upcomingFlights.value.slice(start, start + perPage)
+})
+
+// Pagination for past
+const pastPage = ref(1)
+const pastTotalPages = computed(() => Math.ceil(pastFlights.value.length / perPage))
+const paginatedPast = computed(() => {
+  const start = (pastPage.value - 1) * perPage
+  return pastFlights.value.slice(start, start + perPage)
+})
 </script>
 
 <template>
@@ -126,13 +143,30 @@ const showPast = ref(false)
       </h2>
       <div class="space-y-3">
         <FlightCard
-          v-for="flight in upcomingFlights"
+          v-for="flight in paginatedUpcoming"
           :key="flight.id"
           :flight="flight"
           show-link-to-trip
           @link-trip="linkTrip"
           @delete="deleteFlight"
         />
+      </div>
+      <div v-if="upcomingTotalPages > 1" class="mt-4 flex items-center justify-center gap-2">
+        <button
+          :disabled="upcomingPage <= 1"
+          class="rounded-lg border border-sand-200 p-2 text-sand-500 transition hover:bg-sand-50 disabled:opacity-30"
+          @click="upcomingPage--"
+        >
+          <Icon name="lucide:chevron-left" class="h-4 w-4" />
+        </button>
+        <span class="text-xs text-sand-500">{{ upcomingPage }} / {{ upcomingTotalPages }}</span>
+        <button
+          :disabled="upcomingPage >= upcomingTotalPages"
+          class="rounded-lg border border-sand-200 p-2 text-sand-500 transition hover:bg-sand-50 disabled:opacity-30"
+          @click="upcomingPage++"
+        >
+          <Icon name="lucide:chevron-right" class="h-4 w-4" />
+        </button>
       </div>
     </section>
 
@@ -156,13 +190,30 @@ const showPast = ref(false)
       </button>
       <div v-if="showPast" class="mt-3 space-y-3">
         <FlightCard
-          v-for="flight in pastFlights"
+          v-for="flight in paginatedPast"
           :key="flight.id"
           :flight="flight"
           show-link-to-trip
           @link-trip="linkTrip"
           @delete="deleteFlight"
         />
+        <div v-if="pastTotalPages > 1" class="mt-4 flex items-center justify-center gap-2">
+          <button
+            :disabled="pastPage <= 1"
+            class="rounded-lg border border-sand-200 p-2 text-sand-500 transition hover:bg-sand-50 disabled:opacity-30"
+            @click="pastPage--"
+          >
+            <Icon name="lucide:chevron-left" class="h-4 w-4" />
+          </button>
+          <span class="text-xs text-sand-500">{{ pastPage }} / {{ pastTotalPages }}</span>
+          <button
+            :disabled="pastPage >= pastTotalPages"
+            class="rounded-lg border border-sand-200 p-2 text-sand-500 transition hover:bg-sand-50 disabled:opacity-30"
+            @click="pastPage++"
+          >
+            <Icon name="lucide:chevron-right" class="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </section>
   </div>
