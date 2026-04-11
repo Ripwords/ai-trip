@@ -1,0 +1,1 @@
+DROP TABLE "visa_cache" CASCADE;

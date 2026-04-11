@@ -1,6 +1,3 @@
-import { and, eq, gt } from "drizzle-orm"
-import { db } from "../db"
-import { visaCache } from "../db/schema"
 import { generateText, Output, stepCountIs } from "ai"
 import { google } from "@ai-sdk/google"
 import { z } from "zod"
@@ -19,48 +16,13 @@ const visaResultSchema = z.object({
 
 export type VisaResult = z.infer<typeof visaResultSchema>
 
-export interface VisaCheckResult extends VisaResult {
-  passportCountry: string
-  destinationCountry: string
-  cached: boolean
-  fetchedAt: Date
-}
-
-const CACHE_TTL_DAYS = 30
-
-export async function checkVisaRequirements(
-  passportCountry: string,
-  destinationCountry: string,
-  passportCountryName: string,
-  destinationCountryName: string,
-): Promise<VisaCheckResult> {
-  // Check cache first
-  const cached = await db.query.visaCache.findFirst({
-    where: and(
-      eq(visaCache.passportCountry, passportCountry),
-      eq(visaCache.destinationCountry, destinationCountry),
-      gt(visaCache.expiresAt, new Date()),
-    ),
-  })
-
-  if (cached) {
-    return {
-      visaStatus: cached.visaStatus as VisaResult["visaStatus"],
-      maxStayDays: cached.maxStayDays,
-      requirements: cached.requirements ?? "",
-      processingTime: cached.processingTime,
-      cost: cached.cost,
-      notes: cached.notes,
-      passportCountry: cached.passportCountry,
-      destinationCountry: cached.destinationCountry,
-      cached: true,
-      fetchedAt: cached.fetchedAt,
-    }
-  }
-
-  // Use Gemini with Google Search grounding for up-to-date visa info
-  let visaResult: VisaResult
-  try {
+export const checkVisaRequirements = defineCachedFunction(
+  async (
+    passportCountry: string,
+    destinationCountry: string,
+    passportCountryName: string,
+    destinationCountryName: string,
+  ): Promise<VisaResult> => {
     const model = google("gemini-3.1-flash-lite-preview")
 
     const result = await generateText({
@@ -81,52 +43,12 @@ Search for the latest official visa policy. Provide accurate, up-to-date informa
 Be specific and factual. If unsure about exact details, say so in the notes.`,
     })
 
-    visaResult = result.output!
-  } catch (error) {
-    throw createError({
-      statusCode: 503,
-      message: "Visa check is temporarily unavailable. Please try again later.",
-    })
-  }
-
-  // Cache the result (upsert to handle race conditions)
-  const expiresAt = new Date()
-  expiresAt.setDate(expiresAt.getDate() + CACHE_TTL_DAYS)
-
-  await db
-    .insert(visaCache)
-    .values({
-      passportCountry,
-      destinationCountry,
-      visaStatus: visaResult.visaStatus,
-      maxStayDays: visaResult.maxStayDays,
-      requirements: visaResult.requirements,
-      processingTime: visaResult.processingTime,
-      cost: visaResult.cost,
-      notes: visaResult.notes,
-      source: "ai_web_search",
-      fetchedAt: new Date(),
-      expiresAt,
-    })
-    .onConflictDoUpdate({
-      target: [visaCache.passportCountry, visaCache.destinationCountry],
-      set: {
-        visaStatus: visaResult.visaStatus,
-        maxStayDays: visaResult.maxStayDays,
-        requirements: visaResult.requirements,
-        processingTime: visaResult.processingTime,
-        cost: visaResult.cost,
-        notes: visaResult.notes,
-        fetchedAt: new Date(),
-        expiresAt,
-      },
-    })
-
-  return {
-    ...visaResult,
-    passportCountry,
-    destinationCountry,
-    cached: false,
-    fetchedAt: new Date(),
-  }
-}
+    return result.output!
+  },
+  {
+    maxAge: 60 * 60 * 24 * 30, // 30 days
+    name: "visa-ai-details",
+    getKey: (passportCountry: string, destinationCountry: string) =>
+      `${passportCountry}:${destinationCountry}`,
+  },
+)
