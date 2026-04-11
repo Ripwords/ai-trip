@@ -29,6 +29,8 @@ export default defineEventHandler(async (event) => {
     .update(userPassports)
     .set({
       ...(body.label !== undefined ? { label: body.label ?? null } : {}),
+      ...(body.passportNumber !== undefined ? { passportNumber: body.passportNumber ?? null } : {}),
+      ...(body.expiryDate !== undefined ? { expiryDate: body.expiryDate ?? null } : {}),
       ...(body.isDefault !== undefined ? { isDefault: body.isDefault } : {}),
     })
     .where(eq(userPassports.id, id))

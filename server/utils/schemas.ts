@@ -262,11 +262,15 @@ export const documentIdParamsSchema = z.object({
 export const createPassportSchema = z.object({
   countryCode: z.string().length(2).toUpperCase(),
   label: z.string().max(100).nullish(),
+  passportNumber: z.string().max(20).nullish(),
+  expiryDate: z.string().date().nullish(),
   isDefault: z.boolean().optional(),
 })
 
 export const updatePassportSchema = z.object({
   label: z.string().max(100).nullish(),
+  passportNumber: z.string().max(20).nullish(),
+  expiryDate: z.string().date().nullish(),
   isDefault: z.boolean().optional(),
 })
 

@@ -27,6 +27,8 @@ export default defineEventHandler(async (event) => {
       userId: session.user.id,
       countryCode: body.countryCode,
       label: body.label ?? null,
+      passportNumber: body.passportNumber ?? null,
+      expiryDate: body.expiryDate ?? null,
       isDefault: shouldBeDefault,
     })
     .returning()
