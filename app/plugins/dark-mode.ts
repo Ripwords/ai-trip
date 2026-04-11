@@ -23,5 +23,11 @@ export default defineNuxtPlugin(() => {
     htmlAttrs: {
       class: computed(() => (isDark.value ? "dark" : "")),
     },
+    meta: [
+      {
+        name: "theme-color",
+        content: computed(() => (isDark.value ? "#1a1714" : "#faf8f5")),
+      },
+    ],
   })
 })

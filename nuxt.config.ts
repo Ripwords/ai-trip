@@ -14,7 +14,6 @@ export default defineNuxtConfig({
       htmlAttrs: { lang: "en" },
       meta: [
         { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1" },
-        { name: "theme-color", content: "#e85d3a" },
       ],
       link: [
         { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
