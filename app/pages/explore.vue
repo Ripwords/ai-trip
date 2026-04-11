@@ -11,6 +11,40 @@ useSeoMeta({
 // Fetch visited countries
 const { data: visitedList, refresh } = await useFetch("/api/visited-countries")
 
+// Passport nationality — controls visa data for tooltips
+const { nationality, save: saveNationality, fetch: fetchNationality } = useNationality()
+onMounted(async () => {
+  if (!nationality.value) {
+    try {
+      const passports = await $fetch("/api/user/passports")
+      if (passports.length > 0) {
+        nationality.value = passports[0]!.countryCode
+      } else {
+        await fetchNationality()
+      }
+    } catch {
+      await fetchNationality()
+    }
+  }
+})
+
+const nationalityInitialized = ref(false)
+watch(nationality, (val) => {
+  if (!nationalityInitialized.value) {
+    nationalityInitialized.value = true
+    return
+  }
+  saveNationality(val)
+})
+
+// Fetch visa statuses — reactively refetches when nationality changes
+const { data: visaStatusMap } = await useFetch<
+  Record<string, { visaStatus: string; maxStayDays: number | null }>
+>("/api/visa/check-all", {
+  query: { passport: nationality },
+  watch: [nationality],
+})
+
 // Map of countryCode → visitType
 const visitMap = computed(() => {
   const map = new Map<string, VisitType>()
@@ -65,21 +99,30 @@ function handleCheckVisa(country: CountryInfo) {
 
 <template>
   <div>
-    <div class="flex items-center justify-between">
+    <div class="flex items-start justify-between gap-4">
       <div>
         <h1 class="font-display text-3xl text-sand-900">Explore</h1>
         <p class="mt-1 text-sm text-sand-500">
           Click on a country to mark it as visited or check visa requirements.
         </p>
       </div>
+      <div class="w-48 shrink-0">
+        <label class="mb-1 block text-xs font-medium text-sand-400">Your passport</label>
+        <NationalitySelector v-model="nationality" />
+      </div>
     </div>
 
     <!-- Map + Panel Container -->
     <div class="relative mt-6">
-      <ScratchMap :visit-map="visitMap" @country-click="handleCountryClick" />
+      <ScratchMap
+        :visit-map="visitMap"
+        :visa-status-map="visaStatusMap ?? {}"
+        @country-click="handleCountryClick"
+      />
       <CountryDetailPanel
         :country="selectedCountry"
         :visit-type="selectedCountry ? visitMap.get(selectedCountry.alpha2) : undefined"
+        :visa-status="selectedCountry ? visaStatusMap?.[selectedCountry.alpha2] : undefined"
         :loading="panelLoading"
         @close="closePanel"
         @set-visit-type="setVisitType"

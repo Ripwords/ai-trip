@@ -292,4 +292,5 @@ export const updateFlightSchema = z.object({
 // Visa check (new GET-based)
 export const visaCheckQuerySchema = z.object({
   destination: z.string().length(2).toUpperCase(),
+  passport: z.string().length(2).toUpperCase().optional(),
 })

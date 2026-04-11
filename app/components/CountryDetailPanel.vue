@@ -6,6 +6,7 @@ const props = defineProps<{
   country: CountryInfo | null
   visitType: VisitType | undefined
   loading: boolean
+  visaStatus?: { visaStatus: string; maxStayDays: number | null }
 }>()
 
 const emit = defineEmits<{
@@ -156,17 +157,24 @@ function handleSetType(type: VisitType) {
 
         <div class="my-2 border-t border-sand-100" />
 
-        <!-- Visa check button -->
-        <button
-          class="flex w-full items-center gap-3 rounded-xl border border-sand-200 px-4 py-3 text-left text-sand-700 transition hover:border-sand-300 hover:bg-sand-50"
-          @click="emit('checkVisa', country)"
-        >
-          <Icon name="lucide:shield-check" class="h-5 w-5 shrink-0 text-ocean-500" />
-          <div>
-            <p class="font-medium">Check visa requirements</p>
-            <p class="text-xs opacity-70">See if you need a visa to visit</p>
-          </div>
-        </button>
+        <!-- Visa section -->
+        <div class="space-y-2.5">
+          <VisaBadge
+            :destination-country="country.alpha2"
+            :visa-status="visaStatus?.visaStatus"
+            :max-stay-days="visaStatus?.maxStayDays"
+          />
+          <button
+            class="flex w-full items-center gap-3 rounded-xl border border-sand-200 px-4 py-3 text-left text-sand-700 transition hover:border-sand-300 hover:bg-sand-50"
+            @click="emit('checkVisa', country)"
+          >
+            <Icon name="lucide:sparkles" class="h-5 w-5 shrink-0 text-ocean-500" />
+            <div>
+              <p class="font-medium">Get visa details</p>
+              <p class="text-xs opacity-70">AI-powered summary of requirements</p>
+            </div>
+          </button>
+        </div>
       </div>
     </div>
   </Transition>
@@ -264,13 +272,18 @@ function handleSetType(type: VisitType) {
           </button>
         </div>
 
-        <!-- Visa check button -->
+        <!-- Visa section -->
+        <VisaBadge
+          :destination-country="country.alpha2"
+          :visa-status="visaStatus?.visaStatus"
+          :max-stay-days="visaStatus?.maxStayDays"
+        />
         <button
           class="flex w-full items-center justify-center gap-2 rounded-xl border border-sand-200 px-4 py-3 text-sm font-medium text-sand-700 transition hover:bg-sand-50"
           @click="emit('checkVisa', country)"
         >
-          <Icon name="lucide:shield-check" class="h-4 w-4 text-ocean-500" />
-          Check visa requirements
+          <Icon name="lucide:sparkles" class="h-4 w-4 text-ocean-500" />
+          Get visa details
         </button>
       </div>
     </div>

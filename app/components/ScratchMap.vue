@@ -10,6 +10,8 @@ export type VisitType = "visited" | "layover" | "want_to_visit"
 const props = defineProps<{
   /** Map of country alpha-2 code → visit type */
   visitMap: Map<string, VisitType>
+  /** Map of country alpha-2 code → visa status from bulk lookup */
+  visaStatusMap: Record<string, { visaStatus: string; maxStayDays: number | null }>
 }>()
 
 const emit = defineEmits<{
@@ -79,6 +81,31 @@ const tooltipLabel = computed(() => {
   if (vt === "layover") return "Layover"
   if (vt === "want_to_visit") return "Want to visit"
   return null
+})
+
+const VISA_LABEL: Record<string, string> = {
+  "visa-free": "Visa Free",
+  "visa-on-arrival": "Visa on Arrival",
+  evisa: "e-Visa",
+  "visa-required": "Visa Required",
+}
+
+const VISA_COLOR: Record<string, string> = {
+  "visa-free": "map-tooltip-visa-free",
+  "visa-on-arrival": "map-tooltip-visa-arrival",
+  evisa: "map-tooltip-visa-evisa",
+  "visa-required": "map-tooltip-visa-required",
+}
+
+const tooltipVisa = computed(() => {
+  if (!hoveredInfo.value) return null
+  const entry = props.visaStatusMap[hoveredInfo.value.alpha2]
+  if (!entry) return null
+  return {
+    label: VISA_LABEL[entry.visaStatus] ?? entry.visaStatus,
+    colorClass: VISA_COLOR[entry.visaStatus] ?? "",
+    maxStayDays: entry.maxStayDays,
+  }
 })
 
 // Stats
@@ -400,13 +427,25 @@ function resetZoom() {
     <!-- Floating tooltip (desktop only — hidden on touch) -->
     <div
       v-if="hoveredInfo"
-      class="map-tooltip pointer-events-none absolute z-20 hidden rounded-lg px-3 py-1.5 text-sm font-medium shadow-lg sm:block"
+      class="map-tooltip pointer-events-none absolute z-20 hidden rounded-lg px-3 py-1.5 shadow-lg sm:block"
       :style="{ left: `${tooltipX + 14}px`, top: `${tooltipY - 10}px` }"
     >
-      {{ hoveredInfo.name }}
-      <span v-if="tooltipLabel" class="map-tooltip-badge ml-1.5 rounded px-1.5 py-0.5 text-xs">
-        {{ tooltipLabel }}
-      </span>
+      <div class="flex items-center text-sm font-medium">
+        <span>{{ hoveredInfo.name }}</span>
+        <span v-if="tooltipLabel" class="map-tooltip-badge ml-1.5 rounded px-1.5 py-0.5 text-xs">
+          {{ tooltipLabel }}
+        </span>
+      </div>
+      <div
+        v-if="tooltipVisa"
+        class="mt-0.5 inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs"
+        :class="tooltipVisa.colorClass"
+      >
+        {{ tooltipVisa.label }}
+        <span v-if="tooltipVisa.maxStayDays" class="opacity-75">
+          {{ tooltipVisa.maxStayDays }}d
+        </span>
+      </div>
     </div>
 
     <!-- Zoom controls — larger on mobile (44px touch targets) -->
@@ -572,6 +611,22 @@ function resetZoom() {
 }
 .map-tooltip-badge {
   background: var(--map-tooltip-badge-bg);
+}
+.map-tooltip-visa-free {
+  background: rgba(74, 222, 128, 0.2);
+  color: #86efac;
+}
+.map-tooltip-visa-arrival {
+  background: rgba(96, 165, 250, 0.2);
+  color: #93c5fd;
+}
+.map-tooltip-visa-evisa {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fcd34d;
+}
+.map-tooltip-visa-required {
+  background: rgba(248, 113, 113, 0.2);
+  color: #fca5a5;
 }
 
 /* ── Overlay elements ──────────────────────────────────── */

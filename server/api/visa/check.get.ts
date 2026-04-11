@@ -12,29 +12,33 @@ const VISA_STATUS_PRIORITY: Record<string, number> = {
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
-  const { destination } = await getValidatedQuery(event, visaCheckQuerySchema.parse)
+  const { destination, passport } = await getValidatedQuery(event, visaCheckQuerySchema.parse)
 
-  // Get all user passports
-  const passports = await db.query.userPassports.findMany({
-    where: eq(userPassports.userId, session.user.id),
-  })
-
-  if (passports.length === 0) {
-    throw createError({
-      statusCode: 400,
-      message: "No passports configured. Please add a passport in settings.",
+  // Use explicit passport param, or fall back to user's passports from DB
+  let countryCodes: string[]
+  if (passport) {
+    countryCodes = [passport]
+  } else {
+    const passports = await db.query.userPassports.findMany({
+      where: eq(userPassports.userId, session.user.id),
     })
+
+    if (passports.length === 0) {
+      throw createError({
+        statusCode: 400,
+        message: "No passports configured. Please add a passport in settings.",
+      })
+    }
+
+    countryCodes = passports.map((p) => p.countryCode)
   }
 
-  const countryCodes = passports.map((p) => p.countryCode)
-
   // Check if any passport is from the destination country
-  const homePassport = passports.find((p) => p.countryCode === destination)
-  if (homePassport) {
+  if (countryCodes.includes(destination)) {
     return {
       visaStatus: "visa-free",
       maxStayDays: null,
-      passportCountry: homePassport.countryCode,
+      passportCountry: destination,
       destinationCountry: destination,
       isHomeCountry: true,
     }
@@ -52,7 +56,7 @@ export default defineEventHandler(async (event) => {
     return {
       visaStatus: "unknown",
       maxStayDays: null,
-      passportCountry: passports[0]!.countryCode,
+      passportCountry: countryCodes[0]!,
       destinationCountry: destination,
       isHomeCountry: false,
     }

@@ -1,12 +1,18 @@
 <script setup lang="ts">
 const props = defineProps<{
   destinationCountry: string
+  /** Pre-fetched visa status — skips the API call when provided */
+  visaStatus?: string
+  maxStayDays?: number | null
 }>()
 
-const { data: visaResult } = await useFetch("/api/visa/check", {
+const { data: fetchedResult } = await useFetch("/api/visa/check", {
   query: { destination: props.destinationCountry },
-  immediate: !!props.destinationCountry,
+  immediate: !props.visaStatus,
 })
+
+const status = computed(() => props.visaStatus ?? fetchedResult.value?.visaStatus)
+const days = computed(() => props.maxStayDays ?? fetchedResult.value?.maxStayDays)
 
 const statusConfig: Record<string, { label: string; color: string; icon: string }> = {
   "visa-free": {
@@ -36,19 +42,19 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
 }
 
 const config = computed(() => {
-  if (!visaResult.value) return null
-  return statusConfig[visaResult.value.visaStatus] ?? null
+  if (!status.value) return null
+  return statusConfig[status.value] ?? null
 })
 </script>
 
 <template>
   <span
-    v-if="config && visaResult"
+    v-if="config"
     class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium"
     :class="config.color"
   >
     <Icon :name="config.icon" class="h-3 w-3" />
     {{ config.label }}
-    <span v-if="visaResult.maxStayDays" class="opacity-75"> ({{ visaResult.maxStayDays }}d) </span>
+    <span v-if="days" class="opacity-75"> ({{ days }}d) </span>
   </span>
 </template>
