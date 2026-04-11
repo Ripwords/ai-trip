@@ -142,8 +142,8 @@ function isExpiringSoon(date: string): boolean {
       >
         <!-- View mode -->
         <template v-if="editingId !== passport.id">
-          <div class="flex items-center gap-3">
-            <div class="min-w-0 flex-1">
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
               <div class="flex items-center gap-2">
                 <span class="font-medium text-sand-900">
                   {{ countryName(passport.countryCode) }}
@@ -203,7 +203,11 @@ function isExpiringSoon(date: string): boolean {
                 <Icon name="lucide:star" class="h-3.5 w-3.5" />
               </button>
               <div v-else class="p-1.5">
-                <Icon name="lucide:star" class="h-3.5 w-3.5 text-terra-500" title="Default passport" />
+                <Icon
+                  name="lucide:star"
+                  class="h-3.5 w-3.5 text-terra-500"
+                  title="Default passport"
+                />
               </div>
               <button
                 class="rounded-lg p-1.5 text-sand-400 hover:bg-red-50 hover:text-red-500"
