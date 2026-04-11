@@ -115,25 +115,15 @@ function clampTranslation() {
   translateY.value = Math.max(minTy, Math.min(0, translateY.value))
 }
 
-function handleWheel(e: WheelEvent) {
-  e.preventDefault()
-  const svg = svgRef.value
-  if (!svg) return
+/** Apply zoom centered on a point in SVG-space (0..960, 0..600) */
+function zoomAtPoint(focalX: number, focalY: number, newScale: number) {
+  const clamped = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale))
+  const ratio = clamped / scale.value
+  translateX.value = focalX - ratio * (focalX - translateX.value)
+  translateY.value = focalY - ratio * (focalY - translateY.value)
+  scale.value = clamped
 
-  const rect = svg.getBoundingClientRect()
-  const mouseX = ((e.clientX - rect.left) / rect.width) * 960
-  const mouseY = ((e.clientY - rect.top) / rect.height) * 600
-
-  const oldScale = scale.value
-  const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
-  const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, oldScale + delta * oldScale))
-
-  const ratio = newScale / oldScale
-  translateX.value = mouseX - ratio * (mouseX - translateX.value)
-  translateY.value = mouseY - ratio * (mouseY - translateY.value)
-  scale.value = newScale
-
-  if (newScale <= MIN_SCALE) {
+  if (clamped <= MIN_SCALE) {
     translateX.value = 0
     translateY.value = 0
   } else {
@@ -141,11 +131,31 @@ function handleWheel(e: WheelEvent) {
   }
 }
 
+/** Convert a client pixel position to SVG-space coordinates */
+function clientToSvg(clientX: number, clientY: number): { x: number; y: number } {
+  const svg = svgRef.value
+  if (!svg) return { x: 480, y: 300 }
+  const rect = svg.getBoundingClientRect()
+  return {
+    x: ((clientX - rect.left) / rect.width) * 960,
+    y: ((clientY - rect.top) / rect.height) * 600,
+  }
+}
+
+function handleWheel(e: WheelEvent) {
+  e.preventDefault()
+  const focal = clientToSvg(e.clientX, e.clientY)
+  const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
+  zoomAtPoint(focal.x, focal.y, scale.value + delta * scale.value)
+}
+
 const didDrag = ref(false)
 const pointerOrigin = ref({ x: 0, y: 0 })
 const DRAG_THRESHOLD = 5 // px
 
 function handlePointerDown(e: PointerEvent) {
+  // Skip if a pinch gesture is active (handled by touch events)
+  if (isPinching.value) return
   isPanning.value = true
   didDrag.value = false
   panStart.value = { x: e.clientX, y: e.clientY }
@@ -153,6 +163,7 @@ function handlePointerDown(e: PointerEvent) {
 }
 
 function handlePointerMove(e: PointerEvent) {
+  if (isPinching.value) return
   if (!isPanning.value || !svgRef.value) return
   if (scale.value <= MIN_SCALE) return
 
@@ -171,6 +182,7 @@ function handlePointerMove(e: PointerEvent) {
 }
 
 function handlePointerUp(e: PointerEvent) {
+  if (isPinching.value) return
   const wasDrag = didDrag.value
   isPanning.value = false
   didDrag.value = false
@@ -192,27 +204,92 @@ function handlePointerUp(e: PointerEvent) {
   }
 }
 
+// ── Touch: Pinch-to-Zoom ───────────────────────────────────────────
+const isPinching = ref(false)
+const lastPinchDist = ref(0)
+const lastPinchCenter = ref({ x: 0, y: 0 })
+
+function getTouchDistance(t1: Touch, t2: Touch): number {
+  const dx = t1.clientX - t2.clientX
+  const dy = t1.clientY - t2.clientY
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+function getTouchCenter(t1: Touch, t2: Touch): { x: number; y: number } {
+  return {
+    x: (t1.clientX + t2.clientX) / 2,
+    y: (t1.clientY + t2.clientY) / 2,
+  }
+}
+
+function handleTouchStart(e: TouchEvent) {
+  if (e.touches.length === 2) {
+    e.preventDefault()
+    isPinching.value = true
+    isPanning.value = false
+    didDrag.value = true // prevent click on release
+    lastPinchDist.value = getTouchDistance(e.touches[0]!, e.touches[1]!)
+    const center = getTouchCenter(e.touches[0]!, e.touches[1]!)
+    lastPinchCenter.value = center
+  }
+}
+
+function handleTouchMove(e: TouchEvent) {
+  if (!isPinching.value || e.touches.length < 2) return
+  e.preventDefault()
+
+  const dist = getTouchDistance(e.touches[0]!, e.touches[1]!)
+  const center = getTouchCenter(e.touches[0]!, e.touches[1]!)
+  const focal = clientToSvg(center.x, center.y)
+
+  // Scale change based on pinch distance ratio
+  const ratio = dist / lastPinchDist.value
+  const newScale = scale.value * ratio
+
+  zoomAtPoint(focal.x, focal.y, newScale)
+
+  // Pan for center movement while pinching
+  if (scale.value > MIN_SCALE && svgRef.value) {
+    const rect = svgRef.value.getBoundingClientRect()
+    const panDx = ((center.x - lastPinchCenter.value.x) / rect.width) * 960
+    const panDy = ((center.y - lastPinchCenter.value.y) / rect.height) * 600
+    translateX.value += panDx
+    translateY.value += panDy
+    clampTranslation()
+  }
+
+  lastPinchDist.value = dist
+  lastPinchCenter.value = center
+}
+
+function handleTouchEnd(e: TouchEvent) {
+  if (e.touches.length < 2) {
+    isPinching.value = false
+  }
+}
+
+// ── Fullscreen (mobile) ────────────────────────────────────────────
+const isFullscreen = ref(false)
+
+function toggleFullscreen() {
+  isFullscreen.value = !isFullscreen.value
+  if (isFullscreen.value) {
+    document.body.style.overflow = "hidden"
+  } else {
+    document.body.style.overflow = ""
+  }
+}
+
+onUnmounted(() => {
+  document.body.style.overflow = ""
+})
+
 function zoomIn() {
-  const oldScale = scale.value
-  scale.value = Math.min(MAX_SCALE, oldScale + ZOOM_STEP * oldScale)
-  const ratio = scale.value / oldScale
-  translateX.value = 480 - ratio * (480 - translateX.value)
-  translateY.value = 300 - ratio * (300 - translateY.value)
-  clampTranslation()
+  zoomAtPoint(480, 300, scale.value + ZOOM_STEP * scale.value)
 }
 
 function zoomOut() {
-  const oldScale = scale.value
-  scale.value = Math.max(MIN_SCALE, oldScale - ZOOM_STEP * oldScale)
-  if (scale.value <= MIN_SCALE) {
-    translateX.value = 0
-    translateY.value = 0
-  } else {
-    const ratio = scale.value / oldScale
-    translateX.value = 480 - ratio * (480 - translateX.value)
-    translateY.value = 300 - ratio * (300 - translateY.value)
-    clampTranslation()
-  }
+  zoomAtPoint(480, 300, scale.value - ZOOM_STEP * scale.value)
 }
 
 function resetZoom() {
@@ -227,21 +304,32 @@ function resetZoom() {
   <div
     ref="mapContainerRef"
     class="scratch-map relative rounded-2xl border border-sand-200"
+    :class="{
+      'scratch-map--fullscreen fixed inset-0 z-[100] rounded-none border-none': isFullscreen,
+    }"
     @mousemove="handleMouseMove"
   >
     <!-- Inner SVG container: overflow-hidden for zoom/pan clipping -->
-    <div class="overflow-hidden rounded-2xl">
+    <div class="overflow-hidden" :class="isFullscreen ? 'h-full' : 'rounded-2xl'">
       <svg
         ref="svgRef"
         viewBox="0 0 960 600"
         class="block w-full select-none"
-        :class="{ 'cursor-grab': scale > 1.05, 'cursor-grabbing': isPanning }"
+        :class="[
+          isFullscreen ? 'h-full' : '',
+          { 'cursor-grab': scale > 1.05, 'cursor-grabbing': isPanning },
+        ]"
+        style="touch-action: none"
         xmlns="http://www.w3.org/2000/svg"
         @wheel="handleWheel"
         @pointerdown="handlePointerDown"
         @pointermove="handlePointerMove"
         @pointerup="handlePointerUp($event)"
         @pointercancel="handlePointerUp($event)"
+        @touchstart.passive="handleTouchStart"
+        @touchmove="handleTouchMove"
+        @touchend.passive="handleTouchEnd"
+        @touchcancel.passive="handleTouchEnd"
       >
         <!-- Ocean background -->
         <rect width="960" height="600" class="map-ocean" />
@@ -282,10 +370,10 @@ function resetZoom() {
 
     <!-- Everything below is outside overflow-hidden, so never clipped -->
 
-    <!-- Floating tooltip -->
+    <!-- Floating tooltip (desktop only — hidden on touch) -->
     <div
       v-if="hoveredInfo"
-      class="map-tooltip pointer-events-none absolute z-20 rounded-lg px-3 py-1.5 text-sm font-medium shadow-lg"
+      class="map-tooltip pointer-events-none absolute z-20 hidden rounded-lg px-3 py-1.5 text-sm font-medium shadow-lg sm:block"
       :style="{ left: `${tooltipX + 14}px`, top: `${tooltipY - 10}px` }"
     >
       {{ hoveredInfo.name }}
@@ -294,31 +382,43 @@ function resetZoom() {
       </span>
     </div>
 
-    <!-- Zoom controls -->
-    <div class="absolute right-3 top-3 flex flex-col gap-1">
+    <!-- Zoom controls — larger on mobile (44px touch targets) -->
+    <div class="absolute right-3 top-3 flex flex-col gap-1.5">
       <button
-        class="map-btn flex h-8 w-8 items-center justify-center rounded-lg shadow transition"
+        class="map-btn flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
         title="Zoom in"
         @click="zoomIn"
       >
-        <Icon name="lucide:plus" class="h-4 w-4" />
+        <Icon name="lucide:plus" class="h-5 w-5 sm:h-4 sm:w-4" />
       </button>
       <button
-        class="map-btn flex h-8 w-8 items-center justify-center rounded-lg shadow transition"
+        class="map-btn flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
         title="Zoom out"
         @click="zoomOut"
       >
-        <Icon name="lucide:minus" class="h-4 w-4" />
+        <Icon name="lucide:minus" class="h-5 w-5 sm:h-4 sm:w-4" />
       </button>
       <button
         v-if="scale > 1"
-        class="map-btn flex h-8 w-8 items-center justify-center rounded-lg shadow transition"
+        class="map-btn flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
         title="Reset zoom"
         @click="resetZoom"
       >
-        <Icon name="lucide:maximize-2" class="h-4 w-4" />
+        <Icon name="lucide:maximize-2" class="h-5 w-5 sm:h-4 sm:w-4" />
       </button>
     </div>
+
+    <!-- Fullscreen toggle -->
+    <button
+      class="map-btn absolute left-3 top-3 flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
+      :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'"
+      @click="toggleFullscreen"
+    >
+      <Icon
+        :name="isFullscreen ? 'lucide:minimize-2' : 'lucide:maximize'"
+        class="h-5 w-5 sm:h-4 sm:w-4"
+      />
+    </button>
 
     <!-- Stats overlay -->
     <div
@@ -474,5 +574,25 @@ function resetZoom() {
 }
 .map-btn:hover {
   background: var(--map-btn-hover);
+}
+
+/* ── Fullscreen ───────────────────────────────────────── */
+.scratch-map--fullscreen {
+  background: var(--map-ocean);
+}
+.scratch-map--fullscreen svg {
+  /* Center the map vertically in fullscreen on mobile */
+  object-fit: contain;
+}
+
+/* On mobile portrait, give the map more height by default */
+@media (max-width: 639px) {
+  .scratch-map:not(.scratch-map--fullscreen) {
+    /* ~60vh instead of the natural ~200px from 960:600 aspect ratio */
+    min-height: 50vh;
+  }
+  .scratch-map:not(.scratch-map--fullscreen) svg {
+    min-height: 50vh;
+  }
 }
 </style>
