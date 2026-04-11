@@ -35,8 +35,8 @@ export default defineNuxtConfig({
       tasks: true,
     },
     scheduledTasks: {
-      // Import visa requirements dataset on the 1st of each month at 3am
-      "0 3 1 * *": "import-visa-data",
+      // Import visa requirements dataset every 6 months (Jan 1 and Jul 1 at 3am)
+      "0 3 1 1,7 *": "import-visa-data",
     },
   },
   css: ["~/assets/css/tailwind.css"],

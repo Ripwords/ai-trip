@@ -129,6 +129,14 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside))
                   <Icon name="lucide:layout-dashboard" class="h-4 w-4 text-sand-400" />
                   Dashboard
                 </NuxtLink>
+                <NuxtLink
+                  to="/settings"
+                  class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-sand-700 transition hover:bg-sand-50"
+                  @click="showUserMenu = false"
+                >
+                  <Icon name="lucide:settings" class="h-4 w-4 text-sand-400" />
+                  Settings
+                </NuxtLink>
 
                 <div class="my-1 border-t border-sand-100" />
 

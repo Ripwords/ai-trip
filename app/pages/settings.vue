@@ -56,9 +56,9 @@ const modeIcons: Record<string, string> = {
     </div>
 
     <!-- Passports -->
-    <div class="rounded-2xl border border-sand-200 bg-white p-6 dark:border-sand-700 dark:bg-sand-900">
-      <h2 class="text-sm font-semibold text-sand-900 dark:text-sand-100">Passports</h2>
-      <p class="mt-1 text-xs text-sand-500 dark:text-sand-400">
+    <div class="rounded-2xl border border-sand-200 bg-white p-6">
+      <h2 class="text-sm font-semibold text-sand-900">Passports</h2>
+      <p class="mt-1 text-xs text-sand-500">
         Used for visa requirement checks. Add multiple if you hold dual citizenship.
       </p>
       <div class="mt-4">
