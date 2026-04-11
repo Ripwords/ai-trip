@@ -41,11 +41,6 @@ function getDayCount(start: string, end: string): number {
   return Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1
 }
 
-function formatDistance(km: number): string {
-  if (km >= 1000) return `${(km / 1000).toFixed(1)}k`
-  return `${km}`
-}
-
 // Pagination
 const page = ref(1)
 const perPage = 6
@@ -97,7 +92,7 @@ function formatFlightTime(isoStr: string | null): string {
 <template>
   <div class="space-y-8">
     <!-- Stats strip -->
-    <div v-if="stats" class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+    <div v-if="stats" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       <div class="rounded-2xl border border-sand-200 bg-white p-4">
         <p class="text-2xl font-bold tabular-nums text-sand-900">{{ stats.totalTrips }}</p>
         <p class="mt-0.5 text-xs text-sand-500">Trips planned</p>
@@ -117,13 +112,6 @@ function formatFlightTime(isoStr: string | null): string {
       <div class="rounded-2xl border border-sand-200 bg-white p-4">
         <p class="text-2xl font-bold tabular-nums text-sand-900">{{ stats.totalActivities }}</p>
         <p class="mt-0.5 text-xs text-sand-500">Activities</p>
-      </div>
-      <div class="rounded-2xl border border-sand-200 bg-white p-4">
-        <p class="text-2xl font-bold tabular-nums text-sand-900">
-          {{ formatDistance(stats.totalDistanceKm) }}
-          <span class="text-sm font-normal text-sand-400">km</span>
-        </p>
-        <p class="mt-0.5 text-xs text-sand-500">Distance</p>
       </div>
       <div class="rounded-2xl border border-sand-200 bg-white p-4">
         <p class="text-2xl font-bold tabular-nums text-sand-900">{{ stats.totalFlights }}</p>
@@ -261,11 +249,7 @@ function formatFlightTime(isoStr: string | null): string {
             v-for="p in totalPages"
             :key="p"
             class="h-8 w-8 rounded-lg text-sm font-medium transition"
-            :class="
-              p === page
-                ? 'bg-terra-500 text-white'
-                : 'text-sand-500 hover:bg-sand-50'
-            "
+            :class="p === page ? 'bg-terra-500 text-white' : 'text-sand-500 hover:bg-sand-50'"
             @click="page = p"
           >
             {{ p }}
