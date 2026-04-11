@@ -1265,10 +1265,7 @@ async function recomputeSegments(dayId: string) {
             @delete="deleteTripFlight"
           />
         </div>
-        <div
-          v-else
-          class="rounded-2xl border border-dashed border-sand-300 p-8 text-center"
-        >
+        <div v-else class="rounded-2xl border border-dashed border-sand-300 p-8 text-center">
           <Icon name="lucide:plane" class="mx-auto h-8 w-8 text-sand-300" />
           <p class="mt-2 text-sm text-sand-500">
             No flights yet. Add a flight above to track it with this trip.

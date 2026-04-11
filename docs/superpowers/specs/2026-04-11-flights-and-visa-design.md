@@ -10,52 +10,52 @@ Allow users to track flight details (times, gates, status) and automatically sur
 
 Supports multiple passports per user (dual citizenship). Replaces the single `nationality` field on `user_profiles` as the source of truth for visa checks.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid (defaultRandom) | PK |
-| userId | text FK -> user | cascade delete |
-| countryCode | char(2) | ISO alpha-2 (e.g. "MY", "US") |
-| label | text | Optional user label ("Malaysian passport") |
-| isDefault | boolean | Default passport for visa checks |
-| createdAt | timestamp | defaultNow |
+| Column      | Type                 | Notes                                      |
+| ----------- | -------------------- | ------------------------------------------ |
+| id          | uuid (defaultRandom) | PK                                         |
+| userId      | text FK -> user      | cascade delete                             |
+| countryCode | char(2)              | ISO alpha-2 (e.g. "MY", "US")              |
+| label       | text                 | Optional user label ("Malaysian passport") |
+| isDefault   | boolean              | Default passport for visa checks           |
+| createdAt   | timestamp            | defaultNow                                 |
 
 - Unique constraint on `(userId, countryCode)`
 - Migration: seed from existing `user_profiles.nationality` for existing users
 
 ### `flights`
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid (defaultRandom) | PK |
-| userId | text FK -> user | cascade delete |
-| tripId | uuid FK -> trips | nullable, cascade set null |
-| flightNumber | text | e.g. "SQ638" |
-| flightDate | date | departure date |
-| airline | text | nullable, from API |
-| departureAirport | text | IATA code, e.g. "SIN" |
-| arrivalAirport | text | IATA code, e.g. "NRT" |
-| departureTime | timestamp | scheduled |
-| arrivalTime | timestamp | scheduled |
-| terminal | text | nullable |
-| gate | text | nullable |
-| status | text | "scheduled", "delayed", "landed", "cancelled" |
-| rawApiResponse | jsonb | full cached API response |
-| apiLastFetchedAt | timestamp | when we last hit the API |
-| createdAt | timestamp | defaultNow |
-| updatedAt | timestamp | $onUpdate |
+| Column           | Type                 | Notes                                         |
+| ---------------- | -------------------- | --------------------------------------------- |
+| id               | uuid (defaultRandom) | PK                                            |
+| userId           | text FK -> user      | cascade delete                                |
+| tripId           | uuid FK -> trips     | nullable, cascade set null                    |
+| flightNumber     | text                 | e.g. "SQ638"                                  |
+| flightDate       | date                 | departure date                                |
+| airline          | text                 | nullable, from API                            |
+| departureAirport | text                 | IATA code, e.g. "SIN"                         |
+| arrivalAirport   | text                 | IATA code, e.g. "NRT"                         |
+| departureTime    | timestamp            | scheduled                                     |
+| arrivalTime      | timestamp            | scheduled                                     |
+| terminal         | text                 | nullable                                      |
+| gate             | text                 | nullable                                      |
+| status           | text                 | "scheduled", "delayed", "landed", "cancelled" |
+| rawApiResponse   | jsonb                | full cached API response                      |
+| apiLastFetchedAt | timestamp            | when we last hit the API                      |
+| createdAt        | timestamp            | defaultNow                                    |
+| updatedAt        | timestamp            | $onUpdate                                     |
 
 - Unique constraint on `(userId, flightNumber, flightDate)`
 
 ### `visa_requirements` (static dataset)
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid (defaultRandom) | PK |
-| passportCountry | char(2) | ISO alpha-2 |
-| destinationCountry | char(2) | ISO alpha-2 |
-| visaStatus | text | "visa-free", "visa-required", "evisa", "visa-on-arrival" |
-| maxStayDays | integer | nullable |
-| updatedAt | timestamp | when dataset was last imported |
+| Column             | Type                 | Notes                                                    |
+| ------------------ | -------------------- | -------------------------------------------------------- |
+| id                 | uuid (defaultRandom) | PK                                                       |
+| passportCountry    | char(2)              | ISO alpha-2                                              |
+| destinationCountry | char(2)              | ISO alpha-2                                              |
+| visaStatus         | text                 | "visa-free", "visa-required", "evisa", "visa-on-arrival" |
+| maxStayDays        | integer              | nullable                                                 |
+| updatedAt          | timestamp            | when dataset was last imported                           |
 
 - Unique constraint on `(passportCountry, destinationCountry)`
 - Replaces the existing `visa_cache` approach with a local dataset
@@ -64,14 +64,14 @@ Supports multiple passports per user (dual citizenship). Replaces the single `na
 
 ### Flight Routes
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/api/flights` | List all flights for current user (optional `?tripId=` filter) |
-| POST | `/api/flights` | Add a flight (flightNumber + flightDate, triggers API lookup) |
-| GET | `/api/flights/:id` | Get single flight with fresh-on-load fetch |
-| PATCH | `/api/flights/:id` | Update (link/unlink trip) |
-| DELETE | `/api/flights/:id` | Remove a flight |
-| GET | `/api/trips/:id/flights` | Get flights linked to a specific trip |
+| Method | Route                    | Description                                                    |
+| ------ | ------------------------ | -------------------------------------------------------------- |
+| GET    | `/api/flights`           | List all flights for current user (optional `?tripId=` filter) |
+| POST   | `/api/flights`           | Add a flight (flightNumber + flightDate, triggers API lookup)  |
+| GET    | `/api/flights/:id`       | Get single flight with fresh-on-load fetch                     |
+| PATCH  | `/api/flights/:id`       | Update (link/unlink trip)                                      |
+| DELETE | `/api/flights/:id`       | Remove a flight                                                |
+| GET    | `/api/trips/:id/flights` | Get flights linked to a specific trip                          |
 
 **Fresh-on-load logic (GET `/api/flights/:id`):**
 
@@ -81,18 +81,18 @@ Supports multiple passports per user (dual citizenship). Replaces the single `na
 
 ### Passport Routes
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/api/user/passports` | List user's passports |
-| POST | `/api/user/passports` | Add a passport (countryCode, optional label) |
-| PATCH | `/api/user/passports/:id` | Update (label, set as default) |
-| DELETE | `/api/user/passports/:id` | Remove a passport |
+| Method | Route                     | Description                                  |
+| ------ | ------------------------- | -------------------------------------------- |
+| GET    | `/api/user/passports`     | List user's passports                        |
+| POST   | `/api/user/passports`     | Add a passport (countryCode, optional label) |
+| PATCH  | `/api/user/passports/:id` | Update (label, set as default)               |
+| DELETE | `/api/user/passports/:id` | Remove a passport                            |
 
 ### Visa Route
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/api/visa/check?destination=JP` | Check visa status for all user passports against destination, return most favorable |
+| Method | Route                            | Description                                                                         |
+| ------ | -------------------------------- | ----------------------------------------------------------------------------------- |
+| GET    | `/api/visa/check?destination=JP` | Check visa status for all user passports against destination, return most favorable |
 
 Replaces existing `POST /api/visa/check`. Reads from `visa_requirements` DB table instead of external API.
 
@@ -129,13 +129,13 @@ Nuxt server task that:
 
 ### Status Normalization
 
-| Dataset value | Enum | maxStayDays |
-|---------------|------|-------------|
-| Numeric (e.g. "90") | "visa-free" | that number |
-| "visa free" | "visa-free" | null |
-| "visa on arrival" / "VOA" | "visa-on-arrival" | null |
-| "e-visa" | "evisa" | null |
-| "visa required" / "-1" | "visa-required" | null |
+| Dataset value             | Enum              | maxStayDays |
+| ------------------------- | ----------------- | ----------- |
+| Numeric (e.g. "90")       | "visa-free"       | that number |
+| "visa free"               | "visa-free"       | null        |
+| "visa on arrival" / "VOA" | "visa-on-arrival" | null        |
+| "e-visa"                  | "evisa"           | null        |
+| "visa required" / "-1"    | "visa-required"   | null        |
 
 ### Run frequency
 

@@ -5,54 +5,129 @@
  */
 export const iataToCountry: Record<string, string> = {
   // United States
-  ATL: "US", LAX: "US", ORD: "US", DFW: "US", DEN: "US", JFK: "US",
-  SFO: "US", SEA: "US", LAS: "US", MCO: "US", EWR: "US", MIA: "US",
-  IAH: "US", BOS: "US", MSP: "US", DTW: "US", PHL: "US", CLT: "US",
-  IAD: "US", SAN: "US", HNL: "US",
+  ATL: "US",
+  LAX: "US",
+  ORD: "US",
+  DFW: "US",
+  DEN: "US",
+  JFK: "US",
+  SFO: "US",
+  SEA: "US",
+  LAS: "US",
+  MCO: "US",
+  EWR: "US",
+  MIA: "US",
+  IAH: "US",
+  BOS: "US",
+  MSP: "US",
+  DTW: "US",
+  PHL: "US",
+  CLT: "US",
+  IAD: "US",
+  SAN: "US",
+  HNL: "US",
   // United Kingdom
-  LHR: "GB", LGW: "GB", STN: "GB", MAN: "GB", EDI: "GB",
+  LHR: "GB",
+  LGW: "GB",
+  STN: "GB",
+  MAN: "GB",
+  EDI: "GB",
   // Japan
-  NRT: "JP", HND: "JP", KIX: "JP", CTS: "JP", FUK: "JP", NGO: "JP",
+  NRT: "JP",
+  HND: "JP",
+  KIX: "JP",
+  CTS: "JP",
+  FUK: "JP",
+  NGO: "JP",
   // China
-  PEK: "CN", PVG: "CN", CAN: "CN", CTU: "CN", SZX: "CN", HKG: "HK",
+  PEK: "CN",
+  PVG: "CN",
+  CAN: "CN",
+  CTU: "CN",
+  SZX: "CN",
+  HKG: "HK",
   // South Korea
-  ICN: "KR", GMP: "KR", PUS: "KR",
+  ICN: "KR",
+  GMP: "KR",
+  PUS: "KR",
   // Singapore
   SIN: "SG",
   // Thailand
-  BKK: "TH", DMK: "TH", CNX: "TH", HKT: "TH",
+  BKK: "TH",
+  DMK: "TH",
+  CNX: "TH",
+  HKT: "TH",
   // Malaysia
-  KUL: "MY", PEN: "MY", BKI: "MY", KCH: "MY", LGK: "MY", SZB: "MY",
+  KUL: "MY",
+  PEN: "MY",
+  BKI: "MY",
+  KCH: "MY",
+  LGK: "MY",
+  SZB: "MY",
   // Indonesia
-  CGK: "ID", DPS: "ID", SUB: "ID",
+  CGK: "ID",
+  DPS: "ID",
+  SUB: "ID",
   // Vietnam
-  SGN: "VN", HAN: "VN", DAD: "VN",
+  SGN: "VN",
+  HAN: "VN",
+  DAD: "VN",
   // Philippines
-  MNL: "PH", CEB: "PH",
+  MNL: "PH",
+  CEB: "PH",
   // India
-  DEL: "IN", BOM: "IN", BLR: "IN", MAA: "IN", CCU: "IN", HYD: "IN",
+  DEL: "IN",
+  BOM: "IN",
+  BLR: "IN",
+  MAA: "IN",
+  CCU: "IN",
+  HYD: "IN",
   // Australia
-  SYD: "AU", MEL: "AU", BNE: "AU", PER: "AU",
+  SYD: "AU",
+  MEL: "AU",
+  BNE: "AU",
+  PER: "AU",
   // New Zealand
-  AKL: "NZ", CHC: "NZ", WLG: "NZ",
+  AKL: "NZ",
+  CHC: "NZ",
+  WLG: "NZ",
   // UAE
-  DXB: "AE", AUH: "AE", SHJ: "AE",
+  DXB: "AE",
+  AUH: "AE",
+  SHJ: "AE",
   // Turkey
-  IST: "TR", SAW: "TR", AYT: "TR",
+  IST: "TR",
+  SAW: "TR",
+  AYT: "TR",
   // Germany
-  FRA: "DE", MUC: "DE", BER: "DE", DUS: "DE", HAM: "DE",
+  FRA: "DE",
+  MUC: "DE",
+  BER: "DE",
+  DUS: "DE",
+  HAM: "DE",
   // France
-  CDG: "FR", ORY: "FR", NCE: "FR", LYS: "FR",
+  CDG: "FR",
+  ORY: "FR",
+  NCE: "FR",
+  LYS: "FR",
   // Netherlands
   AMS: "NL",
   // Spain
-  MAD: "ES", BCN: "ES", PMI: "ES", AGP: "ES",
+  MAD: "ES",
+  BCN: "ES",
+  PMI: "ES",
+  AGP: "ES",
   // Italy
-  FCO: "IT", MXP: "IT", VCE: "IT", NAP: "IT",
+  FCO: "IT",
+  MXP: "IT",
+  VCE: "IT",
+  NAP: "IT",
   // Portugal
-  LIS: "PT", OPO: "PT",
+  LIS: "PT",
+  OPO: "PT",
   // Switzerland
-  ZRH: "CH", GVA: "CH",
+  ZRH: "CH",
+  GVA: "CH",
   // Austria
   VIE: "AT",
   // Belgium
@@ -72,15 +147,22 @@ export const iataToCountry: Record<string, string> = {
   // Czech Republic
   PRG: "CZ",
   // Poland
-  WAW: "PL", KRK: "PL",
+  WAW: "PL",
+  KRK: "PL",
   // Hungary
   BUD: "HU",
   // Canada
-  YYZ: "CA", YVR: "CA", YUL: "CA", YYC: "CA",
+  YYZ: "CA",
+  YVR: "CA",
+  YUL: "CA",
+  YYC: "CA",
   // Mexico
-  MEX: "MX", CUN: "MX", GDL: "MX",
+  MEX: "MX",
+  CUN: "MX",
+  GDL: "MX",
   // Brazil
-  GRU: "BR", GIG: "BR",
+  GRU: "BR",
+  GIG: "BR",
   // Argentina
   EZE: "AR",
   // Chile
@@ -90,7 +172,8 @@ export const iataToCountry: Record<string, string> = {
   // Peru
   LIM: "PE",
   // South Africa
-  JNB: "ZA", CPT: "ZA",
+  JNB: "ZA",
+  CPT: "ZA",
   // Egypt
   CAI: "EG",
   // Morocco
@@ -102,15 +185,20 @@ export const iataToCountry: Record<string, string> = {
   // Qatar
   DOH: "QA",
   // Saudi Arabia
-  RUH: "SA", JED: "SA",
+  RUH: "SA",
+  JED: "SA",
   // Israel
   TLV: "IL",
   // Russia
-  SVO: "RU", DME: "RU", LED: "RU",
+  SVO: "RU",
+  DME: "RU",
+  LED: "RU",
   // Taiwan
-  TPE: "TW", TSA: "TW",
+  TPE: "TW",
+  TSA: "TW",
   // Cambodia
-  PNH: "KH", REP: "KH",
+  PNH: "KH",
+  REP: "KH",
   // Myanmar
   RGN: "MM",
   // Sri Lanka
@@ -122,13 +210,17 @@ export const iataToCountry: Record<string, string> = {
   // Bangladesh
   DAC: "BD",
   // Pakistan
-  ISB: "PK", KHI: "PK", LHE: "PK",
+  ISB: "PK",
+  KHI: "PK",
+  LHE: "PK",
   // Fiji
   NAN: "FJ",
   // Iceland
   KEF: "IS",
   // Croatia
-  ZAG: "HR", DBV: "HR", SPU: "HR",
+  ZAG: "HR",
+  DBV: "HR",
+  SPU: "HR",
   // Romania
   OTP: "RO",
   // Bulgaria
@@ -136,7 +228,8 @@ export const iataToCountry: Record<string, string> = {
   // Serbia
   BEG: "RS",
   // Laos
-  VTE: "LA", LPQ: "LA",
+  VTE: "LA",
+  LPQ: "LA",
 }
 
 /**

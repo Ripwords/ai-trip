@@ -14,45 +14,46 @@
 
 ### New Files
 
-| File | Responsibility |
-|------|---------------|
-| `server/db/schema/user-passports.ts` | Drizzle schema for `user_passports` table |
-| `server/db/schema/flights.ts` | Drizzle schema for `flights` table |
-| `server/db/schema/visa-requirements.ts` | Drizzle schema for `visa_requirements` table |
-| `server/api/user/passports/index.get.ts` | List user's passports |
-| `server/api/user/passports/index.post.ts` | Add a passport |
-| `server/api/user/passports/[id].patch.ts` | Update passport (label, default) |
-| `server/api/user/passports/[id].delete.ts` | Delete a passport |
-| `server/api/flights/index.get.ts` | List user's flights |
-| `server/api/flights/index.post.ts` | Add a flight |
-| `server/api/flights/[id].get.ts` | Get single flight (fresh-on-load) |
-| `server/api/flights/[id].patch.ts` | Update flight (link/unlink trip) |
-| `server/api/flights/[id].delete.ts` | Delete a flight |
-| `server/api/trips/[id]/flights.get.ts` | Get flights for a trip |
-| `server/lib/flight-api.ts` | AeroDataBox API wrapper with caching |
-| `server/utils/iata-country-map.ts` | IATA airport code to ISO alpha-2 country mapping |
-| `server/tasks/import-visa-data.ts` | Nuxt server task to import Passport Index Dataset |
-| `app/pages/flights.vue` | My Flights page |
-| `app/components/FlightCard.vue` | Flight card component |
-| `app/components/PassportManager.vue` | Passport CRUD in settings |
-| `app/components/VisaBadge.vue` | Small visa status badge |
+| File                                       | Responsibility                                    |
+| ------------------------------------------ | ------------------------------------------------- |
+| `server/db/schema/user-passports.ts`       | Drizzle schema for `user_passports` table         |
+| `server/db/schema/flights.ts`              | Drizzle schema for `flights` table                |
+| `server/db/schema/visa-requirements.ts`    | Drizzle schema for `visa_requirements` table      |
+| `server/api/user/passports/index.get.ts`   | List user's passports                             |
+| `server/api/user/passports/index.post.ts`  | Add a passport                                    |
+| `server/api/user/passports/[id].patch.ts`  | Update passport (label, default)                  |
+| `server/api/user/passports/[id].delete.ts` | Delete a passport                                 |
+| `server/api/flights/index.get.ts`          | List user's flights                               |
+| `server/api/flights/index.post.ts`         | Add a flight                                      |
+| `server/api/flights/[id].get.ts`           | Get single flight (fresh-on-load)                 |
+| `server/api/flights/[id].patch.ts`         | Update flight (link/unlink trip)                  |
+| `server/api/flights/[id].delete.ts`        | Delete a flight                                   |
+| `server/api/trips/[id]/flights.get.ts`     | Get flights for a trip                            |
+| `server/lib/flight-api.ts`                 | AeroDataBox API wrapper with caching              |
+| `server/utils/iata-country-map.ts`         | IATA airport code to ISO alpha-2 country mapping  |
+| `server/tasks/import-visa-data.ts`         | Nuxt server task to import Passport Index Dataset |
+| `app/pages/flights.vue`                    | My Flights page                                   |
+| `app/components/FlightCard.vue`            | Flight card component                             |
+| `app/components/PassportManager.vue`       | Passport CRUD in settings                         |
+| `app/components/VisaBadge.vue`             | Small visa status badge                           |
 
 ### Modified Files
 
-| File | Change |
-|------|--------|
-| `server/db/schema/index.ts` | Export new schemas |
-| `server/utils/schemas.ts` | Add Zod schemas for flights and passports |
+| File                            | Change                                                    |
+| ------------------------------- | --------------------------------------------------------- |
+| `server/db/schema/index.ts`     | Export new schemas                                        |
+| `server/utils/schemas.ts`       | Add Zod schemas for flights and passports                 |
 | `server/api/visa/check.post.ts` | Rewrite to use `visa_requirements` table + multi-passport |
-| `app/layouts/app.vue` | Add "Flights" nav link |
-| `app/pages/settings.vue` | Add PassportManager section |
-| `app/pages/trips/[id].vue` | Add "Flights" tab |
+| `app/layouts/app.vue`           | Add "Flights" nav link                                    |
+| `app/pages/settings.vue`        | Add PassportManager section                               |
+| `app/pages/trips/[id].vue`      | Add "Flights" tab                                         |
 
 ---
 
 ## Task 1: `user_passports` Schema & Migration
 
 **Files:**
+
 - Create: `server/db/schema/user-passports.ts`
 - Modify: `server/db/schema/index.ts`
 
@@ -77,9 +78,7 @@ export const userPassports = pgTable(
     isDefault: boolean("is_default").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    uniqueIndex("idx_user_passports_user_country").on(table.userId, table.countryCode),
-  ],
+  (table) => [uniqueIndex("idx_user_passports_user_country").on(table.userId, table.countryCode)],
 )
 
 export const userPassportsRelations = relations(userPassports, ({ one }) => ({
@@ -98,6 +97,7 @@ export * from "./user-passports"
 - [ ] **Step 3: Generate and run the migration**
 
 Run:
+
 ```bash
 npx drizzle-kit generate
 npx drizzle-kit migrate
@@ -131,6 +131,7 @@ git commit -m "feat: add user_passports schema, migration, and seed from existin
 ## Task 2: `flights` Schema & Migration
 
 **Files:**
+
 - Create: `server/db/schema/flights.ts`
 - Modify: `server/db/schema/index.ts`
 
@@ -139,7 +140,16 @@ git commit -m "feat: add user_passports schema, migration, and seed from existin
 Create `server/db/schema/flights.ts`:
 
 ```typescript
-import { pgTable, text, timestamp, date, uuid, jsonb, uniqueIndex, index } from "drizzle-orm/pg-core"
+import {
+  pgTable,
+  text,
+  timestamp,
+  date,
+  uuid,
+  jsonb,
+  uniqueIndex,
+  index,
+} from "drizzle-orm/pg-core"
 import { relations } from "drizzle-orm"
 import { user } from "./auth-schema"
 import { trips } from "./trips"
@@ -198,6 +208,7 @@ export * from "./flights"
 - [ ] **Step 3: Generate and run the migration**
 
 Run:
+
 ```bash
 npx drizzle-kit generate
 npx drizzle-kit migrate
@@ -217,6 +228,7 @@ git commit -m "feat: add flights schema and migration"
 ## Task 3: `visa_requirements` Schema & Migration
 
 **Files:**
+
 - Create: `server/db/schema/visa-requirements.ts`
 - Modify: `server/db/schema/index.ts`
 
@@ -254,6 +266,7 @@ export * from "./visa-requirements"
 - [ ] **Step 3: Generate and run the migration**
 
 Run:
+
 ```bash
 npx drizzle-kit generate
 npx drizzle-kit migrate
@@ -271,6 +284,7 @@ git commit -m "feat: add visa_requirements schema and migration"
 ## Task 4: Zod Validation Schemas
 
 **Files:**
+
 - Modify: `server/utils/schemas.ts`
 
 - [ ] **Step 1: Add passport and flight schemas**
@@ -323,6 +337,7 @@ git commit -m "feat: add Zod schemas for passports, flights, and visa check"
 ## Task 5: IATA-to-Country Mapping
 
 **Files:**
+
 - Create: `server/utils/iata-country-map.ts`
 
 - [ ] **Step 1: Create the mapping file**
@@ -337,54 +352,129 @@ Create `server/utils/iata-country-map.ts`. This is a `Record<string, string>` ma
  */
 export const iataToCountry: Record<string, string> = {
   // United States
-  ATL: "US", LAX: "US", ORD: "US", DFW: "US", DEN: "US", JFK: "US",
-  SFO: "US", SEA: "US", LAS: "US", MCO: "US", EWR: "US", MIA: "US",
-  IAH: "US", BOS: "US", MSP: "US", DTW: "US", PHL: "US", CLT: "US",
-  IAD: "US", SAN: "US", HNL: "US",
+  ATL: "US",
+  LAX: "US",
+  ORD: "US",
+  DFW: "US",
+  DEN: "US",
+  JFK: "US",
+  SFO: "US",
+  SEA: "US",
+  LAS: "US",
+  MCO: "US",
+  EWR: "US",
+  MIA: "US",
+  IAH: "US",
+  BOS: "US",
+  MSP: "US",
+  DTW: "US",
+  PHL: "US",
+  CLT: "US",
+  IAD: "US",
+  SAN: "US",
+  HNL: "US",
   // United Kingdom
-  LHR: "GB", LGW: "GB", STN: "GB", MAN: "GB", EDI: "GB",
+  LHR: "GB",
+  LGW: "GB",
+  STN: "GB",
+  MAN: "GB",
+  EDI: "GB",
   // Japan
-  NRT: "JP", HND: "JP", KIX: "JP", CTS: "JP", FUK: "JP", NGO: "JP",
+  NRT: "JP",
+  HND: "JP",
+  KIX: "JP",
+  CTS: "JP",
+  FUK: "JP",
+  NGO: "JP",
   // China
-  PEK: "CN", PVG: "CN", CAN: "CN", CTU: "CN", SZX: "CN", HKG: "HK",
+  PEK: "CN",
+  PVG: "CN",
+  CAN: "CN",
+  CTU: "CN",
+  SZX: "CN",
+  HKG: "HK",
   // South Korea
-  ICN: "KR", GMP: "KR", PUS: "KR",
+  ICN: "KR",
+  GMP: "KR",
+  PUS: "KR",
   // Singapore
   SIN: "SG",
   // Thailand
-  BKK: "TH", DMK: "TH", CNX: "TH", HKT: "TH",
+  BKK: "TH",
+  DMK: "TH",
+  CNX: "TH",
+  HKT: "TH",
   // Malaysia
-  KUL: "MY", PEN: "MY", BKI: "MY", KCH: "MY", LGK: "MY", SZB: "MY",
+  KUL: "MY",
+  PEN: "MY",
+  BKI: "MY",
+  KCH: "MY",
+  LGK: "MY",
+  SZB: "MY",
   // Indonesia
-  CGK: "ID", DPS: "ID", SUB: "ID",
+  CGK: "ID",
+  DPS: "ID",
+  SUB: "ID",
   // Vietnam
-  SGN: "VN", HAN: "VN", DAD: "VN",
+  SGN: "VN",
+  HAN: "VN",
+  DAD: "VN",
   // Philippines
-  MNL: "PH", CEB: "PH",
+  MNL: "PH",
+  CEB: "PH",
   // India
-  DEL: "IN", BOM: "IN", BLR: "IN", MAA: "IN", CCU: "IN", HYD: "IN",
+  DEL: "IN",
+  BOM: "IN",
+  BLR: "IN",
+  MAA: "IN",
+  CCU: "IN",
+  HYD: "IN",
   // Australia
-  SYD: "AU", MEL: "AU", BNE: "AU", PER: "AU",
+  SYD: "AU",
+  MEL: "AU",
+  BNE: "AU",
+  PER: "AU",
   // New Zealand
-  AKL: "NZ", CHC: "NZ", WLG: "NZ",
+  AKL: "NZ",
+  CHC: "NZ",
+  WLG: "NZ",
   // UAE
-  DXB: "AE", AUH: "AE", SHJ: "AE",
+  DXB: "AE",
+  AUH: "AE",
+  SHJ: "AE",
   // Turkey
-  IST: "TR", SAW: "TR", AYT: "TR",
+  IST: "TR",
+  SAW: "TR",
+  AYT: "TR",
   // Germany
-  FRA: "DE", MUC: "DE", BER: "DE", DUS: "DE", HAM: "DE",
+  FRA: "DE",
+  MUC: "DE",
+  BER: "DE",
+  DUS: "DE",
+  HAM: "DE",
   // France
-  CDG: "FR", ORY: "FR", NCE: "FR", LYS: "FR",
+  CDG: "FR",
+  ORY: "FR",
+  NCE: "FR",
+  LYS: "FR",
   // Netherlands
   AMS: "NL",
   // Spain
-  MAD: "ES", BCN: "ES", PMI: "ES", AGP: "ES",
+  MAD: "ES",
+  BCN: "ES",
+  PMI: "ES",
+  AGP: "ES",
   // Italy
-  FCO: "IT", MXP: "IT", VCE: "IT", NAP: "IT",
+  FCO: "IT",
+  MXP: "IT",
+  VCE: "IT",
+  NAP: "IT",
   // Portugal
-  LIS: "PT", OPO: "PT",
+  LIS: "PT",
+  OPO: "PT",
   // Switzerland
-  ZRH: "CH", GVA: "CH",
+  ZRH: "CH",
+  GVA: "CH",
   // Austria
   VIE: "AT",
   // Belgium
@@ -404,15 +494,22 @@ export const iataToCountry: Record<string, string> = {
   // Czech Republic
   PRG: "CZ",
   // Poland
-  WAW: "PL", KRK: "PL",
+  WAW: "PL",
+  KRK: "PL",
   // Hungary
   BUD: "HU",
   // Canada
-  YYZ: "CA", YVR: "CA", YUL: "CA", YYC: "CA",
+  YYZ: "CA",
+  YVR: "CA",
+  YUL: "CA",
+  YYC: "CA",
   // Mexico
-  MEX: "MX", CUN: "MX", GDL: "MX",
+  MEX: "MX",
+  CUN: "MX",
+  GDL: "MX",
   // Brazil
-  GRU: "BR", GIG: "BR",
+  GRU: "BR",
+  GIG: "BR",
   // Argentina
   EZE: "AR",
   // Chile
@@ -422,7 +519,8 @@ export const iataToCountry: Record<string, string> = {
   // Peru
   LIM: "PE",
   // South Africa
-  JNB: "ZA", CPT: "ZA",
+  JNB: "ZA",
+  CPT: "ZA",
   // Egypt
   CAI: "EG",
   // Morocco
@@ -434,15 +532,20 @@ export const iataToCountry: Record<string, string> = {
   // Qatar
   DOH: "QA",
   // Saudi Arabia
-  RUH: "SA", JED: "SA",
+  RUH: "SA",
+  JED: "SA",
   // Israel
   TLV: "IL",
   // Russia
-  SVO: "RU", DME: "RU", LED: "RU",
+  SVO: "RU",
+  DME: "RU",
+  LED: "RU",
   // Taiwan
-  TPE: "TW", TSA: "TW",
+  TPE: "TW",
+  TSA: "TW",
   // Cambodia
-  PNH: "KH", REP: "KH",
+  PNH: "KH",
+  REP: "KH",
   // Myanmar
   RGN: "MM",
   // Sri Lanka
@@ -454,13 +557,17 @@ export const iataToCountry: Record<string, string> = {
   // Bangladesh
   DAC: "BD",
   // Pakistan
-  ISB: "PK", KHI: "PK", LHE: "PK",
+  ISB: "PK",
+  KHI: "PK",
+  LHE: "PK",
   // Fiji
   NAN: "FJ",
   // Iceland
   KEF: "IS",
   // Croatia
-  ZAG: "HR", DBV: "HR", SPU: "HR",
+  ZAG: "HR",
+  DBV: "HR",
+  SPU: "HR",
   // Romania
   OTP: "RO",
   // Bulgaria
@@ -468,7 +575,8 @@ export const iataToCountry: Record<string, string> = {
   // Serbia
   BEG: "RS",
   // Laos
-  VTE: "LA", LPQ: "LA",
+  VTE: "LA",
+  LPQ: "LA",
 }
 
 /**
@@ -492,6 +600,7 @@ git commit -m "feat: add IATA-to-country mapping for visa badge resolution"
 ## Task 6: Visa Dataset Import Task
 
 **Files:**
+
 - Create: `server/tasks/import-visa-data.ts`
 
 - [ ] **Step 1: Create the import task**
@@ -647,6 +756,7 @@ experimental: {
 - [ ] **Step 3: Run the import**
 
 Run:
+
 ```bash
 npx nuxt run task import-visa-data
 ```
@@ -665,6 +775,7 @@ git commit -m "feat: add visa dataset import task from Passport Index Dataset"
 ## Task 7: Passport API Routes
 
 **Files:**
+
 - Create: `server/api/user/passports/index.get.ts`
 - Create: `server/api/user/passports/index.post.ts`
 - Create: `server/api/user/passports/[id].patch.ts`
@@ -827,6 +938,7 @@ git commit -m "feat: add passport CRUD API routes"
 ## Task 8: AeroDataBox Flight API Integration
 
 **Files:**
+
 - Create: `server/lib/flight-api.ts`
 
 - [ ] **Step 1: Create the flight API wrapper**
@@ -941,6 +1053,7 @@ git commit -m "feat: add AeroDataBox flight API integration"
 ## Task 9: Flight API Routes
 
 **Files:**
+
 - Create: `server/api/flights/index.get.ts`
 - Create: `server/api/flights/index.post.ts`
 - Create: `server/api/flights/[id].get.ts`
@@ -1202,6 +1315,7 @@ git commit -m "feat: add flight CRUD API routes with fresh-on-load refresh"
 ## Task 10: Update Visa Check Route
 
 **Files:**
+
 - Modify: `server/api/visa/check.post.ts`
 
 - [ ] **Step 1: Rewrite visa check to use `visa_requirements` table + multi-passport**
@@ -1306,6 +1420,7 @@ git commit -m "refactor: rewrite visa check to use local dataset + multi-passpor
 ## Task 11: VisaBadge Component
 
 **Files:**
+
 - Create: `app/components/VisaBadge.vue`
 
 - [ ] **Step 1: Create the component**
@@ -1326,22 +1441,26 @@ const { data: visaResult } = await useFetch("/api/visa/check", {
 const statusConfig: Record<string, { label: string; color: string; icon: string }> = {
   "visa-free": {
     label: "Visa Free",
-    color: "text-green-700 bg-green-50 border-green-200 dark:text-green-400 dark:bg-green-950 dark:border-green-800",
+    color:
+      "text-green-700 bg-green-50 border-green-200 dark:text-green-400 dark:bg-green-950 dark:border-green-800",
     icon: "lucide:check-circle",
   },
   "visa-on-arrival": {
     label: "Visa on Arrival",
-    color: "text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800",
+    color:
+      "text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800",
     icon: "lucide:clock",
   },
   evisa: {
     label: "e-Visa",
-    color: "text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-950 dark:border-amber-800",
+    color:
+      "text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-950 dark:border-amber-800",
     icon: "lucide:globe",
   },
   "visa-required": {
     label: "Visa Required",
-    color: "text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800",
+    color:
+      "text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800",
     icon: "lucide:shield-alert",
   },
 }
@@ -1360,9 +1479,7 @@ const config = computed(() => {
   >
     <Icon :name="config.icon" class="h-3 w-3" />
     {{ config.label }}
-    <span v-if="visaResult.maxStayDays" class="opacity-75">
-      ({{ visaResult.maxStayDays }}d)
-    </span>
+    <span v-if="visaResult.maxStayDays" class="opacity-75"> ({{ visaResult.maxStayDays }}d) </span>
   </span>
 </template>
 ```
@@ -1379,6 +1496,7 @@ git commit -m "feat: add VisaBadge component for inline visa status display"
 ## Task 12: FlightCard Component
 
 **Files:**
+
 - Create: `app/components/FlightCard.vue`
 
 - [ ] **Step 1: Create the component**
@@ -1417,10 +1535,22 @@ const emit = defineEmits<{
 }>()
 
 const statusConfig: Record<string, { label: string; color: string }> = {
-  scheduled: { label: "Scheduled", color: "bg-sand-100 text-sand-700 dark:bg-sand-800 dark:text-sand-300" },
-  delayed: { label: "Delayed", color: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300" },
-  landed: { label: "Landed", color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" },
-  cancelled: { label: "Cancelled", color: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" },
+  scheduled: {
+    label: "Scheduled",
+    color: "bg-sand-100 text-sand-700 dark:bg-sand-800 dark:text-sand-300",
+  },
+  delayed: {
+    label: "Delayed",
+    color: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+  },
+  landed: {
+    label: "Landed",
+    color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  },
+  cancelled: {
+    label: "Cancelled",
+    color: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+  },
 }
 
 const statusBadge = computed(() => statusConfig[props.flight.status] ?? statusConfig.scheduled)
@@ -1469,10 +1599,7 @@ function selectTrip(tripId: string | null) {
         </p>
       </div>
       <div class="flex items-center gap-2">
-        <span
-          class="rounded-full px-2.5 py-0.5 text-xs font-medium"
-          :class="statusBadge.color"
-        >
+        <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="statusBadge.color">
           {{ statusBadge.label }}
         </span>
         <button
@@ -1524,10 +1651,7 @@ function selectTrip(tripId: string | null) {
           <Icon name="lucide:map-pin" class="h-3 w-3" />
           {{ flight.trip.destination }}
         </NuxtLink>
-        <button
-          class="text-xs text-sand-400 hover:text-sand-600"
-          @click="selectTrip(null)"
-        >
+        <button class="text-xs text-sand-400 hover:text-sand-600" @click="selectTrip(null)">
           Unlink
         </button>
       </template>
@@ -1572,6 +1696,7 @@ git commit -m "feat: add FlightCard component with visa badge and trip linking"
 ## Task 13: My Flights Page
 
 **Files:**
+
 - Create: `app/pages/flights.vue`
 
 - [ ] **Step 1: Create the flights page**
@@ -1650,9 +1775,7 @@ async function deleteFlight(flightId: string) {
 
 const today = new Date().toISOString().split("T")[0]!
 
-const upcomingFlights = computed(() =>
-  (flights.value ?? []).filter((f) => f.flightDate >= today),
-)
+const upcomingFlights = computed(() => (flights.value ?? []).filter((f) => f.flightDate >= today))
 
 const pastFlights = computed(() =>
   (flights.value ?? [])
@@ -1736,10 +1859,7 @@ const showPast = ref(false)
         class="flex items-center gap-1 text-sm font-semibold text-sand-500 transition hover:text-sand-700 dark:text-sand-400"
         @click="showPast = !showPast"
       >
-        <Icon
-          :name="showPast ? 'lucide:chevron-down' : 'lucide:chevron-right'"
-          class="h-4 w-4"
-        />
+        <Icon :name="showPast ? 'lucide:chevron-down' : 'lucide:chevron-right'" class="h-4 w-4" />
         Past Flights ({{ pastFlights.length }})
       </button>
       <div v-if="showPast" class="mt-3 space-y-3">
@@ -1769,6 +1889,7 @@ git commit -m "feat: add My Flights page with add/link/delete functionality"
 ## Task 14: PassportManager Component
 
 **Files:**
+
 - Create: `app/components/PassportManager.vue`
 
 - [ ] **Step 1: Create the component**
@@ -1915,6 +2036,7 @@ git commit -m "feat: add PassportManager component for multi-passport support"
 ## Task 15: Integrate Into Settings, Navigation, and Trip Detail
 
 **Files:**
+
 - Modify: `app/pages/settings.vue`
 - Modify: `app/layouts/app.vue`
 - Modify: `app/pages/trips/[id].vue`
@@ -1944,11 +2066,11 @@ Also remove the `useNationality()` import/usage and the `nationalityInitialized`
 In `app/layouts/app.vue`, add a Flights nav link after the Explore link. Find the Explore NuxtLink and add this immediately after it:
 
 ```vue
-          <NuxtLink
-            to="/flights"
-            class="flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
-            active-class="bg-sand-100 text-sand-900 dark:bg-sand-800 dark:text-sand-100"
-          >
+<NuxtLink
+  to="/flights"
+  class="flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
+  active-class="bg-sand-100 text-sand-900 dark:bg-sand-800 dark:text-sand-100"
+>
             <Icon name="lucide:plane" class="h-4 w-4" />
             <span class="hidden sm:inline">Flights</span>
           </NuxtLink>
@@ -1961,6 +2083,7 @@ In `app/pages/trips/[id].vue`:
 1. Add `"flights"` to the `TabValue` type union and to the `validTabs` array.
 
 2. Add a data fetch for trip flights:
+
 ```typescript
 const { data: tripFlights, refresh: refreshFlights } = await useFetch<Flight[]>(
   `/api/trips/${tripId}/flights`,
@@ -1968,6 +2091,7 @@ const { data: tripFlights, refresh: refreshFlights } = await useFetch<Flight[]>(
 ```
 
 3. Add the Flights tab content in the template where other tab panels are rendered (alongside overview, itinerary, notes, etc.). Find the pattern and add:
+
 ```vue
         <!-- Flights tab -->
         <div v-if="activeTab === 'flights'" class="space-y-4">
@@ -2003,12 +2127,9 @@ const { data: tripFlights, refresh: refreshFlights } = await useFetch<Flight[]>(
 ```
 
 4. Add a Flights tab button in the tab bar. Find where the other tab buttons are rendered and add:
+
 ```vue
-            <button
-              class="..."
-              :class="activeTab === 'flights' ? '...' : '...'"
-              @click="activeTab = 'flights'"
-            >
+<button class="..." :class="activeTab === 'flights' ? '...' : '...'" @click="activeTab = 'flights'">
               <Icon name="lucide:plane" class="h-4 w-4" />
               Flights
             </button>
@@ -2021,23 +2142,23 @@ Use the same class pattern as the existing tab buttons.
 In `app/components/VisaChecker.vue`, update the `checkVisa` function to use the new GET endpoint. Change:
 
 ```typescript
-    const result = await $fetch("/api/visa/check", {
-      method: "POST",
-      body: {
-        destinationCountry: props.destination.alpha2,
-        destinationCountryName: props.destination.name,
-        passportCountry: nationality.value,
-        passportCountryName: passportName,
-      },
-    })
+const result = await $fetch("/api/visa/check", {
+  method: "POST",
+  body: {
+    destinationCountry: props.destination.alpha2,
+    destinationCountryName: props.destination.name,
+    passportCountry: nationality.value,
+    passportCountryName: passportName,
+  },
+})
 ```
 
 To:
 
 ```typescript
-    const result = await $fetch("/api/visa/check", {
-      query: { destination: props.destination.alpha2 },
-    })
+const result = await $fetch("/api/visa/check", {
+  query: { destination: props.destination.alpha2 },
+})
 ```
 
 The new endpoint handles multi-passport lookup automatically, so the component no longer needs to send passport info. The nationality selector can remain for display purposes, or be removed if the passport is now managed in settings.
@@ -2056,6 +2177,7 @@ git commit -m "feat: integrate flights and passports into settings, nav, trip de
 - [ ] **Step 1: Start the dev server**
 
 Run:
+
 ```bash
 npm run dev
 ```
@@ -2091,6 +2213,7 @@ npm run dev
 - [ ] **Step 6: Commit any fixes**
 
 If any issues found, fix and commit:
+
 ```bash
 git add -A
 git commit -m "fix: address issues found during smoke testing"

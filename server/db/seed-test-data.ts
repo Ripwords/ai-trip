@@ -6,6 +6,7 @@
  * Requires DATABASE_URL env var. Finds the first user in the DB
  * and creates test trips, flights, and visited countries for them.
  */
+// eslint-disable-next-line eslint-plugin-import(no-unassigned-import)
 import "dotenv/config"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { eq } from "drizzle-orm"
@@ -36,20 +37,118 @@ const TRIPS = [
 ]
 
 const FLIGHTS = [
-  { number: "SQ638", date: "2025-03-15", dep: "SIN", arr: "NRT", airline: "Singapore Airlines", status: "landed" },
-  { number: "SQ639", date: "2025-03-22", dep: "NRT", arr: "SIN", airline: "Singapore Airlines", status: "landed" },
-  { number: "TG414", date: "2025-05-10", dep: "KUL", arr: "BKK", airline: "Thai Airways", status: "landed" },
-  { number: "AF257", date: "2025-07-01", dep: "KUL", arr: "CDG", airline: "Air France", status: "landed" },
-  { number: "QZ502", date: "2025-09-20", dep: "KUL", arr: "DPS", airline: "AirAsia", status: "landed" },
-  { number: "KE622", date: "2025-11-05", dep: "KUL", arr: "ICN", airline: "Korean Air", status: "landed" },
-  { number: "TK61", date: "2026-01-10", dep: "KUL", arr: "IST", airline: "Turkish Airlines", status: "landed" },
-  { number: "TR638", date: "2026-05-26", dep: "KUL", arr: "SIN", airline: "Scoot", status: "scheduled" },
-  { number: "CI722", date: "2026-06-10", dep: "KUL", arr: "TPE", airline: "China Airlines", status: "scheduled" },
-  { number: "BA33", date: "2026-08-01", dep: "KUL", arr: "LHR", airline: "British Airways", status: "scheduled" },
-  { number: "FI615", date: "2026-09-15", dep: "LHR", arr: "KEF", airline: "Icelandair", status: "scheduled" },
-  { number: "VN656", date: "2026-10-05", dep: "KUL", arr: "HAN", airline: "Vietnam Airlines", status: "scheduled" },
-  { number: "SA287", date: "2026-12-20", dep: "KUL", arr: "CPT", airline: "South African Airways", status: "scheduled" },
-  { number: "TP465", date: "2027-02-10", dep: "KUL", arr: "LIS", airline: "TAP Portugal", status: "scheduled" },
+  {
+    number: "SQ638",
+    date: "2025-03-15",
+    dep: "SIN",
+    arr: "NRT",
+    airline: "Singapore Airlines",
+    status: "landed",
+  },
+  {
+    number: "SQ639",
+    date: "2025-03-22",
+    dep: "NRT",
+    arr: "SIN",
+    airline: "Singapore Airlines",
+    status: "landed",
+  },
+  {
+    number: "TG414",
+    date: "2025-05-10",
+    dep: "KUL",
+    arr: "BKK",
+    airline: "Thai Airways",
+    status: "landed",
+  },
+  {
+    number: "AF257",
+    date: "2025-07-01",
+    dep: "KUL",
+    arr: "CDG",
+    airline: "Air France",
+    status: "landed",
+  },
+  {
+    number: "QZ502",
+    date: "2025-09-20",
+    dep: "KUL",
+    arr: "DPS",
+    airline: "AirAsia",
+    status: "landed",
+  },
+  {
+    number: "KE622",
+    date: "2025-11-05",
+    dep: "KUL",
+    arr: "ICN",
+    airline: "Korean Air",
+    status: "landed",
+  },
+  {
+    number: "TK61",
+    date: "2026-01-10",
+    dep: "KUL",
+    arr: "IST",
+    airline: "Turkish Airlines",
+    status: "landed",
+  },
+  {
+    number: "TR638",
+    date: "2026-05-26",
+    dep: "KUL",
+    arr: "SIN",
+    airline: "Scoot",
+    status: "scheduled",
+  },
+  {
+    number: "CI722",
+    date: "2026-06-10",
+    dep: "KUL",
+    arr: "TPE",
+    airline: "China Airlines",
+    status: "scheduled",
+  },
+  {
+    number: "BA33",
+    date: "2026-08-01",
+    dep: "KUL",
+    arr: "LHR",
+    airline: "British Airways",
+    status: "scheduled",
+  },
+  {
+    number: "FI615",
+    date: "2026-09-15",
+    dep: "LHR",
+    arr: "KEF",
+    airline: "Icelandair",
+    status: "scheduled",
+  },
+  {
+    number: "VN656",
+    date: "2026-10-05",
+    dep: "KUL",
+    arr: "HAN",
+    airline: "Vietnam Airlines",
+    status: "scheduled",
+  },
+  {
+    number: "SA287",
+    date: "2026-12-20",
+    dep: "KUL",
+    arr: "CPT",
+    airline: "South African Airways",
+    status: "scheduled",
+  },
+  {
+    number: "TP465",
+    date: "2027-02-10",
+    dep: "KUL",
+    arr: "LIS",
+    airline: "TAP Portugal",
+    status: "scheduled",
+  },
 ]
 
 const COUNTRIES = [
@@ -168,7 +267,9 @@ async function seed() {
     countriesAdded++
   }
 
-  console.log(`\nDone! Created ${tripsCreated} trips, ${flightsCreated} flights, ${countriesAdded} countries.`)
+  console.log(
+    `\nDone! Created ${tripsCreated} trips, ${flightsCreated} flights, ${countriesAdded} countries.`,
+  )
   process.exit(0)
 }
 
