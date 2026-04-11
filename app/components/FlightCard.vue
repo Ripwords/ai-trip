@@ -30,7 +30,7 @@ const emit = defineEmits<{
 const statusConfig: Record<string, { label: string; color: string }> = {
   scheduled: {
     label: "Scheduled",
-    color: "bg-sand-100 text-sand-700 dark:bg-sand-800 dark:text-sand-300",
+    color: "bg-sand-100 text-sand-700",
   },
   delayed: {
     label: "Delayed",
@@ -50,7 +50,7 @@ const statusBadge = computed(
   () =>
     statusConfig[props.flight.status] ?? {
       label: "Scheduled",
-      color: "bg-sand-100 text-sand-700 dark:bg-sand-800 dark:text-sand-300",
+      color: "bg-sand-100 text-sand-700",
     },
 )
 
@@ -85,15 +85,15 @@ function selectTrip(tripId: string | null) {
 
 <template>
   <div
-    class="rounded-2xl border border-sand-200 bg-white p-5 transition hover:shadow-md dark:border-sand-700 dark:bg-sand-900"
+    class="rounded-2xl border border-sand-200 bg-white p-5 transition hover:shadow-md"
   >
     <!-- Header: airline + flight number + status -->
     <div class="flex items-start justify-between">
       <div>
-        <p class="text-sm text-sand-500 dark:text-sand-400">
+        <p class="text-sm text-sand-500">
           {{ flight.airline ?? "Unknown Airline" }}
         </p>
-        <p class="font-display text-lg text-sand-900 dark:text-sand-100">
+        <p class="font-display text-lg text-sand-900">
           {{ flight.flightNumber }}
         </p>
       </div>
@@ -102,7 +102,7 @@ function selectTrip(tripId: string | null) {
           {{ statusBadge.label }}
         </span>
         <button
-          class="rounded-lg p-1.5 text-sand-400 transition hover:bg-sand-100 hover:text-red-500 dark:hover:bg-sand-800"
+          class="rounded-lg p-1.5 text-sand-400 transition hover:bg-sand-100 hover:text-red-500"
           title="Delete flight"
           @click="emit('delete', flight.id)"
         >
@@ -114,18 +114,18 @@ function selectTrip(tripId: string | null) {
     <!-- Route: departure → arrival -->
     <div class="mt-4 flex items-center gap-3">
       <div class="text-center">
-        <p class="font-display text-xl text-sand-900 dark:text-sand-100">
+        <p class="font-display text-xl text-sand-900">
           {{ flight.departureAirport ?? "???" }}
         </p>
         <p class="text-xs text-sand-500">{{ formatTime(flight.departureTime) }}</p>
       </div>
       <div class="flex flex-1 items-center">
-        <div class="h-px flex-1 bg-sand-200 dark:bg-sand-700" />
+        <div class="h-px flex-1 bg-sand-200" />
         <Icon name="lucide:plane" class="mx-2 h-4 w-4 text-sand-400" />
-        <div class="h-px flex-1 bg-sand-200 dark:bg-sand-700" />
+        <div class="h-px flex-1 bg-sand-200" />
       </div>
       <div class="text-center">
-        <p class="font-display text-xl text-sand-900 dark:text-sand-100">
+        <p class="font-display text-xl text-sand-900">
           {{ flight.arrivalAirport ?? "???" }}
         </p>
         <p class="text-xs text-sand-500">{{ formatTime(flight.arrivalTime) }}</p>
@@ -133,7 +133,7 @@ function selectTrip(tripId: string | null) {
     </div>
 
     <!-- Date + terminal/gate + visa -->
-    <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-sand-500 dark:text-sand-400">
+    <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-sand-500">
       <span>{{ formatDate(flight.flightDate) }}</span>
       <span v-if="flight.terminal">· Terminal {{ flight.terminal }}</span>
       <span v-if="flight.gate">· Gate {{ flight.gate }}</span>
@@ -145,7 +145,7 @@ function selectTrip(tripId: string | null) {
       <template v-if="flight.trip">
         <NuxtLink
           :to="`/trips/${flight.trip.id}`"
-          class="inline-flex items-center gap-1 rounded-full bg-terra-50 px-2.5 py-1 text-xs font-medium text-terra-700 transition hover:bg-terra-100 dark:bg-terra-900 dark:text-terra-300"
+          class="inline-flex items-center gap-1 rounded-full bg-terra-50 px-2.5 py-1 text-xs font-medium text-terra-700 transition hover:bg-terra-100"
         >
           <Icon name="lucide:map-pin" class="h-3 w-3" />
           {{ flight.trip.destination }}
@@ -157,7 +157,7 @@ function selectTrip(tripId: string | null) {
       <template v-else-if="trips && trips.length > 0">
         <div class="relative">
           <button
-            class="inline-flex items-center gap-1 rounded-full border border-dashed border-sand-300 px-2.5 py-1 text-xs text-sand-500 transition hover:border-sand-400 hover:text-sand-700 dark:border-sand-600"
+            class="inline-flex items-center gap-1 rounded-full border border-dashed border-sand-300 px-2.5 py-1 text-xs text-sand-500 transition hover:border-sand-400 hover:text-sand-700"
             @click="showTripDropdown = !showTripDropdown"
           >
             <Icon name="lucide:link" class="h-3 w-3" />
@@ -165,12 +165,12 @@ function selectTrip(tripId: string | null) {
           </button>
           <div
             v-if="showTripDropdown"
-            class="absolute left-0 top-full z-10 mt-1 w-48 rounded-xl border border-sand-200 bg-white py-1 shadow-lg dark:border-sand-700 dark:bg-sand-800"
+            class="absolute left-0 top-full z-10 mt-1 w-48 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
           >
             <button
               v-for="trip in trips"
               :key="trip.id"
-              class="block w-full px-3 py-2 text-left text-xs text-sand-700 hover:bg-sand-50 dark:text-sand-300 dark:hover:bg-sand-700"
+              class="block w-full px-3 py-2 text-left text-xs text-sand-700 hover:bg-sand-50"
               @click="selectTrip(trip.id)"
             >
               {{ trip.destination }}

@@ -61,8 +61,16 @@ async function linkTrip(flightId: string, tripId: string | null) {
   await refresh()
 }
 
+const { confirm } = useConfirm()
+
 async function deleteFlight(flightId: string) {
-  if (!confirm("Delete this flight?")) return
+  const ok = await confirm({
+    title: "Delete flight",
+    message: "Are you sure you want to delete this flight?",
+    confirmText: "Delete",
+    destructive: true,
+  })
+  if (!ok) return
   await $fetch(`/api/flights/${flightId}`, { method: "DELETE" })
   await refresh()
 }
@@ -82,32 +90,32 @@ const showPast = ref(false)
 
 <template>
   <div class="mx-auto max-w-2xl space-y-6">
-    <h1 class="font-display text-2xl text-sand-900 dark:text-sand-100">My Flights</h1>
+    <h1 class="font-display text-2xl text-sand-900">My Flights</h1>
 
     <!-- Add flight form -->
     <form
-      class="flex flex-col gap-3 rounded-2xl border border-sand-200 bg-white p-5 sm:flex-row sm:items-end dark:border-sand-700 dark:bg-sand-900"
+      class="flex flex-col gap-3 rounded-2xl border border-sand-200 bg-white p-5 sm:flex-row sm:items-end"
       @submit.prevent="addFlight"
     >
       <div class="flex-1">
-        <label class="mb-1 block text-xs font-medium text-sand-600 dark:text-sand-400">
+        <label class="mb-1 block text-xs font-medium text-sand-600">
           Flight number
         </label>
         <input
           v-model="newFlightNumber"
           type="text"
           placeholder="e.g. SQ638"
-          class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-400 focus:border-terra-400 focus:outline-none dark:border-sand-700 dark:bg-sand-800 dark:text-sand-100"
+          class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
         />
       </div>
       <div class="flex-1">
-        <label class="mb-1 block text-xs font-medium text-sand-600 dark:text-sand-400">
+        <label class="mb-1 block text-xs font-medium text-sand-600">
           Date
         </label>
         <input
           v-model="newFlightDate"
           type="date"
-          class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none dark:border-sand-700 dark:bg-sand-800 dark:text-sand-100"
+          class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
         />
       </div>
       <button
@@ -121,7 +129,7 @@ const showPast = ref(false)
 
     <!-- Upcoming flights -->
     <section v-if="upcomingFlights.length > 0">
-      <h2 class="mb-3 text-sm font-semibold text-sand-600 dark:text-sand-400">
+      <h2 class="mb-3 text-sm font-semibold text-sand-600">
         Upcoming ({{ upcomingFlights.length }})
       </h2>
       <div class="space-y-3">
@@ -139,10 +147,10 @@ const showPast = ref(false)
     <!-- Empty state -->
     <div
       v-if="!flights?.length"
-      class="rounded-2xl border border-dashed border-sand-300 p-12 text-center dark:border-sand-700"
+      class="rounded-2xl border border-dashed border-sand-300 p-12 text-center"
     >
-      <Icon name="lucide:plane" class="mx-auto h-10 w-10 text-sand-300 dark:text-sand-600" />
-      <p class="mt-3 text-sm text-sand-500 dark:text-sand-400">
+      <Icon name="lucide:plane" class="mx-auto h-10 w-10 text-sand-300" />
+      <p class="mt-3 text-sm text-sand-500">
         No flights yet. Add a flight above to get started.
       </p>
     </div>
@@ -150,7 +158,7 @@ const showPast = ref(false)
     <!-- Past flights (collapsed) -->
     <section v-if="pastFlights.length > 0">
       <button
-        class="flex items-center gap-1 text-sm font-semibold text-sand-500 transition hover:text-sand-700 dark:text-sand-400"
+        class="flex items-center gap-1 text-sm font-semibold text-sand-500 transition hover:text-sand-700"
         @click="showPast = !showPast"
       >
         <Icon :name="showPast ? 'lucide:chevron-down' : 'lucide:chevron-right'" class="h-4 w-4" />
