@@ -52,6 +52,14 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside))
             <Icon name="lucide:globe" class="h-4 w-4" />
             <span class="hidden sm:inline">Explore</span>
           </NuxtLink>
+          <NuxtLink
+            to="/flights"
+            class="flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
+            active-class="bg-sand-100 text-sand-900 dark:bg-sand-800 dark:text-sand-100"
+          >
+            <Icon name="lucide:plane" class="h-4 w-4" />
+            <span class="hidden sm:inline">Flights</span>
+          </NuxtLink>
           <ClientOnly>
             <button
               class="flex h-9 w-9 items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"

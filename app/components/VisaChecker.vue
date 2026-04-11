@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { CountryInfo } from "../data/countries"
-import { countryByAlpha2 } from "../data/countries"
 
 const props = defineProps<{
   destination: CountryInfo | null
@@ -20,12 +19,9 @@ onMounted(() => {
 const visaResult = ref<{
   visaStatus: string
   maxStayDays: number | null
-  requirements: string
-  processingTime: string | null
-  cost: string | null
-  notes: string | null
-  cached: boolean
-  fetchedAt: string
+  passportCountry: string
+  destinationCountry: string
+  isHomeCountry: boolean
 } | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -47,17 +43,9 @@ async function checkVisa() {
   error.value = null
   visaResult.value = null
 
-  const passportName = countryByAlpha2.get(nationality.value)?.name ?? nationality.value
-
   try {
     const result = await $fetch("/api/visa/check", {
-      method: "POST",
-      body: {
-        destinationCountry: props.destination.alpha2,
-        destinationCountryName: props.destination.name,
-        passportCountry: nationality.value,
-        passportCountryName: passportName,
-      },
+      query: { destination: props.destination.alpha2 },
     })
     visaResult.value = result
   } catch (e: unknown) {
@@ -74,22 +62,22 @@ watch([() => props.destination, nationality], ([dest, nat], [oldDest]) => {
 })
 
 const statusConfig: Record<string, { label: string; color: string; icon: string }> = {
-  visa_free: {
+  "visa-free": {
     label: "Visa Free",
     color: "text-green-600 bg-green-50 border-green-200",
     icon: "lucide:check-circle",
   },
-  visa_on_arrival: {
+  "visa-on-arrival": {
     label: "Visa on Arrival",
     color: "text-blue-600 bg-blue-50 border-blue-200",
     icon: "lucide:clock",
   },
-  e_visa: {
+  "e-visa": {
     label: "e-Visa Required",
     color: "text-amber-600 bg-amber-50 border-amber-200",
     icon: "lucide:globe",
   },
-  visa_required: {
+  "visa-required": {
     label: "Visa Required",
     color: "text-red-600 bg-red-50 border-red-200",
     icon: "lucide:shield-alert",
@@ -175,47 +163,17 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
             </span>
           </div>
 
-          <!-- Requirements -->
-          <div v-if="visaResult.requirements" class="rounded-xl border border-sand-200 p-4">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-sand-500">
-              Requirements
-            </h3>
-            <p class="mt-1 whitespace-pre-line text-sm text-sand-700">
-              {{ visaResult.requirements }}
-            </p>
-          </div>
-
-          <!-- Details grid -->
-          <div class="grid grid-cols-2 gap-3">
-            <div v-if="visaResult.processingTime" class="rounded-xl border border-sand-200 p-3">
-              <p class="text-xs text-sand-500">Processing Time</p>
-              <p class="mt-0.5 text-sm font-medium text-sand-900">
-                {{ visaResult.processingTime }}
-              </p>
+          <!-- Passport / Destination info -->
+          <div class="rounded-xl border border-sand-200 p-4">
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-sand-500">Passport</span>
+              <span class="font-medium text-sand-900">{{ visaResult.passportCountry }}</span>
             </div>
-            <div v-if="visaResult.cost" class="rounded-xl border border-sand-200 p-3">
-              <p class="text-xs text-sand-500">Cost</p>
-              <p class="mt-0.5 text-sm font-medium text-sand-900">
-                {{ visaResult.cost }}
-              </p>
+            <div class="mt-2 flex items-center justify-between text-sm">
+              <span class="text-sand-500">Destination</span>
+              <span class="font-medium text-sand-900">{{ visaResult.destinationCountry }}</span>
             </div>
           </div>
-
-          <!-- Notes -->
-          <div v-if="visaResult.notes" class="rounded-xl border border-sand-200 bg-sand-50 p-4">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-sand-500">
-              Additional Notes
-            </h3>
-            <p class="mt-1 whitespace-pre-line text-sm text-sand-600">
-              {{ visaResult.notes }}
-            </p>
-          </div>
-
-          <!-- Cache indicator -->
-          <p class="text-center text-xs text-sand-400">
-            {{ visaResult.cached ? "Cached result" : "Fresh lookup" }}
-            &middot; Last checked {{ new Date(visaResult.fetchedAt).toLocaleDateString() }}
-          </p>
         </div>
       </div>
     </div>

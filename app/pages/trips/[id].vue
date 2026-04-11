@@ -46,6 +46,8 @@ const { data: aiUsage, refresh: refreshUsage } = await useFetch<{
   remaining: number
 }>("/api/ai/usage")
 
+const { data: tripFlights } = await useFetch(`/api/trips/${tripId}/flights`)
+
 const { data: tripMembers } = await useFetch<
   {
     userId: string
@@ -157,6 +159,7 @@ type TabValue =
   | "reservations"
   | "documents"
   | "team"
+  | "flights"
 const validTabs: TabValue[] = [
   "overview",
   "itinerary",
@@ -165,6 +168,7 @@ const validTabs: TabValue[] = [
   "reservations",
   "documents",
   "team",
+  "flights",
 ]
 const activeTab = ref<TabValue>("overview")
 
@@ -1174,6 +1178,38 @@ async function recomputeSegments(dayId: string) {
           @changed="logRefreshKey++"
         />
         <TripActivityLog :key="logRefreshKey" :trip-id="tripId" />
+      </div>
+
+      <!-- Flights tab -->
+      <div v-else-if="activeTab === 'flights'" class="mt-8 max-w-3xl space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="font-display text-lg text-sand-900 dark:text-sand-100">Flights</h2>
+          <NuxtLink
+            to="/flights"
+            class="text-xs text-terra-500 hover:text-terra-600"
+          >
+            Manage in My Flights
+          </NuxtLink>
+        </div>
+        <div v-if="tripFlights?.length" class="space-y-3">
+          <FlightCard
+            v-for="flight in tripFlights"
+            :key="(flight as Record<string, unknown>).id as string"
+            :flight="flight"
+          />
+        </div>
+        <div
+          v-else
+          class="rounded-2xl border border-dashed border-sand-300 p-8 text-center dark:border-sand-700"
+        >
+          <p class="text-sm text-sand-500">
+            No flights linked to this trip.
+            <NuxtLink to="/flights" class="text-terra-500 hover:underline">
+              Add flights
+            </NuxtLink>
+            and link them here.
+          </p>
+        </div>
       </div>
     </div>
 
