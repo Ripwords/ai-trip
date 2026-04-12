@@ -43,6 +43,33 @@ function latLngToVector3(lat: number, lng: number, radius: number): Vector3 {
   )
 }
 
+// --- Compute initial camera position centered on flight midpoint ---
+const cameraPosition = computed<[number, number, number]>(() => {
+  const airportPositions: Vector3[] = []
+
+  for (const flight of props.flights) {
+    for (const code of [flight.departureAirport, flight.arrivalAirport]) {
+      if (!code) continue
+      const coords = getAirportCoordinates(code)
+      if (!coords) continue
+      airportPositions.push(latLngToVector3(coords.lat, coords.lng, GLOBE_RADIUS))
+    }
+  }
+
+  if (airportPositions.length === 0) return [0, 0, 5]
+
+  // Average all airport positions to find center, then place camera looking at that point
+  const center = new Vector3()
+  for (const pos of airportPositions) {
+    center.add(pos)
+  }
+  center.divideScalar(airportPositions.length)
+
+  // Camera looks from the direction of the center point, pushed out to distance 5
+  const cameraDir = center.normalize().multiplyScalar(5)
+  return [cameraDir.x, cameraDir.y, cameraDir.z]
+})
+
 // --- Build country border lines from TopoJSON ---
 const worldData = worldTopoJson as unknown as Topology
 const countriesGeo = feature(worldData, worldData.objects.countries as GeometryCollection)
@@ -75,9 +102,9 @@ function buildCountryLines(): LineSegments {
   geo.setAttribute("position", new Float32BufferAttribute(vertices, 3))
 
   const material = new LineBasicMaterial({
-    color: new Color("#3a5a35"),
+    color: new Color("#4d7a46"),
     transparent: true,
-    opacity: 0.6,
+    opacity: 0.7,
   })
 
   return new LineSegments(geo, material)
@@ -167,20 +194,20 @@ const summaryText = computed(() => {
     class="relative h-[300px] w-full overflow-hidden rounded-2xl border border-sand-200 bg-sand-950"
   >
     <ClientOnly>
-      <TresCanvas :alpha="true" clear-color="#0a0a0f" :antialias="true">
-        <!-- Camera -->
-        <TresPerspectiveCamera :position="[0, 0, 5]" :fov="45" />
+      <TresCanvas :alpha="true" clear-color="#0d1220" :antialias="true">
+        <!-- Camera positioned to face flight center -->
+        <TresPerspectiveCamera :position="cameraPosition" :fov="45" />
 
-        <!-- Lighting -->
-        <TresAmbientLight :intensity="0.4" />
-        <TresDirectionalLight :position="[5, 3, 5]" :intensity="0.8" />
+        <!-- Brighter lighting -->
+        <TresAmbientLight :intensity="0.6" />
+        <TresDirectionalLight :position="[5, 3, 5]" :intensity="1.0" />
 
         <!-- Controls -->
         <OrbitControls
           :enable-zoom="false"
           :enable-pan="false"
           :auto-rotate="true"
-          :auto-rotate-speed="0.5"
+          :auto-rotate-speed="0.3"
           :min-polar-angle="0.5"
           :max-polar-angle="2.6"
         />
@@ -188,19 +215,19 @@ const summaryText = computed(() => {
         <!-- Ocean sphere -->
         <TresMesh>
           <TresSphereGeometry :args="[GLOBE_RADIUS, 64, 64]" />
-          <TresMeshPhongMaterial color="#0a1520" emissive="#060e18" :shininess="25" />
+          <TresMeshPhongMaterial color="#0f1d2d" emissive="#0a1525" :shininess="30" />
         </TresMesh>
 
         <!-- Atmosphere rim -->
         <TresMesh>
-          <TresSphereGeometry :args="[GLOBE_RADIUS * 1.02, 64, 64]" />
-          <TresMeshBasicMaterial color="#4488cc" :transparent="true" :opacity="0.06" :side="1" />
+          <TresSphereGeometry :args="[GLOBE_RADIUS * 1.025, 64, 64]" />
+          <TresMeshBasicMaterial color="#5599dd" :transparent="true" :opacity="0.08" :side="1" />
         </TresMesh>
 
-        <!-- Country borders (Three.js LineSegments via primitive) -->
+        <!-- Country borders -->
         <primitive :object="countryLines" />
 
-        <!-- Flight arcs + airport dots (Three.js Group via primitive) -->
+        <!-- Flight arcs + airport dots -->
         <primitive :object="flightGroup" />
       </TresCanvas>
     </ClientOnly>
