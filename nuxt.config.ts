@@ -41,6 +41,7 @@ export default defineNuxtConfig({
   css: ["~/assets/css/tailwind.css"],
   devtools: { enabled: true },
   modules: [
+    "@tresjs/nuxt",
     "@nuxt/icon",
     "@nuxt/image",
     "nuxt-security",
@@ -52,6 +53,7 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()],
     optimizeDeps: {
       include: [
+        "three",
         "better-auth/vue",
         "@vue/devtools-core",
         "@vue/devtools-kit",
