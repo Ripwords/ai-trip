@@ -56,11 +56,12 @@ const visitMap = computed(() => {
 })
 
 // View mode: 2D flat map vs 3D globe
-const viewMode = ref<"2d" | "3d">(
-  (typeof localStorage !== "undefined" &&
-    (localStorage.getItem("explore-view-mode") as "2d" | "3d")) ||
-    "2d",
-)
+// Always start as "2d" during SSR, restore from localStorage after mount to avoid hydration mismatch
+const viewMode = ref<"2d" | "3d">("2d")
+onMounted(() => {
+  const saved = localStorage.getItem("explore-view-mode") as "2d" | "3d" | null
+  if (saved === "3d") viewMode.value = saved
+})
 
 function handleToggleView() {
   viewMode.value = viewMode.value === "2d" ? "3d" : "2d"
