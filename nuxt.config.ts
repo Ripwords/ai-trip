@@ -44,7 +44,7 @@ export default defineNuxtConfig({
     },
   },
   css: ["~/assets/css/tailwind.css"],
-  devtools: { enabled: true },
+  devtools: { enabled: process.env.NODE_ENV !== "production" },
   modules: [
     "@tresjs/nuxt",
     "@nuxt/icon",
@@ -76,6 +76,7 @@ export default defineNuxtConfig({
         "@unhead/schema-org/vue",
         "d3-geo",
         "topojson-client",
+        "@tresjs/cientos",
       ],
     },
   },
@@ -159,11 +160,22 @@ export default defineNuxtConfig({
   },
 
   security: {
+    nonce: true,
     headers: {
+      strictTransportSecurity: {
+        maxAge: 31536000,
+        includeSubdomains: true,
+        preload: true,
+      },
       crossOriginEmbedderPolicy: "unsafe-none",
       contentSecurityPolicy: {
         "default-src": ["'self'"],
-        "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://maps.googleapis.com"],
+        "script-src": [
+          "'self'",
+          "'strict-dynamic'",
+          "'nonce-{{nonce}}'",
+          "https://maps.googleapis.com",
+        ],
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
         "img-src": [
@@ -246,6 +258,21 @@ export default defineNuxtConfig({
     "/api/ai/layover-tips": {
       security: {
         rateLimiter: { tokensPerInterval: 10, interval: 60000 },
+      },
+    },
+    "/api/trips/*/members/invite": {
+      security: {
+        rateLimiter: { tokensPerInterval: 10, interval: 60000 },
+      },
+    },
+    "/api/trips": {
+      security: {
+        rateLimiter: { tokensPerInterval: 20, interval: 60000 },
+      },
+    },
+    "/api/flights": {
+      security: {
+        rateLimiter: { tokensPerInterval: 30, interval: 60000 },
       },
     },
     "/api/visited-countries/**": {
