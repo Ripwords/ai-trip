@@ -2,11 +2,7 @@
   <div class="space-y-8">
     <!-- Stats strip skeleton -->
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-      <div
-        v-for="i in 6"
-        :key="i"
-        class="rounded-2xl border border-sand-200 bg-white p-4"
-      >
+      <div v-for="i in 6" :key="i" class="rounded-2xl border border-sand-200 bg-white p-4">
         <Skeleton variant="text" width="60%" height="12px" />
         <Skeleton variant="text" width="40%" height="28px" class="mt-2" />
       </div>

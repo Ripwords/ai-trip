@@ -56,11 +56,7 @@
 
     <!-- Activities list skeleton -->
     <div class="space-y-3">
-      <div
-        v-for="i in 3"
-        :key="i"
-        class="rounded-2xl border border-sand-200 bg-white p-4"
-      >
+      <div v-for="i in 3" :key="i" class="rounded-2xl border border-sand-200 bg-white p-4">
         <div class="flex items-start gap-3">
           <Skeleton variant="circle" width="36px" height="36px" rounded="10px" />
           <div class="flex-1 space-y-2">

@@ -16,11 +16,7 @@
     </div>
 
     <!-- Flight card skeletons -->
-    <div
-      v-for="i in 3"
-      :key="i"
-      class="rounded-2xl border border-sand-200 bg-white p-5"
-    >
+    <div v-for="i in 3" :key="i" class="rounded-2xl border border-sand-200 bg-white p-5">
       <div class="flex items-start justify-between">
         <div class="flex items-center gap-3">
           <Skeleton variant="circle" width="32px" height="32px" rounded="10px" />
