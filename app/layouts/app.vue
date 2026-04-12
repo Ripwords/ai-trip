@@ -46,19 +46,19 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside))
           </NuxtLink>
           <NuxtLink
             to="/explore"
-            class="flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
+            class="hidden h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 sm:flex dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
             active-class="bg-sand-100 text-sand-900 dark:bg-sand-800 dark:text-sand-100"
           >
             <Icon name="lucide:globe" class="h-4 w-4" />
-            <span class="hidden sm:inline">Explore</span>
+            <span>Explore</span>
           </NuxtLink>
           <NuxtLink
             to="/flights"
-            class="flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
+            class="hidden h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 sm:flex dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
             active-class="bg-sand-100 text-sand-900 dark:bg-sand-800 dark:text-sand-100"
           >
             <Icon name="lucide:plane" class="h-4 w-4" />
-            <span class="hidden sm:inline">Flights</span>
+            <span>Flights</span>
           </NuxtLink>
           <ClientOnly>
             <button
@@ -76,19 +76,24 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside))
               class="flex items-center gap-2 rounded-full bg-sand-100 px-3 py-1.5 transition hover:bg-sand-200"
               @click.stop="showUserMenu = !showUserMenu"
             >
-              <img
-                v-if="session?.user?.image"
-                :src="session.user.image"
-                :alt="session.user.name || ''"
-                class="h-6 w-6 rounded-full object-cover"
-                referrerpolicy="no-referrer"
-              />
-              <div
-                v-else
-                class="flex h-6 w-6 items-center justify-center rounded-full bg-terra-100 text-xs font-semibold text-terra-700"
-              >
-                {{ session?.user?.name?.charAt(0)?.toUpperCase() || "?" }}
-              </div>
+              <ClientOnly>
+                <img
+                  v-if="session?.user?.image"
+                  :src="session.user.image"
+                  :alt="session.user.name || ''"
+                  class="h-6 w-6 rounded-full object-cover"
+                  referrerpolicy="no-referrer"
+                />
+                <div
+                  v-else
+                  class="flex h-6 w-6 items-center justify-center rounded-full bg-terra-100 text-xs font-semibold text-terra-700"
+                >
+                  {{ session?.user?.name?.charAt(0)?.toUpperCase() || "?" }}
+                </div>
+                <template #fallback>
+                  <div class="h-6 w-6 rounded-full bg-sand-200" />
+                </template>
+              </ClientOnly>
               <span class="hidden text-sm font-medium text-sand-700 sm:inline">
                 {{ session?.user?.name }}
               </span>
@@ -153,8 +158,9 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside))
         </div>
       </nav>
     </header>
-    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+    <main class="mx-auto max-w-7xl px-4 py-6 pb-20 sm:px-6 sm:py-8 sm:pb-8">
       <slot />
     </main>
+    <NavMobile />
   </div>
 </template>
