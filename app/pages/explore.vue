@@ -43,6 +43,7 @@ const { data: visaStatusMap } = await useFetch<
 >("/api/visa/check-all", {
   query: { passport: nationality },
   watch: [nationality],
+  immediate: !!nationality.value,
 })
 
 // Map of countryCode → visitType
@@ -99,14 +100,14 @@ function handleCheckVisa(country: CountryInfo) {
 
 <template>
   <div>
-    <div class="flex items-start justify-between gap-4">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <h1 class="font-display text-3xl text-sand-900">Explore</h1>
         <p class="mt-1 text-sm text-sand-500">
           Click on a country to mark it as visited or check visa requirements.
         </p>
       </div>
-      <div class="w-48 shrink-0">
+      <div class="w-full sm:w-48 sm:shrink-0">
         <label class="mb-1 block text-xs font-medium text-sand-400">Your passport</label>
         <NationalitySelector v-model="nationality" />
       </div>

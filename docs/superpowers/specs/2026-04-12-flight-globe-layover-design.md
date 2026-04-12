@@ -44,12 +44,13 @@ New static dataset: `app/utils/airport-coordinates.ts`
 ```ts
 export const airportCoordinates: Record<string, { lat: number; lng: number }> = {
   SIN: { lat: 1.3644, lng: 103.9915 },
-  NRT: { lat: 35.7720, lng: 140.3929 },
+  NRT: { lat: 35.772, lng: 140.3929 },
   // ~200 airports matching existing IATA mapping
 }
 ```
 
 Used to:
+
 - Plot airport dots on the globe
 - Calculate arc midpoints for flight path curves
 - Convert lat/lng to 3D sphere coordinates via: `x = r * cos(lat) * cos(lng)`, `y = r * sin(lat)`, `z = r * cos(lat) * sin(lng)`
@@ -68,23 +69,25 @@ Used to:
 ### Layover Duration Calculation
 
 ```ts
-const durationMs = new Date(flightB.departureTime).getTime() - new Date(flightA.arrivalTime).getTime()
+const durationMs =
+  new Date(flightB.departureTime).getTime() - new Date(flightA.arrivalTime).getTime()
 const durationMinutes = Math.round(durationMs / 60000)
 ```
 
 ### Recommendation Thresholds
 
-| Duration | Badge | Label | Rationale |
-|----------|-------|-------|-----------|
-| < 3 hours | Orange | "Stay in airport" | Not enough time for immigration + travel to city |
+| Duration  | Badge  | Label                | Rationale                                             |
+| --------- | ------ | -------------------- | ----------------------------------------------------- |
+| < 3 hours | Orange | "Stay in airport"    | Not enough time for immigration + travel to city      |
 | 3–6 hours | Yellow | "Tight but possible" | Could explore if visa-free and airport well-connected |
-| 6+ hours | Green | "Go explore!" | Plenty of time to visit the city |
+| 6+ hours  | Green  | "Go explore!"        | Plenty of time to visit the city                      |
 
 ### Layover Card UI
 
 Rendered between connecting FlightCards in the flights list. Dashed border to visually distinguish from flight cards.
 
 Shows:
+
 - Clock icon
 - Duration text: "13h 10m layover at NRT"
 - Visa status badge for the layover country (reuses existing `VisaBadge` / visa check API)
@@ -104,16 +107,18 @@ Shows:
 `POST /api/ai/layover-tips`
 
 **Request body:**
+
 ```ts
 {
-  airport: string        // IATA code, e.g. "NRT"
+  airport: string // IATA code, e.g. "NRT"
   durationMinutes: number // layover duration
-  visaStatus: string     // "visa-free", "visa-required", etc.
-  arrivalTime: string    // ISO timestamp — for time-of-day context
+  visaStatus: string // "visa-free", "visa-required", etc.
+  arrivalTime: string // ISO timestamp — for time-of-day context
 }
 ```
 
 **Response:**
+
 ```ts
 {
   recommendation: string   // e.g. "You have plenty of time to explore Tokyo"
@@ -124,6 +129,7 @@ Shows:
 ```
 
 **Implementation:**
+
 - Uses Gemini (like existing visa details endpoint) with Google Search tool for current info
 - Cached with Nitro `cachedFunction` keyed on `airport + durationMinutes (rounded to nearest hour) + visaStatus`
 - Respects existing AI usage limits (`/api/ai/usage`)

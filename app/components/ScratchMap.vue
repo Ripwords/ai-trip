@@ -334,6 +334,17 @@ function toggleFullscreen() {
   }
 }
 
+onMounted(() => {
+  // Default zoom in slightly on mobile so the map isn't so zoomed out
+  if (window.innerWidth < 640) {
+    scale.value = 1.8
+    // Center the zoom on the map center (480, 300 in SVG-space)
+    translateX.value = 480 * (1 - 1.8)
+    translateY.value = 300 * (1 - 1.8)
+    clampTranslation()
+  }
+})
+
 onUnmounted(() => {
   document.body.style.overflow = ""
 })

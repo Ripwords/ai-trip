@@ -153,23 +153,6 @@ function formatCurrency(amount: string): string {
   }).format(parseFloat(amount))
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  })
-}
-
-function formatDateShort(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  })
-}
-
 const showEndDate = computed(
   () => formType.value === "accommodation" || formType.value === "car_rental",
 )
@@ -332,8 +315,11 @@ const showEndDate = computed(
                 >
                   <span v-if="r.startDate" class="flex items-center gap-0.5">
                     <Icon name="lucide:calendar" class="h-3 w-3" />
-                    {{ formatDateShort(r.startDate) }}
-                    <template v-if="r.endDate"> &ndash; {{ formatDateShort(r.endDate) }}</template>
+                    <NuxtTime :datetime="r.startDate" locale="en-US" month="short" day="numeric" />
+                    <template v-if="r.endDate">
+                      &ndash;
+                      <NuxtTime :datetime="r.endDate" locale="en-US" month="short" day="numeric"
+                    /></template>
                   </span>
                   <span
                     v-if="r.confirmationNumber"

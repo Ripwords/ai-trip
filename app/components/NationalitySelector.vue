@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { countries, countryByAlpha2 } from "../data/countries"
+import { countries, countryByAlpha2, countryFlag } from "../data/countries"
 
 const props = defineProps<{
   modelValue: string | null
@@ -49,6 +49,7 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside))
       @click.stop="isOpen = !isOpen"
     >
       <span :class="selectedName ? 'text-sand-900' : 'text-sand-400'">
+        <template v-if="modelValue">{{ countryFlag(modelValue) }} </template>
         {{ selectedName ?? "Select your passport nationality" }}
       </span>
       <Icon
@@ -86,7 +87,7 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside))
             :class="{ 'bg-terra-50 text-terra-700': c.alpha2 === modelValue }"
             @click="select(c.alpha2)"
           >
-            {{ c.name }}
+            {{ countryFlag(c.alpha2) }} {{ c.name }}
             <span class="ml-1 text-xs text-sand-400">{{ c.alpha2 }}</span>
           </li>
           <li v-if="!filteredCountries.length" class="px-4 py-3 text-center text-sm text-sand-400">

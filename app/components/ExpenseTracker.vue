@@ -403,7 +403,14 @@ function getMemberName(userId: string | null): string {
               >
                 {{ formatType(expense.category) }}
               </span>
-              <span v-if="expense.paidAt">{{ new Date(expense.paidAt).toLocaleDateString() }}</span>
+              <NuxtTime
+                v-if="expense.paidAt"
+                :datetime="expense.paidAt"
+                locale="en-US"
+                month="short"
+                day="numeric"
+                year="numeric"
+              />
               <span v-if="expense.paidById && members && members.length > 1" class="text-sand-400">
                 paid by {{ getMemberName(expense.paidById) }}
               </span>

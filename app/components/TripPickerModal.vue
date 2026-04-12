@@ -30,18 +30,6 @@ const filtered = computed(() => {
   return upcoming.filter((t) => t.destination.toLowerCase().includes(q))
 })
 
-function formatDateRange(start: string, end: string): string {
-  const s = new Date(start + "T00:00:00")
-  const e = new Date(end + "T00:00:00")
-  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" }
-  const sYear = s.getFullYear()
-  const eYear = e.getFullYear()
-  if (sYear !== eYear) {
-    return `${s.toLocaleDateString(undefined, { ...opts, year: "numeric" })} – ${e.toLocaleDateString(undefined, { ...opts, year: "numeric" })}`
-  }
-  return `${s.toLocaleDateString(undefined, opts)} – ${e.toLocaleDateString(undefined, { ...opts, year: "numeric" })}`
-}
-
 function selectTrip(tripId: string) {
   emit("select", tripId)
   search.value = ""
@@ -107,7 +95,20 @@ watch(
               <div>
                 <p class="text-sm font-medium text-sand-900">{{ trip.destination }}</p>
                 <p class="text-xs text-sand-500">
-                  {{ formatDateRange(trip.startDate, trip.endDate) }}
+                  <NuxtTime
+                    :datetime="trip.startDate + 'T00:00:00'"
+                    locale="en-US"
+                    month="short"
+                    day="numeric"
+                  />
+                  –
+                  <NuxtTime
+                    :datetime="trip.endDate + 'T00:00:00'"
+                    locale="en-US"
+                    month="short"
+                    day="numeric"
+                    year="numeric"
+                  />
                 </p>
               </div>
               <Icon name="lucide:chevron-right" class="h-4 w-4 text-sand-400" />

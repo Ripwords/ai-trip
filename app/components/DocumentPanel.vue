@@ -36,14 +36,6 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
-}
-
 async function handleUpload(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -138,7 +130,13 @@ async function deleteDocument(docId: string) {
               <div class="flex items-center gap-2 text-xs text-sand-400">
                 <span>{{ formatFileSize(doc.size) }}</span>
                 <span v-if="doc.uploadedBy">by {{ doc.uploadedBy.name }}</span>
-                <span>{{ formatDate(doc.createdAt) }}</span>
+                <NuxtTime
+                  :datetime="doc.createdAt"
+                  locale="en-US"
+                  month="short"
+                  day="numeric"
+                  year="numeric"
+                />
               </div>
             </div>
           </a>

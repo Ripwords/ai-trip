@@ -254,11 +254,6 @@ function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
-function formatDayDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00")
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
-}
-
 function formatDayRange(dayNumbers: number[]): string {
   if (dayNumbers.length === 1) return `Day ${dayNumbers[0]}`
   return `Days ${dayNumbers[0]}–${dayNumbers[dayNumbers.length - 1]}`
@@ -388,9 +383,14 @@ function formatDayRange(dayNumbers: number[]): string {
                   {{ day.dayNumber }}
                 </span>
                 <div class="min-w-0 flex-1">
-                  <span class="ov-day-date text-[13px] font-medium">{{
-                    formatDayDate(day.date)
-                  }}</span>
+                  <span class="ov-day-date text-[13px] font-medium"
+                    ><NuxtTime
+                      :datetime="day.date + 'T00:00:00'"
+                      locale="en-US"
+                      weekday="short"
+                      month="short"
+                      day="numeric"
+                  /></span>
                   <span v-if="day.activities.length > 0" class="day-meta ml-1.5 text-[11px]">
                     {{ day.activities.length }} {{ day.activities.length === 1 ? "spot" : "spots" }}
                   </span>
@@ -543,7 +543,14 @@ function formatDayRange(dayNumbers: number[]): string {
               {{ day.dayNumber }}
             </span>
             <div class="min-w-0 flex-1">
-              <span class="ov-day-date text-[13px] font-medium">{{ formatDayDate(day.date) }}</span>
+              <span class="ov-day-date text-[13px] font-medium"
+                ><NuxtTime
+                  :datetime="day.date + 'T00:00:00'"
+                  locale="en-US"
+                  weekday="short"
+                  month="short"
+                  day="numeric"
+              /></span>
               <span v-if="day.activities.length > 0" class="day-meta ml-1.5 text-[11px]">
                 {{ day.activities.length }} {{ day.activities.length === 1 ? "spot" : "spots" }}
               </span>

@@ -14,20 +14,20 @@
 
 ### New Files
 
-| File | Responsibility |
-|------|---------------|
-| `app/utils/airport-coordinates.ts` | Static IATA → `{ lat, lng }` mapping for ~200 airports |
+| File                                     | Responsibility                                                                   |
+| ---------------------------------------- | -------------------------------------------------------------------------------- |
+| `app/utils/airport-coordinates.ts`       | Static IATA → `{ lat, lng }` mapping for ~200 airports                           |
 | `app/composables/useLayoverDetection.ts` | Composable: detects connecting flights, computes layover duration/recommendation |
-| `app/components/FlightGlobe.vue` | TresJS 3D globe with country polygons and flight arc rendering |
-| `app/components/LayoverCard.vue` | Layover info card with duration, visa badge, recommendation, AI tips button |
-| `server/api/ai/layover-tips.post.ts` | Gemini endpoint for AI layover exploration suggestions |
+| `app/components/FlightGlobe.vue`         | TresJS 3D globe with country polygons and flight arc rendering                   |
+| `app/components/LayoverCard.vue`         | Layover info card with duration, visa badge, recommendation, AI tips button      |
+| `server/api/ai/layover-tips.post.ts`     | Gemini endpoint for AI layover exploration suggestions                           |
 
 ### Modified Files
 
-| File | Change |
-|------|--------|
-| `package.json` | Add `@tresjs/core`, `@tresjs/cientos`, `three` |
-| `nuxt.config.ts` | Add TresJS module, add `three` to optimizeDeps |
+| File                       | Change                                                 |
+| -------------------------- | ------------------------------------------------------ |
+| `package.json`             | Add `@tresjs/core`, `@tresjs/cientos`, `three`         |
+| `nuxt.config.ts`           | Add TresJS module, add `three` to optimizeDeps         |
 | `app/pages/trips/[id].vue` | Integrate FlightGlobe and LayoverCard into flights tab |
 
 ---
@@ -35,6 +35,7 @@
 ## Task 1: Install TresJS Dependencies
 
 **Files:**
+
 - Modify: `package.json`
 - Modify: `nuxt.config.ts`
 
@@ -90,6 +91,7 @@ git commit -m "chore: add TresJS dependencies for 3D globe"
 ## Task 2: Airport Coordinates Dataset
 
 **Files:**
+
 - Create: `app/utils/airport-coordinates.ts`
 
 - [ ] **Step 1: Create the airport coordinates file**
@@ -303,6 +305,7 @@ git commit -m "feat: add static airport coordinates dataset for globe visualizat
 ## Task 3: Layover Detection Composable
 
 **Files:**
+
 - Create: `app/composables/useLayoverDetection.ts`
 
 - [ ] **Step 1: Create the composable**
@@ -439,6 +442,7 @@ git commit -m "feat: add layover detection composable for connecting flights"
 ## Task 4: LayoverCard Component
 
 **Files:**
+
 - Create: `app/components/LayoverCard.vue`
 
 - [ ] **Step 1: Create the LayoverCard component**
@@ -531,9 +535,7 @@ async function fetchAiTips() {
   <div class="rounded-xl border border-dashed border-sand-300 bg-sand-50/50 p-4">
     <div class="flex items-center gap-3">
       <!-- Clock icon -->
-      <div
-        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sand-100"
-      >
+      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sand-100">
         <Icon name="lucide:clock" class="h-4 w-4 text-sand-500" />
       </div>
 
@@ -544,9 +546,7 @@ async function fetchAiTips() {
             <template v-if="layover.durationMinutes !== null">
               {{ formatDuration(layover.durationMinutes) }} layover at {{ layover.airport }}
             </template>
-            <template v-else>
-              Connection at {{ layover.airport }}
-            </template>
+            <template v-else> Connection at {{ layover.airport }} </template>
           </span>
           <VisaBadge v-if="layover.country" :destination-country="layover.country" />
         </div>
@@ -613,6 +613,7 @@ git commit -m "feat: add LayoverCard component with duration, visa, and AI tips"
 ## Task 5: AI Layover Tips API Endpoint
 
 **Files:**
+
 - Create: `server/api/ai/layover-tips.post.ts`
 
 - [ ] **Step 1: Create the endpoint**
@@ -636,9 +637,7 @@ const layoverTipsSchema = z.object({
   suggestions: z
     .array(z.string())
     .describe("2-4 specific things to do, places to visit, or food to try"),
-  transitInfo: z
-    .string()
-    .describe("How to get from the airport to the city/attractions and back"),
+  transitInfo: z.string().describe("How to get from the airport to the city/attractions and back"),
   returnBy: z
     .string()
     .describe("When to head back to the airport, accounting for security/immigration"),
@@ -704,12 +703,7 @@ export default defineEventHandler(async (event) => {
 
   await incrementAiUsage(session.user.id)
 
-  return generateLayoverTips(
-    body.airport,
-    durationHours,
-    body.visaStatus ?? "unknown",
-    timeOfDay,
-  )
+  return generateLayoverTips(body.airport, durationHours, body.visaStatus ?? "unknown", timeOfDay)
 })
 ```
 
@@ -733,6 +727,7 @@ git commit -m "feat: add AI layover tips API endpoint with Gemini + caching"
 ## Task 6: FlightGlobe Component
 
 **Files:**
+
 - Create: `app/components/FlightGlobe.vue`
 
 - [ ] **Step 1: Create the globe component**
@@ -797,11 +792,12 @@ function buildCountryLines(): BufferGeometry {
   const vertices: number[] = []
 
   for (const feat of countriesGeo.features) {
-    const coords = feat.geometry.type === "Polygon"
-      ? [feat.geometry.coordinates]
-      : feat.geometry.type === "MultiPolygon"
-        ? feat.geometry.coordinates
-        : []
+    const coords =
+      feat.geometry.type === "Polygon"
+        ? [feat.geometry.coordinates]
+        : feat.geometry.type === "MultiPolygon"
+          ? feat.geometry.coordinates
+          : []
 
     for (const polygon of coords) {
       for (const ring of polygon) {
@@ -861,7 +857,9 @@ const flightArcs = computed<ArcData[]>(() => {
 
     // Midpoint elevated above the globe surface
     const mid = new Vector3().addVectors(start, end).multiplyScalar(0.5)
-    const midElevated = mid.normalize().multiplyScalar(GLOBE_RADIUS + ARC_ALTITUDE + mid.length() * 0.15)
+    const midElevated = mid
+      .normalize()
+      .multiplyScalar(GLOBE_RADIUS + ARC_ALTITUDE + mid.length() * 0.15)
 
     const curve = new QuadraticBezierCurve3(start, midElevated, end)
     const points = curve.getPoints(64)
@@ -949,12 +947,7 @@ const controlsRef = ref()
 <template>
   <div class="relative rounded-2xl border border-sand-200 bg-sand-950 overflow-hidden">
     <ClientOnly>
-      <TresCanvas
-        class="h-[300px] w-full"
-        :alpha="true"
-        clear-color="#0a0a0f"
-        :antialias="true"
-      >
+      <TresCanvas class="h-[300px] w-full" :alpha="true" clear-color="#0a0a0f" :antialias="true">
         <!-- Camera -->
         <TresPerspectiveCamera :position="[0, 0, 5]" :fov="45" />
 
@@ -986,12 +979,7 @@ const controlsRef = ref()
         <!-- Atmosphere rim (slightly larger transparent sphere) -->
         <TresMesh>
           <TresSphereGeometry :args="[GLOBE_RADIUS * 1.02, 64, 64]" />
-          <TresMeshBasicMaterial
-            :color="'#4488cc'"
-            :transparent="true"
-            :opacity="0.05"
-            :side="1"
-          />
+          <TresMeshBasicMaterial :color="'#4488cc'" :transparent="true" :opacity="0.05" :side="1" />
         </TresMesh>
 
         <!-- Country borders -->
@@ -1004,11 +992,7 @@ const controlsRef = ref()
         </template>
 
         <!-- Airport dots -->
-        <TresMesh
-          v-for="(dot, idx) in airportDots"
-          :key="'dot-' + idx"
-          :position="dot.position"
-        >
+        <TresMesh v-for="(dot, idx) in airportDots" :key="'dot-' + idx" :position="dot.position">
           <TresSphereGeometry :args="[0.02, 8, 8]" />
           <TresMeshBasicMaterial :color="dotMaterial.color" />
         </TresMesh>
@@ -1030,6 +1014,7 @@ npm run dev
 ```
 
 Navigate to a trip with flights, switch to the flights tab. The globe should render above the flight list. Verify:
+
 - Globe sphere visible with dark ocean
 - Country borders render as green-ish lines
 - Flight arcs visible in terra color
@@ -1049,6 +1034,7 @@ git commit -m "feat: add 3D flight globe component with TresJS"
 ## Task 7: Integrate Globe and Layover Cards into Trip Page
 
 **Files:**
+
 - Modify: `app/pages/trips/[id].vue`
 
 - [ ] **Step 1: Add imports and composable usage**
@@ -1068,49 +1054,43 @@ Note: `sortedTripFlights` is already computed from the earlier change in this se
 Replace the flights tab section (the `<div v-else-if="activeTab === 'flights'"` block) with the updated version that includes the globe and layover cards:
 
 Find this block:
+
 ```html
-      <!-- Flights tab -->
-      <div v-else-if="activeTab === 'flights'" class="mt-8 max-w-3xl space-y-4">
-        <h2 class="font-display text-lg text-sand-900">Flights</h2>
+<!-- Flights tab -->
+<div v-else-if="activeTab === 'flights'" class="mt-8 max-w-3xl space-y-4">
+  <h2 class="font-display text-lg text-sand-900">Flights</h2>
+</div>
 ```
 
 After the `<h2>`, before the add-flight form, insert the globe:
 
 ```html
-        <!-- Flight Globe -->
-        <FlightGlobe
-          v-if="sortedTripFlights.length > 0"
-          :flights="sortedTripFlights"
-        />
+<!-- Flight Globe -->
+<FlightGlobe v-if="sortedTripFlights.length > 0" :flights="sortedTripFlights" />
 ```
 
 Then replace the flight list rendering. Find:
+
 ```html
-        <div v-if="sortedTripFlights.length" class="space-y-3">
-          <FlightCard
-            v-for="flight in sortedTripFlights"
-            :key="(flight as Record<string, unknown>).id as string"
-            :flight="flight"
-            @delete="deleteTripFlight"
-          />
-        </div>
+<div v-if="sortedTripFlights.length" class="space-y-3">
+  <FlightCard
+    v-for="flight in sortedTripFlights"
+    :key="(flight as Record<string, unknown>).id as string"
+    :flight="flight"
+    @delete="deleteTripFlight"
+  />
+</div>
 ```
 
 Replace with:
+
 ```html
-        <div v-if="flightListItems.length" class="space-y-3">
-          <template v-for="(item, idx) in flightListItems" :key="idx">
-            <FlightCard
-              v-if="item.type === 'flight'"
-              :flight="item.flight"
-              @delete="deleteTripFlight"
-            />
-            <LayoverCard
-              v-else-if="item.type === 'layover'"
-              :layover="item"
-            />
-          </template>
-        </div>
+<div v-if="flightListItems.length" class="space-y-3">
+  <template v-for="(item, idx) in flightListItems" :key="idx">
+    <FlightCard v-if="item.type === 'flight'" :flight="item.flight" @delete="deleteTripFlight" />
+    <LayoverCard v-else-if="item.type === 'layover'" :layover="item" />
+  </template>
+</div>
 ```
 
 - [ ] **Step 3: Verify the full integration**
@@ -1120,6 +1100,7 @@ npm run dev
 ```
 
 Navigate to a trip with flights. Verify:
+
 1. Globe renders at the top of the flights tab
 2. Flight cards display in sorted order
 3. If there are connecting flights (same transfer airport within 24h), a layover card appears between them
@@ -1139,6 +1120,7 @@ git commit -m "feat: integrate flight globe and layover detection into trip page
 ## Task 8: Add Rate Limiting for Layover Tips Endpoint
 
 **Files:**
+
 - Modify: `nuxt.config.ts`
 
 - [ ] **Step 1: Add rate limiting config**

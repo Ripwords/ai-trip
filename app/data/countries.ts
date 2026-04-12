@@ -257,6 +257,12 @@ export const countries: CountryInfo[] = [
   { numeric: "010", alpha2: "AQ", name: "Antarctica", region: "Oceania" },
 ]
 
+export function countryFlag(alpha2: string): string {
+  return [...alpha2.toUpperCase()]
+    .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
+    .join("")
+}
+
 export const countryByNumeric: Map<string, CountryInfo> = new Map(
   countries.map((c) => [c.numeric, c]),
 )

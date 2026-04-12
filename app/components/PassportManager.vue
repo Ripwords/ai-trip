@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { countries } from "../data/countries"
+import { countries, countryFlag } from "../data/countries"
 
 interface Passport {
   id: string
@@ -28,7 +28,7 @@ const visibleNumbers = ref<Set<string>>(new Set())
 
 const countryOptions = computed(() =>
   countries
-    .map((c) => ({ value: c.alpha2, label: c.name }))
+    .map((c) => ({ value: c.alpha2, label: `${countryFlag(c.alpha2)} ${c.name}` }))
     .sort((a, b) => a.label.localeCompare(b.label)),
 )
 
@@ -116,13 +116,6 @@ async function removePassport(id: string) {
   await refresh()
 }
 
-function formatExpiryDate(date: string): string {
-  return new Date(date + "T00:00:00").toLocaleDateString(undefined, {
-    month: "short",
-    year: "numeric",
-  })
-}
-
 function isExpiringSoon(date: string): boolean {
   const expiry = new Date(date)
   const sixMonths = new Date()
@@ -146,7 +139,7 @@ function isExpiringSoon(date: string): boolean {
             <div class="min-w-0">
               <div class="flex items-center gap-2">
                 <span class="font-medium text-sand-900">
-                  {{ countryName(passport.countryCode) }}
+                  {{ countryFlag(passport.countryCode) }} {{ countryName(passport.countryCode) }}
                 </span>
                 <span class="text-xs text-sand-400">{{ passport.countryCode }}</span>
               </div>
@@ -176,7 +169,13 @@ function isExpiringSoon(date: string): boolean {
                   :class="isExpiringSoon(passport.expiryDate) ? 'text-red-600' : 'text-sand-500'"
                 >
                   <Icon name="lucide:calendar" class="h-3 w-3" />
-                  Exp {{ formatExpiryDate(passport.expiryDate) }}
+                  Exp
+                  <NuxtTime
+                    :datetime="passport.expiryDate + 'T00:00:00'"
+                    locale="en-US"
+                    month="short"
+                    year="numeric"
+                  />
                   <span
                     v-if="isExpiringSoon(passport.expiryDate)"
                     class="rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-600"

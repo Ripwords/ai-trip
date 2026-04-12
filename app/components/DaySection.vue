@@ -106,15 +106,6 @@ function getSegmentForActivity(activityId: string): TravelSegment | undefined {
   return props.travelSegments?.find((s) => s.fromActivityId === activityId)
 }
 
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr + "T00:00:00")
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  })
-}
-
 /**
  * Returns true if this activity's time is earlier than the previous activity's
  * end time (start + duration), indicating an out-of-order schedule.
@@ -153,7 +144,15 @@ function timeToMinutes(time: string): number | null {
         </span>
         <div>
           <h3 class="text-base font-semibold text-sand-900">Day {{ day.dayNumber }}</h3>
-          <p class="text-sm text-sand-500">{{ formatDate(day.date) }}</p>
+          <p class="text-sm text-sand-500">
+            <NuxtTime
+              :datetime="day.date + 'T00:00:00'"
+              locale="en-US"
+              weekday="short"
+              month="short"
+              day="numeric"
+            />
+          </p>
         </div>
       </div>
       <a

@@ -80,18 +80,6 @@ watch(
   },
   { immediate: true },
 )
-
-function formatDateRange(start: string, end: string): string {
-  const s = new Date(start + "T00:00:00")
-  const e = new Date(end + "T00:00:00")
-  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" }
-  return `${s.toLocaleDateString("en-US", opts)} - ${e.toLocaleDateString("en-US", { ...opts, year: "numeric" })}`
-}
-
-function formatDayDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00")
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
-}
 </script>
 
 <template>
@@ -107,7 +95,20 @@ function formatDayDate(dateStr: string): string {
         <h1 class="font-display text-3xl text-sand-900">{{ trip.destination }}</h1>
         <p class="mt-1 flex items-center justify-center gap-1 text-sm text-sand-500">
           <Icon name="lucide:calendar" class="h-3.5 w-3.5" />
-          {{ formatDateRange(trip.startDate, trip.endDate) }}
+          <NuxtTime
+            :datetime="trip.startDate + 'T00:00:00'"
+            locale="en-US"
+            month="short"
+            day="numeric"
+          />
+          -
+          <NuxtTime
+            :datetime="trip.endDate + 'T00:00:00'"
+            locale="en-US"
+            month="short"
+            day="numeric"
+            year="numeric"
+          />
         </p>
         <span
           class="mt-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium"
@@ -130,7 +131,14 @@ function formatDayDate(dateStr: string): string {
           "
           @click="activeDayId = day.id"
         >
-          Day {{ day.dayNumber }} &middot; {{ formatDayDate(day.date) }}
+          Day {{ day.dayNumber }} &middot;
+          <NuxtTime
+            :datetime="day.date + 'T00:00:00'"
+            locale="en-US"
+            weekday="short"
+            month="short"
+            day="numeric"
+          />
         </button>
       </div>
 

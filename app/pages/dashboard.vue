@@ -28,13 +28,6 @@ async function handleDelete(tripId: string, destination: string) {
   }
 }
 
-function formatDateRange(start: string, end: string): string {
-  const s = new Date(start + "T00:00:00")
-  const e = new Date(end + "T00:00:00")
-  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" }
-  return `${s.toLocaleDateString("en-US", opts)} – ${e.toLocaleDateString("en-US", { ...opts, year: "numeric" })}`
-}
-
 function getDayCount(start: string, end: string): number {
   const s = new Date(start)
   const e = new Date(end)
@@ -79,14 +72,6 @@ const nextFlight = computed<FlightData | null>(() => {
   const found = (upcomingFlights.value as FlightData[]).find((f) => f.flightDate >= today)
   return found ?? null
 })
-
-function formatFlightTime(isoStr: string | null): string {
-  if (!isoStr) return "--:--"
-  return new Date(isoStr).toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
 </script>
 
 <template>
@@ -140,16 +125,23 @@ function formatFlightTime(isoStr: string | null): string {
       </div>
       <div class="text-right text-sm">
         <p class="font-medium text-sand-900">
-          {{ formatFlightTime(nextFlight.departureTime) }}
+          <NuxtTime
+            v-if="nextFlight.departureTime"
+            :datetime="nextFlight.departureTime"
+            locale="en-US"
+            hour="2-digit"
+            minute="2-digit"
+          />
+          <template v-else>--:--</template>
         </p>
         <p class="text-xs text-sand-500">
-          {{
-            new Date(nextFlight.flightDate + "T00:00:00").toLocaleDateString(undefined, {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-            })
-          }}
+          <NuxtTime
+            :datetime="nextFlight.flightDate + 'T00:00:00'"
+            locale="en-US"
+            weekday="short"
+            month="short"
+            day="numeric"
+          />
         </p>
       </div>
       <NuxtLink
@@ -211,7 +203,20 @@ function formatFlightTime(isoStr: string | null): string {
               </h2>
               <p class="mt-1 flex items-center gap-1 text-sm text-sand-500">
                 <Icon name="lucide:calendar" class="h-3.5 w-3.5" />
-                {{ formatDateRange(trip.startDate, trip.endDate) }}
+                <NuxtTime
+                  :datetime="trip.startDate + 'T00:00:00'"
+                  locale="en-US"
+                  month="short"
+                  day="numeric"
+                />
+                –
+                <NuxtTime
+                  :datetime="trip.endDate + 'T00:00:00'"
+                  locale="en-US"
+                  month="short"
+                  day="numeric"
+                  year="numeric"
+                />
               </p>
               <div class="mt-3 flex items-center gap-2">
                 <span
