@@ -1268,10 +1268,7 @@ async function recomputeSegments(dayId: string) {
       <div v-else-if="activeTab === 'flights'" class="mt-8 max-w-3xl space-y-4">
         <h2 class="font-display text-lg text-sand-900">Flights</h2>
 
-        <FlightGlobe
-          v-if="sortedTripFlights.length > 0"
-          :flights="sortedTripFlights"
-        />
+        <FlightGlobe v-if="sortedTripFlights.length > 0" :flights="sortedTripFlights" />
 
         <!-- Add flight form (auto-links to this trip) -->
         <form
@@ -1309,12 +1306,10 @@ async function recomputeSegments(dayId: string) {
             <FlightCard
               v-if="item.type === 'flight'"
               :flight="item.flight"
+              :hide-visa-badge="flightListItems[idx + 1]?.type === 'layover'"
               @delete="deleteTripFlight"
             />
-            <LayoverCard
-              v-else-if="item.type === 'layover'"
-              :layover="item"
-            />
+            <LayoverCard v-else-if="item.type === 'layover'" :layover="item" />
           </template>
         </div>
         <div v-else class="rounded-2xl border border-dashed border-sand-300 p-8 text-center">

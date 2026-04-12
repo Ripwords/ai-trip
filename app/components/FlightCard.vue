@@ -20,6 +20,7 @@ interface Flight {
 const props = defineProps<{
   flight: Flight
   showLinkToTrip?: boolean
+  hideVisaBadge?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -89,22 +90,6 @@ const arrivalCountry = computed(() => {
   return iataToCountry[props.flight.arrivalAirport] ?? null
 })
 
-function formatTime(isoStr: string | null): string {
-  if (!isoStr) return "--:--"
-  return new Date(isoStr).toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  })
-}
-
 const showTripPicker = ref(false)
 
 function onTripSelected(tripId: string) {
@@ -165,7 +150,15 @@ function unlinkTrip() {
         <p class="font-display text-xl text-sand-900">
           {{ flight.departureAirport ?? "???" }}
         </p>
-        <p class="text-xs text-sand-500">{{ formatTime(flight.departureTime) }}</p>
+        <p class="text-xs text-sand-500">
+          <NuxtTime
+            v-if="flight.departureTime"
+            :datetime="flight.departureTime"
+            locale="en-US"
+            hour="2-digit"
+            minute="2-digit"
+          /><template v-else>--:--</template>
+        </p>
       </div>
       <div class="flex flex-1 items-center">
         <div class="h-px flex-1 bg-sand-200" />
@@ -176,16 +169,31 @@ function unlinkTrip() {
         <p class="font-display text-xl text-sand-900">
           {{ flight.arrivalAirport ?? "???" }}
         </p>
-        <p class="text-xs text-sand-500">{{ formatTime(flight.arrivalTime) }}</p>
+        <p class="text-xs text-sand-500">
+          <NuxtTime
+            v-if="flight.arrivalTime"
+            :datetime="flight.arrivalTime"
+            locale="en-US"
+            hour="2-digit"
+            minute="2-digit"
+          /><template v-else>--:--</template>
+        </p>
       </div>
     </div>
 
     <!-- Date + terminal/gate + visa -->
     <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-sand-500">
-      <span>{{ formatDate(flight.flightDate) }}</span>
+      <span
+        ><NuxtTime
+          :datetime="flight.flightDate + 'T00:00:00'"
+          locale="en-US"
+          weekday="short"
+          month="short"
+          day="numeric"
+      /></span>
       <span v-if="flight.terminal">· Terminal {{ flight.terminal }}</span>
       <span v-if="flight.gate">· Gate {{ flight.gate }}</span>
-      <VisaBadge v-if="arrivalCountry" :destination-country="arrivalCountry" />
+      <VisaBadge v-if="arrivalCountry && !hideVisaBadge" :destination-country="arrivalCountry" />
     </div>
 
     <!-- Trip link -->
