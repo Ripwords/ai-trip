@@ -8,11 +8,12 @@ interface TripAccess {
   tripId: string
   userId: string
   role: TripRole
+  trip: { id: string; userId: string }
 }
 
 /**
  * Check if a user has access to a trip.
- * Returns the user's role, or throws 404 if no access.
+ * Returns the user's role and the trip object, or throws 404 if no access.
  */
 export async function requireTripAccess(
   tripId: string,
@@ -22,6 +23,7 @@ export async function requireTripAccess(
   // Check if user is the trip owner
   const trip = await db.query.trips.findFirst({
     where: eq(trips.id, tripId),
+    columns: { id: true, userId: true },
   })
 
   if (!trip) {
@@ -57,7 +59,7 @@ export async function requireTripAccess(
     }
   }
 
-  return { tripId, userId, role }
+  return { tripId, userId, role, trip }
 }
 
 /**

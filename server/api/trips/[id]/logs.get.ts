@@ -19,25 +19,14 @@ export default defineEventHandler(async (event) => {
 
   const logs = await db.query.activityLog.findMany({
     where: eq(activityLog.tripId, id),
-    with: { user: true },
+    with: { user: { columns: { id: true, name: true, image: true } } },
     orderBy: [desc(activityLog.createdAt)],
     limit: query.limit,
     offset: (query.page - 1) * query.limit,
   })
 
   return {
-    logs: logs.map((log) => ({
-      id: log.id,
-      action: log.action,
-      description: log.description,
-      metadata: log.metadata,
-      createdAt: log.createdAt,
-      user: {
-        id: log.user.id,
-        name: log.user.name,
-        image: log.user.image,
-      },
-    })),
+    logs,
     total,
     page: query.page,
     limit: query.limit,

@@ -18,6 +18,7 @@ export default defineEventHandler(async (event) => {
 
   return db.query.flights.findMany({
     where: and(...conditions),
+    columns: { rawApiResponse: false },
     with: { trip: { columns: { id: true, destination: true } } },
     orderBy: (f, { asc }) => [asc(f.flightDate), asc(f.createdAt)],
   })

@@ -24,6 +24,7 @@ export default defineEventHandler(async (event) => {
 
   const results = await db.query.visaRequirements.findMany({
     where: eq(visaRequirements.passportCountry, passport),
+    columns: { destinationCountry: true, visaStatus: true, maxStayDays: true },
   })
 
   const map: Record<string, { visaStatus: string; maxStayDays: number | null }> = {}
