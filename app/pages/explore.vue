@@ -55,6 +55,18 @@ const visitMap = computed(() => {
   return map
 })
 
+// View mode: 2D flat map vs 3D globe
+const viewMode = ref<"2d" | "3d">(
+  (typeof localStorage !== "undefined" && localStorage.getItem("explore-view-mode") as "2d" | "3d") || "2d",
+)
+
+function handleToggleView() {
+  viewMode.value = viewMode.value === "2d" ? "3d" : "2d"
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem("explore-view-mode", viewMode.value)
+  }
+}
+
 // Selected country panel
 const selectedCountry = ref<CountryInfo | null>(null)
 const panelLoading = ref(false)
@@ -116,9 +128,18 @@ function handleCheckVisa(country: CountryInfo) {
     <!-- Map + Panel Container -->
     <div class="relative mt-6">
       <ScratchMap
+        v-if="viewMode === '2d'"
         :visit-map="visitMap"
         :visa-status-map="visaStatusMap ?? {}"
         @country-click="handleCountryClick"
+        @toggle-view="handleToggleView"
+      />
+      <GlobeScratchMap
+        v-else
+        :visit-map="visitMap"
+        :visa-status-map="visaStatusMap ?? {}"
+        @country-click="handleCountryClick"
+        @toggle-view="handleToggleView"
       />
       <CountryDetailPanel
         :country="selectedCountry"
