@@ -169,11 +169,7 @@ export function resolveCountryFromUV(
 export function getCountryCentroid(feat: CountryGeoFeature): { lat: number; lng: number } {
   const geo = feat.geoFeature.geometry
   const coords =
-    geo.type === "Polygon"
-      ? [geo.coordinates]
-      : geo.type === "MultiPolygon"
-        ? geo.coordinates
-        : []
+    geo.type === "Polygon" ? [geo.coordinates] : geo.type === "MultiPolygon" ? geo.coordinates : []
 
   let totalLat = 0
   let totalLng = 0

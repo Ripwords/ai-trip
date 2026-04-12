@@ -146,7 +146,10 @@ function handleGlobeClick(event: { intersections: Intersection[] }) {
 }
 
 // --- Hover handling ---
-function handleGlobePointerMove(event: { intersections: Intersection[]; nativeEvent: PointerEvent }) {
+function handleGlobePointerMove(event: {
+  intersections: Intersection[]
+  nativeEvent: PointerEvent
+}) {
   if (isTouch.value || !event.intersections.length) {
     tooltipVisible.value = false
     return

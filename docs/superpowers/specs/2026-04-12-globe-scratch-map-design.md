@@ -48,13 +48,13 @@ toggleView: []
 
 ### Color Mapping (matching 2D map)
 
-| Status | Light Mode | Dark Mode |
-|--------|-----------|-----------|
-| Visited | terra-400 `#f07b5a` | terra-400 dark `#d44425` |
-| Layover | ocean-400 `#4aa5b9` | ocean-400 dark `#2e8a9e` |
-| Want to visit | `#a78bfa` | `#8b5cf6` |
-| Unvisited | sand-200 `#e8e0d4` | sand-200 dark `#302b24` |
-| Hover highlight | Brighten emissive | Brighten emissive |
+| Status          | Light Mode          | Dark Mode                |
+| --------------- | ------------------- | ------------------------ |
+| Visited         | terra-400 `#f07b5a` | terra-400 dark `#d44425` |
+| Layover         | ocean-400 `#4aa5b9` | ocean-400 dark `#2e8a9e` |
+| Want to visit   | `#a78bfa`           | `#8b5cf6`                |
+| Unvisited       | sand-200 `#e8e0d4`  | sand-200 dark `#302b24`  |
+| Hover highlight | Brighten emissive   | Brighten emissive        |
 
 ### Performance Optimization
 
@@ -128,18 +128,18 @@ Same pattern as `FlightGlobe.vue` — `useDarkMode()` composable with a computed
 
 ### New
 
-| File | Responsibility |
-|------|---------------|
-| `app/components/GlobeScratchMap.vue` | TresJS 3D globe with clickable country meshes |
-| `app/utils/globe-countries.ts` | Triangulation logic: GeoJSON → sphere mesh geometries, face-to-country lookup |
+| File                                 | Responsibility                                                                |
+| ------------------------------------ | ----------------------------------------------------------------------------- |
+| `app/components/GlobeScratchMap.vue` | TresJS 3D globe with clickable country meshes                                 |
+| `app/utils/globe-countries.ts`       | Triangulation logic: GeoJSON → sphere mesh geometries, face-to-country lookup |
 
 ### Modified
 
-| File | Change |
-|------|--------|
-| `app/pages/explore.vue` | Add `viewMode` toggle, render `GlobeScratchMap` conditionally |
-| `app/components/ScratchMap.vue` | Add globe toggle button to zoom controls, emit `toggleView` |
-| `package.json` | Add `earcut` dependency |
+| File                            | Change                                                        |
+| ------------------------------- | ------------------------------------------------------------- |
+| `app/pages/explore.vue`         | Add `viewMode` toggle, render `GlobeScratchMap` conditionally |
+| `app/components/ScratchMap.vue` | Add globe toggle button to zoom controls, emit `toggleView`   |
+| `package.json`                  | Add `earcut` dependency                                       |
 
 ### No Backend Changes
 

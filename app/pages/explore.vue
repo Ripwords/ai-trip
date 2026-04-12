@@ -57,7 +57,9 @@ const visitMap = computed(() => {
 
 // View mode: 2D flat map vs 3D globe
 const viewMode = ref<"2d" | "3d">(
-  (typeof localStorage !== "undefined" && localStorage.getItem("explore-view-mode") as "2d" | "3d") || "2d",
+  (typeof localStorage !== "undefined" &&
+    (localStorage.getItem("explore-view-mode") as "2d" | "3d")) ||
+    "2d",
 )
 
 function handleToggleView() {

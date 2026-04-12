@@ -14,24 +14,25 @@
 
 ### New Files
 
-| File | Responsibility |
-|------|---------------|
-| `app/utils/globe-countries.ts` | Triangulate GeoJSON countries onto sphere, build merged/individual geometries, face-to-country lookup |
-| `app/components/GlobeScratchMap.vue` | TresJS 3D globe with clickable country meshes, hover tooltips, controls |
+| File                                 | Responsibility                                                                                        |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `app/utils/globe-countries.ts`       | Triangulate GeoJSON countries onto sphere, build merged/individual geometries, face-to-country lookup |
+| `app/components/GlobeScratchMap.vue` | TresJS 3D globe with clickable country meshes, hover tooltips, controls                               |
 
 ### Modified Files
 
-| File | Change |
-|------|--------|
-| `package.json` | Add `earcut`, `@types/earcut` |
-| `app/components/ScratchMap.vue` | Add globe toggle button to controls, emit `toggleView` |
-| `app/pages/explore.vue` | Add `viewMode` state, conditionally render ScratchMap vs GlobeScratchMap |
+| File                            | Change                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| `package.json`                  | Add `earcut`, `@types/earcut`                                            |
+| `app/components/ScratchMap.vue` | Add globe toggle button to controls, emit `toggleView`                   |
+| `app/pages/explore.vue`         | Add `viewMode` state, conditionally render ScratchMap vs GlobeScratchMap |
 
 ---
 
 ## Task 1: Install earcut
 
 **Files:**
+
 - Modify: `package.json`
 
 - [ ] **Step 1: Install earcut and types**
@@ -61,11 +62,13 @@ git commit -m "chore: add earcut for polygon triangulation"
 ## Task 2: Globe Countries Utility
 
 **Files:**
+
 - Create: `app/utils/globe-countries.ts`
 
 - [ ] **Step 1: Create the triangulation utility**
 
 This file takes GeoJSON country features and produces Three.js geometries for a globe. It handles:
+
 - Converting lat/lng polygons to 3D sphere vertices
 - Triangulating polygons with `earcut`
 - Building merged geometry for unvisited countries with face-to-country lookup
@@ -73,11 +76,7 @@ This file takes GeoJSON country features and produces Three.js geometries for a 
 
 ```ts
 import earcut from "earcut"
-import {
-  BufferGeometry,
-  Float32BufferAttribute,
-  Vector3,
-} from "three"
+import { BufferGeometry, Float32BufferAttribute, Vector3 } from "three"
 import { feature } from "topojson-client"
 import type { Topology, GeometryCollection } from "topojson-specification"
 import worldTopoJson from "../data/countries-50m.json"
@@ -264,9 +263,10 @@ export function buildBorderLines(): BufferGeometry {
 /**
  * Compute the centroid of a country (average lat/lng of all ring vertices).
  */
-export function getCountryCentroid(
-  countryFeature: CountryGeoFeature,
-): { lat: number; lng: number } {
+export function getCountryCentroid(countryFeature: CountryGeoFeature): {
+  lat: number
+  lng: number
+} {
   let totalLat = 0
   let totalLng = 0
   let count = 0
@@ -303,9 +303,11 @@ git commit -m "feat: add globe country triangulation utility"
 ## Task 3: GlobeScratchMap Component
 
 **Files:**
+
 - Create: `app/components/GlobeScratchMap.vue`
 
 This is the most complex task. The component renders a TresJS globe with:
+
 - Filled country meshes colored by visit status
 - Click detection on all countries (individual meshes + merged mesh)
 - Hover tooltips (desktop only)
@@ -424,8 +426,7 @@ const markedMeshes = computed<MarkedCountryMesh[]>(() => {
     const visitType = getVisitTypeForFeature(feat)
     if (!visitType) continue
 
-    const color =
-      visitType === "visited" ? t.visited : visitType === "layover" ? t.layover : t.want
+    const color = visitType === "visited" ? t.visited : visitType === "layover" ? t.layover : t.want
     const material = new MeshPhongMaterial({
       color: new Color(color),
       shininess: 20,
@@ -642,14 +643,18 @@ function toggleFullscreen() {
         <!-- Merged unvisited countries -->
         <primitive
           :object="mergedMesh"
-          @click="(e: any) => {
-            const info = resolveCountryFromMergedFace(e.faceIndex)
-            if (info) handleCountryClick(info)
-          }"
-          @pointerover="(e: any) => {
-            const info = resolveCountryFromMergedFace(e.faceIndex)
-            if (info) handleCountryPointerOver(info, e.nativeEvent)
-          }"
+          @click="
+            (e: any) => {
+              const info = resolveCountryFromMergedFace(e.faceIndex)
+              if (info) handleCountryClick(info)
+            }
+          "
+          @pointerover="
+            (e: any) => {
+              const info = resolveCountryFromMergedFace(e.faceIndex)
+              if (info) handleCountryPointerOver(info, e.nativeEvent)
+            }
+          "
           @pointerout="handleCountryPointerOut"
         />
 
@@ -659,7 +664,9 @@ function toggleFullscreen() {
           :key="mc.feature.id"
           :object="mc.mesh"
           @click="() => mc.feature.info && handleCountryClick(mc.feature.info)"
-          @pointerover="(e: any) => mc.feature.info && handleCountryPointerOver(mc.feature.info, e.nativeEvent)"
+          @pointerover="
+            (e: any) => mc.feature.info && handleCountryPointerOver(mc.feature.info, e.nativeEvent)
+          "
           @pointerout="handleCountryPointerOut"
         />
       </TresCanvas>
@@ -682,7 +689,10 @@ function toggleFullscreen() {
         }}
       </p>
       <div v-if="tooltipVisa" class="mt-1">
-        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium" :class="tooltipVisa.colorClass">
+        <span
+          class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium"
+          :class="tooltipVisa.colorClass"
+        >
           {{ tooltipVisa.label }}
           <template v-if="tooltipVisa.maxStayDays">({{ tooltipVisa.maxStayDays }}d)</template>
         </span>
@@ -744,6 +754,7 @@ function toggleFullscreen() {
    - Duplicate the relevant styles in `GlobeScratchMap.vue`'s own `<style>` block
 
    The styles are (from ScratchMap.vue):
+
    ```css
    .map-btn {
      background: var(--color-sand-50);
@@ -792,6 +803,7 @@ git commit -m "feat: add GlobeScratchMap component with clickable country meshes
 ## Task 4: Add Toggle Button to ScratchMap
 
 **Files:**
+
 - Modify: `app/components/ScratchMap.vue`
 
 - [ ] **Step 1: Add `toggleView` to emits**
@@ -818,11 +830,11 @@ const emit = defineEmits<{
 Find the zoom controls `<div>` (line 463-486). Add a globe button at the end, before the closing `</div>`:
 
 ```vue
-      <button
-        class="map-btn flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
-        title="Switch to 3D globe"
-        @click="emit('toggleView')"
-      >
+<button
+  class="map-btn flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
+  title="Switch to 3D globe"
+  @click="emit('toggleView')"
+>
         <Icon name="lucide:globe" class="h-5 w-5 sm:h-4 sm:w-4" />
       </button>
 ```
@@ -847,6 +859,7 @@ git commit -m "feat: add globe view toggle button to ScratchMap controls"
 ## Task 5: Integrate Toggle in explore.vue
 
 **Files:**
+
 - Modify: `app/pages/explore.vue`
 
 - [ ] **Step 1: Add viewMode state**
@@ -855,7 +868,9 @@ In `<script setup>`, after the existing refs (around line 58), add:
 
 ```ts
 const viewMode = ref<"2d" | "3d">(
-  (typeof localStorage !== "undefined" && localStorage.getItem("explore-view-mode") as "2d" | "3d") || "2d",
+  (typeof localStorage !== "undefined" &&
+    (localStorage.getItem("explore-view-mode") as "2d" | "3d")) ||
+    "2d",
 )
 
 function handleToggleView() {
@@ -906,6 +921,7 @@ bun run dev
 ```
 
 Navigate to /explore. Verify:
+
 1. 2D map loads by default
 2. Globe toggle button appears in zoom controls
 3. Clicking it switches to 3D globe view
@@ -933,6 +949,7 @@ bun run dev
 ```
 
 Test the complete flow:
+
 1. Navigate to /explore, verify 2D map loads
 2. Click globe toggle → 3D globe renders with correct country colors
 3. Click a visited country → CountryDetailPanel opens with correct data
