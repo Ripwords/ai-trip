@@ -184,7 +184,6 @@ export const expenseIdParamsSchema = z.object({
 
 // Reservations
 export const reservationTypeEnum = z.enum([
-  "flight",
   "accommodation",
   "restaurant",
   "car_rental",
