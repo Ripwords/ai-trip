@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "nuxt build",
-    "vercel-build": "nuxt build && drizzle-kit migrate",
+    "vercel-build": "nuxt build && drizzle-kit migrate && tsx server/db/re-encrypt-data.ts",
     "dev": "nuxt dev --host",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
@@ -13,6 +13,7 @@
     "db:gen": "bun run auth:gen && drizzle-kit generate",
     "db:push": "bun run auth:gen && drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
+    "db:re-encrypt": "tsx server/db/re-encrypt-data.ts",
     "db:seed-test": "tsx server/db/seed-test-data.ts",
     "docker:dev": "docker compose -f docker/docker-compose.dev.yml up -d",
     "pwa:assets": "pwa-assets-generator --preset minimal-2023 public/image.png",
@@ -46,8 +47,9 @@
     "better-auth": "^1.5.6",
     "d3-geo": "^3.1.1",
     "dayjs-nuxt": "^2.1.11",
-    "drizzle-orm": "^0.45.1",
+    "drizzle-orm": "^0.45.2",
     "earcut": "^3.0.2",
+    "file-type": "^22.0.1",
     "nuxt": "^4.4.2",
     "nuxt-security": "^2.5.1",
     "pg": "^8.20.0",
@@ -78,7 +80,6 @@
     "oxlint": "^1.59.0"
   },
   "overrides": {
-    "samlify>camelcase": "6.3.0",
-    "vite": "npm:vite@latest"
+    "samlify>camelcase": "6.3.0"
   }
 }
