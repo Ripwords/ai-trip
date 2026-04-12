@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "nuxt build",
-    "vercel-build": "nuxt build && drizzle-kit migrate && tsx server/db/re-encrypt-data.ts",
+    "vercel-build": "nuxt build && drizzle-kit migrate",
     "dev": "nuxt dev --host",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
