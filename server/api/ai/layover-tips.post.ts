@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { generateText, Output, stepCountIs } from "ai"
 import { google } from "@ai-sdk/google"
+import { sanitizePromptInput } from "../../utils/sanitize"
 
 const bodySchema = z.object({
   airport: z.string().min(2).max(4).toUpperCase(),
@@ -59,15 +60,21 @@ If visa status is "visa-required", focus only on airport transit zone options.`,
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
 
-  const { used, limit } = await getAiUsage(session.user.id)
-  if (used >= limit) {
-    throw createError({
-      statusCode: 429,
-      message: `You've used ${used}/${limit} AI prompts this month.`,
-    })
-  }
+  // Atomically consume one AI credit (throws 429 if limit reached)
+  await tryConsumeAiCredit(session.user.id)
 
   const body = await readValidatedBody(event, bodySchema.parse)
+
+  // Sanitize user-controlled fields before embedding in AI prompt
+  const sanitizedAirport = sanitizePromptInput(body.airport)
+  const sanitizedVisaStatus = body.visaStatus ? sanitizePromptInput(body.visaStatus) : "unknown"
+  if (!sanitizedAirport || (body.visaStatus && !sanitizedVisaStatus)) {
+    throw createError({
+      statusCode: 400,
+      message:
+        "Your input contains disallowed content. Please provide valid travel information only.",
+    })
+  }
 
   const durationHours = Math.round(body.durationMinutes / 60)
   const timeOfDay = body.arrivalTime
@@ -78,7 +85,10 @@ export default defineEventHandler(async (event) => {
       })
     : "unknown"
 
-  await incrementAiUsage(session.user.id)
-
-  return generateLayoverTips(body.airport, durationHours, body.visaStatus ?? "unknown", timeOfDay)
+  return generateLayoverTips(
+    sanitizedAirport,
+    durationHours,
+    sanitizedVisaStatus ?? "unknown",
+    timeOfDay,
+  )
 })

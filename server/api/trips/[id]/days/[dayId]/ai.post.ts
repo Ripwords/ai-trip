@@ -18,8 +18,8 @@ export default defineEventHandler(async (event) => {
   const { id, dayId } = await getValidatedRouterParams(event, dayIdParamsSchema.parse)
   const body = await readValidatedBody(event, aiBodySchema.parse)
 
-  // Check AI usage limit
-  await checkAiLimit(session.user.id)
+  // Atomically consume one AI credit (throws 429 if limit reached)
+  await tryConsumeAiCredit(session.user.id)
 
   // Sanitize prompt
   const prompt = sanitizePromptInput(body.prompt)
@@ -120,9 +120,7 @@ export default defineEventHandler(async (event) => {
 
   console.log("[ai.post] AI result:", {
     intent: result.intent,
-    message: result.message,
     newActivities: result.newActivities.length,
-    newActivityNames: result.newActivities.map((a) => a.name),
     removals: result.removals.length,
     updates: result.updates.length,
     shouldOptimize: result.shouldOptimize,
@@ -206,7 +204,6 @@ export default defineEventHandler(async (event) => {
     console.log("[ai.post] After dedup:", {
       before: result.newActivities.length,
       after: deduped.length,
-      existingNames: [...existingNames],
     })
 
     if (deduped.length > 0) {
@@ -228,7 +225,6 @@ export default defineEventHandler(async (event) => {
         const enrichedActivities = enriched.days[0]?.activities ?? []
         console.log("[ai.post] After enrich:", {
           count: enrichedActivities.length,
-          names: enrichedActivities.map((a) => a.name),
         })
 
         if (enrichedActivities.length > 0) {
@@ -386,9 +382,6 @@ export default defineEventHandler(async (event) => {
 
   // Recompute segments
   await computeAndSaveSegments(dayId)
-
-  // Increment AI usage counter (only after successful processing)
-  await incrementAiUsage(session.user.id)
 
   // Audit log
   await logTripAction({

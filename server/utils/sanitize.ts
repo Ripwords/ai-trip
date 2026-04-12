@@ -57,10 +57,3 @@ export function sanitizePromptInput(input: string): string | null {
 
   return cleaned
 }
-
-/**
- * Wraps user-provided data with delimiters so the LLM treats it as data, not instructions.
- */
-export function wrapUserData(data: string): string {
-  return `---BEGIN_USER_DATA---\n${data}\n---END_USER_DATA---`
-}
