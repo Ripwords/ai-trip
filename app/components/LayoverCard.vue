@@ -72,7 +72,7 @@ async function fetchAiTips() {
       method: "POST",
       body: {
         airport: props.layover.airport,
-        durationMinutes: props.layover.durationMinutes,
+        durationMinutes: props.layover.durationMinutes ?? 180,
         visaStatus: visaStatus.value,
         arrivalTime: props.layover.arrivalTime,
       },
@@ -124,7 +124,6 @@ async function fetchAiTips() {
 
       <!-- AI tips button -->
       <button
-        v-if="layover.durationMinutes !== null"
         class="shrink-0 text-xs font-medium text-terra-500 transition hover:text-terra-600"
         @click="fetchAiTips"
       >
