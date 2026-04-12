@@ -1,3 +1,4 @@
+import { createHash } from "crypto"
 import { eq } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../../db"
@@ -11,9 +12,12 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const { token } = await getValidatedRouterParams(event, paramsSchema.parse)
 
+  // Hash the incoming token to match the stored hash
+  const hashedToken = createHash("sha256").update(token).digest("hex")
+
   // Find the invite
   const invite = await db.query.tripMembers.findFirst({
-    where: eq(tripMembers.inviteToken, token),
+    where: eq(tripMembers.inviteToken, hashedToken),
   })
 
   if (!invite) {
@@ -37,7 +41,8 @@ export default defineEventHandler(async (event) => {
   ) {
     throw createError({
       statusCode: 403,
-      message: `This invite was sent to ${invite.invitedEmail}. Please sign in with that email.`,
+      message:
+        "This invite was sent to a different email address. Please sign in with the correct account.",
     })
   }
 

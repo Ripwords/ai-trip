@@ -1,5 +1,14 @@
 import { Resend } from "resend"
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
 let _resend: Resend | null = null
 
 function getResend(): Resend {
@@ -51,7 +60,7 @@ export async function sendPassportExpiryEmail(params: {
       <div style="font-family: 'DM Sans', system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
         <h2 style="color: #3d3328; font-size: 22px; margin: 0;">Passport Expiry Reminder</h2>
         <p style="color: #6e5c46; font-size: 15px; line-height: 1.6; margin-top: 12px;">
-          Hi ${params.userName}, your <strong>${params.countryName}</strong> passport expires on
+          Hi ${escapeHtml(params.userName)}, your <strong>${escapeHtml(params.countryName)}</strong> passport expires on
           <strong>${expiryFormatted}</strong> — that's in <strong>${timeUntil}</strong>.
         </p>
         <p style="color: #6e5c46; font-size: 15px; line-height: 1.6;">
@@ -93,8 +102,8 @@ export async function sendTripInviteEmail(params: {
       <div style="font-family: 'DM Sans', system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
         <h2 style="color: #3d3328; font-size: 22px; margin: 0;">You're invited!</h2>
         <p style="color: #6e5c46; font-size: 15px; line-height: 1.6; margin-top: 12px;">
-          <strong>${params.inviterName}</strong> invited you as <strong>${params.role}</strong>
-          to collaborate on a trip to <strong>${params.tripDestination}</strong>.
+          <strong>${escapeHtml(params.inviterName)}</strong> invited you as <strong>${params.role}</strong>
+          to collaborate on a trip to <strong>${escapeHtml(params.tripDestination)}</strong>.
         </p>
         <a href="${params.acceptUrl}"
            style="display: inline-block; background: #e85d3a; color: white; text-decoration: none;
@@ -104,7 +113,7 @@ export async function sendTripInviteEmail(params: {
         <p style="color: #6e5c46; font-size: 13px; margin-top: 20px; line-height: 1.5;">
           Click the button above to join. If you don't have an account yet,
           you'll be asked to sign in with Google first — use this email address
-          (<strong>${params.to}</strong>).
+          (<strong>${escapeHtml(params.to)}</strong>).
         </p>
         <p style="color: #b8a78f; font-size: 12px; margin-top: 16px;">
           This invite expires on ${expiresFormatted}.

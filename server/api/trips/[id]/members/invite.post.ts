@@ -1,3 +1,4 @@
+import { createHash } from "crypto"
 import { eq, and } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../../../../db"
@@ -60,12 +61,14 @@ export default defineEventHandler(async (event) => {
     await db.delete(tripMembers).where(eq(tripMembers.id, existingByEmail.id))
   }
 
-  const inviteToken = crypto.randomUUID()
+  const rawToken = crypto.randomUUID()
+  const hashedToken = createHash("sha256").update(rawToken).digest("hex")
   const expiresAt = new Date(Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
   const baseUrl = process.env.NUXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000"
-  const acceptUrl = `${baseUrl}/invite/${inviteToken}`
+  const acceptUrl = `${baseUrl}/invite/${rawToken}`
 
   // Create pending membership (userId is null if user doesn't exist yet)
+  // Store the hashed token — the raw token is only sent via the invite URL/email
   const [member] = await db
     .insert(tripMembers)
     .values({
@@ -75,14 +78,14 @@ export default defineEventHandler(async (event) => {
       invitedBy: session.user.id,
       invitedEmail: body.email,
       status: "pending",
-      inviteToken,
+      inviteToken: hashedToken,
       expiresAt,
     })
     .returning()
 
   // Send invite email
   try {
-    console.log("[invite] Sending email to:", body.email, "from:", process.env.RESEND_FROM_EMAIL)
+    console.log("[invite] Sending invite email from:", process.env.RESEND_FROM_EMAIL)
     await sendTripInviteEmail({
       to: body.email,
       inviterName: session.user.name || "Someone",
