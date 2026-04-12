@@ -50,6 +50,48 @@ const { data: tripFlights, refresh: refreshFlights } = await useFetch(
   `/api/trips/${tripId}/flights`,
 )
 
+const sortedTripFlights = computed(() => {
+  if (!tripFlights.value) return []
+  const today = new Date().toISOString().split("T")[0]!
+  return [...tripFlights.value].toSorted((a, b) => {
+    const aDate = (a as Record<string, unknown>).flightDate as string
+    const bDate = (b as Record<string, unknown>).flightDate as string
+    const aUpcoming = aDate >= today
+    const bUpcoming = bDate >= today
+    // Upcoming flights first
+    if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1
+    const dateCmp = aDate.localeCompare(bDate)
+    // Upcoming: ascending, Past: descending
+    if (dateCmp !== 0) return aUpcoming ? dateCmp : -dateCmp
+    const aDep = (a as Record<string, unknown>).departureTime as string | null
+    const bDep = (b as Record<string, unknown>).departureTime as string | null
+    if (aDep && bDep) {
+      const aLocal = new Date(aDep).toLocaleTimeString("en-US", { hour12: false })
+      const bLocal = new Date(bDep).toLocaleTimeString("en-US", { hour12: false })
+      const timeCmp = aLocal.localeCompare(bLocal)
+      return aUpcoming ? timeCmp : -timeCmp
+    }
+    if (!aDep) return 1
+    if (!bDep) return -1
+    return 0
+  })
+})
+
+const { flightListItems } = useLayoverDetection(
+  sortedTripFlights as unknown as Ref<
+    {
+      id: string
+      flightNumber: string
+      flightDate: string
+      departureAirport: string | null
+      arrivalAirport: string | null
+      departureTime: string | null
+      arrivalTime: string | null
+      [key: string]: unknown
+    }[]
+  >,
+)
+
 const { data: tripMembers } = await useFetch<
   {
     userId: string
@@ -407,25 +449,6 @@ watch(
   { immediate: true },
 )
 
-function formatDateRange(start: string, end: string): string {
-  const s = new Date(start + "T00:00:00")
-  const e = new Date(end + "T00:00:00")
-  const opts: Intl.DateTimeFormatOptions = {
-    month: "short",
-    day: "numeric",
-  }
-  return `${s.toLocaleDateString("en-US", opts)} - ${e.toLocaleDateString("en-US", { ...opts, year: "numeric" })}`
-}
-
-function formatDayDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00")
-  return d.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  })
-}
-
 const aiError = ref("")
 const aiMessage = ref("")
 const aiPrompt = ref("")
@@ -716,7 +739,20 @@ async function recomputeSegments(dayId: string) {
             >
               <span class="flex items-center gap-1">
                 <Icon name="lucide:calendar" class="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                {{ formatDateRange(trip.startDate, trip.endDate) }}
+                <NuxtTime
+                  :datetime="trip.startDate + 'T00:00:00'"
+                  locale="en-US"
+                  month="short"
+                  day="numeric"
+                />
+                -
+                <NuxtTime
+                  :datetime="trip.endDate + 'T00:00:00'"
+                  locale="en-US"
+                  month="short"
+                  day="numeric"
+                  year="numeric"
+                />
               </span>
               <span class="text-sand-300">·</span>
               <span
@@ -964,8 +1000,14 @@ async function recomputeSegments(dayId: string) {
             >
               <span class="sm:hidden">D{{ day.dayNumber }}</span>
               <span class="hidden sm:inline"
-                >Day {{ day.dayNumber }} &middot; {{ formatDayDate(day.date) }}</span
-              >
+                >Day {{ day.dayNumber }} &middot;
+                <NuxtTime
+                  :datetime="day.date + 'T00:00:00'"
+                  locale="en-US"
+                  weekday="short"
+                  month="short"
+                  day="numeric"
+              /></span>
               <span
                 v-if="day.date === todayDate && day.id !== activeDayId"
                 class="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-terra-500"
@@ -1226,6 +1268,11 @@ async function recomputeSegments(dayId: string) {
       <div v-else-if="activeTab === 'flights'" class="mt-8 max-w-3xl space-y-4">
         <h2 class="font-display text-lg text-sand-900">Flights</h2>
 
+        <FlightGlobe
+          v-if="sortedTripFlights.length > 0"
+          :flights="sortedTripFlights"
+        />
+
         <!-- Add flight form (auto-links to this trip) -->
         <form
           class="flex flex-col gap-3 rounded-2xl border border-sand-200 bg-white p-5 sm:flex-row sm:items-end"
@@ -1257,13 +1304,18 @@ async function recomputeSegments(dayId: string) {
           </button>
         </form>
 
-        <div v-if="tripFlights?.length" class="space-y-3">
-          <FlightCard
-            v-for="flight in tripFlights"
-            :key="(flight as Record<string, unknown>).id as string"
-            :flight="flight"
-            @delete="deleteTripFlight"
-          />
+        <div v-if="flightListItems.length" class="space-y-3">
+          <template v-for="(item, idx) in flightListItems" :key="idx">
+            <FlightCard
+              v-if="item.type === 'flight'"
+              :flight="item.flight"
+              @delete="deleteTripFlight"
+            />
+            <LayoverCard
+              v-else-if="item.type === 'layover'"
+              :layover="item"
+            />
+          </template>
         </div>
         <div v-else class="rounded-2xl border border-dashed border-sand-300 p-8 text-center">
           <Icon name="lucide:plane" class="mx-auto h-8 w-8 text-sand-300" />
