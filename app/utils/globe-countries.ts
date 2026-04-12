@@ -23,13 +23,19 @@ export { GLOBE_RADIUS }
 const worldData = worldTopoJson as unknown as Topology
 const countriesGeo = feature(worldData, worldData.objects.countries as GeometryCollection)
 
+/** A single polygon: outer ring + optional hole rings */
+interface PolygonWithHoles {
+  outer: number[][] // [[lng, lat], ...]
+  holes: number[][][] // array of hole rings
+}
+
 export interface CountryGeoFeature {
   id: string
   info: CountryInfo | undefined
-  rings: number[][][] // array of polygon rings, each ring is [[lng, lat], ...]
+  polygons: PolygonWithHoles[]
 }
 
-/** Extract all country features with their polygon rings */
+/** Extract all country features preserving polygon/hole structure */
 export function getCountryFeatures(): CountryGeoFeature[] {
   const features: CountryGeoFeature[] = []
 
@@ -37,24 +43,24 @@ export function getCountryFeatures(): CountryGeoFeature[] {
     const numericId = String(feat.id).padStart(3, "0")
     const info = countryByNumeric.get(numericId)
 
-    const polygons =
+    const rawPolygons =
       feat.geometry.type === "Polygon"
         ? [feat.geometry.coordinates]
         : feat.geometry.type === "MultiPolygon"
           ? feat.geometry.coordinates
           : []
 
-    const rings: number[][][] = []
-    for (const polygon of polygons) {
-      for (const ring of polygon) {
-        if (ring.length >= 3) {
-          rings.push(ring as number[][])
-        }
-      }
+    const polygons: PolygonWithHoles[] = []
+    for (const polygon of rawPolygons) {
+      if (polygon.length === 0 || polygon[0]!.length < 3) continue
+      polygons.push({
+        outer: polygon[0] as number[][],
+        holes: (polygon.slice(1) as number[][][]).filter((h) => h.length >= 3),
+      })
     }
 
-    if (rings.length > 0) {
-      features.push({ id: numericId, info, rings })
+    if (polygons.length > 0) {
+      features.push({ id: numericId, info, polygons })
     }
   }
 
@@ -62,25 +68,40 @@ export function getCountryFeatures(): CountryGeoFeature[] {
 }
 
 /**
- * Triangulate a single polygon ring onto the sphere surface.
- * Returns vertices (flat array of x,y,z) and indices.
+ * Triangulate a polygon (outer ring + holes) onto the sphere surface.
+ * Earcut receives all vertices flattened + hole start indices.
  */
-function triangulateRing(
-  ring: number[][],
+function triangulatePolygon(
+  polygon: PolygonWithHoles,
   radius: number,
 ): { vertices: number[]; indices: number[] } {
-  // Project to 2D for earcut (use lng/lat directly — earcut works in 2D)
+  // Flatten all rings (outer + holes) into one coordinate array for earcut
   const flatCoords: number[] = []
-  for (const [lng, lat] of ring) {
+  const holeIndices: number[] = []
+
+  // Outer ring
+  for (const [lng, lat] of polygon.outer) {
     flatCoords.push(lng!, lat!)
   }
 
-  const triIndices = earcut(flatCoords, undefined, 2)
+  // Holes
+  let vertexCount = polygon.outer.length
+  for (const hole of polygon.holes) {
+    holeIndices.push(vertexCount)
+    for (const [lng, lat] of hole) {
+      flatCoords.push(lng!, lat!)
+    }
+    vertexCount += hole.length
+  }
 
-  // Build 3D vertices on sphere
+  const triIndices = earcut(flatCoords, holeIndices.length > 0 ? holeIndices : undefined, 2)
+
+  // Build 3D vertices for all rings
   const vertices: number[] = []
-  for (const [lng, lat] of ring) {
-    const v = latLngToVector3(lat!, lng!, radius)
+  for (let i = 0; i < flatCoords.length; i += 2) {
+    const lng = flatCoords[i]!
+    const lat = flatCoords[i + 1]!
+    const v = latLngToVector3(lat, lng, radius)
     vertices.push(v.x, v.y, v.z)
   }
 
@@ -88,20 +109,23 @@ function triangulateRing(
 }
 
 /**
- * Build a BufferGeometry for a single country (all its rings merged).
+ * Build a BufferGeometry for a single country (all its polygons merged).
  */
 export function buildCountryGeometry(countryFeature: CountryGeoFeature): BufferGeometry {
   const allVertices: number[] = []
   const allIndices: number[] = []
   let vertexOffset = 0
 
-  for (const ring of countryFeature.rings) {
-    const { vertices, indices } = triangulateRing(ring, GLOBE_RADIUS * 1.001)
+  for (const polygon of countryFeature.polygons) {
+    const { vertices, indices } = triangulatePolygon(polygon, GLOBE_RADIUS * 1.001)
     allVertices.push(...vertices)
     for (const idx of indices) {
       allIndices.push(idx + vertexOffset)
     }
-    vertexOffset += ring.length
+    // Total vertices = outer + all holes
+    const totalVerts =
+      polygon.outer.length + polygon.holes.reduce((sum, h) => sum + h.length, 0)
+    vertexOffset += totalVerts
   }
 
   const geo = new BufferGeometry()
@@ -128,8 +152,8 @@ export function buildMergedGeometry(features: CountryGeoFeature[]): MergedCountr
   let vertexOffset = 0
 
   for (const countryFeature of features) {
-    for (const ring of countryFeature.rings) {
-      const { vertices, indices } = triangulateRing(ring, GLOBE_RADIUS * 1.001)
+    for (const polygon of countryFeature.polygons) {
+      const { vertices, indices } = triangulatePolygon(polygon, GLOBE_RADIUS * 1.001)
       allVertices.push(...vertices)
       for (let i = 0; i < indices.length; i += 3) {
         allIndices.push(
@@ -139,7 +163,9 @@ export function buildMergedGeometry(features: CountryGeoFeature[]): MergedCountr
         )
         faceToCountryId.push(countryFeature.id)
       }
-      vertexOffset += ring.length
+      const totalVerts =
+        polygon.outer.length + polygon.holes.reduce((sum, h) => sum + h.length, 0)
+      vertexOffset += totalVerts
     }
   }
 
@@ -184,7 +210,7 @@ export function buildBorderLines(): BufferGeometry {
 }
 
 /**
- * Compute the centroid of a country (average lat/lng of all ring vertices).
+ * Compute the centroid of a country (average lat/lng of outer ring vertices).
  */
 export function getCountryCentroid(countryFeature: CountryGeoFeature): {
   lat: number
@@ -194,8 +220,8 @@ export function getCountryCentroid(countryFeature: CountryGeoFeature): {
   let totalLng = 0
   let count = 0
 
-  for (const ring of countryFeature.rings) {
-    for (const [lng, lat] of ring) {
+  for (const polygon of countryFeature.polygons) {
+    for (const [lng, lat] of polygon.outer) {
       totalLat += lat!
       totalLng += lng!
       count++
