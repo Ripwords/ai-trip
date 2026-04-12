@@ -26,6 +26,7 @@ export const documents = pgTable(
   (table) => [
     index("idx_documents_trip_id").on(table.tripId),
     index("idx_documents_reservation_id").on(table.reservationId),
+    index("idx_documents_uploaded_by").on(table.uploadedById),
   ],
 )
 

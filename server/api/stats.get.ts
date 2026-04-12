@@ -43,49 +43,50 @@ export default defineEventHandler(async (event) => {
     return sum + Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1
   }, 0)
 
-  // Countries visited
-  const countries = await db.query.visitedCountries.findMany({
-    where: and(eq(visitedCountries.userId, userId), eq(visitedCountries.visitType, "visited")),
-    columns: { countryCode: true },
-  })
-  const countriesVisited = countries.length
+  // Parallelize independent queries
+  const [countries, days, [flightResult]] = await Promise.all([
+    // Countries visited
+    db.query.visitedCountries.findMany({
+      where: and(eq(visitedCountries.userId, userId), eq(visitedCountries.visitType, "visited")),
+      columns: { countryCode: true },
+    }),
+    // Itinerary day IDs for activity/distance stats
+    tripIds.length > 0
+      ? db.query.itineraryDays.findMany({
+          where: inArray(itineraryDays.tripId, tripIds),
+          columns: { id: true },
+        })
+      : Promise.resolve([]),
+    // Total flights
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(flights)
+      .where(eq(flights.userId, userId)),
+  ])
 
-  // Activities count + distance travelled (only if user has trips)
+  const countriesVisited = countries.length
+  const dayIds = days.map((d) => d.id)
+
   let totalActivities = 0
   let totalDistanceKm = 0
-  let totalFlights = 0
+  const totalFlights = flightResult?.count ?? 0
 
-  if (tripIds.length > 0) {
-    // Get all itinerary day IDs for the user's trips
-    const days = await db.query.itineraryDays.findMany({
-      where: inArray(itineraryDays.tripId, tripIds),
-      columns: { id: true },
-    })
-    const dayIds = days.map((d) => d.id)
-
-    if (dayIds.length > 0) {
+  if (dayIds.length > 0) {
+    const [[actResult], [distResult]] = await Promise.all([
       // Total activities
-      const [actResult] = await db
+      db
         .select({ count: sql<number>`count(*)::int` })
         .from(activities)
-        .where(inArray(activities.itineraryDayId, dayIds))
-      totalActivities = actResult?.count ?? 0
-
+        .where(inArray(activities.itineraryDayId, dayIds)),
       // Total distance from travel segments
-      const [distResult] = await db
+      db
         .select({ total: sql<number>`coalesce(sum(${travelSegments.distanceMeters}), 0)::int` })
         .from(travelSegments)
-        .where(inArray(travelSegments.itineraryDayId, dayIds))
-      totalDistanceKm = Math.round((distResult?.total ?? 0) / 1000)
-    }
+        .where(inArray(travelSegments.itineraryDayId, dayIds)),
+    ])
+    totalActivities = actResult?.count ?? 0
+    totalDistanceKm = Math.round((distResult?.total ?? 0) / 1000)
   }
-
-  // Total flights
-  const [flightResult] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(flights)
-    .where(eq(flights.userId, userId))
-  totalFlights = flightResult?.count ?? 0
 
   return {
     totalTrips,

@@ -135,47 +135,51 @@ export default defineEventHandler(async (event) => {
 
   // Handle removals
   if (result.removals.length > 0) {
-    for (const removal of result.removals) {
-      const match = day.activities.find(
-        (a) => a.name.toLowerCase().trim() === removal.name.toLowerCase().trim(),
-      )
-      if (match) {
-        await db.delete(activities).where(eq(activities.id, match.id))
-        removedCount++
-      }
-    }
+    await Promise.all(
+      result.removals.map(async (removal) => {
+        const match = day.activities.find(
+          (a) => a.name.toLowerCase().trim() === removal.name.toLowerCase().trim(),
+        )
+        if (match) {
+          await db.delete(activities).where(eq(activities.id, match.id))
+          removedCount++
+        }
+      }),
+    )
   }
 
   // Handle time/duration updates
   if (result.updates.length > 0) {
     const isReschedule = result.intent === "reschedule"
-    for (const update of result.updates) {
-      const match = day.activities.find(
-        (a) => a.name.toLowerCase().trim() === update.name.toLowerCase().trim(),
-      )
-      if (!match) continue
+    await Promise.all(
+      result.updates.map(async (update) => {
+        const match = day.activities.find(
+          (a) => a.name.toLowerCase().trim() === update.name.toLowerCase().trim(),
+        )
+        if (!match) return
 
-      // For reschedule: always overwrite times. For other intents: only fill blanks.
-      if (isReschedule) {
-        await db
-          .update(activities)
-          .set({
-            suggestedTime: update.suggestedTime,
-            estimatedDurationMinutes: update.estimatedDurationMinutes,
-          })
-          .where(eq(activities.id, match.id))
-        updatedCount++
-      } else if (!match.suggestedTime || !match.estimatedDurationMinutes) {
-        const setFields: Record<string, unknown> = {}
-        if (!match.suggestedTime) setFields.suggestedTime = update.suggestedTime
-        if (!match.estimatedDurationMinutes)
-          setFields.estimatedDurationMinutes = update.estimatedDurationMinutes
-        if (Object.keys(setFields).length > 0) {
-          await db.update(activities).set(setFields).where(eq(activities.id, match.id))
+        // For reschedule: always overwrite times. For other intents: only fill blanks.
+        if (isReschedule) {
+          await db
+            .update(activities)
+            .set({
+              suggestedTime: update.suggestedTime,
+              estimatedDurationMinutes: update.estimatedDurationMinutes,
+            })
+            .where(eq(activities.id, match.id))
           updatedCount++
+        } else if (!match.suggestedTime || !match.estimatedDurationMinutes) {
+          const setFields: Record<string, unknown> = {}
+          if (!match.suggestedTime) setFields.suggestedTime = update.suggestedTime
+          if (!match.estimatedDurationMinutes)
+            setFields.estimatedDurationMinutes = update.estimatedDurationMinutes
+          if (Object.keys(setFields).length > 0) {
+            await db.update(activities).set(setFields).where(eq(activities.id, match.id))
+            updatedCount++
+          }
         }
-      }
-    }
+      }),
+    )
   }
 
   // Handle new activities
@@ -287,18 +291,19 @@ export default defineEventHandler(async (event) => {
       orderBy: [asc(activities.sortOrder)],
     })
 
-    for (let i = 0; i < result.orderedActivities.length; i++) {
-      const ordered = result.orderedActivities[i]!
-      const match = currentActivities.find(
-        (a) => a.name.toLowerCase().trim() === ordered.name.toLowerCase().trim(),
-      )
-      if (match) {
-        await db
-          .update(activities)
-          .set({ sortOrder: i, suggestedTime: ordered.suggestedTime })
-          .where(eq(activities.id, match.id))
-      }
-    }
+    await Promise.all(
+      result.orderedActivities.map(async (ordered, i) => {
+        const match = currentActivities.find(
+          (a) => a.name.toLowerCase().trim() === ordered.name.toLowerCase().trim(),
+        )
+        if (match) {
+          await db
+            .update(activities)
+            .set({ sortOrder: i, suggestedTime: ordered.suggestedTime })
+            .where(eq(activities.id, match.id))
+        }
+      }),
+    )
     optimized = true
   }
 

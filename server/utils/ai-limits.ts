@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm"
+import { eq, and, sql } from "drizzle-orm"
 import { db } from "../db"
 import { aiUsage } from "../db/schema"
 
@@ -50,21 +50,11 @@ export async function checkAiLimit(userId: string): Promise<void> {
  */
 export async function incrementAiUsage(userId: string): Promise<void> {
   const month = getCurrentMonth()
-
-  const existing = await db.query.aiUsage.findFirst({
-    where: and(eq(aiUsage.userId, userId), eq(aiUsage.month, month)),
-  })
-
-  if (existing) {
-    await db
-      .update(aiUsage)
-      .set({ promptCount: existing.promptCount + 1 })
-      .where(eq(aiUsage.id, existing.id))
-  } else {
-    await db.insert(aiUsage).values({
-      userId,
-      month,
-      promptCount: 1,
+  await db
+    .insert(aiUsage)
+    .values({ userId, month, promptCount: 1 })
+    .onConflictDoUpdate({
+      target: [aiUsage.userId, aiUsage.month],
+      set: { promptCount: sql`${aiUsage.promptCount} + 1` },
     })
-  }
 }

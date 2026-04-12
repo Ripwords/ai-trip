@@ -16,7 +16,10 @@ export const activityComments = pgTable(
     text: text("text").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("idx_activity_comments_activity_id").on(table.activityId)],
+  (table) => [
+    index("idx_activity_comments_activity_id").on(table.activityId),
+    index("idx_activity_comments_user_id").on(table.userId),
+  ],
 )
 
 export const activityCommentsRelations = relations(activityComments, ({ one }) => ({

@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
   })
 
   // Convert activity costs
+  const activityUpdates: Promise<unknown>[] = []
   for (const day of tripDays) {
     for (const activity of day.activities) {
       const updates: Record<string, string | null> = {}
@@ -47,23 +48,27 @@ export default defineEventHandler(async (event) => {
       }
 
       if (Object.keys(updates).length > 0) {
-        await db.update(activities).set(updates).where(eq(activities.id, activity.id))
+        activityUpdates.push(
+          db.update(activities).set(updates).where(eq(activities.id, activity.id)),
+        )
       }
     }
   }
+  await Promise.all(activityUpdates)
 
   // Convert expenses
   const tripExpenses = await db.query.expenses.findMany({
     where: (e, { eq: eqFn }) => eqFn(e.tripId, id),
   })
 
-  for (const expense of tripExpenses) {
+  const expenseUpdates = tripExpenses.map((expense) => {
     const converted = parseFloat(expense.amount) * rate
-    await db
+    return db
       .update(expenses)
       .set({ amount: converted.toFixed(2) })
       .where(eq(expenses.id, expense.id))
-  }
+  })
+  await Promise.all(expenseUpdates)
 
   // Convert budget
   const trip = await db.query.trips.findFirst({ where: eq(trips.id, id) })

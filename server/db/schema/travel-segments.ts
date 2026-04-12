@@ -25,6 +25,7 @@ export const travelSegments = pgTable(
   (table) => [
     index("idx_travel_segments_day_id").on(table.itineraryDayId),
     index("idx_travel_segments_from").on(table.fromActivityId),
+    index("idx_travel_segments_to").on(table.toActivityId),
   ],
 )
 

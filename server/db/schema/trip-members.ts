@@ -25,6 +25,7 @@ export const tripMembers = pgTable(
     index("idx_trip_members_trip_id").on(table.tripId),
     index("idx_trip_members_user_id").on(table.userId),
     index("idx_trip_members_invited_email").on(table.invitedEmail),
+    index("idx_trip_members_invite_token").on(table.inviteToken),
   ],
 )
 

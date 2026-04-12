@@ -31,6 +31,7 @@ export const reservations = pgTable(
     index("idx_reservations_trip_id").on(table.tripId),
     index("idx_reservations_type").on(table.type),
     index("idx_reservations_status").on(table.status),
+    index("idx_reservations_created_by").on(table.createdById),
   ],
 )
 
