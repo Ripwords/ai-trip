@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { db } from "../../../../db"
 import { activities, expenses, tripMembers, trips } from "../../../../db/schema"
 import { uuidParamsSchema, createExpenseSchema } from "../../../../utils/schemas"
@@ -9,6 +9,18 @@ export default defineEventHandler(async (event) => {
   const body = await readValidatedBody(event, createExpenseSchema.parse)
 
   await requireTripAccess(id, session.user.id, ["owner", "editor"])
+
+  // Check per-trip expense limit
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(expenses)
+    .where(eq(expenses.tripId, id))
+  if (count >= 200) {
+    throw createError({
+      statusCode: 400,
+      message: "Maximum number of expenses per trip reached (200)",
+    })
+  }
 
   // If activityId provided, verify activity belongs to this trip
   if (body.activityId) {

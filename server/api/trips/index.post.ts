@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { db } from "../../db"
 import { trips, itineraryDays } from "../../db/schema"
 import { createTripSchema } from "../../utils/schemas"
@@ -6,6 +6,15 @@ import { createTripSchema } from "../../utils/schemas"
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const body = await readValidatedBody(event, createTripSchema.parse)
+
+  // Check per-user trip limit
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(trips)
+    .where(eq(trips.userId, session.user.id))
+  if (count >= 50) {
+    throw createError({ statusCode: 400, message: "Maximum number of trips reached (50)" })
+  }
 
   const [trip] = await db
     .insert(trips)

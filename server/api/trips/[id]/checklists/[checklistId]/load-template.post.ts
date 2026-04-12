@@ -1,4 +1,4 @@
-import { and, eq, desc } from "drizzle-orm"
+import { and, eq, or, desc } from "drizzle-orm"
 import { db } from "../../../../../db"
 import { checklists, checklistItems, packingTemplates } from "../../../../../db/schema"
 import { checklistIdParamsSchema, loadTemplateSchema } from "../../../../../utils/schemas"
@@ -19,9 +19,12 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Checklist not found" })
   }
 
-  // Get template
+  // Get template — only allow own templates or global ones
   const template = await db.query.packingTemplates.findFirst({
-    where: eq(packingTemplates.id, body.templateId),
+    where: and(
+      eq(packingTemplates.id, body.templateId),
+      or(eq(packingTemplates.userId, session.user.id), eq(packingTemplates.isGlobal, true)),
+    ),
   })
 
   if (!template) {

@@ -29,6 +29,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Shared trip not found" })
   }
 
+  if (trip.shareExpiresAt && trip.shareExpiresAt < new Date()) {
+    throw createError({ statusCode: 410, message: "This shared link has expired" })
+  }
+
   // Return only public-safe fields — no preferences, notes, or costs
   return {
     destination: trip.destination,

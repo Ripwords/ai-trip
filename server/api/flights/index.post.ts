@@ -7,6 +7,11 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const body = await readValidatedBody(event, createFlightSchema.parse)
 
+  // If tripId provided, verify user has access to that trip
+  if (body.tripId) {
+    await requireTripAccess(body.tripId, session.user.id)
+  }
+
   // Look up flight data from AeroDataBox
   const flightData = await lookupFlight(body.flightNumber, body.flightDate)
 

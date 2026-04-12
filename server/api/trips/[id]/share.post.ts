@@ -19,8 +19,9 @@ export default defineEventHandler(async (event) => {
 
   // Toggle: if already shared, unshare; if not, generate token
   const newToken = trip.shareToken ? null : crypto.randomUUID()
+  const shareExpiresAt = newToken ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null
 
-  await db.update(trips).set({ shareToken: newToken }).where(eq(trips.id, id))
+  await db.update(trips).set({ shareToken: newToken, shareExpiresAt }).where(eq(trips.id, id))
 
   return { shareToken: newToken, shared: !!newToken }
 })

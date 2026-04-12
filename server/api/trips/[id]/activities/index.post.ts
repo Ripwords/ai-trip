@@ -1,4 +1,4 @@
-import { and, eq, desc } from "drizzle-orm"
+import { and, eq, desc, sql } from "drizzle-orm"
 import { db } from "../../../../db"
 import { itineraryDays, activities } from "../../../../db/schema"
 import { uuidParamsSchema, addActivitySchema } from "../../../../utils/schemas"
@@ -18,6 +18,18 @@ export default defineEventHandler(async (event) => {
 
   if (!day) {
     throw createError({ statusCode: 404, message: "Day not found" })
+  }
+
+  // Check per-day activity limit
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(activities)
+    .where(eq(activities.itineraryDayId, body.itineraryDayId))
+  if (count >= 30) {
+    throw createError({
+      statusCode: 400,
+      message: "Maximum number of activities per day reached (30)",
+    })
   }
 
   // Get max sortOrder for that day

@@ -36,6 +36,7 @@ export const trips = pgTable(
     currencyCode: text("currency_code").notNull().default("USD"),
     tripNotes: text("trip_notes"),
     shareToken: uuid("share_token"),
+    shareExpiresAt: timestamp("share_expires_at", { mode: "date" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

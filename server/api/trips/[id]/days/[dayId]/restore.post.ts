@@ -27,7 +27,7 @@ const activitySnapshotSchema = z.object({
 })
 
 const restoreBodySchema = z.object({
-  activities: z.array(activitySnapshotSchema),
+  activities: z.array(activitySnapshotSchema).max(50),
 })
 
 export default defineEventHandler(async (event) => {

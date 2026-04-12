@@ -1,5 +1,6 @@
 import { pgTable, uuid, text, numeric, timestamp, index } from "drizzle-orm/pg-core"
 import { relations } from "drizzle-orm"
+import { encryptedText } from "../custom-types"
 import { trips } from "./trips"
 import { user } from "./auth-schema"
 import { documents } from "./documents"
@@ -14,7 +15,7 @@ export const reservations = pgTable(
     type: text("type").notNull().default("other"),
     status: text("status").notNull().default("confirmed"),
     name: text("name").notNull(),
-    confirmationNumber: text("confirmation_number"),
+    confirmationNumber: encryptedText("confirmation_number"),
     provider: text("provider"),
     notes: text("notes"),
     startDate: timestamp("start_date", { withTimezone: true }),

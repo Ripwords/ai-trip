@@ -17,6 +17,20 @@ export default defineEventHandler(async (event) => {
 
   await requireTripAccess(id, session.user.id, ["owner", "editor"])
 
+  // Validate all activityIds belong to this day
+  const dayActivities = await db.query.activities.findMany({
+    where: eq(activities.itineraryDayId, dayId),
+    columns: { id: true },
+  })
+  const dayActivityIds = new Set(dayActivities.map((a) => a.id))
+  const invalidIds = body.activityIds.filter((aid) => !dayActivityIds.has(aid))
+  if (invalidIds.length > 0) {
+    throw createError({
+      statusCode: 400,
+      message: `Activity IDs do not belong to this day: ${invalidIds.join(", ")}`,
+    })
+  }
+
   // Update sort orders based on new array position
   await Promise.all(
     body.activityIds.map((activityId, index) =>
