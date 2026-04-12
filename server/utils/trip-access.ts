@@ -27,6 +27,11 @@ export async function requireTripAccess(
   })
 
   if (!trip) {
+    console.warn("[access] Trip access denied", {
+      userId,
+      tripId,
+      path: "trip-not-found",
+    })
     throw createError({ statusCode: 404, message: "Trip not found" })
   }
 
@@ -45,6 +50,11 @@ export async function requireTripAccess(
     })
 
     if (!member) {
+      console.warn("[access] Trip access denied", {
+        userId,
+        tripId,
+        path: "not-a-member",
+      })
       throw createError({ statusCode: 404, message: "Trip not found" })
     }
 
@@ -55,6 +65,13 @@ export async function requireTripAccess(
   if (requiredRole) {
     const allowed = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
     if (!allowed.includes(role)) {
+      console.warn("[access] Trip access denied", {
+        userId,
+        tripId,
+        path: "insufficient-role",
+        role,
+        requiredRole,
+      })
       throw createError({ statusCode: 403, message: "You don't have permission to do this" })
     }
   }
