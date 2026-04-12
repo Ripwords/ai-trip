@@ -11,7 +11,7 @@ const { cycle, modeIcon, modeLabel } = useDarkMode()
     <header class="glass sticky top-0 z-50 border-b border-sand-200/50">
       <nav class="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
         <NuxtLink to="/" class="flex items-center gap-2">
-          <img src="/image.png" alt="AI Trip" class="h-8 w-8 rounded-lg" />
+          <NuxtImg src="/image.png" alt="AI Trip" class="h-8 w-8 rounded-lg" loading="eager" />
           <span class="font-display text-lg text-sand-900">AI Trip</span>
         </NuxtLink>
         <div class="flex items-center gap-3">
