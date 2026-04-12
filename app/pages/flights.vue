@@ -21,7 +21,7 @@ interface Flight {
   trip?: { id: string; destination: string } | null
 }
 
-const { data: flights, refresh } = useLazyFetch<Flight[]>("/api/flights")
+const { data: flights, status, refresh } = useLazyFetch<Flight[]>("/api/flights")
 
 // Add flight form
 const newFlightNumber = ref("")
@@ -153,8 +153,11 @@ const paginatedPast = computed(() => {
       </button>
     </form>
 
+    <!-- Loading skeleton -->
+    <SkeletonFlights v-if="status === 'pending'" />
+
     <!-- Upcoming flights -->
-    <section v-if="upcomingFlights.length > 0">
+    <section v-else-if="upcomingFlights.length > 0">
       <h2 class="mb-3 text-sm font-semibold text-sand-600">
         Upcoming ({{ upcomingFlights.length }})
       </h2>

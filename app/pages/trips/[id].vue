@@ -46,9 +46,7 @@ const { data: aiUsage, refresh: refreshUsage } = useLazyFetch<{
   remaining: number
 }>("/api/ai/usage")
 
-const { data: tripFlights, refresh: refreshFlights } = useLazyFetch(
-  `/api/trips/${tripId}/flights`,
-)
+const { data: tripFlights, refresh: refreshFlights } = useLazyFetch(`/api/trips/${tripId}/flights`)
 
 const sortedTripFlights = computed(() => {
   if (!tripFlights.value) return []
@@ -704,9 +702,7 @@ async function recomputeSegments(dayId: string) {
 <template>
   <div>
     <!-- Loading -->
-    <div v-if="status === 'pending'" class="flex items-center justify-center py-24">
-      <Icon name="lucide:loader" class="h-6 w-6 animate-spin text-terra-400" />
-    </div>
+    <SkeletonTripDetail v-if="status === 'pending'" />
 
     <!-- Not found -->
     <div v-else-if="!trip" class="py-24 text-center">

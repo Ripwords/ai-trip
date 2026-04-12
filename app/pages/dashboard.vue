@@ -165,10 +165,7 @@ const nextFlight = computed<FlightData | null>(() => {
         </NuxtLink>
       </div>
 
-      <div v-if="status === 'pending'" class="mt-8 text-center text-sand-500">
-        <Icon name="lucide:loader" class="mx-auto h-6 w-6 animate-spin text-terra-400" />
-        <p class="mt-2 text-sm">Loading trips...</p>
-      </div>
+      <SkeletonDashboard v-if="status === 'pending'" />
 
       <div
         v-else-if="!trips?.length"
