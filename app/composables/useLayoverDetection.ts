@@ -32,8 +32,6 @@ export interface FlightEntry {
 
 export type FlightListItem = FlightEntry | LayoverInfo
 
-const MAX_LAYOVER_MS = 24 * 60 * 60 * 1000 // 24 hours
-
 function getRecommendation(
   durationMinutes: number | null,
 ): Pick<LayoverInfo, "recommendation" | "recommendationLabel"> {
@@ -47,6 +45,40 @@ function getRecommendation(
     return { recommendation: "tight", recommendationLabel: "Tight but possible" }
   }
   return { recommendation: "explore", recommendationLabel: "Go explore!" }
+}
+
+/** Check if two flight dates are the same day or consecutive days */
+function areDatesClose(dateA: string, dateB: string): boolean {
+  const a = new Date(dateA + "T00:00:00")
+  const b = new Date(dateB + "T00:00:00")
+  const diffDays = Math.abs(b.getTime() - a.getTime()) / (24 * 60 * 60 * 1000)
+  return diffDays <= 1
+}
+
+/**
+ * Compute layover duration in minutes from local display times.
+ * Flights often cross timezone boundaries, so raw UTC timestamps can produce
+ * negative diffs even when the local times are correct. We parse the arrival
+ * and departure times and if the diff is negative (timezone artifact on the
+ * same flightDate), we return null to indicate "connection detected" without
+ * an exact duration.
+ */
+function computeLayoverMinutes(
+  arrivalTime: string | null,
+  departureTime: string | null,
+): number | null {
+  if (!arrivalTime || !departureTime) return null
+
+  const arrivalMs = new Date(arrivalTime).getTime()
+  const departureMs = new Date(departureTime).getTime()
+  const diffMs = departureMs - arrivalMs
+
+  // Negative or zero diff = timezone artifact, can't compute reliable duration
+  if (diffMs <= 0) return null
+  // More than 24 hours = unlikely to be a single layover
+  if (diffMs > 24 * 60 * 60 * 1000) return null
+
+  return Math.round(diffMs / 60000)
 }
 
 export function useLayoverDetection(flights: Ref<FlightItem[] | null>) {
@@ -64,24 +96,14 @@ export function useLayoverDetection(flights: Ref<FlightItem[] | null>) {
       if (i < sorted.length - 1) {
         const next = sorted[i + 1]!
 
+        // Same transfer airport?
         if (
           current.arrivalAirport &&
           next.departureAirport &&
-          current.arrivalAirport === next.departureAirport
+          current.arrivalAirport === next.departureAirport &&
+          areDatesClose(current.flightDate, next.flightDate)
         ) {
-          let durationMinutes: number | null = null
-
-          if (current.arrivalTime && next.departureTime) {
-            const arrivalMs = new Date(current.arrivalTime).getTime()
-            const departureMs = new Date(next.departureTime).getTime()
-            const diffMs = departureMs - arrivalMs
-
-            // Only treat as layover if within 24 hours and positive
-            if (diffMs <= 0 || diffMs > MAX_LAYOVER_MS) continue
-
-            durationMinutes = Math.round(diffMs / 60000)
-          }
-
+          const durationMinutes = computeLayoverMinutes(current.arrivalTime, next.departureTime)
           const { recommendation, recommendationLabel } = getRecommendation(durationMinutes)
 
           items.push({
