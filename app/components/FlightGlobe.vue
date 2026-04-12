@@ -46,11 +46,12 @@ function buildCountryLines(): BufferGeometry {
   const vertices: number[] = []
 
   for (const feat of countriesGeo.features) {
-    const coords = feat.geometry.type === "Polygon"
-      ? [feat.geometry.coordinates]
-      : feat.geometry.type === "MultiPolygon"
-        ? feat.geometry.coordinates
-        : []
+    const coords =
+      feat.geometry.type === "Polygon"
+        ? [feat.geometry.coordinates]
+        : feat.geometry.type === "MultiPolygon"
+          ? feat.geometry.coordinates
+          : []
 
     for (const polygon of coords) {
       for (const ring of polygon) {
@@ -176,14 +177,9 @@ const dotMaterial = new MeshBasicMaterial({
 </script>
 
 <template>
-  <div class="relative overflow-hidden rounded-2xl border border-sand-200 bg-sand-950">
+  <div class="relative h-[300px] w-full overflow-hidden rounded-2xl border border-sand-200 bg-sand-950">
     <ClientOnly>
-      <TresCanvas
-        class="h-[300px] w-full"
-        :alpha="true"
-        clear-color="#0a0a0f"
-        :antialias="true"
-      >
+      <TresCanvas :alpha="true" clear-color="#0a0a0f" :antialias="true">
         <!-- Camera -->
         <TresPerspectiveCamera :position="[0, 0, 5]" :fov="45" />
 
@@ -204,22 +200,13 @@ const dotMaterial = new MeshBasicMaterial({
         <!-- Ocean sphere -->
         <TresMesh>
           <TresSphereGeometry :args="[GLOBE_RADIUS, 64, 64]" />
-          <TresMeshPhongMaterial
-            color="#080e15"
-            emissive="#050a0f"
-            :shininess="25"
-          />
+          <TresMeshPhongMaterial color="#080e15" emissive="#050a0f" :shininess="25" />
         </TresMesh>
 
         <!-- Atmosphere rim (slightly larger transparent sphere) -->
         <TresMesh>
           <TresSphereGeometry :args="[GLOBE_RADIUS * 1.02, 64, 64]" />
-          <TresMeshBasicMaterial
-            color="#4488cc"
-            :transparent="true"
-            :opacity="0.05"
-            :side="1"
-          />
+          <TresMeshBasicMaterial color="#4488cc" :transparent="true" :opacity="0.05" :side="1" />
         </TresMesh>
 
         <!-- Country borders -->
@@ -232,11 +219,7 @@ const dotMaterial = new MeshBasicMaterial({
         </template>
 
         <!-- Airport dots -->
-        <TresMesh
-          v-for="(dot, idx) in airportDots"
-          :key="'dot-' + idx"
-          :position="dot.position"
-        >
+        <TresMesh v-for="(dot, idx) in airportDots" :key="'dot-' + idx" :position="dot.position">
           <TresSphereGeometry :args="[0.02, 8, 8]" />
           <TresMeshBasicMaterial :color="dotMaterial.color" />
         </TresMesh>
