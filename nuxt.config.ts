@@ -53,6 +53,7 @@ export default defineNuxtConfig({
     "dayjs-nuxt",
     "@vite-pwa/nuxt",
     "@nuxtjs/seo",
+    "@vercel/analytics",
   ],
   vite: {
     plugins: [tailwindcss()],
