@@ -307,7 +307,7 @@ watch(
 )
 
 watch(siteIsDark, (dark) => {
-  if (!localStorage.getItem("ov-map-mode") && mapMode.value !== "satellite") {
+  if (import.meta.client && !localStorage.getItem("ov-map-mode") && mapMode.value !== "satellite") {
     mapMode.value = dark ? "dark" : "light"
     createMap()
   }

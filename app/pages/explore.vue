@@ -130,21 +130,21 @@ function handleCheckVisa(country: CountryInfo) {
 
     <!-- Map + Panel Container -->
     <div class="relative mt-6">
-      <ScratchMap
+      <LazyScratchMap
         v-if="viewMode === '2d'"
         :visit-map="visitMap"
         :visa-status-map="visaStatusMap ?? {}"
         @country-click="handleCountryClick"
         @toggle-view="handleToggleView"
       />
-      <GlobeScratchMap
+      <LazyGlobeScratchMap
         v-else
         :visit-map="visitMap"
         :visa-status-map="visaStatusMap ?? {}"
         @country-click="handleCountryClick"
         @toggle-view="handleToggleView"
       />
-      <CountryDetailPanel
+      <LazyCountryDetailPanel
         :country="selectedCountry"
         :visit-type="selectedCountry ? visitMap.get(selectedCountry.alpha2) : undefined"
         :visa-status="selectedCountry ? visaStatusMap?.[selectedCountry.alpha2] : undefined"
@@ -155,7 +155,7 @@ function handleCheckVisa(country: CountryInfo) {
       />
     </div>
 
-    <VisaChecker
+    <LazyVisaChecker
       v-if="showVisaChecker"
       :destination="visaDestination"
       @close="showVisaChecker = false"

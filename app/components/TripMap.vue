@@ -300,7 +300,7 @@ watch(
 
 // Sync map with site dark mode if user hasn't manually set a map preference
 watch(siteIsDark, (dark) => {
-  if (!localStorage.getItem("map-mode") && mapMode.value !== "satellite") {
+  if (import.meta.client && !localStorage.getItem("map-mode") && mapMode.value !== "satellite") {
     mapMode.value = dark ? "dark" : "light"
     createMap()
   }

@@ -1264,7 +1264,7 @@ async function recomputeSegments(dayId: string) {
       <div v-else-if="activeTab === 'flights'" class="mt-8 max-w-3xl space-y-4">
         <h2 class="font-display text-lg text-sand-900">Flights</h2>
 
-        <FlightGlobe v-if="sortedTripFlights.length > 0" :flights="sortedTripFlights" />
+        <LazyFlightGlobe v-if="sortedTripFlights.length > 0" :flights="sortedTripFlights" />
 
         <!-- Add flight form (auto-links to this trip) -->
         <form
@@ -1318,7 +1318,7 @@ async function recomputeSegments(dayId: string) {
     </div>
 
     <!-- Edit modal -->
-    <EditActivityModal
+    <LazyEditActivityModal
       :activity="editingActivity"
       :open="editModalOpen"
       @save="handleSaveActivity"
@@ -1326,7 +1326,7 @@ async function recomputeSegments(dayId: string) {
     />
 
     <!-- Add activity modal -->
-    <AddActivityModal
+    <LazyAddActivityModal
       :open="addActivityModal.open"
       :trip-id="tripId"
       :day-id="addActivityModal.dayId"
