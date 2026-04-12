@@ -10,6 +10,7 @@ import {
   QuadraticBezierCurve3,
   Color,
   MeshBasicMaterial,
+  MeshPhongMaterial,
   Group,
   SphereGeometry,
   Mesh,
@@ -34,34 +35,48 @@ const GLOBE_RADIUS = 2
 
 const { isDark } = useDarkMode()
 
-// --- Theme-aware colors ---
+// --- Theme palettes derived from the app's design tokens ---
+// Dark: warm parchment-at-night — sand-900 ocean, forest borders, terra arcs
+// Light: sun-bleached antique map — ocean-100 water, forest land outlines, terra routes
 const theme = computed(() =>
   isDark.value
     ? {
-        clearColor: "#1a1209",
-        ocean: "#1a150e",
-        oceanEmissive: "#120e08",
-        atmosphere: "#c4944a",
-        atmosphereOpacity: 0.07,
-        borderColor: "#6a9960",
-        borderOpacity: 0.8,
-        arcColor: "#e8956a",
-        dotColor: "#e8956a",
-        ambientIntensity: 0.6,
-        directionalIntensity: 1.0,
+        // Canvas background = sand-50 dark (#1a1714)
+        clearColor: "#1a1714",
+        // Ocean = between sand-50 dark and sand-100 dark — deep warm charcoal
+        ocean: "#1e1b16",
+        oceanEmissive: "#15120e",
+        // Atmosphere = terra-500 dark glow, very subtle
+        atmosphere: "#e85d3a",
+        atmosphereOpacity: 0.04,
+        // Land borders = forest-400 dark — recognizable green on dark
+        borderColor: "#4a8450",
+        borderOpacity: 0.55,
+        // Flight arcs = terra-400 dark — the hero color, bright and warm
+        arcColor: "#f07b5a",
+        // Airport dots = terra-300 dark — slightly different to read as distinct
+        dotColor: "#f7a48a",
+        ambientIntensity: 0.5,
+        directionalIntensity: 0.9,
       }
     : {
-        clearColor: "#f0ece6",
-        ocean: "#c8daea",
-        oceanEmissive: "#a0b8cc",
-        atmosphere: "#88bbee",
-        atmosphereOpacity: 0.1,
-        borderColor: "#3a7a35",
-        borderOpacity: 0.9,
-        arcColor: "#c4704b",
-        dotColor: "#c4704b",
-        ambientIntensity: 0.8,
-        directionalIntensity: 1.2,
+        // Canvas background = sand-50 light (#faf8f5)
+        clearColor: "#faf8f5",
+        // Ocean = ocean-100 light — soft teal water, clearly reads as sea
+        ocean: "#d9eef3",
+        oceanEmissive: "#b3dde7",
+        // Atmosphere = ocean-300 — gentle coastal haze
+        atmosphere: "#7dc3d4",
+        atmosphereOpacity: 0.06,
+        // Land borders = forest-600 — rich green that pops on light ocean
+        borderColor: "#3a6a3f",
+        borderOpacity: 0.7,
+        // Flight arcs = terra-600 — deep warm orange, readable on light globe
+        arcColor: "#d44425",
+        // Airport dots = terra-500 — vibrant marker
+        dotColor: "#e85d3a",
+        ambientIntensity: 0.9,
+        directionalIntensity: 1.4,
       },
 )
 
@@ -164,7 +179,7 @@ const flightGroup = computed(() => {
     color: new Color(t.dotColor),
   })
 
-  const dotGeo = new SphereGeometry(0.03, 8, 8)
+  const dotGeo = new SphereGeometry(0.035, 12, 12)
   const seen = new Set<string>()
 
   for (const flight of props.flights) {
@@ -225,19 +240,14 @@ const summaryText = computed(() => {
 </script>
 
 <template>
-  <div
-    class="relative h-[300px] w-full overflow-hidden rounded-2xl border border-sand-200 bg-sand-950"
-  >
+  <div class="relative h-[300px] w-full overflow-hidden rounded-2xl border border-sand-200">
     <ClientOnly>
       <TresCanvas :alpha="true" :clear-color="theme.clearColor" :antialias="true">
-        <!-- Camera positioned to face flight center -->
         <TresPerspectiveCamera :position="cameraPosition" :fov="45" />
 
-        <!-- Lighting (theme-aware intensity) -->
         <TresAmbientLight :intensity="theme.ambientIntensity" />
         <TresDirectionalLight :position="[5, 3, 5]" :intensity="theme.directionalIntensity" />
 
-        <!-- Controls -->
         <OrbitControls
           :enable-zoom="false"
           :enable-pan="false"
@@ -253,13 +263,13 @@ const summaryText = computed(() => {
           <TresMeshPhongMaterial
             :color="theme.ocean"
             :emissive="theme.oceanEmissive"
-            :shininess="30"
+            :shininess="40"
           />
         </TresMesh>
 
         <!-- Atmosphere rim -->
         <TresMesh>
-          <TresSphereGeometry :args="[GLOBE_RADIUS * 1.025, 64, 64]" />
+          <TresSphereGeometry :args="[GLOBE_RADIUS * 1.02, 64, 64]" />
           <TresMeshBasicMaterial
             :color="theme.atmosphere"
             :transparent="true"
@@ -278,7 +288,7 @@ const summaryText = computed(() => {
 
     <!-- Summary overlay -->
     <div class="absolute bottom-3 left-0 right-0 text-center">
-      <span class="text-xs text-sand-500">{{ summaryText }}</span>
+      <span class="font-display text-xs tracking-wide text-sand-500">{{ summaryText }}</span>
     </div>
   </div>
 </template>
