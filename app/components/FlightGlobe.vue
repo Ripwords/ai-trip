@@ -3,11 +3,16 @@ import { OrbitControls } from "@tresjs/cientos"
 import {
   BufferGeometry,
   LineBasicMaterial,
+  LineSegments,
+  Line,
   Float32BufferAttribute,
   Vector3,
   QuadraticBezierCurve3,
   Color,
   MeshBasicMaterial,
+  Group,
+  SphereGeometry,
+  Mesh,
 } from "three"
 import { feature } from "topojson-client"
 import type { Topology, GeometryCollection } from "topojson-specification"
@@ -42,7 +47,7 @@ function latLngToVector3(lat: number, lng: number, radius: number): Vector3 {
 const worldData = worldTopoJson as unknown as Topology
 const countriesGeo = feature(worldData, worldData.objects.countries as GeometryCollection)
 
-function buildCountryLines(): BufferGeometry {
+function buildCountryLines(): LineSegments {
   const vertices: number[] = []
 
   for (const feat of countriesGeo.features) {
@@ -68,24 +73,34 @@ function buildCountryLines(): BufferGeometry {
 
   const geo = new BufferGeometry()
   geo.setAttribute("position", new Float32BufferAttribute(vertices, 3))
-  return geo
+
+  const material = new LineBasicMaterial({
+    color: new Color("#3a5a35"),
+    transparent: true,
+    opacity: 0.6,
+  })
+
+  return new LineSegments(geo, material)
 }
 
-const countryLineGeometry = buildCountryLines()
-const landBorderMaterial = new LineBasicMaterial({
-  color: new Color("#1e2e1a"),
-  transparent: true,
-  opacity: 0.8,
-})
+const countryLines = buildCountryLines()
 
-// --- Flight arcs ---
-interface ArcData {
-  geometry: BufferGeometry
-  glowGeometry: BufferGeometry
-}
+// --- Build flight arcs + airport dots as a Group ---
+const flightGroup = computed(() => {
+  const group = new Group()
 
-const flightArcs = computed<ArcData[]>(() => {
-  const arcs: ArcData[] = []
+  const arcMaterial = new LineBasicMaterial({
+    color: new Color("#e8956a"),
+    transparent: true,
+    opacity: 0.9,
+  })
+
+  const dotMaterial = new MeshBasicMaterial({
+    color: new Color("#e8956a"),
+  })
+
+  const dotGeo = new SphereGeometry(0.03, 8, 8)
+  const seen = new Set<string>()
 
   for (const flight of props.flights) {
     if (!flight.departureAirport || !flight.arrivalAirport) continue
@@ -105,40 +120,28 @@ const flightArcs = computed<ArcData[]>(() => {
 
     const curve = new QuadraticBezierCurve3(start, midElevated, end)
     const points = curve.getPoints(64)
-
     const arcGeo = new BufferGeometry().setFromPoints(points)
-    const glowGeo = new BufferGeometry().setFromPoints(points)
 
-    arcs.push({ geometry: arcGeo, glowGeometry: glowGeo })
-  }
+    // Arc line
+    const arcLine = new Line(arcGeo, arcMaterial)
+    group.add(arcLine)
 
-  return arcs
-})
-
-// --- Airport dots ---
-interface AirportDot {
-  position: [number, number, number]
-  iata: string
-}
-
-const airportDots = computed<AirportDot[]>(() => {
-  const seen = new Set<string>()
-  const dots: AirportDot[] = []
-
-  for (const flight of props.flights) {
+    // Airport dots
     for (const code of [flight.departureAirport, flight.arrivalAirport]) {
-      if (!code || seen.has(code)) continue
+      if (seen.has(code)) continue
       seen.add(code)
 
       const coords = getAirportCoordinates(code)
       if (!coords) continue
 
       const pos = latLngToVector3(coords.lat, coords.lng, GLOBE_RADIUS * 1.003)
-      dots.push({ position: [pos.x, pos.y, pos.z], iata: code })
+      const dot = new Mesh(dotGeo, dotMaterial)
+      dot.position.set(pos.x, pos.y, pos.z)
+      group.add(dot)
     }
   }
 
-  return dots
+  return group
 })
 
 // --- Summary text ---
@@ -157,35 +160,20 @@ const summaryText = computed(() => {
 
   return `${flightCount} flight${flightCount !== 1 ? "s" : ""} · ${countries.size} countr${countries.size !== 1 ? "ies" : "y"}`
 })
-
-// --- Materials ---
-const arcMaterial = new LineBasicMaterial({
-  color: new Color("#e8956a"),
-  transparent: true,
-  opacity: 0.9,
-})
-
-const arcGlowMaterial = new LineBasicMaterial({
-  color: new Color("#e8956a"),
-  transparent: true,
-  opacity: 0.15,
-})
-
-const dotMaterial = new MeshBasicMaterial({
-  color: new Color("#e8956a"),
-})
 </script>
 
 <template>
-  <div class="relative h-[300px] w-full overflow-hidden rounded-2xl border border-sand-200 bg-sand-950">
+  <div
+    class="relative h-[300px] w-full overflow-hidden rounded-2xl border border-sand-200 bg-sand-950"
+  >
     <ClientOnly>
       <TresCanvas :alpha="true" clear-color="#0a0a0f" :antialias="true">
         <!-- Camera -->
         <TresPerspectiveCamera :position="[0, 0, 5]" :fov="45" />
 
         <!-- Lighting -->
-        <TresAmbientLight :intensity="0.3" />
-        <TresDirectionalLight :position="[5, 3, 5]" :intensity="0.6" />
+        <TresAmbientLight :intensity="0.4" />
+        <TresDirectionalLight :position="[5, 3, 5]" :intensity="0.8" />
 
         <!-- Controls -->
         <OrbitControls
@@ -200,29 +188,20 @@ const dotMaterial = new MeshBasicMaterial({
         <!-- Ocean sphere -->
         <TresMesh>
           <TresSphereGeometry :args="[GLOBE_RADIUS, 64, 64]" />
-          <TresMeshPhongMaterial color="#080e15" emissive="#050a0f" :shininess="25" />
+          <TresMeshPhongMaterial color="#0a1520" emissive="#060e18" :shininess="25" />
         </TresMesh>
 
-        <!-- Atmosphere rim (slightly larger transparent sphere) -->
+        <!-- Atmosphere rim -->
         <TresMesh>
           <TresSphereGeometry :args="[GLOBE_RADIUS * 1.02, 64, 64]" />
-          <TresMeshBasicMaterial color="#4488cc" :transparent="true" :opacity="0.05" :side="1" />
+          <TresMeshBasicMaterial color="#4488cc" :transparent="true" :opacity="0.06" :side="1" />
         </TresMesh>
 
-        <!-- Country borders -->
-        <TresLineSegments :geometry="countryLineGeometry" :material="landBorderMaterial" />
+        <!-- Country borders (Three.js LineSegments via primitive) -->
+        <primitive :object="countryLines" />
 
-        <!-- Flight arcs -->
-        <template v-for="(arc, idx) in flightArcs" :key="'arc-' + idx">
-          <TresLine :geometry="arc.geometry" :material="arcMaterial" />
-          <TresLine :geometry="arc.glowGeometry" :material="arcGlowMaterial" />
-        </template>
-
-        <!-- Airport dots -->
-        <TresMesh v-for="(dot, idx) in airportDots" :key="'dot-' + idx" :position="dot.position">
-          <TresSphereGeometry :args="[0.02, 8, 8]" />
-          <TresMeshBasicMaterial :color="dotMaterial.color" />
-        </TresMesh>
+        <!-- Flight arcs + airport dots (Three.js Group via primitive) -->
+        <primitive :object="flightGroup" />
       </TresCanvas>
     </ClientOnly>
 
