@@ -102,9 +102,9 @@ function buildCountryLines(): LineSegments {
   geo.setAttribute("position", new Float32BufferAttribute(vertices, 3))
 
   const material = new LineBasicMaterial({
-    color: new Color("#4d7a46"),
+    color: new Color("#6a9960"),
     transparent: true,
-    opacity: 0.7,
+    opacity: 0.8,
   })
 
   return new LineSegments(geo, material)
@@ -194,7 +194,7 @@ const summaryText = computed(() => {
     class="relative h-[300px] w-full overflow-hidden rounded-2xl border border-sand-200 bg-sand-950"
   >
     <ClientOnly>
-      <TresCanvas :alpha="true" clear-color="#0d1220" :antialias="true">
+      <TresCanvas :alpha="true" clear-color="#1a1209" :antialias="true">
         <!-- Camera positioned to face flight center -->
         <TresPerspectiveCamera :position="cameraPosition" :fov="45" />
 
@@ -212,16 +212,16 @@ const summaryText = computed(() => {
           :max-polar-angle="2.6"
         />
 
-        <!-- Ocean sphere -->
+        <!-- Ocean sphere (warm dark tone matching sand theme) -->
         <TresMesh>
           <TresSphereGeometry :args="[GLOBE_RADIUS, 64, 64]" />
-          <TresMeshPhongMaterial color="#0f1d2d" emissive="#0a1525" :shininess="30" />
+          <TresMeshPhongMaterial color="#1a150e" emissive="#120e08" :shininess="30" />
         </TresMesh>
 
-        <!-- Atmosphere rim -->
+        <!-- Atmosphere rim (warm amber glow) -->
         <TresMesh>
           <TresSphereGeometry :args="[GLOBE_RADIUS * 1.025, 64, 64]" />
-          <TresMeshBasicMaterial color="#5599dd" :transparent="true" :opacity="0.08" :side="1" />
+          <TresMeshBasicMaterial color="#c4944a" :transparent="true" :opacity="0.07" :side="1" />
         </TresMesh>
 
         <!-- Country borders -->
