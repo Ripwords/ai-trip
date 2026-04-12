@@ -1,30 +1,26 @@
 <script setup lang="ts">
 import { OrbitControls } from "@tresjs/cientos"
 import {
-  BufferGeometry,
-  LineBasicMaterial,
-  LineSegments,
+  MeshBasicMaterial,
   MeshPhongMaterial,
   Mesh,
-  Color,
-  Vector3,
+  SphereGeometry,
   Raycaster,
   Vector2,
+  type Intersection,
 } from "three"
 import {
   getCountryFeatures,
-  buildCountryGeometry,
-  buildMergedGeometry,
-  buildBorderLines,
+  renderGlobeTexture,
+  renderIdTexture,
+  resolveCountryFromUV,
   getCountryCentroid,
   latLngToVector3,
   GLOBE_RADIUS,
-  type CountryGeoFeature,
-  type MergedCountryResult,
+  type GlobeColors,
+  type VisitType,
 } from "../utils/globe-countries"
-import { countryByNumeric, type CountryInfo } from "../data/countries"
-
-export type VisitType = "visited" | "layover" | "want_to_visit"
+import type { CountryInfo } from "../data/countries"
 
 const props = defineProps<{
   visitMap: Map<string, VisitType>
@@ -43,113 +39,57 @@ const theme = computed(() =>
   isDark.value
     ? {
         clearColor: "#1a1714",
-        ocean: "#1e1b16",
+        oceanColor: "#1e1b16",
         oceanEmissive: "#15120e",
         atmosphere: "#e85d3a",
         atmosphereOpacity: 0.04,
-        borderColor: "#4a8450",
-        borderOpacity: 0.35,
-        visited: "#f07b5a",
-        layover: "#4aa5b9",
-        want: "#a78bfa",
-        unvisited: "#302b24",
-        unvisitedEmissive: "#1a1714",
-        hoverEmissive: "#555555",
         ambientIntensity: 0.5,
         directionalIntensity: 0.9,
+        globeColors: {
+          ocean: "#1e1b16",
+          unvisited: "#302b24",
+          visited: "#f07b5a",
+          layover: "#4aa5b9",
+          want: "#a78bfa",
+          border: "#4a8450",
+          borderWidth: 1.5,
+        } satisfies GlobeColors,
       }
     : {
         clearColor: "#faf8f5",
-        ocean: "#d9eef3",
+        oceanColor: "#d9eef3",
         oceanEmissive: "#b3dde7",
         atmosphere: "#7dc3d4",
         atmosphereOpacity: 0.06,
-        borderColor: "#3a6a3f",
-        borderOpacity: 0.5,
-        visited: "#f07b5a",
-        layover: "#4aa5b9",
-        want: "#a78bfa",
-        unvisited: "#e8e0d4",
-        unvisitedEmissive: "#d4c8b8",
-        hoverEmissive: "#aaaaaa",
         ambientIntensity: 0.9,
         directionalIntensity: 1.4,
+        globeColors: {
+          ocean: "#d9eef3",
+          unvisited: "#e8e0d4",
+          visited: "#f07b5a",
+          layover: "#4aa5b9",
+          want: "#a78bfa",
+          border: "#3a6a3f",
+          borderWidth: 1.5,
+        } satisfies GlobeColors,
       },
 )
 
-// --- Country data (computed once) ---
-const allFeatures = getCountryFeatures()
-const featureById = new Map<string, CountryGeoFeature>()
-for (const f of allFeatures) {
-  featureById.set(f.id, f)
-}
+// --- ID texture (rendered once for click detection) ---
+const idTextureData = ref<{ canvas: HTMLCanvasElement } | null>(null)
 
-// --- Categorize countries by visit status ---
-function getVisitTypeForFeature(feat: CountryGeoFeature): VisitType | null {
-  if (!feat.info) return null
-  return props.visitMap.get(feat.info.alpha2) ?? null
-}
-
-// --- Build meshes reactively ---
-interface MarkedCountryMesh {
-  mesh: Mesh
-  feature: CountryGeoFeature
-  visitType: VisitType
-}
-
-const markedMeshes = computed<MarkedCountryMesh[]>(() => {
-  const t = theme.value
-  const meshes: MarkedCountryMesh[] = []
-
-  for (const feat of allFeatures) {
-    const visitType = getVisitTypeForFeature(feat)
-    if (!visitType) continue
-
-    const color = visitType === "visited" ? t.visited : visitType === "layover" ? t.layover : t.want
-    const material = new MeshPhongMaterial({
-      color: new Color(color),
-      shininess: 20,
-    })
-    const geometry = buildCountryGeometry(feat)
-    const mesh = new Mesh(geometry, material)
-    mesh.userData = { countryId: feat.id, visitType }
-    meshes.push({ mesh, feature: feat, visitType })
-  }
-
-  return meshes
+onMounted(() => {
+  const { canvas } = renderIdTexture()
+  idTextureData.value = { canvas }
 })
 
-const mergedResult = computed<MergedCountryResult>(() => {
-  const unvisited = allFeatures.filter((f) => !getVisitTypeForFeature(f))
-  return buildMergedGeometry(unvisited)
+// --- Globe texture (re-rendered when visitMap or theme changes) ---
+const globeMesh = computed(() => {
+  const texture = renderGlobeTexture(props.visitMap, theme.value.globeColors)
+  const geometry = new SphereGeometry(GLOBE_RADIUS, 64, 64)
+  const material = new MeshBasicMaterial({ map: texture })
+  return new Mesh(geometry, material)
 })
-
-const mergedMaterial = computed(
-  () =>
-    new MeshPhongMaterial({
-      color: new Color(theme.value.unvisited),
-      emissive: new Color(theme.value.unvisitedEmissive),
-      shininess: 10,
-    }),
-)
-
-const mergedMesh = computed(() => {
-  const mesh = new Mesh(mergedResult.value.geometry, mergedMaterial.value)
-  mesh.userData = { isMerged: true }
-  return mesh
-})
-
-// --- Borders ---
-const borderGeometry = buildBorderLines()
-const borderMaterial = computed(
-  () =>
-    new LineBasicMaterial({
-      color: new Color(theme.value.borderColor),
-      transparent: true,
-      opacity: theme.value.borderOpacity,
-    }),
-)
-const borderLines = computed(() => new LineSegments(borderGeometry, borderMaterial.value))
 
 // --- Stats ---
 const visitedCount = computed(
@@ -189,45 +129,51 @@ const tooltipVisa = computed(() => {
   return { ...c, maxStayDays: status.maxStayDays }
 })
 
-function resolveCountryFromMergedFace(faceIndex: number): CountryInfo | undefined {
-  const countryId = mergedResult.value.faceToCountryId[faceIndex]
-  if (!countryId) return undefined
-  const feat = featureById.get(countryId)
-  return feat?.info
+// --- Resolve country from raycast intersection UV ---
+function resolveCountryFromIntersection(intersection: Intersection): CountryInfo | undefined {
+  if (!idTextureData.value || !intersection.uv) return undefined
+  return resolveCountryFromUV(intersection.uv.x, intersection.uv.y, idTextureData.value.canvas)
 }
 
-function handleCountryPointerOver(info: CountryInfo, event: PointerEvent) {
-  if (isTouch.value) return
-  tooltipCountry.value = info
-  tooltipVisitType.value = props.visitMap.get(info.alpha2) ?? null
-  tooltipX.value = event.clientX
-  tooltipY.value = event.clientY
-  tooltipVisible.value = true
+// --- Click handling ---
+function handleGlobeClick(event: { intersections: Intersection[] }) {
+  if (!event.intersections.length) return
+  const info = resolveCountryFromIntersection(event.intersections[0]!)
+  if (info) {
+    emit("countryClick", info)
+    animateToCentroid(info)
+  }
 }
 
-function handleCountryPointerOut() {
+// --- Hover handling ---
+function handleGlobePointerMove(event: { intersections: Intersection[]; nativeEvent: PointerEvent }) {
+  if (isTouch.value || !event.intersections.length) {
+    tooltipVisible.value = false
+    return
+  }
+  const info = resolveCountryFromIntersection(event.intersections[0]!)
+  if (info) {
+    tooltipCountry.value = info
+    tooltipVisitType.value = props.visitMap.get(info.alpha2) ?? null
+    tooltipX.value = event.nativeEvent.clientX
+    tooltipY.value = event.nativeEvent.clientY
+    tooltipVisible.value = true
+  } else {
+    tooltipVisible.value = false
+    tooltipCountry.value = null
+  }
+}
+
+function handleGlobePointerOut() {
   tooltipVisible.value = false
   tooltipCountry.value = null
 }
 
-function handlePointerMove(event: PointerEvent) {
-  if (tooltipVisible.value) {
-    tooltipX.value = event.clientX
-    tooltipY.value = event.clientY
-  }
-}
-
-// --- Click handling ---
-function handleCountryClick(info: CountryInfo) {
-  emit("countryClick", info)
-  animateToCentroid(info)
-}
-
 // --- Auto-center animation ---
 const controlsRef = ref()
+const allFeatures = getCountryFeatures()
 
 function animateToCentroid(info: CountryInfo) {
-  // Find the feature for this country
   const feat = allFeatures.find((f) => f.info?.alpha2 === info.alpha2)
   if (!feat) return
 
@@ -237,7 +183,6 @@ function animateToCentroid(info: CountryInfo) {
     .normalize()
     .multiplyScalar(5)
 
-  // Simple lerp animation
   const controls = controlsRef.value?.value
   if (!controls) return
 
@@ -249,7 +194,7 @@ function animateToCentroid(info: CountryInfo) {
   function animate() {
     const elapsed = Date.now() - startTime
     const t = Math.min(elapsed / duration, 1)
-    const ease = t * (2 - t) // ease-out quad
+    const ease = t * (2 - t)
 
     controls.target.lerpVectors(startTarget, target, ease)
     controls.object.position.lerpVectors(startPos, cameraTarget, ease)
@@ -262,7 +207,6 @@ function animateToCentroid(info: CountryInfo) {
 }
 
 // --- Fullscreen ---
-const containerRef = ref<HTMLElement>()
 const isFullscreen = ref(false)
 
 function toggleFullscreen() {
@@ -273,10 +217,8 @@ function toggleFullscreen() {
 
 <template>
   <div
-    ref="containerRef"
     class="relative w-full overflow-hidden rounded-2xl border border-sand-200"
     :class="isFullscreen ? 'fixed inset-0 z-50 rounded-none border-0' : 'h-[500px] sm:h-[600px]'"
-    @pointermove="handlePointerMove"
   >
     <ClientOnly>
       <TresCanvas :alpha="true" :clear-color="theme.clearColor" :antialias="true">
@@ -295,15 +237,13 @@ function toggleFullscreen() {
           :enable-damping="true"
         />
 
-        <!-- Ocean sphere -->
-        <TresMesh>
-          <TresSphereGeometry :args="[GLOBE_RADIUS, 64, 64]" />
-          <TresMeshPhongMaterial
-            :color="theme.ocean"
-            :emissive="theme.oceanEmissive"
-            :shininess="40"
-          />
-        </TresMesh>
+        <!-- Globe with country texture -->
+        <primitive
+          :object="globeMesh"
+          @click="handleGlobeClick"
+          @pointermove="handleGlobePointerMove"
+          @pointerout="handleGlobePointerOut"
+        />
 
         <!-- Atmosphere rim -->
         <TresMesh>
@@ -315,39 +255,6 @@ function toggleFullscreen() {
             :side="1"
           />
         </TresMesh>
-
-        <!-- Country borders -->
-        <primitive :object="borderLines" />
-
-        <!-- Merged unvisited countries -->
-        <primitive
-          :object="mergedMesh"
-          @click="
-            (e: any) => {
-              const info = resolveCountryFromMergedFace(e.faceIndex)
-              if (info) handleCountryClick(info)
-            }
-          "
-          @pointerover="
-            (e: any) => {
-              const info = resolveCountryFromMergedFace(e.faceIndex)
-              if (info) handleCountryPointerOver(info, e.nativeEvent)
-            }
-          "
-          @pointerout="handleCountryPointerOut"
-        />
-
-        <!-- Individual marked country meshes -->
-        <primitive
-          v-for="mc in markedMeshes"
-          :key="mc.feature.id"
-          :object="mc.mesh"
-          @click="() => mc.feature.info && handleCountryClick(mc.feature.info)"
-          @pointerover="
-            (e: any) => mc.feature.info && handleCountryPointerOver(mc.feature.info, e.nativeEvent)
-          "
-          @pointerout="handleCountryPointerOut"
-        />
       </TresCanvas>
     </ClientOnly>
 

@@ -1,11 +1,11 @@
-import earcut from "earcut"
-import { BufferGeometry, Float32BufferAttribute, Vector3 } from "three"
+import { geoEquirectangular, geoPath } from "d3-geo"
 import { feature } from "topojson-client"
 import type { Topology, GeometryCollection } from "topojson-specification"
+import { CanvasTexture, Vector3, SRGBColorSpace } from "three"
 import worldTopoJson from "../data/countries-50m.json"
 import { countryByNumeric, type CountryInfo } from "../data/countries"
 
-const GLOBE_RADIUS = 2
+export const GLOBE_RADIUS = 2
 
 export function latLngToVector3(lat: number, lng: number, radius: number): Vector3 {
   const phi = (90 - lat) * (Math.PI / 180)
@@ -17,216 +17,179 @@ export function latLngToVector3(lat: number, lng: number, radius: number): Vecto
   )
 }
 
-export { GLOBE_RADIUS }
-
 // --- Parse TopoJSON once ---
 const worldData = worldTopoJson as unknown as Topology
 const countriesGeo = feature(worldData, worldData.objects.countries as GeometryCollection)
 
-/** A single polygon: outer ring + optional hole rings */
-interface PolygonWithHoles {
-  outer: number[][] // [[lng, lat], ...]
-  holes: number[][][] // array of hole rings
-}
+export type VisitType = "visited" | "layover" | "want_to_visit"
 
+// --- Country feature list with info ---
 export interface CountryGeoFeature {
   id: string
   info: CountryInfo | undefined
-  polygons: PolygonWithHoles[]
+  geoFeature: (typeof countriesGeo.features)[number]
 }
 
-/** Extract all country features preserving polygon/hole structure */
+const allFeatures: CountryGeoFeature[] = countriesGeo.features.map((feat) => {
+  const numericId = String(feat.id).padStart(3, "0")
+  return { id: numericId, info: countryByNumeric.get(numericId), geoFeature: feat }
+})
+
 export function getCountryFeatures(): CountryGeoFeature[] {
-  const features: CountryGeoFeature[] = []
+  return allFeatures
+}
 
-  for (const feat of countriesGeo.features) {
-    const numericId = String(feat.id).padStart(3, "0")
-    const info = countryByNumeric.get(numericId)
+// --- Canvas texture approach ---
+const TEX_WIDTH = 4096
+const TEX_HEIGHT = 2048
 
-    const rawPolygons =
-      feat.geometry.type === "Polygon"
-        ? [feat.geometry.coordinates]
-        : feat.geometry.type === "MultiPolygon"
-          ? feat.geometry.coordinates
-          : []
+const projection = geoEquirectangular()
+  .scale(TEX_WIDTH / (2 * Math.PI))
+  .translate([TEX_WIDTH / 2, TEX_HEIGHT / 2])
 
-    const polygons: PolygonWithHoles[] = []
-    for (const polygon of rawPolygons) {
-      if (polygon.length === 0 || polygon[0]!.length < 3) continue
-      polygons.push({
-        outer: polygon[0] as number[][],
-        holes: (polygon.slice(1) as number[][][]).filter((h) => h.length >= 3),
-      })
-    }
+const pathGenerator = geoPath().projection(projection)
 
-    if (polygons.length > 0) {
-      features.push({ id: numericId, info, polygons })
-    }
-  }
-
-  return features
+export interface GlobeColors {
+  ocean: string
+  unvisited: string
+  visited: string
+  layover: string
+  want: string
+  border: string
+  borderWidth: number
 }
 
 /**
- * Triangulate a polygon (outer ring + holes) onto the sphere surface.
- * Earcut receives all vertices flattened + hole start indices.
+ * Render a color texture for the globe with countries colored by visit status.
  */
-function triangulatePolygon(
-  polygon: PolygonWithHoles,
-  radius: number,
-): { vertices: number[]; indices: number[] } {
-  // Flatten all rings (outer + holes) into one coordinate array for earcut
-  const flatCoords: number[] = []
-  const holeIndices: number[] = []
+export function renderGlobeTexture(
+  visitMap: Map<string, VisitType>,
+  colors: GlobeColors,
+): CanvasTexture {
+  const canvas = document.createElement("canvas")
+  canvas.width = TEX_WIDTH
+  canvas.height = TEX_HEIGHT
+  const ctx = canvas.getContext("2d")!
 
-  // Outer ring
-  for (const [lng, lat] of polygon.outer) {
-    flatCoords.push(lng!, lat!)
+  // Ocean background
+  ctx.fillStyle = colors.ocean
+  ctx.fillRect(0, 0, TEX_WIDTH, TEX_HEIGHT)
+
+  // Draw each country filled
+  for (const feat of allFeatures) {
+    const visitType = feat.info ? visitMap.get(feat.info.alpha2) : undefined
+
+    if (visitType === "visited") ctx.fillStyle = colors.visited
+    else if (visitType === "layover") ctx.fillStyle = colors.layover
+    else if (visitType === "want_to_visit") ctx.fillStyle = colors.want
+    else ctx.fillStyle = colors.unvisited
+
+    ctx.beginPath()
+    pathGenerator.context(ctx)(feat.geoFeature)
+    ctx.fill()
   }
 
-  // Holes
-  let vertexCount = polygon.outer.length
-  for (const hole of polygon.holes) {
-    holeIndices.push(vertexCount)
-    for (const [lng, lat] of hole) {
-      flatCoords.push(lng!, lat!)
-    }
-    vertexCount += hole.length
+  // Draw borders on top
+  ctx.strokeStyle = colors.border
+  ctx.lineWidth = colors.borderWidth
+  for (const feat of allFeatures) {
+    ctx.beginPath()
+    pathGenerator.context(ctx)(feat.geoFeature)
+    ctx.stroke()
   }
 
-  const triIndices = earcut(flatCoords, holeIndices.length > 0 ? holeIndices : undefined, 2)
-
-  // Build 3D vertices for all rings
-  const vertices: number[] = []
-  for (let i = 0; i < flatCoords.length; i += 2) {
-    const lng = flatCoords[i]!
-    const lat = flatCoords[i + 1]!
-    const v = latLngToVector3(lat, lng, radius)
-    vertices.push(v.x, v.y, v.z)
-  }
-
-  return { vertices, indices: triIndices }
+  const texture = new CanvasTexture(canvas)
+  texture.colorSpace = SRGBColorSpace
+  return texture
 }
 
 /**
- * Build a BufferGeometry for a single country (all its polygons merged).
+ * Render an ID texture where each country has a unique color.
+ * Used for click/hover detection: raycast → UV → pixel → country ID.
+ *
+ * Country numeric IDs are encoded as RGB: R = id >> 8, G = id & 0xFF, B = 0.
+ * Background (ocean) is black (0,0,0).
  */
-export function buildCountryGeometry(countryFeature: CountryGeoFeature): BufferGeometry {
-  const allVertices: number[] = []
-  const allIndices: number[] = []
-  let vertexOffset = 0
-
-  for (const polygon of countryFeature.polygons) {
-    const { vertices, indices } = triangulatePolygon(polygon, GLOBE_RADIUS * 1.001)
-    allVertices.push(...vertices)
-    for (const idx of indices) {
-      allIndices.push(idx + vertexOffset)
-    }
-    // Total vertices = outer + all holes
-    const totalVerts =
-      polygon.outer.length + polygon.holes.reduce((sum, h) => sum + h.length, 0)
-    vertexOffset += totalVerts
-  }
-
-  const geo = new BufferGeometry()
-  geo.setAttribute("position", new Float32BufferAttribute(allVertices, 3))
-  geo.setIndex(allIndices)
-  geo.computeVertexNormals()
-  return geo
-}
-
-export interface MergedCountryResult {
-  geometry: BufferGeometry
-  /** Maps face index (triangle index) to the country's numeric ID */
-  faceToCountryId: string[]
-}
-
-/**
- * Build a single merged geometry for multiple countries.
- * Returns the geometry and a face-to-country lookup array.
- */
-export function buildMergedGeometry(features: CountryGeoFeature[]): MergedCountryResult {
-  const allVertices: number[] = []
-  const allIndices: number[] = []
-  const faceToCountryId: string[] = []
-  let vertexOffset = 0
-
-  for (const countryFeature of features) {
-    for (const polygon of countryFeature.polygons) {
-      const { vertices, indices } = triangulatePolygon(polygon, GLOBE_RADIUS * 1.001)
-      allVertices.push(...vertices)
-      for (let i = 0; i < indices.length; i += 3) {
-        allIndices.push(
-          indices[i]! + vertexOffset,
-          indices[i + 1]! + vertexOffset,
-          indices[i + 2]! + vertexOffset,
-        )
-        faceToCountryId.push(countryFeature.id)
-      }
-      const totalVerts =
-        polygon.outer.length + polygon.holes.reduce((sum, h) => sum + h.length, 0)
-      vertexOffset += totalVerts
-    }
-  }
-
-  const geo = new BufferGeometry()
-  geo.setAttribute("position", new Float32BufferAttribute(allVertices, 3))
-  geo.setIndex(allIndices)
-  geo.computeVertexNormals()
-
-  return { geometry: geo, faceToCountryId }
-}
-
-/**
- * Build country border lines geometry (same approach as FlightGlobe).
- */
-export function buildBorderLines(): BufferGeometry {
-  const vertices: number[] = []
-
-  for (const feat of countriesGeo.features) {
-    const coords =
-      feat.geometry.type === "Polygon"
-        ? [feat.geometry.coordinates]
-        : feat.geometry.type === "MultiPolygon"
-          ? feat.geometry.coordinates
-          : []
-
-    for (const polygon of coords) {
-      for (const ring of polygon) {
-        for (let i = 0; i < ring.length - 1; i++) {
-          const [lng1, lat1] = ring[i]!
-          const [lng2, lat2] = ring[i + 1]!
-          const v1 = latLngToVector3(lat1!, lng1!, GLOBE_RADIUS * 1.002)
-          const v2 = latLngToVector3(lat2!, lng2!, GLOBE_RADIUS * 1.002)
-          vertices.push(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z)
-        }
-      }
-    }
-  }
-
-  const geo = new BufferGeometry()
-  geo.setAttribute("position", new Float32BufferAttribute(vertices, 3))
-  return geo
-}
-
-/**
- * Compute the centroid of a country (average lat/lng of outer ring vertices).
- */
-export function getCountryCentroid(countryFeature: CountryGeoFeature): {
-  lat: number
-  lng: number
+export function renderIdTexture(): {
+  texture: CanvasTexture
+  canvas: HTMLCanvasElement
 } {
+  const canvas = document.createElement("canvas")
+  canvas.width = TEX_WIDTH
+  canvas.height = TEX_HEIGHT
+  const ctx = canvas.getContext("2d")!
+
+  // Ocean = black (no country)
+  ctx.fillStyle = "#000000"
+  ctx.fillRect(0, 0, TEX_WIDTH, TEX_HEIGHT)
+
+  // Each country gets a unique color based on its numeric ID
+  for (const feat of allFeatures) {
+    const id = parseInt(feat.id, 10)
+    // Encode as RGB (avoid 0,0,0 which is ocean)
+    const r = ((id + 1) >> 8) & 0xff
+    const g = (id + 1) & 0xff
+    ctx.fillStyle = `rgb(${r},${g},0)`
+    ctx.beginPath()
+    pathGenerator.context(ctx)(feat.geoFeature)
+    ctx.fill()
+  }
+
+  const texture = new CanvasTexture(canvas)
+  texture.colorSpace = SRGBColorSpace
+  return { texture, canvas }
+}
+
+/**
+ * Resolve a country from UV coordinates on the globe by reading the ID texture.
+ */
+export function resolveCountryFromUV(
+  u: number,
+  v: number,
+  idCanvas: HTMLCanvasElement,
+): CountryInfo | undefined {
+  const ctx = idCanvas.getContext("2d")!
+  const x = Math.floor(u * TEX_WIDTH)
+  const y = Math.floor(v * TEX_HEIGHT)
+  const pixel = ctx.getImageData(x, y, 1, 1).data
+  const r = pixel[0]!
+  const g = pixel[1]!
+
+  // Decode: id = (r << 8 | g) - 1
+  const encoded = (r << 8) | g
+  if (encoded === 0) return undefined // ocean
+
+  const numericId = String(encoded - 1).padStart(3, "0")
+  return countryByNumeric.get(numericId)
+}
+
+/**
+ * Compute the centroid of a country (average lat/lng of polygon vertices).
+ */
+export function getCountryCentroid(feat: CountryGeoFeature): { lat: number; lng: number } {
+  const geo = feat.geoFeature.geometry
+  const coords =
+    geo.type === "Polygon"
+      ? [geo.coordinates]
+      : geo.type === "MultiPolygon"
+        ? geo.coordinates
+        : []
+
   let totalLat = 0
   let totalLng = 0
   let count = 0
 
-  for (const polygon of countryFeature.polygons) {
-    for (const [lng, lat] of polygon.outer) {
+  for (const polygon of coords) {
+    // Only use outer ring for centroid
+    const outer = polygon[0]
+    if (!outer) continue
+    for (const [lng, lat] of outer) {
       totalLat += lat!
       totalLng += lng!
       count++
     }
   }
 
+  if (count === 0) return { lat: 0, lng: 0 }
   return { lat: totalLat / count, lng: totalLng / count }
 }
