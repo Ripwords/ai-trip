@@ -16,6 +16,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   countryClick: [country: CountryInfo]
+  toggleView: []
 }>()
 
 // Convert TopoJSON to GeoJSON features
@@ -482,6 +483,13 @@ function resetZoom() {
         @click="resetZoom"
       >
         <Icon name="lucide:maximize-2" class="h-5 w-5 sm:h-4 sm:w-4" />
+      </button>
+      <button
+        class="map-btn flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
+        title="Switch to 3D globe"
+        @click="emit('toggleView')"
+      >
+        <Icon name="lucide:globe" class="h-5 w-5 sm:h-4 sm:w-4" />
       </button>
     </div>
 
