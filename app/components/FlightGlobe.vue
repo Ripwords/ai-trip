@@ -32,6 +32,39 @@ const props = defineProps<{
 
 const GLOBE_RADIUS = 2
 
+const { isDark } = useDarkMode()
+
+// --- Theme-aware colors ---
+const theme = computed(() =>
+  isDark.value
+    ? {
+        clearColor: "#1a1209",
+        ocean: "#1a150e",
+        oceanEmissive: "#120e08",
+        atmosphere: "#c4944a",
+        atmosphereOpacity: 0.07,
+        borderColor: "#6a9960",
+        borderOpacity: 0.8,
+        arcColor: "#e8956a",
+        dotColor: "#e8956a",
+        ambientIntensity: 0.6,
+        directionalIntensity: 1.0,
+      }
+    : {
+        clearColor: "#f0ece6",
+        ocean: "#c8daea",
+        oceanEmissive: "#a0b8cc",
+        atmosphere: "#88bbee",
+        atmosphereOpacity: 0.1,
+        borderColor: "#3a7a35",
+        borderOpacity: 0.9,
+        arcColor: "#c4704b",
+        dotColor: "#c4704b",
+        ambientIntensity: 0.8,
+        directionalIntensity: 1.2,
+      },
+)
+
 // --- Convert lat/lng to 3D position on sphere ---
 function latLngToVector3(lat: number, lng: number, radius: number): Vector3 {
   const phi = (90 - lat) * (Math.PI / 180)
@@ -58,14 +91,12 @@ const cameraPosition = computed<[number, number, number]>(() => {
 
   if (airportPositions.length === 0) return [0, 0, 5]
 
-  // Average all airport positions to find center, then place camera looking at that point
   const center = new Vector3()
   for (const pos of airportPositions) {
     center.add(pos)
   }
   center.divideScalar(airportPositions.length)
 
-  // Camera looks from the direction of the center point, pushed out to distance 5
   const cameraDir = center.normalize().multiplyScalar(5)
   return [cameraDir.x, cameraDir.y, cameraDir.z]
 })
@@ -74,7 +105,7 @@ const cameraPosition = computed<[number, number, number]>(() => {
 const worldData = worldTopoJson as unknown as Topology
 const countriesGeo = feature(worldData, worldData.objects.countries as GeometryCollection)
 
-function buildCountryLines(): LineSegments {
+function buildCountryLineGeometry(): BufferGeometry {
   const vertices: number[] = []
 
   for (const feat of countriesGeo.features) {
@@ -100,30 +131,37 @@ function buildCountryLines(): LineSegments {
 
   const geo = new BufferGeometry()
   geo.setAttribute("position", new Float32BufferAttribute(vertices, 3))
-
-  const material = new LineBasicMaterial({
-    color: new Color("#6a9960"),
-    transparent: true,
-    opacity: 0.8,
-  })
-
-  return new LineSegments(geo, material)
+  return geo
 }
 
-const countryLines = buildCountryLines()
+const borderGeometry = buildCountryLineGeometry()
+const borderMaterial = new LineBasicMaterial({
+  color: new Color(theme.value.borderColor),
+  transparent: true,
+  opacity: theme.value.borderOpacity,
+})
+const countryLines = new LineSegments(borderGeometry, borderMaterial)
+
+// Update border material when theme changes
+watch(theme, (t) => {
+  borderMaterial.color.set(t.borderColor)
+  borderMaterial.opacity = t.borderOpacity
+  borderMaterial.needsUpdate = true
+})
 
 // --- Build flight arcs + airport dots as a Group ---
 const flightGroup = computed(() => {
   const group = new Group()
+  const t = theme.value
 
   const arcMaterial = new LineBasicMaterial({
-    color: new Color("#e8956a"),
+    color: new Color(t.arcColor),
     transparent: true,
     opacity: 0.9,
   })
 
   const dotMaterial = new MeshBasicMaterial({
-    color: new Color("#e8956a"),
+    color: new Color(t.dotColor),
   })
 
   const dotGeo = new SphereGeometry(0.03, 8, 8)
@@ -139,7 +177,6 @@ const flightGroup = computed(() => {
     const start = latLngToVector3(depCoords.lat, depCoords.lng, GLOBE_RADIUS * 1.002)
     const end = latLngToVector3(arrCoords.lat, arrCoords.lng, GLOBE_RADIUS * 1.002)
 
-    // Midpoint elevated above the globe surface
     const mid = new Vector3().addVectors(start, end).multiplyScalar(0.5)
     const distance = start.distanceTo(end)
     const arcHeight = GLOBE_RADIUS + 0.3 + distance * 0.15
@@ -149,11 +186,9 @@ const flightGroup = computed(() => {
     const points = curve.getPoints(64)
     const arcGeo = new BufferGeometry().setFromPoints(points)
 
-    // Arc line
     const arcLine = new Line(arcGeo, arcMaterial)
     group.add(arcLine)
 
-    // Airport dots
     for (const code of [flight.departureAirport, flight.arrivalAirport]) {
       if (seen.has(code)) continue
       seen.add(code)
@@ -194,13 +229,13 @@ const summaryText = computed(() => {
     class="relative h-[300px] w-full overflow-hidden rounded-2xl border border-sand-200 bg-sand-950"
   >
     <ClientOnly>
-      <TresCanvas :alpha="true" clear-color="#1a1209" :antialias="true">
+      <TresCanvas :alpha="true" :clear-color="theme.clearColor" :antialias="true">
         <!-- Camera positioned to face flight center -->
         <TresPerspectiveCamera :position="cameraPosition" :fov="45" />
 
-        <!-- Brighter lighting -->
-        <TresAmbientLight :intensity="0.6" />
-        <TresDirectionalLight :position="[5, 3, 5]" :intensity="1.0" />
+        <!-- Lighting (theme-aware intensity) -->
+        <TresAmbientLight :intensity="theme.ambientIntensity" />
+        <TresDirectionalLight :position="[5, 3, 5]" :intensity="theme.directionalIntensity" />
 
         <!-- Controls -->
         <OrbitControls
@@ -212,16 +247,25 @@ const summaryText = computed(() => {
           :max-polar-angle="2.6"
         />
 
-        <!-- Ocean sphere (warm dark tone matching sand theme) -->
+        <!-- Ocean sphere -->
         <TresMesh>
           <TresSphereGeometry :args="[GLOBE_RADIUS, 64, 64]" />
-          <TresMeshPhongMaterial color="#1a150e" emissive="#120e08" :shininess="30" />
+          <TresMeshPhongMaterial
+            :color="theme.ocean"
+            :emissive="theme.oceanEmissive"
+            :shininess="30"
+          />
         </TresMesh>
 
-        <!-- Atmosphere rim (warm amber glow) -->
+        <!-- Atmosphere rim -->
         <TresMesh>
           <TresSphereGeometry :args="[GLOBE_RADIUS * 1.025, 64, 64]" />
-          <TresMeshBasicMaterial color="#c4944a" :transparent="true" :opacity="0.07" :side="1" />
+          <TresMeshBasicMaterial
+            :color="theme.atmosphere"
+            :transparent="true"
+            :opacity="theme.atmosphereOpacity"
+            :side="1"
+          />
         </TresMesh>
 
         <!-- Country borders -->
