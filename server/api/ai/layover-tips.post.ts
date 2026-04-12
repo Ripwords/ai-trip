@@ -51,8 +51,8 @@ If visa status is "visa-required", focus only on airport transit zone options.`,
   {
     maxAge: 60 * 60 * 24 * 30,
     name: "layover-tips",
-    getKey: (airport: string, durationHours: number, visaStatus: string, timeOfDay: string) =>
-      `${airport}:${durationHours}:${visaStatus}:${timeOfDay}`,
+    getKey: (airport: string, durationHours: number, visaStatus: string, _timeOfDay: string) =>
+      `${airport}:${durationHours}:${visaStatus}`,
   },
 )
 

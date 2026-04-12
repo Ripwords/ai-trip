@@ -5,6 +5,18 @@ const props = defineProps<{
   layover: LayoverInfo
 }>()
 
+// Fetch visa status for the layover country to pass to AI tips
+const visaStatus = ref<string | null>(null)
+if (props.layover.country) {
+  useFetch("/api/visa/check", {
+    query: { destination: props.layover.country },
+  }).then(({ data }) => {
+    if (data.value) {
+      visaStatus.value = (data.value as { visaStatus?: string }).visaStatus ?? null
+    }
+  })
+}
+
 const showAiTips = ref(false)
 const aiTipsLoading = ref(false)
 const aiTips = ref<{
@@ -61,7 +73,7 @@ async function fetchAiTips() {
       body: {
         airport: props.layover.airport,
         durationMinutes: props.layover.durationMinutes,
-        visaStatus: null,
+        visaStatus: visaStatus.value,
         arrivalTime: props.layover.arrivalTime,
       },
     })
@@ -83,9 +95,7 @@ async function fetchAiTips() {
   <div class="rounded-xl border border-dashed border-sand-300 bg-sand-50/50 p-4">
     <div class="flex items-center gap-3">
       <!-- Clock icon -->
-      <div
-        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sand-100"
-      >
+      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sand-100">
         <Icon name="lucide:clock" class="h-4 w-4 text-sand-500" />
       </div>
 
@@ -96,9 +106,7 @@ async function fetchAiTips() {
             <template v-if="layover.durationMinutes !== null">
               {{ formatDuration(layover.durationMinutes) }} layover at {{ layover.airport }}
             </template>
-            <template v-else>
-              Connection at {{ layover.airport }}
-            </template>
+            <template v-else> Connection at {{ layover.airport }} </template>
           </span>
           <VisaBadge v-if="layover.country" :destination-country="layover.country" />
         </div>
