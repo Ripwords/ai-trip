@@ -21,7 +21,7 @@ interface Flight {
   trip?: { id: string; destination: string } | null
 }
 
-const { data: flights, refresh } = await useFetch<Flight[]>("/api/flights")
+const { data: flights, refresh } = useLazyFetch<Flight[]>("/api/flights")
 
 // Add flight form
 const newFlightNumber = ref("")

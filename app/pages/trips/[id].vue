@@ -4,7 +4,7 @@ definePageMeta({ layout: "app" })
 const route = useRoute()
 const tripId = route.params.id as string
 
-const { data: trip, status, refresh } = await useFetch<TripResponse>(`/api/trips/${tripId}`)
+const { data: trip, status, refresh } = useLazyFetch<TripResponse>(`/api/trips/${tripId}`)
 
 const tripTitle = computed(() => (trip.value ? `${trip.value.destination}` : "Trip"))
 const tripDescription = computed(() =>
@@ -18,7 +18,7 @@ useSeoMeta({
   description: tripDescription,
 })
 
-const { data: ideas, refresh: refreshIdeas } = await useFetch<
+const { data: ideas, refresh: refreshIdeas } = useLazyFetch<
   {
     id: string
     name: string
@@ -30,7 +30,7 @@ const { data: ideas, refresh: refreshIdeas } = await useFetch<
   }[]
 >(`/api/trips/${tripId}/ideas`)
 
-const { data: expensesList, refresh: refreshExpenses } = await useFetch<
+const { data: expensesList, refresh: refreshExpenses } = useLazyFetch<
   {
     id: string
     description: string
@@ -40,13 +40,13 @@ const { data: expensesList, refresh: refreshExpenses } = await useFetch<
   }[]
 >(`/api/trips/${tripId}/expenses`)
 
-const { data: aiUsage, refresh: refreshUsage } = await useFetch<{
+const { data: aiUsage, refresh: refreshUsage } = useLazyFetch<{
   used: number
   limit: number
   remaining: number
 }>("/api/ai/usage")
 
-const { data: tripFlights, refresh: refreshFlights } = await useFetch(
+const { data: tripFlights, refresh: refreshFlights } = useLazyFetch(
   `/api/trips/${tripId}/flights`,
 )
 
@@ -92,7 +92,7 @@ const { flightListItems } = useLayoverDetection(
   >,
 )
 
-const { data: tripMembers } = await useFetch<
+const { data: tripMembers } = useLazyFetch<
   {
     userId: string
     user: { name: string; image: string | null }
@@ -101,7 +101,7 @@ const { data: tripMembers } = await useFetch<
   }[]
 >(`/api/trips/${tripId}/members`)
 
-const { data: participantsMap, refresh: refreshParticipants } = await useFetch<
+const { data: participantsMap, refresh: refreshParticipants } = useLazyFetch<
   Record<string, { userId: string; name: string; image: string | null }[]>
 >(`/api/trips/${tripId}/participants`)
 

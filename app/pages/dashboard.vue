@@ -5,9 +5,9 @@ useSeoMeta({
   description: "Your travel overview — trips, stats, and upcoming adventures.",
 })
 
-const { data: trips, status, refresh } = await useFetch("/api/trips")
-const { data: stats } = await useFetch("/api/stats")
-const { data: upcomingFlights } = await useFetch("/api/flights")
+const { data: trips, status, refresh } = useLazyFetch("/api/trips")
+const { data: stats } = useLazyFetch("/api/stats")
+const { data: upcomingFlights } = useLazyFetch("/api/flights")
 
 const { confirm } = useConfirm()
 

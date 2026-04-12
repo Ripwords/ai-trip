@@ -7,7 +7,7 @@ useSeoMeta({
 
 import { authClient } from "../lib/auth-client"
 const { data: session } = await authClient.useSession(useFetch)
-const { data: aiUsage } = await useFetch<{
+const { data: aiUsage } = useLazyFetch<{
   used: number
   limit: number
   remaining: number

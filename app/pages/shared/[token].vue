@@ -35,7 +35,7 @@ interface SharedTrip {
 const route = useRoute()
 const token = route.params.token as string
 
-const { data: trip, error } = await useFetch<SharedTrip>(`/api/shared/${token}`)
+const { data: trip, error } = useLazyFetch<SharedTrip>(`/api/shared/${token}`)
 
 const sharedTitle = computed(() =>
   trip.value ? `${trip.value.destination} — Shared Trip` : "Shared Trip",

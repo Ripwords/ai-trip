@@ -9,7 +9,7 @@ useSeoMeta({
 })
 
 // Fetch visited countries
-const { data: visitedList, refresh } = await useFetch("/api/visited-countries")
+const { data: visitedList, refresh } = useLazyFetch("/api/visited-countries")
 
 // Passport nationality — controls visa data for tooltips
 const { nationality, save: saveNationality, fetch: fetchNationality } = useNationality()
@@ -38,7 +38,7 @@ watch(nationality, (val) => {
 })
 
 // Fetch visa statuses — reactively refetches when nationality changes
-const { data: visaStatusMap } = await useFetch<
+const { data: visaStatusMap } = useLazyFetch<
   Record<string, { visaStatus: string; maxStayDays: number | null }>
 >("/api/visa/check-all", {
   query: { passport: nationality },
