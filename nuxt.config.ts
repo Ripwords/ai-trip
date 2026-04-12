@@ -12,7 +12,12 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: "en" },
-      meta: [{ name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" }],
+      meta: [
+        {
+          name: "viewport",
+          content: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover",
+        },
+      ],
       link: [
         { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
         { rel: "apple-touch-icon", href: "/apple-touch-icon-180x180.png" },
@@ -87,7 +92,7 @@ export default defineNuxtConfig({
       name: "AI Trip — Travel Planner",
       short_name: "AI Trip",
       description: "AI-powered travel itinerary planner with real places verified by Google Maps",
-      theme_color: "#e85d3a",
+      theme_color: "#faf8f5",
       background_color: "#faf8f5",
       display: "standalone",
       orientation: "portrait",

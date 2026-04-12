@@ -28,6 +28,10 @@ export default defineNuxtPlugin(() => {
         name: "theme-color",
         content: computed(() => (isDark.value ? "#1a1714" : "#faf8f5")),
       },
+      {
+        name: "apple-mobile-web-app-status-bar-style",
+        content: "black-translucent",
+      },
     ],
   })
 })
