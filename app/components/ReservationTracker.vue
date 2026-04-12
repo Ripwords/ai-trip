@@ -35,7 +35,14 @@ const formStartDate = ref("")
 const formEndDate = ref("")
 const formAmount = ref("")
 
-const types = ["accommodation", "restaurant", "car_rental", "activity", "transport", "other"] as const
+const types = [
+  "accommodation",
+  "restaurant",
+  "car_rental",
+  "activity",
+  "transport",
+  "other",
+] as const
 
 const statuses = ["confirmed", "pending", "cancelled"] as const
 
