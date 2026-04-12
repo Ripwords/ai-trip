@@ -158,9 +158,18 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside))
         </div>
       </nav>
     </header>
-    <main class="mx-auto max-w-7xl px-4 py-6 pb-20 sm:px-6 sm:py-8 sm:pb-8">
+    <main class="app-main mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
       <slot />
     </main>
     <NavMobile />
   </div>
 </template>
+
+<style scoped>
+/* On mobile, pad bottom to clear the fixed tab bar + safe area */
+@media (max-width: 639px) {
+  .app-main {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+</style>
