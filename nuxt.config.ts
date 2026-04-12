@@ -237,6 +237,11 @@ export default defineNuxtConfig({
         rateLimiter: { tokensPerInterval: 120, interval: 60000 },
       },
     },
+    "/api/ai/layover-tips": {
+      security: {
+        rateLimiter: { tokensPerInterval: 10, interval: 60000 },
+      },
+    },
     "/api/visited-countries/**": {
       security: {
         rateLimiter: { tokensPerInterval: 60, interval: 60000 },
