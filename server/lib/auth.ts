@@ -6,7 +6,10 @@ import { db } from "../db"
 import { admin } from "better-auth/plugins"
 import { tripMembers, user as userTable } from "../db/schema"
 
-const isProduction = process.env.NODE_ENV === "production"
+if (!process.env.BETTER_AUTH_SECRET) throw new Error("BETTER_AUTH_SECRET must be set")
+
+const useSecure =
+  process.env.BETTER_AUTH_URL?.startsWith("https://") ?? process.env.NODE_ENV === "production"
 
 export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
@@ -38,6 +41,9 @@ export const auth = betterAuth({
     return origins
   })(),
   database: drizzleAdapter(db, { provider: "pg" }),
+  account: {
+    encryptOAuthTokens: true,
+  },
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
@@ -58,11 +64,14 @@ export const auth = betterAuth({
   advanced: {
     // Use secure, httpOnly cookies — prevents XSS from stealing session tokens
     cookiePrefix: "ai-trip",
-    useSecureCookies: isProduction,
+    useSecureCookies: useSecure,
     // Generate new session token on refresh to prevent session fixation
     generateId: undefined, // use default secure random ID generation
     ipAddress: {
       ipAddressHeaders: ["x-vercel-forwarded-for", "x-forwarded-for"],
+    },
+    defaultCookieAttributes: {
+      sameSite: "lax",
     },
   },
   // Auto-accept pending invites when a user signs in
@@ -107,7 +116,7 @@ export const auth = betterAuth({
 
             if (pendingInvites.length > 0) {
               console.log(
-                `[auth] Auto-accepted ${pendingInvites.length} pending invite(s) for ${user.email}`,
+                `[auth] Auto-accepted ${pendingInvites.length} pending invite(s) for user ${session.userId}`,
               )
             }
           } catch (e) {

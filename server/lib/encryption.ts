@@ -1,10 +1,12 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto"
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "crypto"
 
 const ALGORITHM = "aes-256-gcm"
 const IV_LENGTH = 12
 
+// NOTE: Changing this function requires re-encrypting all existing data
 function deriveKey(secret: string): Buffer {
-  return createHash("sha256").update(secret).digest()
+  const keyMaterial = Buffer.from(secret, "base64")
+  return Buffer.from(hkdfSync("sha256", keyMaterial, Buffer.alloc(0), "ai-trip-encryption-v1", 32))
 }
 
 export function encrypt(value: string, secret: string): string {
