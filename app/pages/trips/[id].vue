@@ -1291,7 +1291,7 @@ async function recomputeSegments(dayId: string) {
           <button
             type="submit"
             :disabled="addingTripFlight || !tripFlightNumber || !tripFlightDate"
-            class="rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white transition hover:bg-terra-600 disabled:opacity-50"
+            class="shrink-0 rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white transition hover:bg-terra-600 disabled:opacity-50"
           >
             {{ addingTripFlight ? "Adding..." : "Add Flight" }}
           </button>
