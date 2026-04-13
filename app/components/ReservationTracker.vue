@@ -25,7 +25,7 @@ const showAddForm = ref(false)
 const editingId = ref<string | null>(null)
 
 // Form fields
-const formType = ref("accommodation")
+const formType = ref("flight")
 const formStatus = ref("confirmed")
 const formName = ref("")
 const formConfirmation = ref("")
@@ -36,6 +36,7 @@ const formEndDate = ref("")
 const formAmount = ref("")
 
 const types = [
+  "flight",
   "accommodation",
   "restaurant",
   "car_rental",
@@ -47,6 +48,7 @@ const types = [
 const statuses = ["confirmed", "pending", "cancelled"] as const
 
 const typeIcons: Record<string, string> = {
+  flight: "lucide:plane",
   accommodation: "lucide:bed-double",
   restaurant: "lucide:utensils",
   car_rental: "lucide:car",
@@ -62,7 +64,7 @@ const statusClasses: Record<string, string> = {
 }
 
 function resetForm() {
-  formType.value = "accommodation"
+  formType.value = "flight"
   formStatus.value = "confirmed"
   formName.value = ""
   formConfirmation.value = ""
