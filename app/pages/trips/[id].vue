@@ -1280,12 +1280,12 @@ async function recomputeSegments(dayId: string) {
               class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
             />
           </div>
-          <div class="min-w-0 sm:max-w-48">
+          <div class="min-w-0 flex-1 overflow-hidden">
             <label class="mb-1 block text-xs font-medium text-sand-600">Date</label>
             <input
               v-model="tripFlightDate"
               type="date"
-              class="max-w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
+              class="w-full appearance-none rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
             />
           </div>
           <button
