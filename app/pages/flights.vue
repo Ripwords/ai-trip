@@ -136,18 +136,18 @@ const paginatedPast = computed(() => {
           class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
         />
       </div>
-      <div class="flex-1">
+      <div class="min-w-0 flex-1 overflow-hidden">
         <label class="mb-1 block text-xs font-medium text-sand-600"> Date </label>
         <input
           v-model="newFlightDate"
           type="date"
-          class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
+          class="w-full appearance-none rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
         />
       </div>
       <button
         type="submit"
         :disabled="adding || !newFlightNumber || !newFlightDate"
-        class="rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white transition hover:bg-terra-600 disabled:opacity-50"
+        class="shrink-0 rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white transition hover:bg-terra-600 disabled:opacity-50"
       >
         {{ adding ? "Adding..." : "Add Flight" }}
       </button>
