@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { OrbitControls } from "@tresjs/cientos"
-import { MeshBasicMaterial, Mesh, SphereGeometry, Raycaster, Vector2 } from "three"
+import { Raycaster, Vector2 } from "three"
+import {
+  createGlobe,
+  getCountryFromMesh,
+  type EnrichedFeature,
+  type GlobeTheme,
+} from "../utils/globe-renderer"
 import {
   getCountryFeatures,
-  renderGlobeTexture,
-  renderIdTexture,
-  resolveCountryFromUV,
   getCountryCentroid,
   latLngToVector3,
   GLOBE_RADIUS,
-  type GlobeColors,
   type VisitType,
 } from "../utils/globe-countries"
 import type { CountryInfo } from "../data/countries"
@@ -27,69 +29,68 @@ const emit = defineEmits<{
 const { isDark } = useDarkMode()
 
 // --- Theme ---
-const theme = computed(() =>
+const theme = computed<
+  GlobeTheme & {
+    visitedColor: string
+    layoverColor: string
+    wantColor: string
+    unvisitedColor: string
+  }
+>(() =>
   isDark.value
     ? {
         clearColor: "#1a1714",
-        oceanColor: "#1e1b16",
-        oceanEmissive: "#15120e",
+        ocean: "#1e1b16",
         atmosphere: "#e85d3a",
         atmosphereOpacity: 0.04,
         ambientIntensity: 0.5,
         directionalIntensity: 0.9,
-        globeColors: {
-          ocean: "#1e1b16",
-          unvisited: "#302b24",
-          visited: "#f07b5a",
-          layover: "#4aa5b9",
-          want: "#a78bfa",
-          border: "#4a8450",
-          borderWidth: 1.5,
-        } satisfies GlobeColors,
+        border: "#4a8450",
+        visitedColor: "#f07b5a",
+        layoverColor: "#4aa5b9",
+        wantColor: "#a78bfa",
+        unvisitedColor: "#302b24",
       }
     : {
         clearColor: "#faf8f5",
-        oceanColor: "#d9eef3",
-        oceanEmissive: "#b3dde7",
+        ocean: "#d9eef3",
         atmosphere: "#7dc3d4",
         atmosphereOpacity: 0.06,
         ambientIntensity: 0.9,
         directionalIntensity: 1.4,
-        globeColors: {
-          ocean: "#d9eef3",
-          unvisited: "#e8e0d4",
-          visited: "#f07b5a",
-          layover: "#4aa5b9",
-          want: "#a78bfa",
-          border: "#3a6a3f",
-          borderWidth: 1.5,
-        } satisfies GlobeColors,
+        border: "#3a6a3f",
+        visitedColor: "#f07b5a",
+        layoverColor: "#4aa5b9",
+        wantColor: "#a78bfa",
+        unvisitedColor: "#e8e0d4",
       },
 )
 
-// --- ID texture (rendered once for click detection) ---
-const idTextureData = ref<{ canvas: HTMLCanvasElement } | null>(null)
+// --- Globe instance ---
+function getPolygonColor(feat: EnrichedFeature): string {
+  const alpha2 = feat.properties.alpha2
+  const visitType = alpha2 ? props.visitMap.get(alpha2) : undefined
+  const t = theme.value
+  if (visitType === "visited") return t.visitedColor
+  if (visitType === "layover") return t.layoverColor
+  if (visitType === "want_to_visit") return t.wantColor
+  return t.unvisitedColor
+}
 
-onMounted(() => {
-  const { canvas } = renderIdTexture()
-  idTextureData.value = { canvas }
+const globe = createGlobe({
+  theme: theme.value,
+  polygonCapColor: getPolygonColor,
 })
 
-// --- Globe mesh (stable reference — only the texture is updated) ---
-const globeGeometry = new SphereGeometry(GLOBE_RADIUS, 64, 64)
-const globeMaterial = new MeshBasicMaterial()
-const globeMesh = new Mesh(globeGeometry, globeMaterial)
-
-// Update the texture whenever visitMap or theme changes
-watch(
-  [() => props.visitMap, () => theme.value.globeColors],
-  () => {
-    const texture = renderGlobeTexture(props.visitMap, theme.value.globeColors)
-    globeMaterial.map = texture
-    globeMaterial.needsUpdate = true
-  },
-  { immediate: true },
-)
+// Reactively update colors when visitMap or theme changes
+watch([() => props.visitMap, theme], () => {
+  globe
+    .polygonCapColor(getPolygonColor as (obj: object) => string)
+    .polygonStrokeColor(() => theme.value.border)
+    .globeMaterial()
+    .color.set(theme.value.ocean)
+  globe.atmosphereColor(theme.value.atmosphere)
+})
 
 // --- Stats ---
 const visitedCount = computed(
@@ -102,7 +103,7 @@ const wantCount = computed(
   () => [...props.visitMap.values()].filter((v) => v === "want_to_visit").length,
 )
 
-// --- Tooltip (desktop only) ---
+// --- Tooltip ---
 const isTouch = ref(false)
 onMounted(() => {
   isTouch.value = window.matchMedia("(pointer: coarse)").matches
@@ -129,7 +130,7 @@ const tooltipVisa = computed(() => {
   return { ...c, maxStayDays: status.maxStayDays }
 })
 
-// --- Manual raycasting on canvas (TresJS events unreliable on <primitive>) ---
+// --- Manual raycasting ---
 const containerRef = ref<HTMLElement | null>(null)
 const controlsRef = ref()
 const raycaster = new Raycaster()
@@ -140,7 +141,7 @@ function getControls() {
   return instanceRef?.value ?? instanceRef
 }
 
-function raycastGlobe(event: MouseEvent): CountryInfo | undefined {
+function raycastCountry(event: MouseEvent): CountryInfo | undefined {
   const canvas = containerRef.value?.querySelector("canvas")
   const controls = getControls()
   if (!canvas || !controls?.object) return undefined
@@ -150,14 +151,12 @@ function raycastGlobe(event: MouseEvent): CountryInfo | undefined {
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
 
   raycaster.setFromCamera(pointer, controls.object)
-  const hits = raycaster.intersectObject(globeMesh)
-  if (!hits.length || !hits[0]!.uv) return undefined
+  const hits = raycaster.intersectObjects(globe.children, true)
+  if (!hits.length) return undefined
 
-  if (!idTextureData.value) return undefined
-  return resolveCountryFromUV(hits[0]!.uv.x, hits[0]!.uv.y, idTextureData.value.canvas)
+  return getCountryFromMesh(hits[0]!.object as { __data?: EnrichedFeature; parent?: unknown })
 }
 
-// Track pointer-down position to distinguish clicks from drags
 let pointerDownX = 0
 let pointerDownY = 0
 
@@ -171,7 +170,7 @@ function onCanvasClick(event: MouseEvent) {
   const dy = event.clientY - pointerDownY
   if (dx * dx + dy * dy > 25) return
 
-  const info = raycastGlobe(event)
+  const info = raycastCountry(event)
   if (info) {
     emit("countryClick", info)
     animateToCentroid(info)
@@ -183,7 +182,7 @@ function onCanvasPointerMove(event: PointerEvent) {
     tooltipVisible.value = false
     return
   }
-  const info = raycastGlobe(event)
+  const info = raycastCountry(event)
   if (info) {
     tooltipCountry.value = info
     tooltipVisitType.value = props.visitMap.get(info.alpha2) ?? null
@@ -201,7 +200,7 @@ function onCanvasPointerLeave() {
   tooltipCountry.value = null
 }
 
-// Wait for ClientOnly to render the canvas, then attach listeners
+// --- Canvas listener attachment ---
 let attachedCanvas: HTMLCanvasElement | null = null
 
 function attachCanvasListeners(canvas: HTMLCanvasElement) {
@@ -306,19 +305,7 @@ function animateToCentroid(info: CountryInfo) {
           :enable-damping="true"
         />
 
-        <!-- Globe with country texture -->
-        <primitive :object="globeMesh" />
-
-        <!-- Atmosphere rim -->
-        <TresMesh>
-          <TresSphereGeometry :args="[GLOBE_RADIUS * 1.02, 64, 64]" />
-          <TresMeshBasicMaterial
-            :color="theme.atmosphere"
-            :transparent="true"
-            :opacity="theme.atmosphereOpacity"
-            :side="1"
-          />
-        </TresMesh>
+        <primitive :object="globe" />
       </TresCanvas>
     </ClientOnly>
 
