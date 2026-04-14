@@ -1,14 +1,6 @@
 <script setup lang="ts">
 import { OrbitControls } from "@tresjs/cientos"
-import {
-  MeshBasicMaterial,
-  MeshPhongMaterial,
-  Mesh,
-  SphereGeometry,
-  Raycaster,
-  Vector2,
-  type Intersection,
-} from "three"
+import { MeshBasicMaterial, Mesh, SphereGeometry, Raycaster, Vector2 } from "three"
 import {
   getCountryFeatures,
   renderGlobeTexture,
@@ -83,13 +75,21 @@ onMounted(() => {
   idTextureData.value = { canvas }
 })
 
-// --- Globe texture (re-rendered when visitMap or theme changes) ---
-const globeMesh = computed(() => {
-  const texture = renderGlobeTexture(props.visitMap, theme.value.globeColors)
-  const geometry = new SphereGeometry(GLOBE_RADIUS, 64, 64)
-  const material = new MeshBasicMaterial({ map: texture })
-  return new Mesh(geometry, material)
-})
+// --- Globe mesh (stable reference — only the texture is updated) ---
+const globeGeometry = new SphereGeometry(GLOBE_RADIUS, 64, 64)
+const globeMaterial = new MeshBasicMaterial()
+const globeMesh = new Mesh(globeGeometry, globeMaterial)
+
+// Update the texture whenever visitMap or theme changes
+watch(
+  [() => props.visitMap, () => theme.value.globeColors],
+  () => {
+    const texture = renderGlobeTexture(props.visitMap, theme.value.globeColors)
+    globeMaterial.map = texture
+    globeMaterial.needsUpdate = true
+  },
+  { immediate: true },
+)
 
 // --- Stats ---
 const visitedCount = computed(
@@ -119,47 +119,76 @@ const tooltipVisa = computed(() => {
   const status = props.visaStatusMap[tooltipCountry.value.alpha2]
   if (!status) return null
   const config: Record<string, { label: string; colorClass: string }> = {
-    "visa-free": { label: "Visa Free", colorClass: "bg-green-500/20 text-green-400" },
-    "visa-on-arrival": { label: "On Arrival", colorClass: "bg-blue-500/20 text-blue-400" },
-    evisa: { label: "e-Visa", colorClass: "bg-amber-500/20 text-amber-400" },
-    "visa-required": { label: "Visa Required", colorClass: "bg-red-500/20 text-red-400" },
+    "visa-free": { label: "Visa Free", colorClass: "bg-green-500/20 text-green-700" },
+    "visa-on-arrival": { label: "On Arrival", colorClass: "bg-blue-500/20 text-blue-700" },
+    evisa: { label: "e-Visa", colorClass: "bg-amber-500/20 text-amber-700" },
+    "visa-required": { label: "Visa Required", colorClass: "bg-red-500/20 text-red-700" },
   }
   const c = config[status.visaStatus]
   if (!c) return null
   return { ...c, maxStayDays: status.maxStayDays }
 })
 
-// --- Resolve country from raycast intersection UV ---
-function resolveCountryFromIntersection(intersection: Intersection): CountryInfo | undefined {
-  if (!idTextureData.value || !intersection.uv) return undefined
-  return resolveCountryFromUV(intersection.uv.x, intersection.uv.y, idTextureData.value.canvas)
+// --- Manual raycasting on canvas (TresJS events unreliable on <primitive>) ---
+const containerRef = ref<HTMLElement | null>(null)
+const controlsRef = ref()
+const raycaster = new Raycaster()
+const pointer = new Vector2()
+
+function getControls() {
+  const instanceRef = controlsRef.value?.instance
+  return instanceRef?.value ?? instanceRef
 }
 
-// --- Click handling ---
-function handleGlobeClick(event: { intersections: Intersection[] }) {
-  if (!event.intersections.length) return
-  const info = resolveCountryFromIntersection(event.intersections[0]!)
+function raycastGlobe(event: MouseEvent): CountryInfo | undefined {
+  const canvas = containerRef.value?.querySelector("canvas")
+  const controls = getControls()
+  if (!canvas || !controls?.object) return undefined
+
+  const rect = canvas.getBoundingClientRect()
+  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+
+  raycaster.setFromCamera(pointer, controls.object)
+  const hits = raycaster.intersectObject(globeMesh)
+  if (!hits.length || !hits[0]!.uv) return undefined
+
+  if (!idTextureData.value) return undefined
+  return resolveCountryFromUV(hits[0]!.uv.x, hits[0]!.uv.y, idTextureData.value.canvas)
+}
+
+// Track pointer-down position to distinguish clicks from drags
+let pointerDownX = 0
+let pointerDownY = 0
+
+function onPointerDown(event: PointerEvent) {
+  pointerDownX = event.clientX
+  pointerDownY = event.clientY
+}
+
+function onCanvasClick(event: MouseEvent) {
+  const dx = event.clientX - pointerDownX
+  const dy = event.clientY - pointerDownY
+  if (dx * dx + dy * dy > 25) return
+
+  const info = raycastGlobe(event)
   if (info) {
     emit("countryClick", info)
     animateToCentroid(info)
   }
 }
 
-// --- Hover handling ---
-function handleGlobePointerMove(event: {
-  intersections: Intersection[]
-  nativeEvent: PointerEvent
-}) {
-  if (isTouch.value || !event.intersections.length) {
+function onCanvasPointerMove(event: PointerEvent) {
+  if (isTouch.value) {
     tooltipVisible.value = false
     return
   }
-  const info = resolveCountryFromIntersection(event.intersections[0]!)
+  const info = raycastGlobe(event)
   if (info) {
     tooltipCountry.value = info
     tooltipVisitType.value = props.visitMap.get(info.alpha2) ?? null
-    tooltipX.value = event.nativeEvent.clientX
-    tooltipY.value = event.nativeEvent.clientY
+    tooltipX.value = event.clientX
+    tooltipY.value = event.clientY
     tooltipVisible.value = true
   } else {
     tooltipVisible.value = false
@@ -167,13 +196,58 @@ function handleGlobePointerMove(event: {
   }
 }
 
-function handleGlobePointerOut() {
+function onCanvasPointerLeave() {
   tooltipVisible.value = false
   tooltipCountry.value = null
 }
 
+// Wait for ClientOnly to render the canvas, then attach listeners
+let attachedCanvas: HTMLCanvasElement | null = null
+
+function attachCanvasListeners(canvas: HTMLCanvasElement) {
+  if (attachedCanvas === canvas) return
+  detachCanvasListeners()
+  attachedCanvas = canvas
+  canvas.addEventListener("pointerdown", onPointerDown)
+  canvas.addEventListener("click", onCanvasClick)
+  canvas.addEventListener("pointermove", onCanvasPointerMove)
+  canvas.addEventListener("pointerleave", onCanvasPointerLeave)
+}
+
+function detachCanvasListeners() {
+  if (!attachedCanvas) return
+  attachedCanvas.removeEventListener("pointerdown", onPointerDown)
+  attachedCanvas.removeEventListener("click", onCanvasClick)
+  attachedCanvas.removeEventListener("pointermove", onCanvasPointerMove)
+  attachedCanvas.removeEventListener("pointerleave", onCanvasPointerLeave)
+  attachedCanvas = null
+}
+
+onMounted(() => {
+  const container = containerRef.value
+  if (!container) return
+
+  const existing = container.querySelector("canvas")
+  if (existing) {
+    attachCanvasListeners(existing)
+    return
+  }
+
+  const observer = new MutationObserver(() => {
+    const canvas = container.querySelector("canvas")
+    if (canvas) {
+      attachCanvasListeners(canvas)
+      observer.disconnect()
+    }
+  })
+  observer.observe(container, { childList: true, subtree: true })
+})
+
+onUnmounted(() => {
+  detachCanvasListeners()
+})
+
 // --- Auto-center animation ---
-const controlsRef = ref()
 const allFeatures = getCountryFeatures()
 
 function animateToCentroid(info: CountryInfo) {
@@ -186,7 +260,7 @@ function animateToCentroid(info: CountryInfo) {
     .normalize()
     .multiplyScalar(5)
 
-  const controls = controlsRef.value?.value
+  const controls = getControls()
   if (!controls) return
 
   const startTarget = controls.target.clone()
@@ -208,20 +282,12 @@ function animateToCentroid(info: CountryInfo) {
 
   requestAnimationFrame(animate)
 }
-
-// --- Fullscreen ---
-const isFullscreen = ref(false)
-
-function toggleFullscreen() {
-  isFullscreen.value = !isFullscreen.value
-  document.body.style.overflow = isFullscreen.value ? "hidden" : ""
-}
 </script>
 
 <template>
   <div
-    class="relative w-full overflow-hidden rounded-2xl border border-sand-200"
-    :class="isFullscreen ? 'fixed inset-0 z-50 rounded-none border-0' : 'h-[500px] sm:h-[600px]'"
+    ref="containerRef"
+    class="relative h-[500px] w-full overflow-hidden rounded-2xl border border-sand-200 sm:h-[600px]"
   >
     <ClientOnly>
       <TresCanvas :alpha="true" :clear-color="theme.clearColor" :antialias="true">
@@ -241,12 +307,7 @@ function toggleFullscreen() {
         />
 
         <!-- Globe with country texture -->
-        <primitive
-          :object="globeMesh"
-          @click="handleGlobeClick"
-          @pointermove="handleGlobePointerMove"
-          @pointerout="handleGlobePointerOut"
-        />
+        <primitive :object="globeMesh" />
 
         <!-- Atmosphere rim -->
         <TresMesh>
@@ -287,18 +348,6 @@ function toggleFullscreen() {
         </span>
       </div>
     </div>
-
-    <!-- Fullscreen toggle -->
-    <button
-      class="map-btn absolute left-3 top-3 flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
-      :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'"
-      @click="toggleFullscreen"
-    >
-      <Icon
-        :name="isFullscreen ? 'lucide:minimize-2' : 'lucide:maximize'"
-        class="h-5 w-5 sm:h-4 sm:w-4"
-      />
-    </button>
 
     <!-- Controls: view toggle -->
     <div class="absolute right-3 top-3 flex flex-col gap-1.5">

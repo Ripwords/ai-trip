@@ -39,6 +39,26 @@ export function getCountryFeatures(): CountryGeoFeature[] {
   return allFeatures
 }
 
+/** Quick average latitude of a feature for pole-proximity scaling */
+function getFeatureAvgLat(feat: CountryGeoFeature): number {
+  const geo = feat.geoFeature.geometry
+  const rings =
+    geo.type === "Polygon"
+      ? geo.coordinates
+      : geo.type === "MultiPolygon"
+        ? geo.coordinates.flat()
+        : []
+  let total = 0
+  let count = 0
+  for (const ring of rings) {
+    for (const coord of ring) {
+      total += coord[1]!
+      count++
+    }
+  }
+  return count > 0 ? total / count : 0
+}
+
 // --- Canvas texture approach ---
 const TEX_WIDTH = 4096
 const TEX_HEIGHT = 2048
@@ -89,10 +109,12 @@ export function renderGlobeTexture(
     ctx.fill()
   }
 
-  // Draw borders on top
+  // Draw borders on top — reduce width near poles to avoid convergence artifacts
   ctx.strokeStyle = colors.border
-  ctx.lineWidth = colors.borderWidth
   for (const feat of allFeatures) {
+    const centroidLat = getFeatureAvgLat(feat)
+    const poleScale = Math.cos((centroidLat * Math.PI) / 180)
+    ctx.lineWidth = colors.borderWidth * Math.max(poleScale, 0.15)
     ctx.beginPath()
     pathGenerator.context(ctx)(feat.geoFeature)
     ctx.stroke()
@@ -117,7 +139,7 @@ export function renderIdTexture(): {
   const canvas = document.createElement("canvas")
   canvas.width = TEX_WIDTH
   canvas.height = TEX_HEIGHT
-  const ctx = canvas.getContext("2d")!
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!
 
   // Ocean = black (no country)
   ctx.fillStyle = "#000000"
@@ -150,7 +172,7 @@ export function resolveCountryFromUV(
 ): CountryInfo | undefined {
   const ctx = idCanvas.getContext("2d")!
   const x = Math.floor(u * TEX_WIDTH)
-  const y = Math.floor(v * TEX_HEIGHT)
+  const y = Math.floor((1 - v) * TEX_HEIGHT)
   const pixel = ctx.getImageData(x, y, 1, 1).data
   const r = pixel[0]!
   const g = pixel[1]!

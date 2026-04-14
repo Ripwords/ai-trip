@@ -136,6 +136,8 @@ function buildCountryLineGeometry(): BufferGeometry {
         for (let i = 0; i < ring.length - 1; i++) {
           const [lng1, lat1] = ring[i]!
           const [lng2, lat2] = ring[i + 1]!
+          // Skip segments near poles where lines converge and create visual noise
+          if (Math.abs(lat1!) > 85 && Math.abs(lat2!) > 85) continue
           const v1 = latLngToVector3(lat1!, lng1!, GLOBE_RADIUS * 1.001)
           const v2 = latLngToVector3(lat2!, lng2!, GLOBE_RADIUS * 1.001)
           vertices.push(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z)
