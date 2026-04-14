@@ -447,6 +447,33 @@ watch(
   { immediate: true },
 )
 
+// Auto re-enrich activities missing coordinates (e.g. Google Places was down during creation)
+// Each day is attempted at most once per page session to avoid retry loops and wasted API calls
+const enrichAttemptedDays = new Set<string>()
+
+watch(
+  sortedDays,
+  (days) => {
+    if (!import.meta.client || !trip.value) return
+
+    for (const day of days) {
+      if (enrichAttemptedDays.has(day.id)) continue
+
+      const hasUnenriched = day.activities.some((a) => a.lat == null || a.lng == null)
+      if (!hasUnenriched) continue
+
+      enrichAttemptedDays.add(day.id)
+
+      $fetch(`/api/trips/${tripId}/days/${day.id}/enrich`, { method: "POST" })
+        .then((result) => {
+          if (result.enriched > 0) refresh()
+        })
+        .catch(() => {})
+    }
+  },
+  { immediate: true },
+)
+
 const aiError = ref("")
 const aiMessage = ref("")
 const aiPrompt = ref("")
