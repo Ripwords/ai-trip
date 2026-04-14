@@ -130,6 +130,7 @@ export default defineEventHandler(async (event) => {
   let removedCount = 0
   let updatedCount = 0
   let optimized = false
+  let enrichmentFailures = 0
 
   // Handle removals
   if (result.removals.length > 0) {
@@ -222,9 +223,11 @@ export default defineEventHandler(async (event) => {
           destinationCoords,
         )
 
+        enrichmentFailures = enriched.enrichmentFailures
         const enrichedActivities = enriched.days[0]?.activities ?? []
         console.log("[ai.post] After enrich:", {
           count: enrichedActivities.length,
+          failures: enrichmentFailures,
         })
 
         if (enrichedActivities.length > 0) {
@@ -403,6 +406,7 @@ export default defineEventHandler(async (event) => {
     removed: removedCount,
     updated: updatedCount,
     optimized,
+    enrichmentFailures,
     intent: result.intent,
     message: result.message,
   }

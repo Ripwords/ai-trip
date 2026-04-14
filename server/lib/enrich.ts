@@ -20,6 +20,7 @@ interface EnrichedDay {
 
 export interface EnrichedItinerary {
   days: EnrichedDay[]
+  enrichmentFailures: number
 }
 
 /**
@@ -50,8 +51,13 @@ async function enrichActivity(
         priceLevel: null,
       }
     }
-  } catch {
-    // If Google Maps lookup fails, return activity without enrichment
+
+    console.warn(`[enrich] No Google Places result for: "${activity.name}" in ${destination}`)
+  } catch (e) {
+    console.error(
+      `[enrich] Google Places lookup failed for "${activity.name}":`,
+      e instanceof Error ? e.message : e,
+    )
   }
 
   return {
@@ -77,6 +83,7 @@ export async function enrichItinerary(
   destinationCoords?: { lat: number; lng: number },
 ): Promise<EnrichedItinerary> {
   const enrichedDays: EnrichedDay[] = []
+  let enrichmentFailures = 0
 
   for (const day of aiOutput.days) {
     const enrichedActivities: EnrichedActivity[] = []
@@ -90,6 +97,8 @@ export async function enrichItinerary(
       enrichedActivities.push(...results)
     }
 
+    enrichmentFailures += enrichedActivities.filter((a) => a.lat == null || a.lng == null).length
+
     enrichedDays.push({
       dayNumber: day.dayNumber,
       theme: day.theme,
@@ -97,5 +106,49 @@ export async function enrichItinerary(
     })
   }
 
-  return { days: enrichedDays }
+  if (enrichmentFailures > 0) {
+    console.warn(`[enrich] ${enrichmentFailures} activities could not be geocoded`)
+  }
+
+  return { days: enrichedDays, enrichmentFailures }
+}
+
+/**
+ * Re-enrich a single existing activity by searching Google Places.
+ * Returns the enriched fields or null if lookup fails.
+ */
+export async function enrichSingleActivity(
+  activityName: string,
+  destination: string,
+  destinationCoords?: { lat: number; lng: number },
+): Promise<{
+  placeId: string
+  lat: number
+  lng: number
+  rating: number | null
+  address: string | null
+} | null> {
+  try {
+    const candidates = await searchPlace(`${activityName} ${destination}`, destinationCoords)
+    const topResult = candidates[0]
+
+    if (topResult) {
+      return {
+        placeId: topResult.placeId,
+        lat: topResult.lat,
+        lng: topResult.lng,
+        rating: topResult.rating ?? null,
+        address: topResult.formattedAddress ?? null,
+      }
+    }
+
+    console.warn(`[enrich] Re-enrich: no result for "${activityName}" in ${destination}`)
+  } catch (e) {
+    console.error(
+      `[enrich] Re-enrich failed for "${activityName}":`,
+      e instanceof Error ? e.message : e,
+    )
+  }
+
+  return null
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "activities" ADD COLUMN "last_enrich_attempt" timestamp with time zone;

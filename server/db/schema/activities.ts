@@ -7,6 +7,7 @@ import {
   jsonb,
   index,
   doublePrecision,
+  timestamp,
 } from "drizzle-orm/pg-core"
 import { relations } from "drizzle-orm"
 import { itineraryDays } from "./itineraries"
@@ -42,6 +43,9 @@ export const activities = pgTable(
     sortOrder: integer("sort_order").notNull().default(0),
     notes: text("notes"),
     actualCost: numeric("actual_cost", { precision: 10, scale: 2 }),
+
+    // Tracks last enrichment attempt to avoid retrying too frequently
+    lastEnrichAttempt: timestamp("last_enrich_attempt", { withTimezone: true }),
   },
   (table) => [
     index("idx_activities_day_id").on(table.itineraryDayId),
