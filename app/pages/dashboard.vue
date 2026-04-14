@@ -72,6 +72,49 @@ const nextFlight = computed<FlightData | null>(() => {
   const found = (upcomingFlights.value as FlightData[]).find((f) => f.flightDate >= today)
   return found ?? null
 })
+
+// Next trip countdown — only shown when no upcoming flight, and trip has 3+ activities
+const MIN_ACTIVITIES_FOR_COUNTDOWN = 3
+
+const nextTrip = computed(() => {
+  if (!trips.value) return null
+  const upcoming = trips.value
+    .filter((t) => t.startDate > today)
+    .toSorted((a, b) => a.startDate.localeCompare(b.startDate))
+
+  for (const trip of upcoming) {
+    const activityCount = trip.days?.reduce((sum, d) => sum + (d.activities?.length ?? 0), 0) ?? 0
+    if (activityCount >= MIN_ACTIVITIES_FOR_COUNTDOWN) return trip
+  }
+  return null
+})
+
+// Live countdown
+const now = ref(new Date())
+let countdownTimer: ReturnType<typeof setInterval> | undefined
+
+onMounted(() => {
+  countdownTimer = setInterval(() => {
+    now.value = new Date()
+  }, 1000)
+})
+
+onUnmounted(() => {
+  clearInterval(countdownTimer)
+})
+
+const countdown = computed(() => {
+  if (!nextTrip.value) return null
+  const target = new Date(nextTrip.value.startDate + "T00:00:00")
+  const diff = target.getTime() - now.value.getTime()
+  if (diff <= 0) return null
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+  return { days, hours, minutes, seconds }
+})
 </script>
 
 <template>
@@ -104,15 +147,15 @@ const nextFlight = computed<FlightData | null>(() => {
       </div>
     </div>
 
-    <!-- Next flight banner -->
+    <!-- Next flight banner (compact on desktop) -->
     <div
       v-if="nextFlight"
-      class="flex items-center gap-4 rounded-2xl border border-ocean-200 bg-ocean-50 p-4"
+      class="inline-flex items-center gap-4 rounded-2xl border border-ocean-200 bg-ocean-50 p-4 pr-5"
     >
       <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ocean-100">
         <Icon name="lucide:plane" class="h-5 w-5 text-ocean-600" />
       </div>
-      <div class="min-w-0 flex-1">
+      <div class="min-w-0">
         <p class="text-xs font-medium text-ocean-600">Next flight</p>
         <p class="font-display text-sand-900">
           {{ nextFlight.flightNumber }}
@@ -149,6 +192,62 @@ const nextFlight = computed<FlightData | null>(() => {
         class="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-ocean-600 transition hover:bg-ocean-100"
       >
         View all
+      </NuxtLink>
+    </div>
+
+    <!-- Trip countdown (shown when no upcoming flight, but next trip has enough planned items) -->
+    <div
+      v-else-if="nextTrip && countdown"
+      class="inline-flex items-center gap-5 rounded-2xl border border-terra-200 bg-terra-50 p-4 pr-6"
+    >
+      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-terra-100">
+        <Icon name="lucide:map-pin" class="h-5 w-5 text-terra-600" />
+      </div>
+      <div class="min-w-0">
+        <p class="text-xs font-medium text-terra-600">Next adventure</p>
+        <p class="font-display text-sand-900">{{ nextTrip.destination }}</p>
+        <p class="text-xs text-sand-500">
+          <NuxtTime
+            :datetime="nextTrip.startDate + 'T00:00:00'"
+            locale="en-US"
+            month="short"
+            day="numeric"
+            year="numeric"
+          />
+        </p>
+      </div>
+      <div class="flex items-baseline gap-3 tabular-nums">
+        <div class="text-center">
+          <p class="font-display text-xl text-terra-600">{{ countdown.days }}</p>
+          <p class="text-[10px] uppercase tracking-wider text-sand-500">days</p>
+        </div>
+        <span class="text-sand-300">:</span>
+        <div class="text-center">
+          <p class="font-display text-xl text-terra-600">
+            {{ String(countdown.hours).padStart(2, "0") }}
+          </p>
+          <p class="text-[10px] uppercase tracking-wider text-sand-500">hrs</p>
+        </div>
+        <span class="text-sand-300">:</span>
+        <div class="text-center">
+          <p class="font-display text-xl text-terra-600">
+            {{ String(countdown.minutes).padStart(2, "0") }}
+          </p>
+          <p class="text-[10px] uppercase tracking-wider text-sand-500">min</p>
+        </div>
+        <span class="text-sand-300">:</span>
+        <div class="text-center">
+          <p class="font-display text-xl text-terra-600">
+            {{ String(countdown.seconds).padStart(2, "0") }}
+          </p>
+          <p class="text-[10px] uppercase tracking-wider text-sand-500">sec</p>
+        </div>
+      </div>
+      <NuxtLink
+        :to="`/trips/${nextTrip.id}`"
+        class="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-terra-600 transition hover:bg-terra-100"
+      >
+        View trip
       </NuxtLink>
     </div>
 
