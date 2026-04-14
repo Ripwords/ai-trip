@@ -147,108 +147,108 @@ const countdown = computed(() => {
       </div>
     </div>
 
-    <!-- Next flight banner (compact on desktop) -->
+    <!-- Next flight + Trip countdown row -->
     <div
-      v-if="nextFlight"
-      class="inline-flex items-center gap-4 rounded-2xl border border-ocean-200 bg-ocean-50 p-4 pr-5"
+      v-if="nextFlight || (nextTrip && countdown)"
+      class="grid grid-cols-1 gap-3 sm:grid-cols-2"
     >
-      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ocean-100">
-        <Icon name="lucide:plane" class="h-5 w-5 text-ocean-600" />
-      </div>
-      <div class="min-w-0">
-        <p class="text-xs font-medium text-ocean-600">Next flight</p>
-        <p class="font-display text-sand-900">
-          {{ nextFlight.flightNumber }}
-        </p>
-        <p class="text-sm text-sand-500">
-          {{ nextFlight.departureAirport ?? "???" }}
-          &#8594;
-          {{ nextFlight.arrivalAirport ?? "???" }}
-        </p>
-      </div>
-      <div class="text-right text-sm">
-        <p class="font-medium text-sand-900">
-          <NuxtTime
-            v-if="nextFlight.departureTime"
-            :datetime="nextFlight.departureTime"
-            locale="en-US"
-            hour="2-digit"
-            minute="2-digit"
-          />
-          <template v-else>--:--</template>
-        </p>
-        <p class="text-xs text-sand-500">
-          <NuxtTime
-            :datetime="nextFlight.flightDate + 'T00:00:00'"
-            locale="en-US"
-            weekday="short"
-            month="short"
-            day="numeric"
-          />
-        </p>
-      </div>
-      <NuxtLink
-        to="/flights"
-        class="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-ocean-600 transition hover:bg-ocean-100"
+      <!-- Next flight -->
+      <div
+        v-if="nextFlight"
+        class="flex items-center gap-4 rounded-2xl border border-ocean-200 bg-ocean-50 p-4"
       >
-        View all
-      </NuxtLink>
-    </div>
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ocean-100">
+          <Icon name="lucide:plane" class="h-5 w-5 text-ocean-600" />
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-xs font-medium text-ocean-600">Next flight</p>
+          <p class="font-display text-sand-900">
+            {{ nextFlight.flightNumber }}
+          </p>
+          <p class="text-sm text-sand-500">
+            {{ nextFlight.departureAirport ?? "???" }}
+            &#8594;
+            {{ nextFlight.arrivalAirport ?? "???" }}
+          </p>
+        </div>
+        <div class="text-right text-sm">
+          <p class="font-medium text-sand-900">
+            <NuxtTime
+              v-if="nextFlight.departureTime"
+              :datetime="nextFlight.departureTime"
+              locale="en-US"
+              hour="2-digit"
+              minute="2-digit"
+            />
+            <template v-else>--:--</template>
+          </p>
+          <p class="text-xs text-sand-500">
+            <NuxtTime
+              :datetime="nextFlight.flightDate + 'T00:00:00'"
+              locale="en-US"
+              weekday="short"
+              month="short"
+              day="numeric"
+            />
+          </p>
+        </div>
+        <NuxtLink
+          to="/flights"
+          class="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-ocean-600 transition hover:bg-ocean-100"
+        >
+          View all
+        </NuxtLink>
+      </div>
 
-    <!-- Trip countdown (shown when no upcoming flight, but next trip has enough planned items) -->
-    <div
-      v-else-if="nextTrip && countdown"
-      class="inline-flex items-center gap-5 rounded-2xl border border-terra-200 bg-terra-50 p-4 pr-6"
-    >
-      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-terra-100">
-        <Icon name="lucide:map-pin" class="h-5 w-5 text-terra-600" />
-      </div>
-      <div class="min-w-0">
-        <p class="text-xs font-medium text-terra-600">Next adventure</p>
-        <p class="font-display text-sand-900">{{ nextTrip.destination }}</p>
-        <p class="text-xs text-sand-500">
-          <NuxtTime
-            :datetime="nextTrip.startDate + 'T00:00:00'"
-            locale="en-US"
-            month="short"
-            day="numeric"
-            year="numeric"
-          />
-        </p>
-      </div>
-      <div class="flex items-baseline gap-3 tabular-nums">
-        <div class="text-center">
-          <p class="font-display text-xl text-terra-600">{{ countdown.days }}</p>
-          <p class="text-[10px] uppercase tracking-wider text-sand-500">days</p>
-        </div>
-        <span class="text-sand-300">:</span>
-        <div class="text-center">
-          <p class="font-display text-xl text-terra-600">
-            {{ String(countdown.hours).padStart(2, "0") }}
-          </p>
-          <p class="text-[10px] uppercase tracking-wider text-sand-500">hrs</p>
-        </div>
-        <span class="text-sand-300">:</span>
-        <div class="text-center">
-          <p class="font-display text-xl text-terra-600">
-            {{ String(countdown.minutes).padStart(2, "0") }}
-          </p>
-          <p class="text-[10px] uppercase tracking-wider text-sand-500">min</p>
-        </div>
-        <span class="text-sand-300">:</span>
-        <div class="text-center">
-          <p class="font-display text-xl text-terra-600">
-            {{ String(countdown.seconds).padStart(2, "0") }}
-          </p>
-          <p class="text-[10px] uppercase tracking-wider text-sand-500">sec</p>
-        </div>
-      </div>
-      <NuxtLink
-        :to="`/trips/${nextTrip.id}`"
-        class="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-terra-600 transition hover:bg-terra-100"
+      <!-- Trip countdown -->
+      <div
+        v-if="nextTrip && countdown"
+        class="flex items-center gap-4 rounded-2xl border border-terra-200 bg-terra-50 p-4"
       >
-        View trip
-      </NuxtLink>
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-terra-100">
+          <Icon name="lucide:map-pin" class="h-5 w-5 text-terra-600" />
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-xs font-medium text-terra-600">Next adventure</p>
+          <p class="font-display text-sand-900">{{ nextTrip.destination }}</p>
+          <p class="text-xs text-sand-500">
+            <NuxtTime
+              :datetime="nextTrip.startDate + 'T00:00:00'"
+              locale="en-US"
+              month="short"
+              day="numeric"
+              year="numeric"
+            />
+          </p>
+        </div>
+        <div class="flex items-baseline gap-2 tabular-nums sm:gap-3">
+          <div class="text-center">
+            <p class="font-display text-lg text-terra-600 sm:text-xl">{{ countdown.days }}</p>
+            <p class="text-[10px] uppercase tracking-wider text-sand-500">days</p>
+          </div>
+          <span class="text-sand-300">:</span>
+          <div class="text-center">
+            <p class="font-display text-lg text-terra-600 sm:text-xl">
+              {{ String(countdown.hours).padStart(2, "0") }}
+            </p>
+            <p class="text-[10px] uppercase tracking-wider text-sand-500">hrs</p>
+          </div>
+          <span class="text-sand-300">:</span>
+          <div class="text-center">
+            <p class="font-display text-lg text-terra-600 sm:text-xl">
+              {{ String(countdown.minutes).padStart(2, "0") }}
+            </p>
+            <p class="text-[10px] uppercase tracking-wider text-sand-500">min</p>
+          </div>
+          <span class="text-sand-300">:</span>
+          <div class="text-center">
+            <p class="font-display text-lg text-terra-600 sm:text-xl">
+              {{ String(countdown.seconds).padStart(2, "0") }}
+            </p>
+            <p class="text-[10px] uppercase tracking-wider text-sand-500">sec</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Trips section -->
