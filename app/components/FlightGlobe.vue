@@ -1,7 +1,19 @@
 <script setup lang="ts">
 import { OrbitControls } from "@tresjs/cientos"
-import { Vector3 } from "three"
-import { createGlobe, type GlobeTheme } from "../utils/globe-renderer"
+import {
+  Vector3,
+  Group,
+  MeshBasicMaterial,
+  LineBasicMaterial,
+  Line,
+  BufferGeometry,
+  SphereGeometry,
+  Mesh,
+  QuadraticBezierCurve3,
+  Color,
+} from "three"
+import type { Mesh as ThreeMesh } from "three"
+import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js"
 import { getAirportCoordinates } from "../utils/airport-coordinates"
 import { iataToCountry } from "../utils/iata-to-country"
 
@@ -15,7 +27,9 @@ const props = defineProps<{
   flights: Flight[]
 }>()
 
-const GLOBE_RADIUS = 2
+// FBX globe: radius=6.414, centered at (4.903, 24.344, 1.078)
+const FBX_CENTER = { x: 4.903, y: 24.344, z: 1.078 }
+const FBX_RADIUS = 6.414
 
 const { isDark } = useDarkMode()
 
@@ -23,110 +37,17 @@ const theme = computed(() =>
   isDark.value
     ? {
         clearColor: "#1a1714",
-        ocean: "#1e1b16",
-        atmosphere: "#e85d3a",
-        atmosphereOpacity: 0.04,
-        border: "#4a8450",
-        ambientIntensity: 0.5,
-        directionalIntensity: 0.9,
-        landColor: "#302b24",
         arcColor: "#f07b5a",
         dotColor: "#f7a48a",
       }
     : {
         clearColor: "#faf8f5",
-        ocean: "#d9eef3",
-        atmosphere: "#7dc3d4",
-        atmosphereOpacity: 0.06,
-        border: "#3a6a3f",
-        ambientIntensity: 0.9,
-        directionalIntensity: 1.4,
-        landColor: "#e8e0d4",
         arcColor: "#d44425",
         dotColor: "#e85d3a",
       },
 )
 
-// --- Globe instance ---
-const globe = createGlobe({
-  theme: theme.value as GlobeTheme,
-  polygonCapColor: () => theme.value.landColor,
-})
-
-// --- Build arc and point data from flights ---
-interface ArcDatum {
-  startLat: number
-  startLng: number
-  endLat: number
-  endLng: number
-}
-
-interface PointDatum {
-  lat: number
-  lng: number
-}
-
-function updateFlightData() {
-  const arcs: ArcDatum[] = []
-  const points: PointDatum[] = []
-  const seenAirports = new Set<string>()
-
-  for (const flight of props.flights) {
-    if (!flight.departureAirport || !flight.arrivalAirport) continue
-
-    const depCoords = getAirportCoordinates(flight.departureAirport)
-    const arrCoords = getAirportCoordinates(flight.arrivalAirport)
-    if (!depCoords || !arrCoords) continue
-
-    arcs.push({
-      startLat: depCoords.lat,
-      startLng: depCoords.lng,
-      endLat: arrCoords.lat,
-      endLng: arrCoords.lng,
-    })
-
-    for (const code of [flight.departureAirport, flight.arrivalAirport]) {
-      if (seenAirports.has(code)) continue
-      seenAirports.add(code)
-      const coords = getAirportCoordinates(code)
-      if (coords) points.push({ lat: coords.lat, lng: coords.lng })
-    }
-  }
-
-  globe
-    .arcsData(arcs)
-    .arcStartLat((d: object) => (d as ArcDatum).startLat)
-    .arcStartLng((d: object) => (d as ArcDatum).startLng)
-    .arcEndLat((d: object) => (d as ArcDatum).endLat)
-    .arcEndLng((d: object) => (d as ArcDatum).endLng)
-    .arcColor(() => theme.value.arcColor)
-    .arcAltitudeAutoScale(0.3)
-    .arcStroke(0.5)
-
-  globe
-    .pointsData(points)
-    .pointLat((d: object) => (d as PointDatum).lat)
-    .pointLng((d: object) => (d as PointDatum).lng)
-    .pointColor(() => theme.value.dotColor)
-    .pointRadius(0.4)
-    .pointAltitude(0.01)
-}
-
-// Update flight data when flights change
-watch(() => props.flights, updateFlightData, { immediate: true })
-
-// Update colors when theme changes
-watch(theme, (t) => {
-  globe
-    .polygonCapColor(() => t.landColor)
-    .polygonStrokeColor(() => t.border)
-    .arcColor(() => t.arcColor)
-    .pointColor(() => t.dotColor)
-    .globeMaterial().color.set(t.ocean)
-  globe.atmosphereColor(t.atmosphere)
-})
-
-// --- Camera position centered on flights ---
+// --- Convert lat/lng to 3D position on the FBX globe ---
 function latLngToVector3(lat: number, lng: number, radius: number): Vector3 {
   const phi = (90 - lat) * (Math.PI / 180)
   const theta = (lng + 180) * (Math.PI / 180)
@@ -137,6 +58,116 @@ function latLngToVector3(lat: number, lng: number, radius: number): Vector3 {
   )
 }
 
+// --- Build flight arcs and airport dots ---
+function buildFlightOverlays(): Group {
+  const group = new Group()
+  const t = theme.value
+
+  const arcMaterial = new LineBasicMaterial({
+    color: new Color(t.arcColor),
+    transparent: true,
+    opacity: 0.9,
+  })
+
+  const dotMaterial = new MeshBasicMaterial({
+    color: new Color(t.dotColor),
+  })
+
+  const dotGeo = new SphereGeometry(0.08, 12, 12)
+  const seen = new Set<string>()
+
+  for (const flight of props.flights) {
+    if (!flight.departureAirport || !flight.arrivalAirport) continue
+
+    const depCoords = getAirportCoordinates(flight.departureAirport)
+    const arrCoords = getAirportCoordinates(flight.arrivalAirport)
+    if (!depCoords || !arrCoords) continue
+
+    const start = latLngToVector3(depCoords.lat, depCoords.lng, FBX_RADIUS * 1.002)
+    const end = latLngToVector3(arrCoords.lat, arrCoords.lng, FBX_RADIUS * 1.002)
+
+    // Arc: quadratic bezier elevated above the globe
+    const mid = new Vector3().addVectors(start, end).multiplyScalar(0.5)
+    const distance = start.distanceTo(end)
+    const arcHeight = FBX_RADIUS + 0.5 + distance * 0.15
+    const midElevated = mid.normalize().multiplyScalar(arcHeight)
+
+    const curve = new QuadraticBezierCurve3(start, midElevated, end)
+    const points = curve.getPoints(64)
+    const arcGeo = new BufferGeometry().setFromPoints(points)
+    group.add(new Line(arcGeo, arcMaterial))
+
+    // Airport dots
+    for (const code of [flight.departureAirport, flight.arrivalAirport]) {
+      if (seen.has(code)) continue
+      seen.add(code)
+      const coords = getAirportCoordinates(code)
+      if (!coords) continue
+      const pos = latLngToVector3(coords.lat, coords.lng, FBX_RADIUS * 1.003)
+      const dot = new Mesh(dotGeo, dotMaterial)
+      dot.position.set(pos.x, pos.y, pos.z)
+      group.add(dot)
+    }
+  }
+
+  return group
+}
+
+// --- Scene group (FBX model + flight overlays) ---
+const sceneGroup = shallowRef<Group | null>(null)
+let flightOverlays: Group | null = null
+
+onMounted(async () => {
+  const loader = new FBXLoader()
+  const fbx = await loader.loadAsync("/models/earth.fbx")
+  fbx.position.set(-FBX_CENTER.x, -FBX_CENTER.y, -FBX_CENTER.z)
+
+  // Convert to unlit material so the globe is fully visible from all angles
+  fbx.traverse((child) => {
+    const mesh = child as ThreeMesh
+    if (mesh.isMesh && mesh.material) {
+      const oldMat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material
+      mesh.material = new MeshBasicMaterial({
+        map: (oldMat as { map?: unknown }).map ?? null,
+      })
+    }
+  })
+
+  const group = new Group()
+  group.add(fbx)
+
+  // Add flight arcs/dots
+  flightOverlays = buildFlightOverlays()
+  group.add(flightOverlays)
+
+  sceneGroup.value = group
+})
+
+// Rebuild flight overlays when flights change
+watch(
+  () => props.flights,
+  () => {
+    if (!sceneGroup.value || !flightOverlays) return
+    sceneGroup.value.remove(flightOverlays)
+    flightOverlays = buildFlightOverlays()
+    sceneGroup.value.add(flightOverlays)
+  },
+)
+
+// Update arc/dot colors on theme change
+watch(theme, (t) => {
+  if (!flightOverlays) return
+  flightOverlays.traverse((child) => {
+    if ((child as Line).isLine) {
+      ;((child as Line).material as LineBasicMaterial).color.set(t.arcColor)
+    }
+    if ((child as ThreeMesh).isMesh && (child as ThreeMesh).geometry.type === "SphereGeometry") {
+      ;((child as ThreeMesh).material as MeshBasicMaterial).color.set(t.dotColor)
+    }
+  })
+})
+
+// --- Camera position centered on flights ---
 const cameraPosition = computed<[number, number, number]>(() => {
   const positions: Vector3[] = []
 
@@ -145,17 +176,17 @@ const cameraPosition = computed<[number, number, number]>(() => {
       if (!code) continue
       const coords = getAirportCoordinates(code)
       if (!coords) continue
-      positions.push(latLngToVector3(coords.lat, coords.lng, GLOBE_RADIUS))
+      positions.push(latLngToVector3(coords.lat, coords.lng, FBX_RADIUS))
     }
   }
 
-  if (positions.length === 0) return [0, 0, 5]
+  if (positions.length === 0) return [0, 0, 20]
 
   const center = new Vector3()
   for (const pos of positions) center.add(pos)
   center.divideScalar(positions.length)
 
-  const dir = center.normalize().multiplyScalar(5)
+  const dir = center.normalize().multiplyScalar(20)
   return [dir.x, dir.y, dir.z]
 })
 
@@ -178,24 +209,26 @@ const summaryText = computed(() => {
 </script>
 
 <template>
-  <div class="relative h-[300px] w-full overflow-hidden rounded-2xl border border-sand-200">
+  <div
+    class="relative h-[300px] w-full overflow-hidden rounded-2xl border border-sand-200 sm:h-[450px]"
+  >
     <ClientOnly>
       <TresCanvas :alpha="true" :clear-color="theme.clearColor" :antialias="true">
         <TresPerspectiveCamera :position="cameraPosition" :fov="45" />
 
-        <TresAmbientLight :intensity="theme.ambientIntensity" />
-        <TresDirectionalLight :position="[5, 3, 5]" :intensity="theme.directionalIntensity" />
-
         <OrbitControls
-          :enable-zoom="false"
+          :enable-zoom="true"
           :enable-pan="false"
           :auto-rotate="true"
           :auto-rotate-speed="0.3"
+          :min-distance="12"
+          :max-distance="35"
           :min-polar-angle="0.5"
           :max-polar-angle="2.6"
+          :enable-damping="true"
         />
 
-        <primitive :object="globe" />
+        <primitive v-if="sceneGroup" :object="sceneGroup" />
       </TresCanvas>
     </ClientOnly>
 
