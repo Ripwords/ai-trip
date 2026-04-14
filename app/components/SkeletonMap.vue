@@ -14,12 +14,36 @@ defineProps<{
       <!-- Faint continent blobs -->
       <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div class="grid h-[70%] w-[85%] grid-cols-5 grid-rows-3 gap-3">
-          <Skeleton variant="block" rounded="12px" class="col-span-1 row-span-2 !h-full opacity-40" />
-          <Skeleton variant="block" rounded="14px" class="col-span-2 row-span-1 !h-full opacity-30" />
-          <Skeleton variant="block" rounded="10px" class="col-span-1 row-span-2 !h-full opacity-35" />
-          <Skeleton variant="block" rounded="16px" class="col-span-1 row-span-1 !h-full opacity-25" />
-          <Skeleton variant="block" rounded="12px" class="col-span-1 row-span-1 !h-full opacity-30" />
-          <Skeleton variant="block" rounded="10px" class="col-span-1 row-span-1 !h-full opacity-20" />
+          <Skeleton
+            variant="block"
+            rounded="12px"
+            class="col-span-1 row-span-2 !h-full opacity-40"
+          />
+          <Skeleton
+            variant="block"
+            rounded="14px"
+            class="col-span-2 row-span-1 !h-full opacity-30"
+          />
+          <Skeleton
+            variant="block"
+            rounded="10px"
+            class="col-span-1 row-span-2 !h-full opacity-35"
+          />
+          <Skeleton
+            variant="block"
+            rounded="16px"
+            class="col-span-1 row-span-1 !h-full opacity-25"
+          />
+          <Skeleton
+            variant="block"
+            rounded="12px"
+            class="col-span-1 row-span-1 !h-full opacity-30"
+          />
+          <Skeleton
+            variant="block"
+            rounded="10px"
+            class="col-span-1 row-span-1 !h-full opacity-20"
+          />
         </div>
       </div>
     </div>
@@ -36,14 +60,38 @@ defineProps<{
 
     <!-- Fake toggle button (top-right) -->
     <div class="absolute right-3 top-3 flex flex-col gap-1.5">
-      <Skeleton variant="block" width="2rem" height="2rem" rounded="0.5rem" class="hidden sm:block" />
-      <Skeleton variant="block" width="2.75rem" height="2.75rem" rounded="0.75rem" class="sm:hidden" />
+      <Skeleton
+        variant="block"
+        width="2rem"
+        height="2rem"
+        rounded="0.5rem"
+        class="hidden sm:block"
+      />
+      <Skeleton
+        variant="block"
+        width="2.75rem"
+        height="2.75rem"
+        rounded="0.75rem"
+        class="sm:hidden"
+      />
     </div>
 
     <!-- Fake fullscreen button (top-left) -->
     <div class="absolute left-3 top-3">
-      <Skeleton variant="block" width="2rem" height="2rem" rounded="0.5rem" class="hidden sm:block" />
-      <Skeleton variant="block" width="2.75rem" height="2.75rem" rounded="0.75rem" class="sm:hidden" />
+      <Skeleton
+        variant="block"
+        width="2rem"
+        height="2rem"
+        rounded="0.5rem"
+        class="hidden sm:block"
+      />
+      <Skeleton
+        variant="block"
+        width="2.75rem"
+        height="2.75rem"
+        rounded="0.75rem"
+        class="sm:hidden"
+      />
     </div>
 
     <!-- Fake stats overlay (bottom-left) -->

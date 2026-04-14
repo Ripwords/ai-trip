@@ -323,7 +323,6 @@ function handleTouchEnd(e: TouchEvent) {
   }
 }
 
-
 onMounted(() => {
   // Default zoom in slightly on mobile so the map isn't so zoomed out
   if (window.innerWidth < 640) {
