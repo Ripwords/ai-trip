@@ -43,7 +43,6 @@ const { data: visaStatusMap } = useLazyFetch<
 >("/api/visa/check-all", {
   query: { passport: nationality },
   watch: [nationality],
-  immediate: !!nationality.value,
 })
 
 // Map of countryCode → visitType
