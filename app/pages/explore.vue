@@ -55,18 +55,15 @@ const visitMap = computed(() => {
 })
 
 // View mode: 2D flat map vs 3D globe
-// Always start as "2d" during SSR, restore from localStorage after mount to avoid hydration mismatch
-const viewMode = ref<"2d" | "3d">("2d")
-onMounted(() => {
-  const saved = localStorage.getItem("explore-view-mode") as "2d" | "3d" | null
-  if (saved === "3d") viewMode.value = saved
+// Cookie is available during SSR so the correct view renders immediately (no flash)
+const viewModeCookie = useCookie<"2d" | "3d">("explore-view-mode", {
+  default: () => "2d",
+  maxAge: 60 * 60 * 24 * 365,
 })
+const viewMode = viewModeCookie
 
 function handleToggleView() {
   viewMode.value = viewMode.value === "2d" ? "3d" : "2d"
-  if (typeof localStorage !== "undefined") {
-    localStorage.setItem("explore-view-mode", viewMode.value)
-  }
 }
 
 // Selected country panel
@@ -129,20 +126,28 @@ function handleCheckVisa(country: CountryInfo) {
 
     <!-- Map + Panel Container -->
     <div class="relative mt-6">
-      <LazyScratchMap
-        v-if="viewMode === '2d'"
-        :visit-map="visitMap"
-        :visa-status-map="visaStatusMap ?? {}"
-        @country-click="handleCountryClick"
-        @toggle-view="handleToggleView"
-      />
-      <LazyGlobeScratchMap
-        v-else
-        :visit-map="visitMap"
-        :visa-status-map="visaStatusMap ?? {}"
-        @country-click="handleCountryClick"
-        @toggle-view="handleToggleView"
-      />
+      <Suspense v-if="viewMode === '2d'">
+        <LazyScratchMap
+          :visit-map="visitMap"
+          :visa-status-map="visaStatusMap ?? {}"
+          @country-click="handleCountryClick"
+          @toggle-view="handleToggleView"
+        />
+        <template #fallback>
+          <SkeletonMap mode="2d" />
+        </template>
+      </Suspense>
+      <ClientOnly v-else>
+        <LazyGlobeScratchMap
+          :visit-map="visitMap"
+          :visa-status-map="visaStatusMap ?? {}"
+          @country-click="handleCountryClick"
+          @toggle-view="handleToggleView"
+        />
+        <template #fallback>
+          <SkeletonMap mode="3d" />
+        </template>
+      </ClientOnly>
       <LazyCountryDetailPanel
         :country="selectedCountry"
         :visit-type="selectedCountry ? visitMap.get(selectedCountry.alpha2) : undefined"

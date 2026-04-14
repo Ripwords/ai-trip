@@ -323,17 +323,6 @@ function handleTouchEnd(e: TouchEvent) {
   }
 }
 
-// ── Fullscreen (mobile) ────────────────────────────────────────────
-const isFullscreen = ref(false)
-
-function toggleFullscreen() {
-  isFullscreen.value = !isFullscreen.value
-  if (isFullscreen.value) {
-    document.body.style.overflow = "hidden"
-  } else {
-    document.body.style.overflow = ""
-  }
-}
 
 onMounted(() => {
   // Default zoom in slightly on mobile so the map isn't so zoomed out
@@ -370,21 +359,15 @@ function resetZoom() {
   <div
     ref="mapContainerRef"
     class="scratch-map relative rounded-2xl border border-sand-200"
-    :class="{
-      'scratch-map--fullscreen fixed inset-0 z-[100] rounded-none border-none': isFullscreen,
-    }"
     @mousemove="handleMouseMove"
   >
     <!-- Inner SVG container: overflow-hidden for zoom/pan clipping -->
-    <div class="overflow-hidden" :class="isFullscreen ? 'h-full' : 'rounded-2xl'">
+    <div class="overflow-hidden rounded-2xl">
       <svg
         ref="svgRef"
         viewBox="0 0 960 600"
         class="block w-full select-none"
-        :class="[
-          isFullscreen ? 'h-full' : '',
-          { 'cursor-grab': scale > 1.05, 'cursor-grabbing': isPanning },
-        ]"
+        :class="{ 'cursor-grab': scale > 1.05, 'cursor-grabbing': isPanning }"
         style="touch-action: none"
         xmlns="http://www.w3.org/2000/svg"
         @wheel="handleWheel"
@@ -492,18 +475,6 @@ function resetZoom() {
         <Icon name="lucide:globe" class="h-5 w-5 sm:h-4 sm:w-4" />
       </button>
     </div>
-
-    <!-- Fullscreen toggle -->
-    <button
-      class="map-btn absolute left-3 top-3 flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
-      :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'"
-      @click="toggleFullscreen"
-    >
-      <Icon
-        :name="isFullscreen ? 'lucide:minimize-2' : 'lucide:maximize'"
-        class="h-5 w-5 sm:h-4 sm:w-4"
-      />
-    </button>
 
     <!-- Stats overlay -->
     <div
@@ -677,22 +648,12 @@ function resetZoom() {
   background: var(--map-btn-hover);
 }
 
-/* ── Fullscreen ───────────────────────────────────────── */
-.scratch-map--fullscreen {
-  background: var(--map-ocean);
-}
-.scratch-map--fullscreen svg {
-  /* Center the map vertically in fullscreen on mobile */
-  object-fit: contain;
-}
-
 /* On mobile portrait, give the map more height by default */
 @media (max-width: 639px) {
-  .scratch-map:not(.scratch-map--fullscreen) {
-    /* ~60vh instead of the natural ~200px from 960:600 aspect ratio */
+  .scratch-map {
     min-height: 50vh;
   }
-  .scratch-map:not(.scratch-map--fullscreen) svg {
+  .scratch-map svg {
     min-height: 50vh;
   }
 }
