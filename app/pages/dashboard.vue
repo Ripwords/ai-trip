@@ -148,10 +148,7 @@ const countdown = computed(() => {
     </div>
 
     <!-- Next flight + Trip countdown row -->
-    <div
-      v-if="nextFlight || (nextTrip && countdown)"
-      class="grid grid-cols-1 gap-3 sm:grid-cols-2"
-    >
+    <div v-if="nextFlight || (nextTrip && countdown)" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <!-- Next flight -->
       <div
         v-if="nextFlight"
