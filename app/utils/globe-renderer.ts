@@ -46,20 +46,18 @@ export function createGlobe(options: {
   const { theme, polygonCapColor, polygonSideColor, showAtmosphere = true } = options
 
   const globe = new ThreeGlobe({ animateIn: false })
-    .globeMaterial(
-      new MeshBasicMaterial({ color: theme.ocean }),
-    )
+    .globeMaterial(new MeshBasicMaterial({ color: theme.ocean }))
     .showAtmosphere(showAtmosphere)
     .atmosphereColor(theme.atmosphere)
     .atmosphereAltitude(0.15)
     .polygonsData(enrichedFeatures)
     .polygonGeoJsonGeometry((d: EnrichedFeature) => d.geometry)
     .polygonCapColor(polygonCapColor as (obj: object) => string)
-    .polygonSideColor(
-      (polygonSideColor ?? (() => "rgba(0,0,0,0)")) as (obj: object) => string,
-    )
+    .polygonSideColor((polygonSideColor ?? (() => "rgba(0,0,0,0)")) as (obj: object) => string)
     .polygonStrokeColor(() => theme.border)
-    .polygonAltitude(0.006)
+    .polygonAltitude(0)
+    .polygonCapCurvatureResolution(1)
+    .polygonsTransitionDuration(0)
 
   return globe
 }
@@ -68,7 +66,9 @@ export function createGlobe(options: {
  * Walk a hit mesh's ancestry to find the three-globe datum (__data)
  * and resolve it to a CountryInfo.
  */
-export function getCountryFromMesh(obj: { __data?: EnrichedFeature; parent?: unknown } | null): CountryInfo | undefined {
+export function getCountryFromMesh(
+  obj: { __data?: EnrichedFeature; parent?: unknown } | null,
+): CountryInfo | undefined {
   let current = obj
   while (current) {
     const data = (current as { __data?: EnrichedFeature }).__data
