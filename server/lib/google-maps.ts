@@ -33,7 +33,10 @@ interface DistanceMatrixEntry {
   status: string
 }
 
-const MAPS_API_KEY = process.env.NUXT_PUBLIC_GOOGLE_MAPS_API_KEY!
+function getServerMapsApiKey(): string {
+  const config = useRuntimeConfig()
+  return config.privateGoogleMapsApiKey || config.public.googleMapsApiKey
+}
 
 // ── Cached: Place Text Search ($35/1K — cache 24h) ──────────────────
 
@@ -60,7 +63,7 @@ const _searchPlace = defineCachedFunction(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Goog-Api-Key": MAPS_API_KEY,
+          "X-Goog-Api-Key": getServerMapsApiKey(),
           "X-Goog-FieldMask":
             "places.displayName,places.id,places.location,places.rating,places.formattedAddress,places.types",
         },
@@ -121,7 +124,7 @@ const _getDistanceMatrix = defineCachedFunction(
       params: {
         origins: originsStr,
         destinations: destinationsStr,
-        key: MAPS_API_KEY,
+        key: getServerMapsApiKey(),
       },
     })
 
@@ -163,7 +166,7 @@ const _getPlaceDetails = defineCachedFunction(
       `https://places.googleapis.com/v1/places/${placeId}`,
       {
         headers: {
-          "X-Goog-Api-Key": MAPS_API_KEY,
+          "X-Goog-Api-Key": getServerMapsApiKey(),
           "X-Goog-FieldMask":
             "displayName,id,location,rating,formattedAddress,types,photos,regularOpeningHours,priceLevel,editorialSummary",
         },
@@ -233,7 +236,7 @@ const _geocode = defineCachedFunction(
     }>("https://maps.googleapis.com/maps/api/geocode/json", {
       params: {
         address,
-        key: MAPS_API_KEY,
+        key: getServerMapsApiKey(),
       },
     })
 

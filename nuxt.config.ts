@@ -86,6 +86,7 @@ export default defineNuxtConfig({
       betterAuthUrl: "",
       googleMapsApiKey: "",
     },
+    privateGoogleMapsApiKey: "",
   },
 
   // PWA Configuration
