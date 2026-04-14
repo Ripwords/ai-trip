@@ -77,7 +77,6 @@ export default defineNuxtConfig({
         "d3-geo",
         "topojson-client",
         "@tresjs/cientos",
-        "three-globe",
       ],
     },
   },
