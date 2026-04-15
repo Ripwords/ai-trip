@@ -35,6 +35,7 @@ function createGlobe(options: GlobeOptions): ThreeGlobe
 ```
 
 Responsibilities:
+
 - Parses TopoJSON to GeoJSON features once (reuses existing `countriesGeo`)
 - Attaches country info (alpha2, numeric, name) to each feature's properties for raycasting identification
 - Calls `globe.polygonsData(features)` with the color accessor
@@ -56,6 +57,7 @@ function getCountryFromMesh(mesh: THREE.Object3D): CountryInfo | undefined
 ### Theme Switching
 
 All three-globe methods are getter/setters callable at any time. Components watch their theme and call:
+
 - `globe.polygonCapColor(newAccessor)` — recolor polygons
 - `globe.polygonSideColor(newAccessor)` — recolor extrusion sides
 - `globe.polygonStrokeColor(newAccessor)` — recolor borders
@@ -67,6 +69,7 @@ No globe recreation needed for theme changes.
 ## Component: GlobeScratchMap.vue
 
 ### Rendering
+
 - Creates globe via `createGlobe()` with a color accessor that reads `visitMap`:
   - visited → terra color
   - layover → ocean color
@@ -76,60 +79,71 @@ No globe recreation needed for theme changes.
 - OrbitControls unchanged (zoom 3-8, damping, no pan)
 
 ### Click/Hover Detection
+
 - Same manual canvas event listener pattern (MutationObserver to attach after ClientOnly renders canvas)
 - Raycaster intersects `globe.children` instead of a single sphere mesh
 - Hit mesh → `getCountryFromMesh()` → emit `countryClick` / update tooltip
 - Click-vs-drag detection unchanged (5px threshold)
 
 ### Visit Status Updates
+
 - When `visitMap` changes, call `globe.polygonCapColor(updatedAccessor)` to recolor
 - three-globe handles mesh material updates internally
 
 ### Auto-Center Animation
+
 - Same logic using `getCountryCentroid()` and OrbitControls interpolation
 - `controlsRef.value?.instance` access pattern unchanged
 
 ### Tooltip
+
 - Same behavior: country name, visit type, visa status badge
 - Country resolved from mesh hit instead of UV lookup
 
 ## Component: FlightGlobe.vue
 
 ### Rendering
+
 - Creates globe via `createGlobe()` with subtle muted fill colors (no visit status)
 - Mounts globe as `<primitive :object="globe" />`
 
 ### Flight Arcs
+
 - Replace manual `QuadraticBezierCurve3` + `Line` with `globe.arcsData()`:
   ```ts
-  globe.arcsData(arcs)
-    .arcStartLat(d => d.startLat)
-    .arcStartLng(d => d.startLng)
-    .arcEndLat(d => d.endLat)
-    .arcEndLng(d => d.endLng)
+  globe
+    .arcsData(arcs)
+    .arcStartLat((d) => d.startLat)
+    .arcStartLng((d) => d.startLng)
+    .arcEndLat((d) => d.endLat)
+    .arcEndLng((d) => d.endLng)
     .arcColor(() => theme.arcColor)
     .arcAltitudeAutoScale(0.3)
     .arcStroke(0.5)
   ```
 
 ### Airport Dots
+
 - Replace manual `SphereGeometry` dots with `globe.pointsData()`:
   ```ts
-  globe.pointsData(airports)
-    .pointLat(d => d.lat)
-    .pointLng(d => d.lng)
+  globe
+    .pointsData(airports)
+    .pointLat((d) => d.lat)
+    .pointLng((d) => d.lng)
     .pointColor(() => theme.dotColor)
     .pointRadius(0.4)
     .pointAltitude(0.01)
   ```
 
 ### Borders
+
 - Handled by `polygonStrokeColor()` from the shared utility
 - Remove `buildCountryLineGeometry()` and `LineSegments` entirely
 
 ## Deletions
 
 ### From `globe-countries.ts`:
+
 - `renderGlobeTexture()` — replaced by three-globe polygon rendering
 - `renderIdTexture()` — replaced by mesh raycasting
 - `resolveCountryFromUV()` — no longer needed
@@ -139,12 +153,14 @@ No globe recreation needed for theme changes.
 - `GlobeColors` interface (replaced by new interface in globe-renderer.ts)
 
 ### From `FlightGlobe.vue`:
+
 - `buildCountryLineGeometry()` — replaced by three-globe borders
 - Manual `QuadraticBezierCurve3` arc construction
 - Manual `SphereGeometry` dot construction
 - `borderGeometry`, `borderMaterial`, `countryLines`
 
 ### Kept in `globe-countries.ts`:
+
 - `latLngToVector3()` — still needed for auto-center animation
 - `getCountryCentroid()` — still needed for auto-center
 - `getCountryFeatures()` — still needed for feature lookup
@@ -169,6 +185,7 @@ This is simpler and more accurate — no texture encoding/decoding, no UV coordi
 ## Risk: `__data` Property
 
 three-globe's internal data attachment mechanism (`__data`) is not a documented public API. If a future version changes this:
+
 - Mitigation: Pin three-globe version
 - Alternative: Use `globe.getPolygons()` if available, or maintain a Map<Mesh, Feature> during polygon creation
 

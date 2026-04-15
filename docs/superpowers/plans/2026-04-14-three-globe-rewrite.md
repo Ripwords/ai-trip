@@ -14,18 +14,19 @@
 
 ## File Structure
 
-| Action | File | Responsibility |
-|--------|------|---------------|
-| Create | `app/utils/globe-renderer.ts` | Shared factory: creates ThreeGlobe, configures polygons, exports country-from-mesh helper |
-| Modify | `app/utils/globe-countries.ts` | Remove texture rendering, keep `latLngToVector3`, `getCountryCentroid`, `getCountryFeatures`, types |
-| Rewrite | `app/components/GlobeScratchMap.vue` | Interactive globe using three-globe, manual raycasting for click/hover |
-| Rewrite | `app/components/FlightGlobe.vue` | Flight route globe using three-globe arcs/points |
+| Action  | File                                 | Responsibility                                                                                      |
+| ------- | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Create  | `app/utils/globe-renderer.ts`        | Shared factory: creates ThreeGlobe, configures polygons, exports country-from-mesh helper           |
+| Modify  | `app/utils/globe-countries.ts`       | Remove texture rendering, keep `latLngToVector3`, `getCountryCentroid`, `getCountryFeatures`, types |
+| Rewrite | `app/components/GlobeScratchMap.vue` | Interactive globe using three-globe, manual raycasting for click/hover                              |
+| Rewrite | `app/components/FlightGlobe.vue`     | Flight route globe using three-globe arcs/points                                                    |
 
 ---
 
 ### Task 1: Install three-globe
 
 **Files:**
+
 - Modify: `package.json`
 
 - [ ] **Step 1: Install the package**
@@ -54,6 +55,7 @@ git commit -m "chore: add three-globe dependency"
 ### Task 2: Create shared globe renderer utility
 
 **Files:**
+
 - Create: `app/utils/globe-renderer.ts`
 
 - [ ] **Step 1: Create the globe renderer utility**
@@ -107,18 +109,14 @@ export function createGlobe(options: {
   const { theme, polygonCapColor, polygonSideColor, showAtmosphere = true } = options
 
   const globe = new ThreeGlobe({ animateIn: false })
-    .globeMaterial(
-      new MeshBasicMaterial({ color: theme.ocean }),
-    )
+    .globeMaterial(new MeshBasicMaterial({ color: theme.ocean }))
     .showAtmosphere(showAtmosphere)
     .atmosphereColor(theme.atmosphere)
     .atmosphereAltitude(0.15)
     .polygonsData(enrichedFeatures)
     .polygonGeoJsonGeometry((d: EnrichedFeature) => d.geometry)
     .polygonCapColor(polygonCapColor as (obj: object) => string)
-    .polygonSideColor(
-      (polygonSideColor ?? (() => "rgba(0,0,0,0)")) as (obj: object) => string,
-    )
+    .polygonSideColor((polygonSideColor ?? (() => "rgba(0,0,0,0)")) as (obj: object) => string)
     .polygonStrokeColor(() => theme.border)
     .polygonAltitude(0.006)
 
@@ -129,7 +127,9 @@ export function createGlobe(options: {
  * Walk a hit mesh's ancestry to find the three-globe datum (__data)
  * and resolve it to a CountryInfo.
  */
-export function getCountryFromMesh(obj: { __data?: EnrichedFeature; parent?: unknown } | null): CountryInfo | undefined {
+export function getCountryFromMesh(
+  obj: { __data?: EnrichedFeature; parent?: unknown } | null,
+): CountryInfo | undefined {
   let current = obj
   while (current) {
     const data = (current as { __data?: EnrichedFeature }).__data
@@ -169,6 +169,7 @@ git commit -m "feat: add shared three-globe renderer utility"
 Remove texture rendering code, keep utilities needed by both components.
 
 **Files:**
+
 - Modify: `app/utils/globe-countries.ts`
 
 - [ ] **Step 1: Rewrite globe-countries.ts to keep only utilities**
@@ -263,6 +264,7 @@ git commit -m "refactor: remove texture rendering from globe-countries, keep uti
 ### Task 4: Rewrite GlobeScratchMap.vue
 
 **Files:**
+
 - Rewrite: `app/components/GlobeScratchMap.vue`
 
 - [ ] **Step 1: Rewrite the full component**
@@ -299,7 +301,14 @@ const emit = defineEmits<{
 const { isDark } = useDarkMode()
 
 // --- Theme ---
-const theme = computed<GlobeTheme & { visitedColor: string; layoverColor: string; wantColor: string; unvisitedColor: string }>(() =>
+const theme = computed<
+  GlobeTheme & {
+    visitedColor: string
+    layoverColor: string
+    wantColor: string
+    unvisitedColor: string
+  }
+>(() =>
   isDark.value
     ? {
         clearColor: "#1a1714",
@@ -346,16 +355,14 @@ const globe = createGlobe({
 })
 
 // Reactively update colors when visitMap or theme changes
-watch(
-  [() => props.visitMap, theme],
-  () => {
-    globe
-      .polygonCapColor(getPolygonColor as (obj: object) => string)
-      .polygonStrokeColor(() => theme.value.border)
-      .globeMaterial().color.set(theme.value.ocean)
-    globe.atmosphereColor(theme.value.atmosphere)
-  },
-)
+watch([() => props.visitMap, theme], () => {
+  globe
+    .polygonCapColor(getPolygonColor as (obj: object) => string)
+    .polygonStrokeColor(() => theme.value.border)
+    .globeMaterial()
+    .color.set(theme.value.ocean)
+  globe.atmosphereColor(theme.value.atmosphere)
+})
 
 // --- Stats ---
 const visitedCount = computed(
@@ -674,6 +681,7 @@ Expected: No import errors. Server starts.
 - [ ] **Step 3: Test in browser**
 
 Open the explore page, switch to 3D globe view. Verify:
+
 - Globe renders with countries visible (no equirectangular distortion)
 - Hover shows tooltips with country names
 - Click opens the country detail panel
@@ -692,6 +700,7 @@ git commit -m "feat: rewrite GlobeScratchMap with three-globe for distortion-fre
 ### Task 5: Rewrite FlightGlobe.vue
 
 **Files:**
+
 - Rewrite: `app/components/FlightGlobe.vue`
 
 - [ ] **Step 1: Rewrite the full component**
@@ -821,7 +830,8 @@ watch(theme, (t) => {
     .polygonStrokeColor(() => t.border)
     .arcColor(() => t.arcColor)
     .pointColor(() => t.dotColor)
-    .globeMaterial().color.set(t.ocean)
+    .globeMaterial()
+    .color.set(t.ocean)
   globe.atmosphereColor(t.atmosphere)
 })
 
@@ -909,6 +919,7 @@ const summaryText = computed(() => {
 - [ ] **Step 2: Test in browser**
 
 Navigate to a trip page that has flights. Verify:
+
 - Globe renders with filled country polygons (no more wireframe-only borders)
 - Flight arcs display between airports
 - Airport dots visible
@@ -931,6 +942,7 @@ git commit -m "feat: rewrite FlightGlobe with three-globe for distortion-free re
 - [ ] **Step 1: Test both globes end-to-end**
 
 Check all these in the browser:
+
 1. Explore page → 3D globe: countries colored by visit status, click opens panel, hover shows tooltip, zoom to poles shows no distortion
 2. Trip page → FlightGlobe: arcs render, dots render, auto-rotate works, summary text correct
 3. Toggle dark/light mode on both pages — all colors update
