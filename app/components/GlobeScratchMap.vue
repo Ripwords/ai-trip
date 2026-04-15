@@ -509,7 +509,8 @@ function animateToCentroid(info: CountryInfo) {
   >
     <ClientOnly>
       <TresCanvas :alpha="true" :clear-color="theme.clearColor" :antialias="true">
-        <TresPerspectiveCamera :position="[0, 0, 5]" :fov="45" />
+        <!-- Default view: Malaysia (lat 4.2, lng 102) -->
+        <TresPerspectiveCamera :position="[-1.03, 0.37, -4.89]" :fov="45" />
 
         <OrbitControls
           ref="controlsRef"
