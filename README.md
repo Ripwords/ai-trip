@@ -127,8 +127,8 @@ Fill in the required values:
 
 ```bash
 # Database (Neon PostgreSQL)
-DATABASE_URL=postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/dbname?sslmode=require
-DATABASE_URL_UNPOOLED=postgresql://user:pass@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
+DATABASE_URL=postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/dbname?sslmode=verify-full
+DATABASE_URL_UNPOOLED=postgresql://user:pass@ep-xxx.region.aws.neon.tech/dbname?sslmode=verify-full
 
 # Auth
 BETTER_AUTH_SECRET=           # openssl rand -base64 32
