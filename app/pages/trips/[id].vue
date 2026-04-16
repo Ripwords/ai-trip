@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { BorderBeam } from "vue-border-beam"
+
 definePageMeta({ layout: "app" })
 
 const route = useRoute()
@@ -1079,25 +1081,35 @@ async function recomputeSegments(dayId: string) {
           </div>
 
           <form class="flex items-center gap-1.5 sm:gap-2" @submit.prevent="handleAiSubmit">
-            <div class="relative min-w-0 flex-1">
-              <Icon
-                name="lucide:sparkles"
-                class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-terra-400 sm:h-4 sm:w-4"
-              />
-              <input
-                v-model="aiPrompt"
-                type="text"
-                :disabled="aiLoading || (aiUsage?.remaining ?? 1) <= 0"
-                :placeholder="
-                  (aiUsage?.remaining ?? 1) <= 0
-                    ? `Limit reached. Resets next month.`
-                    : activeDayHasActivities
-                      ? 'Add, remove, reschedule, find a hotel...'
-                      : 'What to do today?'
-                "
-                class="input-focus block w-full rounded-xl border border-sand-200 bg-white py-2 pl-9 pr-3 text-sm text-sand-900 placeholder:text-sand-400 disabled:opacity-50 sm:py-2.5 sm:pl-10 sm:pr-4"
-              />
-            </div>
+            <BorderBeam
+              size="sm"
+              color-variant="sunset"
+              theme="dark"
+              :brightness="1.5"
+              :strength="1"
+              :duration="4"
+              class="min-w-0 flex-1"
+            >
+              <div class="relative">
+                <Icon
+                  name="lucide:sparkles"
+                  class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-terra-400 sm:h-4 sm:w-4"
+                />
+                <input
+                  v-model="aiPrompt"
+                  type="text"
+                  :disabled="aiLoading || (aiUsage?.remaining ?? 1) <= 0"
+                  :placeholder="
+                    (aiUsage?.remaining ?? 1) <= 0
+                      ? `Limit reached. Resets next month.`
+                      : activeDayHasActivities
+                        ? 'Add, remove, reschedule, find a hotel...'
+                        : 'What to do today?'
+                  "
+                  class="block w-full rounded-xl border-none bg-transparent py-2 pl-9 pr-3 text-sm text-sand-900 placeholder:text-sand-400 focus:outline-none disabled:opacity-50 sm:py-2.5 sm:pl-10 sm:pr-4"
+                />
+              </div>
+            </BorderBeam>
             <button
               type="submit"
               :disabled="aiLoading || !aiPrompt.trim() || (aiUsage?.remaining ?? 1) <= 0"

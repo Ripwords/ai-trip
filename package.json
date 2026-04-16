@@ -57,6 +57,7 @@
     "tailwindcss": "^4.2.1",
     "topojson-client": "^3.1.0",
     "vue": "^3.5.30",
+    "vue-border-beam": "^0.1.1",
     "vue-router": "^5.0.3",
     "vuedraggable": "^4.1.0",
     "ws": "^8.20.0",

@@ -78,6 +78,7 @@ export default defineNuxtConfig({
         "topojson-client",
         "@tresjs/cientos",
         "three/examples/jsm/loaders/FBXLoader.js",
+        "vue-border-beam",
       ],
     },
   },

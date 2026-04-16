@@ -36,6 +36,7 @@
         "tailwindcss": "^4.2.1",
         "topojson-client": "^3.1.0",
         "vue": "^3.5.30",
+        "vue-border-beam": "^0.1.1",
         "vue-router": "^5.0.3",
         "vuedraggable": "^4.1.0",
         "ws": "^8.20.0",
@@ -3277,6 +3278,8 @@
     "vscode-uri": ["vscode-uri@3.1.0", "", {}, "sha512-/BpdSx+yCQGnCvecbyXdxHDkuk55/G3xwnC0GqY4gmQ3j+A+g8kzzgB4Nk/SINjqn6+waqw3EgbVF2QKExkRxQ=="],
 
     "vue": ["vue@3.5.32", "", { "dependencies": { "@vue/compiler-dom": "3.5.32", "@vue/compiler-sfc": "3.5.32", "@vue/runtime-dom": "3.5.32", "@vue/server-renderer": "3.5.32", "@vue/shared": "3.5.32" }, "peerDependencies": { "typescript": "*" }, "optionalPeers": ["typescript"] }, "sha512-vM4z4Q9tTafVfMAK7IVzmxg34rSzTFMyIe0UUEijUCkn9+23lj0WRfA83dg7eQZIUlgOSGrkViIaCfqSAUXsMw=="],
+
+    "vue-border-beam": ["vue-border-beam@0.1.1", "", { "peerDependencies": { "vue": ">=3.3.0" } }, "sha512-6tv/qNnzW2hBDm7uCS2yjzERtJuS3MC39iSP/xNwUY+Ic941eBv7ZMB0GzmYpvQhV++c+aLzBj3FRFRNARpVxw=="],
 
     "vue-bundle-renderer": ["vue-bundle-renderer@2.2.0", "", { "dependencies": { "ufo": "^1.6.1" } }, "sha512-sz/0WEdYH1KfaOm0XaBmRZOWgYTEvUDt6yPYaUzl4E52qzgWLlknaPPTTZmp6benaPTlQAI/hN1x3tAzZygycg=="],
 
