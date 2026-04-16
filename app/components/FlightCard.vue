@@ -5,15 +5,15 @@ interface Flight {
   id: string
   flightNumber: string
   flightDate: string
-  airline: string | null
+  airline?: string | null
   departureAirport: string | null
   arrivalAirport: string | null
   departureTime: string | null
   arrivalTime: string | null
-  terminal: string | null
-  gate: string | null
-  status: string
-  tripId: string | null
+  terminal?: string | null
+  gate?: string | null
+  status?: string
+  tripId?: string | null
   trip?: { id: string; destination: string } | null
 }
 
@@ -49,7 +49,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 
 const statusBadge = computed(
   () =>
-    statusConfig[props.flight.status] ?? {
+    statusConfig[props.flight.status ?? "scheduled"] ?? {
       label: "Scheduled",
       color: "bg-sand-100 text-sand-700",
     },
