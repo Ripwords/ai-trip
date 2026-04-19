@@ -4,7 +4,7 @@ import { dash } from "@better-auth/infra"
 import { eq, and } from "drizzle-orm"
 import { db } from "../db"
 import { admin } from "better-auth/plugins"
-import { tripMembers, user as userTable } from "../db/schema"
+import { activityLog, tripMembers, user as userTable } from "../db/schema"
 
 if (!process.env.BETTER_AUTH_SECRET) throw new Error("BETTER_AUTH_SECRET must be set")
 
@@ -112,6 +112,13 @@ export const auth = betterAuth({
                   inviteToken: null,
                 })
                 .where(eq(tripMembers.id, invite.id))
+
+              await db.insert(activityLog).values({
+                tripId: invite.tripId,
+                userId: session.userId,
+                action: "member_joined",
+                description: `${user.name || user.email} joined the trip`,
+              })
             }
 
             if (pendingInvites.length > 0) {

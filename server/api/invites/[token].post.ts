@@ -1,5 +1,5 @@
 import { createHash } from "crypto"
-import { eq } from "drizzle-orm"
+import { and, desc, eq, sql } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../../db"
 import { tripMembers } from "../../db/schema"
@@ -21,6 +21,20 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!invite) {
+    // The session-create auto-accept hook may have already activated this invite
+    // and cleared the token. Fall back to the user's most recent email-matched
+    // active membership so they still get redirected to the trip.
+    const already = await db.query.tripMembers.findFirst({
+      where: and(
+        eq(tripMembers.userId, session.user.id),
+        sql`lower(${tripMembers.invitedEmail}) = ${session.user.email.toLowerCase()}`,
+        eq(tripMembers.status, "active"),
+      ),
+      orderBy: [desc(tripMembers.createdAt)],
+    })
+    if (already) {
+      return { success: true, tripId: already.tripId, message: "Already accepted" }
+    }
     throw createError({ statusCode: 404, message: "Invite not found" })
   }
 

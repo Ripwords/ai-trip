@@ -1,4 +1,4 @@
-import { eq, or, inArray } from "drizzle-orm"
+import { eq, or, inArray, and } from "drizzle-orm"
 import { db } from "../../db"
 import { trips, tripMembers } from "../../db/schema"
 import { paginationSchema } from "../../utils/schemas"
@@ -7,9 +7,10 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const query = await getValidatedQuery(event, paginationSchema.parse)
 
-  // Get trip IDs where user is a member
+  // Only include memberships the user has actually accepted — otherwise pending invites
+  // show up on the dashboard but requireTripAccess rejects them as "Trip not found".
   const memberships = await db.query.tripMembers.findMany({
-    where: eq(tripMembers.userId, session.user.id),
+    where: and(eq(tripMembers.userId, session.user.id), eq(tripMembers.status, "active")),
     columns: { tripId: true },
   })
   const memberTripIds = memberships.map((m) => m.tripId)

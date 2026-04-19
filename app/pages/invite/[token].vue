@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { authClient } from "../../lib/auth-client"
-
 useSeoMeta({
   title: "Accept Invite",
   description: "Accept an invitation to collaborate on a trip.",
@@ -9,18 +7,26 @@ useSeoMeta({
 const route = useRoute()
 const token = route.params.token as string
 
-const { data: session } = await authClient.useSession(useFetch)
+// Use useRequestFetch so cookies are forwarded during SSR — authClient.useSession(useFetch)
+// fails to detect sessions on the server, which silently bounced authenticated users to /login.
+let isAuthenticated = false
+try {
+  const fetchWithCookies = useRequestFetch()
+  const sessionResponse = await fetchWithCookies<{ user?: unknown }>("/api/auth/get-session")
+  isAuthenticated = !!sessionResponse?.user
+} catch {
+  // Session fetch failed — treat as unauthenticated
+}
+
 const loading = ref(false)
 const error = ref("")
 const success = ref(false)
 
-// If not logged in, redirect to login first (they'll come back after)
-if (!session.value?.user) {
-  // Store the invite URL so we can redirect back after login
+if (!isAuthenticated) {
   if (import.meta.client) {
     sessionStorage.setItem("pending-invite", `/invite/${token}`)
   }
-  navigateTo("/login")
+  await navigateTo("/login")
 }
 
 async function acceptInvite() {
@@ -29,7 +35,6 @@ async function acceptInvite() {
   try {
     const result = await $fetch(`/api/invites/${token}`, { method: "POST" })
     success.value = true
-    // Redirect to the trip after a short delay
     setTimeout(() => navigateTo(`/trips/${result.tripId}`), 1500)
   } catch (e: unknown) {
     const err = e as { data?: { message?: string } }
@@ -39,9 +44,8 @@ async function acceptInvite() {
   }
 }
 
-// Auto-accept on mount
 onMounted(() => {
-  if (session.value?.user) {
+  if (isAuthenticated) {
     acceptInvite()
   }
 })
