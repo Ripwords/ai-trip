@@ -186,9 +186,15 @@ watch(
                     :href="mapsLinkFor(activity)"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="text-xs text-sand-500 hover:text-terra-600 hover:underline truncate"
+                    class="inline-flex items-center gap-1.5 truncate text-ocean-600 transition hover:text-terra-600"
+                    title="Open in Google Maps"
                   >
-                    {{ activity.address }}
+                    <Icon name="lucide:map-pin" class="h-3.5 w-3.5 shrink-0" />
+                    <span
+                      class="truncate underline decoration-ocean-300 underline-offset-2 hover:decoration-terra-400"
+                      >{{ activity.address }}</span
+                    >
+                    <Icon name="lucide:external-link" class="h-3 w-3 shrink-0 opacity-50" />
                   </a>
                 </div>
               </div>
