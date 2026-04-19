@@ -1,6 +1,6 @@
-import { and, eq, desc, sql } from "drizzle-orm"
+import { and, eq, desc, sql, asc } from "drizzle-orm"
 import { db } from "../../../../db"
-import { itineraryDays, activities } from "../../../../db/schema"
+import { itineraryDays, activities, travelSegments } from "../../../../db/schema"
 import { uuidParamsSchema, addActivitySchema } from "../../../../utils/schemas"
 import { computeAndSaveSegments } from "../../../../lib/segments"
 
@@ -62,5 +62,9 @@ export default defineEventHandler(async (event) => {
     description: `Added "${activity!.name}" to Day`,
   })
 
-  return activity
+  const segments = await db.query.travelSegments.findMany({
+    where: eq(travelSegments.itineraryDayId, itineraryDayId),
+  })
+
+  return { activity, segments }
 })
