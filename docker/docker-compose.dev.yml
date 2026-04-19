@@ -1,3 +1,4 @@
+name: ai_trip_dev
 services:
   postgres:
     image: postgres:17
