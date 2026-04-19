@@ -32,12 +32,28 @@ export const createTripSchema = z.object({
   currencyCode: z.string().length(3).optional(),
 })
 
-export const updateTripSchema = createTripSchema.partial().extend({
-  status: tripStatusEnum.optional(),
-  budget: z.string().nullish(),
-  currencyCode: z.string().length(3).optional(),
-  tripNotes: z.string().nullish(),
-})
+export const updateTripSchema = createTripSchema
+  .partial()
+  .extend({
+    status: tripStatusEnum.optional(),
+    budget: z.string().nullish(),
+    currencyCode: z.string().length(3).optional(),
+    tripNotes: z.string().nullish(),
+  })
+  .refine((v) => !v.startDate || !v.endDate || v.endDate >= v.startDate, {
+    message: "endDate must be >= startDate",
+    path: ["endDate"],
+  })
+
+export const dateRangeQuerySchema = z
+  .object({
+    startDate: z.string().date(),
+    endDate: z.string().date(),
+  })
+  .refine((v) => v.endDate >= v.startDate, {
+    message: "endDate must be >= startDate",
+    path: ["endDate"],
+  })
 
 export const updateActivitySchema = z.object({
   name: z.string().min(1).optional(),
