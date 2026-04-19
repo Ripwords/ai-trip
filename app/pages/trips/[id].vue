@@ -666,6 +666,15 @@ function handleActivityAdded(payload: {
 }
 
 const showMoreMenu = ref(false)
+const showEditTripModal = ref(false)
+
+function handleTripUpdated(updated: unknown) {
+  if (!updated) return
+  // Server returns the same shape as GET /api/trips/[id] minus the _role field.
+  // Preserve the current _role from the existing trip.value.
+  const role = trip.value?._role
+  trip.value = { ...(updated as TripResponse), _role: role ?? "owner" }
+}
 
 // Close more menu on click outside
 if (import.meta.client) {
@@ -844,6 +853,18 @@ async function recomputeSegments(dayId: string) {
                 v-if="showMoreMenu"
                 class="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
               >
+                <button
+                  v-if="!isViewer"
+                  type="button"
+                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
+                  @click="
+                    showMoreMenu = false
+                    showEditTripModal = true
+                  "
+                >
+                  <Icon name="lucide:pencil" class="h-4 w-4 text-sand-400" />
+                  Edit trip
+                </button>
                 <button
                   class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
                   @click="
@@ -1379,6 +1400,16 @@ async function recomputeSegments(dayId: string) {
       :day-number="addActivityModal.dayNumber"
       @added="handleActivityAdded"
       @close="addActivityModal.open = false"
+    />
+
+    <!-- Edit trip modal -->
+    <EditTripModal
+      v-if="trip"
+      :open="showEditTripModal"
+      :trip-id="tripId"
+      :trip="trip"
+      @close="showEditTripModal = false"
+      @updated="handleTripUpdated"
     />
   </div>
 </template>
