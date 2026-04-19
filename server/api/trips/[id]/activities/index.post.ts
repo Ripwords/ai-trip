@@ -1,4 +1,4 @@
-import { and, eq, desc, sql, asc } from "drizzle-orm"
+import { and, eq, desc, sql } from "drizzle-orm"
 import { db } from "../../../../db"
 import { itineraryDays, activities, travelSegments } from "../../../../db/schema"
 import { uuidParamsSchema, addActivitySchema } from "../../../../utils/schemas"
