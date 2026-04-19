@@ -9,7 +9,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  added: []
+  added: [payload: { activity: Record<string, unknown>; segments: unknown[]; dayId: string }]
   close: []
 }>()
 
@@ -39,7 +39,7 @@ async function handleSearchSubmit() {
   if (!selectedPlace.value) return
   submitting.value = true
   try {
-    await $fetch(`/api/trips/${props.tripId}/activities`, {
+    const result = (await $fetch(`/api/trips/${props.tripId}/activities`, {
       method: "POST",
       body: {
         itineraryDayId: props.dayId,
@@ -51,8 +51,8 @@ async function handleSearchSubmit() {
         address: selectedPlace.value.formattedAddress ?? null,
         rating: selectedPlace.value.rating ?? undefined,
       },
-    })
-    emit("added")
+    })) as { activity: Record<string, unknown>; segments: unknown[] }
+    emit("added", { activity: result.activity, segments: result.segments, dayId: props.dayId })
     emit("close")
     resetForm()
   } catch (e: unknown) {
@@ -66,7 +66,7 @@ async function handleManualSubmit() {
   if (!name.value.trim()) return
   submitting.value = true
   try {
-    await $fetch(`/api/trips/${props.tripId}/activities`, {
+    const result = (await $fetch(`/api/trips/${props.tripId}/activities`, {
       method: "POST",
       body: {
         itineraryDayId: props.dayId,
@@ -74,8 +74,8 @@ async function handleManualSubmit() {
         type: type.value,
         description: description.value || null,
       },
-    })
-    emit("added")
+    })) as { activity: Record<string, unknown>; segments: unknown[] }
+    emit("added", { activity: result.activity, segments: result.segments, dayId: props.dayId })
     emit("close")
     resetForm()
   } catch (e: unknown) {

@@ -653,9 +653,16 @@ function handleAddActivity(dayId: string) {
   }
 }
 
-async function handleActivityAdded() {
-  // Server already recomputes segments on activity add, just refresh data
-  await refresh()
+function handleActivityAdded(payload: {
+  activity: Record<string, unknown>
+  segments: unknown[]
+  dayId: string
+}) {
+  if (!trip.value) return
+  const day = trip.value.days.find((d) => d.id === payload.dayId)
+  if (!day) return
+  day.activities = [...day.activities, payload.activity as TripActivity]
+  day.travelSegments = payload.segments as TripDay["travelSegments"]
 }
 
 const showMoreMenu = ref(false)
