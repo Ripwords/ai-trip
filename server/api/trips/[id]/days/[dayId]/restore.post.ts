@@ -46,36 +46,47 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Day not found" })
   }
 
-  // Atomic delete + re-insert
-  await db.transaction(async (tx) => {
-    await tx.delete(activities).where(eq(activities.itineraryDayId, dayId))
+  const insertValues = body.activities.map((a) => ({
+    itineraryDayId: dayId,
+    name: a.name,
+    placeId: a.placeId,
+    type: a.type,
+    description: a.description,
+    lat: a.lat,
+    lng: a.lng,
+    address: a.address,
+    rating: a.rating,
+    priceLevel: a.priceLevel,
+    openingHours: a.openingHours ?? [],
+    photos: a.photos ?? [],
+    suggestedTime: a.suggestedTime,
+    estimatedDurationMinutes: a.estimatedDurationMinutes,
+    costEstimate: a.costEstimate,
+    tags: a.tags ?? [],
+    sortOrder: a.sortOrder,
+    notes: a.notes,
+    actualCost: a.actualCost,
+  }))
 
-    if (body.activities.length > 0) {
-      await tx.insert(activities).values(
-        body.activities.map((a) => ({
-          itineraryDayId: dayId,
-          name: a.name,
-          placeId: a.placeId,
-          type: a.type,
-          description: a.description,
-          lat: a.lat,
-          lng: a.lng,
-          address: a.address,
-          rating: a.rating,
-          priceLevel: a.priceLevel,
-          openingHours: a.openingHours ?? [],
-          photos: a.photos ?? [],
-          suggestedTime: a.suggestedTime,
-          estimatedDurationMinutes: a.estimatedDurationMinutes,
-          costEstimate: a.costEstimate,
-          tags: a.tags ?? [],
-          sortOrder: a.sortOrder,
-          notes: a.notes,
-          actualCost: a.actualCost,
-        })),
-      )
+  // Atomic delete + re-insert. neon-http (prod) uses db.batch; node-postgres
+  // (dev) uses db.transaction.
+  if (import.meta.dev) {
+    await db.transaction(async (tx) => {
+      await tx.delete(activities).where(eq(activities.itineraryDayId, dayId))
+      if (insertValues.length > 0) {
+        await tx.insert(activities).values(insertValues)
+      }
+    })
+  } else {
+    const ops: unknown[] = [db.delete(activities).where(eq(activities.itineraryDayId, dayId))]
+    if (insertValues.length > 0) {
+      ops.push(db.insert(activities).values(insertValues))
     }
-  })
+    const batchDb = db as unknown as {
+      batch: (ops: readonly [unknown, ...unknown[]]) => Promise<unknown>
+    }
+    await batchDb.batch(ops as [unknown, ...unknown[]])
+  }
 
   // Recompute travel segments
   await computeAndSaveSegments(dayId)
