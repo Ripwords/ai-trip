@@ -44,6 +44,8 @@ export default defineEventHandler(async (event) => {
       dayNumber: day.dayNumber,
       date: day.date,
       accommodationName: day.accommodationName,
+      accommodationLat: day.accommodationLat,
+      accommodationLng: day.accommodationLng,
       activities: day.activities.map((a) => ({
         id: a.id,
         name: a.name,
