@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm"
-import { db } from "../../../../db"
-import { itineraryDays } from "../../../../db/schema"
-import { uuidParamsSchema, dateRangeQuerySchema } from "../../../../utils/schemas"
-import { enumerateDates } from "../../../../lib/dates"
+import { db } from "../../../db"
+import { itineraryDays } from "../../../db/schema"
+import { uuidParamsSchema, dateRangeQuerySchema } from "../../../utils/schemas"
+import { enumerateDates } from "../../../lib/dates"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)

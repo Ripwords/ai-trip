@@ -858,8 +858,10 @@ async function recomputeSegments(dayId: string) {
                   type="button"
                   class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
                   @click="
-                    showMoreMenu = false
-                    showEditTripModal = true
+                    () => {
+                      showMoreMenu = false
+                      showEditTripModal = true
+                    }
                   "
                 >
                   <Icon name="lucide:pencil" class="h-4 w-4 text-sand-400" />
