@@ -1178,8 +1178,19 @@ async function recomputeSegments(dayId: string) {
         <!-- Active day content -->
         <div v-if="activeDay" class="mt-4">
           <div class="flex flex-col gap-6 lg:flex-row">
-            <!-- Left: Accommodation + Activities + Ideas -->
+            <!-- Left: Ideas + Accommodation + Activities -->
             <div class="flex-1 space-y-6 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-4">
+              <!-- Ideas bucket (hidden for viewers) -->
+              <IdeasBucket
+                v-if="!isViewer"
+                v-show="!aiLoading"
+                :trip-id="tripId"
+                :ideas="ideas ?? []"
+                :days="sortedDays.map((d) => ({ id: d.id, dayNumber: d.dayNumber, date: d.date }))"
+                :active-day-id="activeDayId"
+                @refresh="handleIdeasRefresh"
+              />
+
               <!-- Accommodation (hidden for viewers) -->
               <AccommodationSection
                 v-if="!isViewer"
@@ -1212,17 +1223,6 @@ async function recomputeSegments(dayId: string) {
                 @reordered="refresh"
                 @update-notes="handleUpdateDayNotes"
                 @toggle-participant="handleToggleParticipant"
-              />
-
-              <!-- Ideas bucket (hidden for viewers) -->
-              <IdeasBucket
-                v-if="!isViewer"
-                v-show="!aiLoading"
-                :trip-id="tripId"
-                :ideas="ideas ?? []"
-                :days="sortedDays.map((d) => ({ id: d.id, dayNumber: d.dayNumber, date: d.date }))"
-                :active-day-id="activeDayId"
-                @refresh="handleIdeasRefresh"
               />
             </div>
 
