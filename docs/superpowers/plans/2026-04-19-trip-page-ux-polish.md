@@ -2,9 +2,10 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fix the "feels like a full refresh" flicker when adding activities, add a modal to edit trip dates (with destructive-confirmation when shrinking the range deletes activities), and move the "Add places" (IdeasBucket) block above Accommodation in the day column.
+**Goal:** Four UX improvements — (1) fix the "feels like a full refresh" flicker when adding activities, (2) add a modal to edit trip dates (with destructive-confirmation when shrinking the range deletes activities), (3) move the "Add places" (IdeasBucket) block above Accommodation in the day column, (4) make the public shared page (`/shared/:token`) useful for visual planning by embedding `TripMap` and linking addresses to Google Maps.
 
 **Architecture:**
+
 - Client-side: replace post-add `refresh()` with local merge of the POST response; add `EditTripModal.vue` that mirrors `AddActivityModal.vue` structure.
 - Server-side: extend activity-create response to include recomputed segments; add a read-only `date-change-preview` endpoint; upgrade the trip PUT to transactionally reconcile `itineraryDays` when dates change.
 - Extract two shared server helpers (`enumerateDates`, `getTripWithRelations`) so the existing trip-create route, the new preview route, and the upgraded PUT all use the same code.
@@ -20,25 +21,30 @@
 ## File structure
 
 **New files:**
+
 - `server/lib/dates.ts` — pure `enumerateDates(start: string, end: string): string[]` helper.
 - `server/lib/trips.ts` — `getTripWithRelations(tripId: string)` helper returning the shape used by the GET endpoint.
 - `server/api/trips/[id]/date-change-preview.get.ts` — read-only preview of day-level diff.
 - `app/components/EditTripModal.vue` — modal for editing `destination`, `startDate`, `endDate` with destructive-confirmation flow.
 
 **Modified files:**
+
 - `server/utils/schemas.ts` — add `dateRangeQuerySchema`; add refine on `updateTripSchema`.
 - `server/api/trips/[id]/activities/index.post.ts` — return `{ activity, segments }`.
 - `server/api/trips/[id].put.ts` — transactional day reconciliation; return hydrated trip.
 - `server/api/trips/[id].get.ts` — use shared `getTripWithRelations` helper.
 - `server/api/trips/index.post.ts` — use shared `enumerateDates` helper.
+- `server/api/shared/[token].get.ts` — return accommodation lat/lng alongside name.
 - `app/components/AddActivityModal.vue` — emit `added` with payload.
 - `app/pages/trips/[id].vue` — reorder day column; replace `handleActivityAdded`; wire `EditTripModal` and "Edit trip" more-menu item.
+- `app/pages/shared/[token].vue` — embed `TripMap`, link addresses to Google Maps, add accommodation coords to `SharedDay` type, widen container to `max-w-6xl`.
 
 ---
 
 ## Task 1: Reorder IdeasBucket above AccommodationSection
 
 **Files:**
+
 - Modify: `app/pages/trips/[id].vue:1181-1227`
 
 - [ ] **Step 1: Move the IdeasBucket block above AccommodationSection**
@@ -46,6 +52,7 @@
 Open `app/pages/trips/[id].vue`. Find the left column starting around line 1181 (the `<!-- Left: Accommodation + Activities + Ideas -->` comment).
 
 Current order (inside `<div class="flex-1 space-y-6 ...">`):
+
 1. `<!-- Accommodation ... -->` + `<AccommodationSection ... />`
 2. `<!-- AI loading overlay -->` + `<AiLoadingOverlay ... />`
 3. `<!-- Activities for this day -->` + `<DaySection ... />`
@@ -56,6 +63,7 @@ Cut the **entire** `<!-- Ideas bucket (hidden for viewers) -->` block including 
 Also update the section header comment on the opening div from `<!-- Left: Accommodation + Activities + Ideas -->` to `<!-- Left: Ideas + Accommodation + Activities -->` to match the new order.
 
 New order:
+
 1. `<!-- Ideas bucket (hidden for viewers) -->` + `<IdeasBucket ... />`
 2. `<!-- Accommodation (hidden for viewers) -->` + `<AccommodationSection ... />`
 3. `<!-- AI loading overlay -->` + `<AiLoadingOverlay ... />`
@@ -71,6 +79,7 @@ Expected: `Found 0 warnings and 0 errors.`
 - [ ] **Step 3: Manual browser verification**
 
 Run `bun run dev`. Open a trip with at least one day in the itinerary tab. Verify:
+
 - "Places you'd like to visit" (IdeasBucket) renders directly under the day tabs, above the Accommodation block.
 - Accommodation, activities list, and AI loading overlay still behave as before.
 - Viewer role still does not see IdeasBucket or Accommodation.
@@ -88,6 +97,7 @@ git commit -m "feat(trip): move IdeasBucket above Accommodation in day column"
 ## Task 2: Extract shared `enumerateDates` and `getTripWithRelations` helpers
 
 **Files:**
+
 - Create: `server/lib/dates.ts`
 - Create: `server/lib/trips.ts`
 - Modify: `server/api/trips/index.post.ts:32-59`
@@ -201,6 +211,7 @@ Expected: `Found 0 warnings and 0 errors.`
 - [ ] **Step 6: Manual regression check**
 
 Run `bun run dev`. Create a new trip from `/trips/new` with a 3-day range. Verify:
+
 - Trip is created, redirect lands on `/trips/:id`.
 - Three itinerary days render with correct dates (same as before this refactor).
 - Opening an existing trip still loads all days, activities, and travel segments.
@@ -217,6 +228,7 @@ git commit -m "refactor(server): extract enumerateDates and getTripWithRelations
 ## Task 3: Return segments from activity-create POST
 
 **Files:**
+
 - Modify: `server/api/trips/[id]/activities/index.post.ts`
 
 - [ ] **Step 1: Update the endpoint to return both activity and segments**
@@ -279,6 +291,7 @@ git commit -m "feat(trip): return recomputed segments from activity POST"
 ## Task 4: Optimistic activity insert on the trip page
 
 **Files:**
+
 - Modify: `app/components/AddActivityModal.vue`
 - Modify: `app/pages/trips/[id].vue`
 
@@ -361,6 +374,7 @@ Expected: `Found 0 warnings and 0 errors.`
 Run `bun run dev`. Open a trip, pick a day with at least one activity already, click "Add activity", and add a place via search.
 
 Verify:
+
 - The new activity appears in the day's activity list immediately.
 - The map marker for the new place appears.
 - A travel segment divider renders between the previous activity and the new one (segments updated in place).
@@ -380,6 +394,7 @@ git commit -m "feat(trip): optimistic activity insert without refetch"
 ## Task 5: Add `date-change-preview` endpoint + schema
 
 **Files:**
+
 - Modify: `server/utils/schemas.ts`
 - Create: `server/api/trips/[id]/date-change-preview.get.ts`
 
@@ -484,7 +499,9 @@ Expected: `Found 0 warnings and 0 errors.`
 Run `bun run dev`. Open DevTools Console on a trip page you own (e.g. `/trips/abc-123`) so the session cookie is sent. Run:
 
 ```js
-await fetch(`/api/trips/${window.location.pathname.split("/").pop()}/date-change-preview?startDate=2026-05-01&endDate=2026-05-02`).then(r => r.json())
+await fetch(
+  `/api/trips/${window.location.pathname.split("/").pop()}/date-change-preview?startDate=2026-05-01&endDate=2026-05-02`,
+).then((r) => r.json())
 ```
 
 Verify the response shape: `{ daysToDelete: [...], daysToAdd: number }`. Run the query again with `endDate=startDate` → should succeed with `daysToDelete` likely non-empty. Run with `endDate < startDate` → should 400.
@@ -501,6 +518,7 @@ git commit -m "feat(trip): add date-change-preview endpoint and date-range valid
 ## Task 6: Upgrade PUT `/api/trips/[id]` to reconcile days transactionally
 
 **Files:**
+
 - Modify: `server/api/trips/[id].put.ts`
 
 - [ ] **Step 1: Rewrite the PUT endpoint**
@@ -591,6 +609,7 @@ export default defineEventHandler(async (event) => {
 ```
 
 Notes:
+
 - `logTripAction` is already used by `activities/index.post.ts:58` — assume it's globally available via Nitro auto-imports, same pattern as `requireAuth` / `requireTripAccess`.
 - The shape returned no longer matches the prior return (just the raw trip row). The caller in Task 8 merges the full hydrated response into `trip.value`, which matches `GET /api/trips/[id]`'s shape minus `_role`.
 
@@ -612,10 +631,11 @@ await fetch(`/api/trips/${window.location.pathname.split("/").pop()}`, {
   method: "PUT",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ startDate: "2026-05-01", endDate: "2026-05-02" }),
-}).then(r => r.json())
+}).then((r) => r.json())
 ```
 
 Verify:
+
 - Response has `days` array of length 2 with correct dates and `dayNumber` 1 and 2.
 - The Day 3 activity is gone (cascade).
 
@@ -641,6 +661,7 @@ git commit -m "feat(trip): reconcile itinerary days when trip dates change"
 ## Task 7: Build `EditTripModal.vue`
 
 **Files:**
+
 - Create: `app/components/EditTripModal.vue`
 
 - [ ] **Step 1: Create the component**
@@ -891,6 +912,7 @@ async function commitUpdate() {
 ```
 
 Notes:
+
 - The `$fetch` generic `TripLike` could be made stricter (using `TripResponse`) but that type lives in `[id].vue` — keeping it loose here and narrowing at the call site avoids a cross-file type move. If the project has a shared types module, move `TripResponse` into it and import from both places instead.
 - `input-focus` is an existing Tailwind utility class used by `AddActivityModal.vue`; reused as-is.
 
@@ -914,6 +936,7 @@ git commit -m "feat(trip): add EditTripModal component"
 ## Task 8: Wire EditTripModal into the trip page
 
 **Files:**
+
 - Modify: `app/pages/trips/[id].vue`
 
 - [ ] **Step 1: Add modal state and handler**
@@ -983,21 +1006,25 @@ Expected: `Found 0 warnings and 0 errors.`
 Run `bun run dev`. Open a trip you own.
 
 **Path A — no date change:**
+
 1. Open the "more" menu → "Edit trip".
 2. Change destination text only. Click Save.
 3. Modal closes. Header updates to new destination. No flash.
 
 **Path B — extend range:**
+
 1. Open the modal.
 2. Push endDate out by 2 days. Click Save.
 3. Modal closes. New empty days appear in the day tabs. Existing activities remain on their original days.
 
 **Path C — shrink range, no activities affected:**
+
 1. Open the modal.
 2. Pull endDate in by 1 day, leaving no activities on the trimmed day.
 3. Click Save. Modal closes directly (no confirmation). Trimmed day is gone.
 
 **Path D — shrink range with activities (destructive confirm):**
+
 1. Ensure at least one activity is on the last day.
 2. Open the modal, pull endDate in by 1 day. Click Save.
 3. Confirmation screen lists the day + activity names.
@@ -1005,9 +1032,11 @@ Run `bun run dev`. Open a trip you own.
 5. Click Save again, then "Delete and save" on confirmation. Modal closes. Day and its activities are gone.
 
 **Path E — invalid range:**
+
 1. Set endDate before startDate. Save button disables (`:disabled="!rangeValid"`).
 
 **Path F — viewer role:**
+
 1. Log in as a viewer on a shared trip. "Edit trip" item must not be visible.
 
 - [ ] **Step 6: Commit**
@@ -1015,6 +1044,173 @@ Run `bun run dev`. Open a trip you own.
 ```bash
 git add app/pages/trips/[id].vue
 git commit -m "feat(trip): wire EditTripModal into more-menu with destructive confirm"
+```
+
+---
+
+## Task 9: Shared page — embed map and link addresses to Google Maps
+
+**Files:**
+
+- Modify: `server/api/shared/[token].get.ts`
+- Modify: `app/pages/shared/[token].vue`
+
+- [ ] **Step 1: Return accommodation lat/lng from the shared endpoint**
+
+Open `server/api/shared/[token].get.ts`. In the `days.map(...)` projection (line 42), add the two coordinate fields next to `accommodationName`:
+
+```ts
+days: trip.days.map((day) => ({
+  id: day.id,
+  dayNumber: day.dayNumber,
+  date: day.date,
+  accommodationName: day.accommodationName,
+  accommodationLat: day.accommodationLat,
+  accommodationLng: day.accommodationLng,
+  activities: day.activities.map((a) => ({
+    // ...unchanged — lat/lng/address/name already returned
+  })),
+  travelSegments: day.travelSegments.map((s) => ({
+    // ...unchanged
+  })),
+})),
+```
+
+No other fields change. Activity shape is already sufficient for the map (lat/lng/type/name/sortOrder all already returned).
+
+- [ ] **Step 2: Extend `SharedDay` interface to match**
+
+Open `app/pages/shared/[token].vue`. Update the `SharedDay` interface (lines 19-25) to include the new coord fields:
+
+```ts
+interface SharedDay {
+  id: string
+  dayNumber: number
+  date: string
+  accommodationName: string | null
+  accommodationLat: number | null
+  accommodationLng: number | null
+  activities: SharedActivity[]
+}
+```
+
+- [ ] **Step 3: Add the `mapsLinkFor` helper and replace the address span with a link**
+
+In `<script setup>`, after the `activeDay` computed, add:
+
+```ts
+function mapsLinkFor(activity: SharedActivity): string {
+  const base = "https://www.google.com/maps/search/?api=1&query="
+  if (activity.lat != null && activity.lng != null) {
+    return `${base}${activity.lat},${activity.lng}`
+  }
+  const q = [activity.name, activity.address].filter(Boolean).join(", ")
+  return `${base}${encodeURIComponent(q)}`
+}
+```
+
+In the template, replace the address `<span>` (currently lines 171-173):
+
+```vue
+<span v-if="activity.address" class="text-xs text-sand-500 truncate">{{ activity.address }}</span>
+```
+
+with an anchor that opens Google Maps:
+
+```vue
+<a
+  v-if="activity.address"
+  :href="mapsLinkFor(activity)"
+  target="_blank"
+  rel="noopener noreferrer"
+  class="text-xs text-sand-500 hover:text-terra-600 hover:underline truncate"
+>
+  {{ activity.address }}
+</a>
+```
+
+- [ ] **Step 4: Embed the TripMap beside the activity list**
+
+Still in `app/pages/shared/[token].vue`:
+
+1. Widen the outer container. Change line 86 from:
+   ```vue
+   <div class="mx-auto max-w-4xl px-4 py-8">
+   ```
+   to:
+   ```vue
+   <div class="mx-auto max-w-6xl px-4 py-8">
+   ```
+
+2. Wrap the day content (the `<div v-if="activeDay" class="mt-6 space-y-3">` block around line 146) in a two-column flex layout. Replace that block with:
+
+   ```vue
+   <div v-if="activeDay" class="mt-6 flex flex-col gap-6 lg:flex-row">
+     <!-- Left: activity list -->
+     <div class="flex-1 space-y-3">
+       <div
+         v-for="(activity, index) in activeDay.activities"
+         :key="activity.id"
+         class="rounded-2xl border border-sand-200 bg-white p-5"
+       >
+         <!-- ...existing activity card contents unchanged, including the new <a> address link from Step 3... -->
+       </div>
+       <p v-if="!activeDay.activities.length" class="text-center text-sm text-sand-400 py-8">
+         No activities planned for this day.
+       </p>
+     </div>
+
+     <!-- Right: map -->
+     <div class="order-first lg:order-none lg:w-[420px] lg:shrink-0">
+       <div
+         class="h-[260px] overflow-hidden rounded-2xl shadow-lg sm:h-[320px] lg:sticky lg:top-8 lg:h-[calc(100vh-200px)]"
+       >
+         <TripMap
+           :activities="activeDay.activities"
+           :accommodation="{
+             name: activeDay.accommodationName,
+             lat: activeDay.accommodationLat,
+             lng: activeDay.accommodationLng,
+           }"
+         />
+       </div>
+     </div>
+   </div>
+   ```
+
+   Do not remove or re-author the activity card markup — keep the existing numbered badge, name, description, suggestedTime pill, and (updated) address link intact. Only the wrapping flex container and the new right-column map div are new.
+
+3. No new imports needed — `TripMap` is auto-imported by Nuxt from `app/components/TripMap.vue`.
+
+The `TripMap`'s `Activity` prop type (`id`/`name`/`type`/`lat`/`lng`/`sortOrder`) is structurally compatible with `SharedActivity`, which defines all of those plus extra fields — Vue/TS will accept the wider object as a narrower prop.
+
+- [ ] **Step 5: Type-check + lint**
+
+Run: `bun run build`
+Expected: build succeeds.
+
+Run: `bun run check`
+Expected: `Found 0 warnings and 0 errors.`
+
+- [ ] **Step 6: Manual browser verification**
+
+Run `bun run dev`. Generate or reuse a share link:
+
+1. From a trip you own, enable sharing via the existing share toggle, copy the `/shared/:token` URL.
+2. Open that URL in an incognito window (no session cookie — confirms public access still works).
+3. Verify:
+   - The day tabs render and switching between days updates the map markers.
+   - On desktop (≥`lg:` ≈ 1024px), the map is visible on the right, the activity list on the left, the map is sticky during scroll.
+   - On mobile (narrow the window), the map stacks **above** the list (`order-first`).
+   - Each activity's address is a clickable link; clicking opens Google Maps in a new tab, pinned at the activity's coordinates.
+   - If the trip has accommodation set for a day, its marker renders on the map.
+   - An expired share token still 410s; an invalid token still 404s.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add server/api/shared/[token].get.ts app/pages/shared/[token].vue
+git commit -m "feat(shared): embed map and link addresses to Google Maps on shared view"
 ```
 
 ---
@@ -1028,11 +1224,12 @@ Expected: build succeeds, check reports zero warnings/errors.
 
 - [ ] **Step 2: End-to-end smoke**
 
-Run `bun run dev`. Log in as a trip owner. Verify all three deliverables in one session:
+Run `bun run dev`. Log in as a trip owner. Verify all four deliverables in one session:
 
 1. IdeasBucket sits at the top of the day column above Accommodation.
 2. Adding an activity updates the map and activity list in place with no flash.
 3. "Edit trip" in the more-menu works through paths A–F from Task 8 Step 5.
+4. The shared link renders the map alongside the list and address links open Google Maps.
 
 - [ ] **Step 3: Clean up throwaway test trips from manual verification**
 

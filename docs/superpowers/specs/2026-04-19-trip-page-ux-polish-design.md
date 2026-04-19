@@ -5,17 +5,19 @@
 
 ## Problem
 
-Three UX issues on the trip detail page:
+Four UX issues:
 
 1. **Adding an activity feels like a full page refresh.** The POST succeeds, but the client then calls `await refresh()` on the whole trip's `useLazyFetch`. `status` flips to `"pending"`, content bound to that status flashes, and anything below the fold feels momentarily broken.
 2. **Trip dates cannot be edited from the UI.** The backend has `PUT /api/trips/[id]` with `updateTripSchema.partial()` that already accepts `startDate`/`endDate`, but the trip page only renders the dates as read-only text. A user who picks the wrong dates has no way to fix them short of deleting and recreating the trip.
 3. **The "Add places" block (`IdeasBucket`) sits at the bottom of the day column**, below the activities list. It's easy to miss — place discovery is a key entry point and should be closer to the top.
+4. **The public shared view (`/shared/:token`) is a text-only list.** Addresses are plain text, not linkable to Google Maps, and there is no map visualization — viewers can't see where any of the places are spatially.
 
 ## Goals
 
 - Instant, flicker-free feedback when adding an activity.
 - A discoverable, safe way to edit trip dates (and destination) after creation, including a clear confirmation when the change would delete data.
 - Reorder the day column so "Add places" lives directly under the day tabs.
+- Make the shared link useful for visual planning: address links that open Google Maps, and an embedded read-only map alongside the activity list.
 
 ## Non-goals
 
@@ -71,7 +73,11 @@ emit("added", { activity: result.activity, segments: result.segments, dayId: pro
 Replace `handleActivityAdded` (currently line 656-659):
 
 ```ts
-function handleActivityAdded(payload: { activity: Activity; segments: TravelSegment[]; dayId: string }) {
+function handleActivityAdded(payload: {
+  activity: Activity
+  segments: TravelSegment[]
+  dayId: string
+}) {
   if (!trip.value) return
   const day = trip.value.days.find((d) => d.id === payload.dayId)
   if (!day) return
@@ -95,11 +101,13 @@ Either import `Activity` / `TravelSegment` from the existing `TripResponse` type
 Mirrors `AddActivityModal.vue` structure (Teleport overlay, terra-500 primary button, sand-300 outline cancel).
 
 **Fields:**
+
 - `destination` (text input, required)
 - `startDate` (HTML date input, required)
 - `endDate` (HTML date input, required, must be ≥ startDate)
 
 **Props / emits:**
+
 ```ts
 defineProps<{ open: boolean; tripId: string; trip: TripResponse }>()
 defineEmits<{ updated: [payload: TripResponse]; close: [] }>()
@@ -185,12 +193,14 @@ await db.transaction(async (tx) => {
     const newEnd = body.endDate ?? existing.endDate
 
     // Delete out-of-range days (activities cascade via FK).
-    await tx.delete(itineraryDays).where(
-      and(
-        eq(itineraryDays.tripId, id),
-        or(lt(itineraryDays.date, newStart), gt(itineraryDays.date, newEnd)),
-      ),
-    )
+    await tx
+      .delete(itineraryDays)
+      .where(
+        and(
+          eq(itineraryDays.tripId, id),
+          or(lt(itineraryDays.date, newStart), gt(itineraryDays.date, newEnd)),
+        ),
+      )
 
     // Insert missing days for new range.
     const remaining = await tx.query.itineraryDays.findMany({
@@ -218,7 +228,12 @@ await db.transaction(async (tx) => {
   }
 })
 
-await logTripAction({ tripId: id, userId: session.user.id, action: "trip_updated", description: "Trip details updated" })
+await logTripAction({
+  tripId: id,
+  userId: session.user.id,
+  action: "trip_updated",
+  description: "Trip details updated",
+})
 
 // Return the full hydrated trip so the client can merge without refetching.
 return await getTripWithRelations(id)
@@ -257,18 +272,95 @@ In `app/pages/trips/[id].vue`:
 Single-file change in `app/pages/trips/[id].vue` lines 1181-1227.
 
 **Current order inside the left column:**
+
 1. `AccommodationSection`
 2. `AiLoadingOverlay`
 3. `DaySection`
 4. `IdeasBucket`
 
 **New order:**
+
 1. `IdeasBucket` (moved to top)
 2. `AccommodationSection`
 3. `AiLoadingOverlay`
 4. `DaySection`
 
 Move the `<IdeasBucket>` block (including its `v-if`/`v-show` guards) to the top of the flex column. No prop or style changes. No changes elsewhere.
+
+---
+
+## Part 4 — Shared page: map + Google Maps address links
+
+### Server change
+
+**File:** `server/api/shared/[token].get.ts`
+
+The endpoint currently returns `accommodationName` only (line 46) — no coordinates. Extend the day-mapping to also return `accommodationLat` and `accommodationLng` so the shared page can render the accommodation marker:
+
+```ts
+accommodationName: day.accommodationName,
+accommodationLat: day.accommodationLat,
+accommodationLng: day.accommodationLng,
+```
+
+No new fields on activities — `lat`, `lng`, `address`, and `name` are already returned.
+
+### Client: embed the map
+
+**File:** `app/pages/shared/[token].vue`
+
+Current layout is a single centered column (`max-w-4xl`). Restructure the day content area to match the trip detail page's two-column pattern:
+
+- Container widens to `max-w-6xl` on large screens (keep `max-w-4xl` as a sensible mobile default via responsive classes).
+- Inside "Day content", wrap the activity list and a new `<TripMap>` in a `flex flex-col lg:flex-row gap-6` container.
+- **Left column:** the existing activity list (unchanged aside from the address-link change below).
+- **Right column:** `<TripMap>` with:
+  - `:activities="activeDay.activities"` — already has `lat`/`lng`/`type`/`name`/`sortOrder`.
+  - `:accommodation` — built from the new lat/lng fields.
+  - Sticky on desktop (`lg:sticky lg:top-8`), fixed height similar to the trip page.
+  - On mobile: `order-first` so the map shows above the list, matching the trip page.
+
+The `TripMap` component accepts props via the existing `Activity` interface (id/name/type/lat/lng/sortOrder). Extend `SharedActivity` → make sure all required fields are covered (they are: already defined in `shared/[token].vue:4-17`).
+
+The map's `@marker-click` emit goes unwired on the shared page (no list-scroll behavior wanted for the public view).
+
+### Client: address → Google Maps link
+
+In the same file, where activities currently render a plain `<span>` for the address (lines 171-173), replace with:
+
+```vue
+<a
+  v-if="activity.address"
+  :href="mapsLinkFor(activity)"
+  target="_blank"
+  rel="noopener noreferrer"
+  class="text-xs text-sand-500 hover:text-terra-600 hover:underline truncate"
+>
+  {{ activity.address }}
+</a>
+```
+
+Add a small helper in `<script setup>`:
+
+```ts
+function mapsLinkFor(activity: SharedActivity): string {
+  const base = "https://www.google.com/maps/search/?api=1&query="
+  if (activity.lat != null && activity.lng != null) {
+    return `${base}${activity.lat},${activity.lng}`
+  }
+  const q = [activity.name, activity.address].filter(Boolean).join(", ")
+  return `${base}${encodeURIComponent(q)}`
+}
+```
+
+Rationale for lat/lng preference: Google Maps resolves coordinates unambiguously to the same point the trip owner pinned, regardless of how the address string may change over time. The name+address fallback is only for activities that somehow lack coordinates (shouldn't happen for Places-API-resolved entries, but covers manual-entry cases).
+
+### Scope guardrails
+
+- No travel-segment dividers on the shared list — keep the public view clean.
+- No ideas bucket, no "Add activity" affordance, no editing — shared page stays strictly read-only.
+- The `SharedTrip` / `SharedDay` / `SharedActivity` interfaces in `shared/[token].vue` need the accommodation coords added to `SharedDay`. No other type changes.
+- Google Maps JS API loads via the existing `useGoogleMaps` composable. The key is already exposed to the client for the private trip page; it works identically for anonymous visitors on the shared page (no new env var or config).
 
 ---
 
@@ -323,6 +415,7 @@ Per `CLAUDE.md`, tests come first.
   - Edit trip shrinking range over a day with activities — confirmation lists them; confirming deletes them.
   - Edit trip extending range — new empty days appear.
   - IdeasBucket renders above Accommodation in the day column on desktop and mobile.
+  - Shared page renders map next to activity list on desktop, above the list on mobile; address links open Google Maps in a new tab to the correct pin (coordinate-based); switching day tabs updates the map markers.
 
 ## Risks / open questions
 
@@ -333,18 +426,23 @@ Per `CLAUDE.md`, tests come first.
 ## Files touched
 
 **New:**
+
 - `app/components/EditTripModal.vue`
 - `server/api/trips/[id]/date-change-preview.get.ts`
 - `server/lib/dates.ts` (if `enumerateDates` doesn't already exist)
 
 **Modified:**
+
 - `app/pages/trips/[id].vue` (layout reorder, handlers, modal mount, more-menu item)
 - `app/components/AddActivityModal.vue` (emit signature)
+- `app/pages/shared/[token].vue` (map embed, address links, two-column layout, accommodation lat/lng typing)
 - `server/api/trips/[id]/activities/index.post.ts` (return segments)
 - `server/api/trips/[id].put.ts` (transactional date reconciliation)
+- `server/api/shared/[token].get.ts` (return accommodation lat/lng)
 - `server/utils/schemas.ts` (`dateRangeQuerySchema`, refine on `updateTripSchema`)
 
 **Unchanged:**
-- `TripMap.vue` — already reactive on `props.activities`.
+
+- `TripMap.vue` — already reactive on `props.activities`; reused on the shared page as-is.
 - `IdeasBucket.vue` — just moved in the DOM.
 - `server/db/schema/*` — no migration needed; cascade FK already in place.
