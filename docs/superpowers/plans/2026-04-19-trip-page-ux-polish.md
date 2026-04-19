@@ -1134,10 +1134,13 @@ with an anchor that opens Google Maps:
 Still in `app/pages/shared/[token].vue`:
 
 1. Widen the outer container. Change line 86 from:
+
    ```vue
    <div class="mx-auto max-w-4xl px-4 py-8">
    ```
+
    to:
+
    ```vue
    <div class="mx-auto max-w-6xl px-4 py-8">
    ```
