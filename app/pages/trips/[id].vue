@@ -756,39 +756,21 @@ async function recomputeSegments(dayId: string) {
             <h1 class="truncate font-display text-2xl text-sand-900 sm:text-3xl">
               {{ trip.destination }}
             </h1>
-            <div
-              class="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-sand-500 sm:text-sm"
-            >
-              <span class="inline-flex items-center gap-1">
-                <NuxtTime
-                  :datetime="trip.startDate + 'T00:00:00'"
-                  locale="en-US"
-                  month="short"
-                  day="numeric"
-                />
-                –
-                <NuxtTime
-                  :datetime="trip.endDate + 'T00:00:00'"
-                  locale="en-US"
-                  month="short"
-                  day="numeric"
-                  year="numeric"
-                />
-              </span>
-              <span class="text-sand-300">·</span>
-              <span>{{ sortedDays.length }} days</span>
-              <span class="text-sand-300">·</span>
-              <span :class="getTripStatus(trip.startDate, trip.endDate).textClass">
-                {{ getTripStatus(trip.startDate, trip.endDate).label }}
-              </span>
-              <template v-if="trip.preferences?.budget">
-                <span class="text-sand-300">·</span>
-                <span class="capitalize">{{ trip.preferences.budget }}</span>
-              </template>
-              <template v-if="trip.preferences?.pace">
-                <span class="text-sand-300">·</span>
-                <span class="capitalize">{{ trip.preferences.pace }}</span>
-              </template>
+            <div class="mt-1.5 text-xs text-sand-500 sm:text-sm">
+              <NuxtTime
+                :datetime="trip.startDate + 'T00:00:00'"
+                locale="en-US"
+                month="short"
+                day="numeric"
+              />
+              –
+              <NuxtTime
+                :datetime="trip.endDate + 'T00:00:00'"
+                locale="en-US"
+                month="short"
+                day="numeric"
+                year="numeric"
+              />
             </div>
           </div>
         </div>
