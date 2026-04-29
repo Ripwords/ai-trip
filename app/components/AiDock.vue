@@ -287,18 +287,17 @@ function handleClick() {
 
     <div class="pointer-events-auto mx-auto flex w-full max-w-[480px] justify-center">
       <BorderBeam
-        size="md"
+        size="sm"
         color-variant="sunset"
         theme="dark"
-        :brightness="0.7"
-        :strength="0.6"
-        :saturation="1"
+        :brightness="0.45"
+        :strength="0.4"
+        :saturation="0.9"
         :duration="4"
         class="dock-beam w-full"
       >
         <div
-          class="flex items-center gap-2 rounded-full bg-[#1c1a14] py-2 pl-4 pr-2 ring-1 ring-white/10 shadow-[0_18px_40px_-10px_rgba(232,93,58,.45),0_8px_24px_-8px_rgba(0,0,0,.5)]"
-          :class="{ 'dock-shimmer': loading }"
+          class="flex items-center gap-2 rounded-full bg-[#1c1a14] py-2 pl-4 pr-2"
           @mouseenter="hovered = true"
           @mouseleave="hovered = false"
         >
@@ -348,26 +347,7 @@ function handleClick() {
   border-radius: 9999px;
 }
 
-.dock-shimmer {
-  background: linear-gradient(90deg, #1c1a14 0%, #4a4639 50%, #1c1a14 100%);
-  background-size: 200% 100%;
-  animation: shimmer 2s ease infinite;
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .dock-shimmer {
-    background: #2c2a22;
-    animation: none;
-  }
   .animate-spin {
     animation: none;
   }
