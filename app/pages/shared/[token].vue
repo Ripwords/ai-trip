@@ -57,7 +57,7 @@ useSeoMeta({
 
 useSchemaOrg([
   defineWebPage({
-    "@type": "TouristTrip",
+    "@type": "ItemPage",
     name: sharedTitle,
     description: sharedDescription,
     touristType: "Traveler",
@@ -71,7 +71,16 @@ const sortedDays = computed(() => {
   return [...trip.value.days].toSorted((a, b) => a.dayNumber - b.dayNumber)
 })
 
-const activeDay = computed(() => sortedDays.value.find((d) => d.id === activeDayId.value) ?? null)
+// Derive the current day from data so SSR and client agree on first render —
+// Vue does not rectify hydration class mismatches in production.
+const currentDayId = computed(() => {
+  if (activeDayId.value && sortedDays.value.some((d) => d.id === activeDayId.value)) {
+    return activeDayId.value
+  }
+  return sortedDays.value[0]?.id ?? null
+})
+
+const activeDay = computed(() => sortedDays.value.find((d) => d.id === currentDayId.value) ?? null)
 
 function mapsLinkFor(activity: SharedActivity): string {
   const base = "https://www.google.com/maps/search/?api=1&query="
@@ -81,16 +90,6 @@ function mapsLinkFor(activity: SharedActivity): string {
   const q = [activity.name, activity.address].filter(Boolean).join(", ")
   return `${base}${encodeURIComponent(q)}`
 }
-
-watch(
-  sortedDays,
-  (days) => {
-    if (days.length > 0 && !activeDayId.value) {
-      activeDayId.value = days[0]?.id ?? null
-    }
-  },
-  { immediate: true },
-)
 </script>
 
 <template>
@@ -136,7 +135,7 @@ watch(
           :key="day.id"
           class="shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition"
           :class="
-            day.id === activeDayId
+            day.id === currentDayId
               ? 'bg-terra-500 text-white shadow-sm'
               : 'bg-sand-100 text-sand-600 hover:bg-sand-200'
           "

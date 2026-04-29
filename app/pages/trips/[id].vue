@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { BorderBeam } from "vue-border-beam"
+import type { TripActivity, TripDay, TripResponse } from "~/types/trip"
 
 definePageMeta({ layout: "app" })
 
@@ -128,64 +129,6 @@ async function handleToggleParticipant(activityId: string, userId: string) {
 const aiLoading = ref(false)
 const aiLoadingMode = ref<"generate" | "optimize" | "remove" | "reschedule">("generate")
 const lastSnapshot = ref<string | null>(null)
-interface TripActivity {
-  id: string
-  name: string
-  type: string
-  description: string | null
-  lat: number | null
-  lng: number | null
-  address: string | null
-  rating: string | null
-  suggestedTime: string | null
-  estimatedDurationMinutes: number | null
-  costEstimate: string | null
-  notes: string | null
-  actualCost: string | null
-  photos: string[] | null
-  openingHours: string[] | null
-  tags: string[] | null
-  placeId: string | null
-  sortOrder: number
-}
-
-interface TripDay {
-  id: string
-  dayNumber: number
-  date: string
-  notes: string | null
-  accommodationName: string | null
-  accommodationAddress: string | null
-  accommodationLat: number | null
-  accommodationLng: number | null
-  accommodationPlaceId: string | null
-  activities: TripActivity[]
-  travelSegments: {
-    fromActivityId: string
-    durationText: string | null
-    distanceText: string | null
-  }[]
-}
-
-interface TripResponse {
-  id: string
-  destination: string
-  startDate: string
-  endDate: string
-  status: string
-  budget: string | null
-  currencyCode: string
-  tripNotes: string | null
-  shareToken: string | null
-  preferences: {
-    budget?: string
-    pace?: string
-    interests?: string[]
-    travelStyle?: string[]
-  } | null
-  days: TripDay[]
-  _role: string
-}
 const editingActivity = ref<TripActivity | null>(null)
 const editModalOpen = ref(false)
 const highlightedActivityId = ref<string | null>(null)
@@ -654,15 +597,15 @@ function handleAddActivity(dayId: string) {
 }
 
 function handleActivityAdded(payload: {
-  activity: Record<string, unknown>
-  segments: unknown[]
+  activity: TripActivity
+  segments: TripDay["travelSegments"]
   dayId: string
 }) {
   if (!trip.value) return
   const day = trip.value.days.find((d) => d.id === payload.dayId)
   if (!day) return
-  day.activities = [...day.activities, payload.activity as TripActivity]
-  day.travelSegments = payload.segments as TripDay["travelSegments"]
+  day.activities = [...day.activities, payload.activity]
+  day.travelSegments = payload.segments
 }
 
 const showMoreMenu = ref(false)
@@ -1115,8 +1058,9 @@ async function recomputeSegments(dayId: string) {
               size="sm"
               color-variant="sunset"
               theme="dark"
-              :brightness="1.5"
-              :strength="1"
+              :brightness="0.4"
+              :strength="0.3"
+              :saturation="0.8"
               :duration="4"
               class="min-w-0 flex-1"
             >

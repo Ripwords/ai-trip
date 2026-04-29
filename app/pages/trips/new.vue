@@ -210,9 +210,11 @@ select.form-input {
   padding-right: 2.5rem;
 }
 
-/* Fix date input vertical alignment on iOS/Safari */
-input[type="date"].form-input {
-  display: flex;
-  align-items: center;
+input[type="date"].form-input::-webkit-datetime-edit {
+  width: 100%;
+}
+
+input[type="date"].form-input::-webkit-calendar-picker-indicator {
+  margin-left: auto;
 }
 </style>

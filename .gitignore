@@ -4,6 +4,7 @@
 .nuxt
 .nitro
 .cache
+.superpowers
 dist
 
 # Node dependencies

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PlaceResult } from "~/composables/usePlaceSearch"
+import type { TripActivity, TripTravelSegment } from "~/types/trip"
 
 const props = defineProps<{
   open: boolean
@@ -9,7 +10,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  added: [payload: { activity: Record<string, unknown>; segments: unknown[]; dayId: string }]
+  added: [payload: { activity: TripActivity; segments: TripTravelSegment[]; dayId: string }]
   close: []
 }>()
 
@@ -51,7 +52,7 @@ async function handleSearchSubmit() {
         address: selectedPlace.value.formattedAddress ?? null,
         rating: selectedPlace.value.rating ?? undefined,
       },
-    })) as { activity: Record<string, unknown>; segments: unknown[] }
+    })) as { activity: TripActivity; segments: TripTravelSegment[] }
     emit("added", { activity: result.activity, segments: result.segments, dayId: props.dayId })
     emit("close")
     resetForm()
@@ -74,7 +75,7 @@ async function handleManualSubmit() {
         type: type.value,
         description: description.value || null,
       },
-    })) as { activity: Record<string, unknown>; segments: unknown[] }
+    })) as { activity: TripActivity; segments: TripTravelSegment[] }
     emit("added", { activity: result.activity, segments: result.segments, dayId: props.dayId })
     emit("close")
     resetForm()
