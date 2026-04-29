@@ -342,7 +342,7 @@ function handleClick() {
                 v-if="usageUsed != null && usageLimit != null"
                 class="shrink-0 text-[10px] tabular-nums"
                 :class="
-                  (usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-50/45'
+                  (usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-50/70'
                 "
                 :title="`${usageUsed}/${usageLimit} AI prompts used this month`"
               >
