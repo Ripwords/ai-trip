@@ -213,7 +213,7 @@ function handleClick() {
   >
     <div
       v-if="expanded"
-      class="fixed inset-0 z-30 bg-sand-900/40 backdrop-blur-[2px]"
+      class="fixed inset-0 z-30 bg-black/50 backdrop-blur-[2px]"
       @click="collapse"
     />
   </Transition>
