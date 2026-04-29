@@ -262,7 +262,7 @@ function handleClick() {
             <button
               type="button"
               :disabled="loading"
-              class="rounded-full border border-sand-200 bg-white/95 px-3 py-1 text-xs text-sand-700 shadow-sm transition hover:border-terra-300 hover:text-terra-700"
+              class="rounded-full border border-stone-200 bg-white/95 px-3 py-1 text-xs text-stone-800 shadow-sm transition hover:border-terra-300 hover:text-terra-700"
               @mousedown.prevent
               @click="emit('generateFull')"
             >
@@ -273,7 +273,7 @@ function handleClick() {
               v-for="s in suggestions"
               :key="s"
               type="button"
-              class="rounded-full border border-sand-200 bg-white/95 px-3 py-1 text-xs text-sand-600 shadow-sm transition hover:border-terra-300 hover:text-terra-700"
+              class="rounded-full border border-stone-200 bg-white/95 px-3 py-1 text-xs text-stone-700 shadow-sm transition hover:border-terra-300 hover:text-terra-700"
               @mousedown.prevent
               @click="selectSuggestion(s)"
             >
