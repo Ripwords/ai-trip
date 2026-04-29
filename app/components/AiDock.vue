@@ -297,13 +297,13 @@ function handleClick() {
         class="dock-beam w-full"
       >
         <div
-          class="flex items-center gap-2 rounded-full bg-[#1c1a14] py-2 pl-4 pr-2"
+          class="flex items-center gap-2 rounded-full bg-sand-900 py-2 pl-4 pr-2"
           @mouseenter="hovered = true"
           @mouseleave="hovered = false"
         >
           <Icon
             name="lucide:sparkles"
-            class="h-4 w-4 shrink-0 text-terra-300"
+            class="h-4 w-4 shrink-0 text-terra-400"
             :class="{ 'animate-spin': loading }"
           />
           <input
@@ -312,7 +312,7 @@ function handleClick() {
             type="text"
             :disabled="loading || limitReached"
             :placeholder="placeholder"
-            class="min-w-0 flex-1 border-none bg-transparent text-sm text-white placeholder:text-white/55 focus:outline-none disabled:opacity-70"
+            class="min-w-0 flex-1 border-none bg-transparent text-sm text-sand-50 placeholder:text-sand-400 focus:outline-none disabled:opacity-70"
             @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
             @focus="focused = true"
             @blur="focused = false"
@@ -321,7 +321,7 @@ function handleClick() {
           <span
             v-if="usageUsed != null && usageLimit != null"
             class="shrink-0 text-[10px] tabular-nums"
-            :class="(usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-300' : 'text-white/40'"
+            :class="(usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-400'"
             :title="`${usageUsed}/${usageLimit} AI prompts used this month`"
           >
             {{ usageUsed }}/{{ usageLimit }}
