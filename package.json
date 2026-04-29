@@ -16,7 +16,7 @@
     "db:re-encrypt": "tsx server/db/re-encrypt-data.ts",
     "db:seed-test": "tsx server/db/seed-test-data.ts",
     "docker:dev": "docker compose -f docker/docker-compose.dev.yml up -d",
-    "pwa:assets": "pwa-assets-generator --preset minimal-2023 public/image.png",
+    "pwa:assets": "pwa-assets-generator",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt --write .",

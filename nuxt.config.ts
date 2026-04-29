@@ -93,6 +93,11 @@ export default defineNuxtConfig({
   // PWA Configuration
   pwa: {
     registerType: "autoUpdate",
+    pwaAssets: {
+      config: true,
+      includeHtmlHeadLinks: true,
+      overrideManifestIcons: true,
+    },
     manifest: {
       name: "AI Trip — Travel Planner",
       short_name: "AI Trip",
