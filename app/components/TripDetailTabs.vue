@@ -28,17 +28,22 @@ function pick(value: string) {
   overflowOpen.value = false
 }
 
-if (import.meta.client) {
-  document.addEventListener("click", (e) => {
-    if (overflowOpen.value && !(e.target as HTMLElement).closest("[data-tabs-more]")) {
-      overflowOpen.value = false
-    }
-  })
+function onDocumentClick(e: MouseEvent) {
+  if (overflowOpen.value && !(e.target as HTMLElement).closest("[data-tabs-more]")) {
+    overflowOpen.value = false
+  }
 }
+
+onMounted(() => {
+  if (import.meta.client) document.addEventListener("click", onDocumentClick)
+})
+onUnmounted(() => {
+  if (import.meta.client) document.removeEventListener("click", onDocumentClick)
+})
 </script>
 
 <template>
-  <div class="flex items-end gap-6 overflow-x-auto border-b border-sand-200 scrollbar-thin">
+  <div class="flex flex-wrap items-end gap-x-6 gap-y-1 border-b border-sand-200">
     <button
       v-for="tab in primaryTabs"
       :key="tab.value"
@@ -65,7 +70,7 @@ if (import.meta.client) {
             ? 'font-medium text-sand-900'
             : 'text-sand-500 hover:text-sand-800'
         "
-        @click="overflowOpen = !overflowOpen"
+        @click.stop="overflowOpen = !overflowOpen"
       >
         More
         <Icon name="lucide:chevron-down" class="h-3 w-3" />
@@ -92,7 +97,7 @@ if (import.meta.client) {
             type="button"
             class="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-sand-50"
             :class="modelValue === tab.value ? 'font-medium text-sand-900' : 'text-sand-700'"
-            @click="pick(tab.value)"
+            @click.stop="pick(tab.value)"
           >
             {{ tab.label }}
             <Icon

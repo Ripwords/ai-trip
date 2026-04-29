@@ -926,7 +926,7 @@ async function recomputeSegments(dayId: string) {
       <div v-else-if="activeTab === 'itinerary'" class="mt-6">
         <!-- Day tabs (client-only to avoid hydration mismatch with sessionStorage) -->
         <ClientOnly>
-          <div class="flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
+          <div class="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
             <button
               v-for="day in sortedDays"
               :key="day.id"
@@ -934,7 +934,7 @@ async function recomputeSegments(dayId: string) {
               class="flex shrink-0 flex-col items-center gap-0.5 rounded-xl px-3 py-2 transition"
               :class="
                 day.id === activeDayId
-                  ? 'bg-sand-900 text-white'
+                  ? 'bg-terra-500 text-white shadow-sm'
                   : day.date === todayDate
                     ? 'text-terra-600 hover:bg-sand-100'
                     : 'text-sand-600 hover:bg-sand-100'
