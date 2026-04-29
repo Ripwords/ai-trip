@@ -30,6 +30,30 @@ const emit = defineEmits<{
 const inputEl = ref<HTMLInputElement | null>(null)
 const focused = ref(false)
 const hovered = ref(false)
+const expanded = ref(false)
+
+function expand() {
+  expanded.value = true
+  nextTick(() => inputEl.value?.focus())
+}
+
+function collapse() {
+  if (props.loading) return
+  expanded.value = false
+  focused.value = false
+  hovered.value = false
+}
+
+watch(
+  () => props.loading,
+  (isLoading) => {
+    if (isLoading) expanded.value = true
+  },
+)
+
+watch([() => props.feedbackMessage, () => props.feedbackError], ([m, e]) => {
+  if (m || e) expanded.value = true
+})
 
 const limitReached = computed(() => (props.usageRemaining ?? 1) <= 0)
 
@@ -180,165 +204,212 @@ function handleClick() {
 
 <template>
   <div
-    class="pointer-events-none fixed inset-x-0 bottom-16 z-40 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:bottom-0 sm:pb-5"
+    class="pointer-events-none fixed bottom-20 right-4 z-40 flex flex-col items-end gap-2 sm:bottom-6 sm:right-6"
+    :style="{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }"
   >
     <Transition
-      enter-active-class="duration-150 ease-out"
-      enter-from-class="opacity-0 translate-y-1"
-      enter-to-class="opacity-100 translate-y-0"
-      leave-active-class="duration-100 ease-in"
-      leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 translate-y-1"
+      enter-active-class="duration-200 ease-out"
+      enter-from-class="opacity-0 scale-90 translate-y-2"
+      enter-to-class="opacity-100 scale-100 translate-y-0"
+      leave-active-class="duration-150 ease-in"
+      leave-from-class="opacity-100 scale-100 translate-y-0"
+      leave-to-class="opacity-0 scale-90 translate-y-2"
     >
-      <div
-        v-if="feedbackVisible && (feedbackMessage || feedbackError)"
-        class="pointer-events-auto mx-auto mb-2 max-w-[480px]"
+      <button
+        v-if="!expanded"
+        type="button"
+        class="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-terra-500 text-white shadow-lg transition hover:scale-105 hover:bg-terra-600"
+        title="Ask AI"
+        @click="expand"
       >
-        <div
-          v-if="feedbackError"
-          class="flex items-start gap-2 rounded-xl bg-terra-50 px-3 py-2 text-sm text-terra-700 shadow-sm"
-        >
-          <Icon name="lucide:alert-circle" class="mt-0.5 h-4 w-4 shrink-0" />
-          <span class="flex-1">{{ feedbackError }}</span>
-          <button
-            type="button"
-            class="shrink-0 text-terra-400 hover:text-terra-700"
-            @click="emit('dismissFeedback')"
-          >
-            <Icon name="lucide:x" class="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div
-          v-else
-          class="flex items-center gap-2 rounded-xl bg-forest-50 px-3 py-2 text-sm text-forest-700 shadow-sm"
-        >
-          <Icon name="lucide:check-circle" class="h-4 w-4 shrink-0" />
-          <span class="flex-1">{{ feedbackMessage }}</span>
-          <button
-            v-if="undoAvailable"
-            type="button"
-            :disabled="undoing"
-            class="shrink-0 text-sm font-medium text-forest-700 underline underline-offset-2 hover:text-forest-900 disabled:opacity-50"
-            @click="emit('undo')"
-          >
-            <span v-if="undoing">Undoing…</span>
-            <span v-else>Undo</span>
-          </button>
-          <button
-            type="button"
-            class="shrink-0 text-forest-400 hover:text-forest-700"
-            @click="emit('dismissFeedback')"
-          >
-            <Icon name="lucide:x" class="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
-      <div
-        v-else-if="revealMode === 'quick'"
-        class="pointer-events-auto mx-auto mb-2 flex max-w-[480px] flex-wrap justify-center gap-1.5"
-      >
-        <button
-          type="button"
-          :disabled="loading"
-          class="rounded-full border border-sand-200 bg-white/95 px-3 py-1 text-xs text-sand-700 shadow-sm transition hover:border-terra-300 hover:text-terra-700"
-          @mousedown.prevent
-          @click="emit('fillGaps')"
-        >
-          <Icon name="lucide:wand-2" class="mr-1 inline h-3 w-3" />
-          Fill gaps
-        </button>
-        <button
-          type="button"
-          :disabled="loading || !hasActivities"
-          class="rounded-full border border-sand-200 bg-white/95 px-3 py-1 text-xs text-sand-700 shadow-sm transition hover:border-terra-300 hover:text-terra-700 disabled:opacity-40"
-          @mousedown.prevent
-          @click="emit('optimizeRoute')"
-        >
-          <Icon name="lucide:route" class="mr-1 inline h-3 w-3" />
-          Optimize route
-        </button>
-        <button
-          type="button"
-          :disabled="loading"
-          class="rounded-full border border-sand-200 bg-white/95 px-3 py-1 text-xs text-sand-700 shadow-sm transition hover:border-terra-300 hover:text-terra-700"
-          @mousedown.prevent
-          @click="emit('generateFull')"
-        >
-          <Icon name="lucide:sparkles" class="mr-1 inline h-3 w-3" />
-          Generate full itinerary
-        </button>
-      </div>
-      <div
-        v-else-if="revealMode === 'suggestions'"
-        class="pointer-events-auto mx-auto mb-2 flex max-w-[480px] flex-wrap justify-center gap-1.5"
-      >
-        <button
-          v-for="s in suggestions"
-          :key="s"
-          type="button"
-          class="rounded-full border border-sand-200 bg-white/95 px-3 py-1 text-xs text-sand-600 shadow-sm transition hover:border-terra-300 hover:text-terra-700"
-          @mousedown.prevent
-          @click="selectSuggestion(s)"
-        >
-          {{ s }}
-        </button>
-      </div>
+        <Icon name="lucide:sparkles" class="h-5 w-5" />
+      </button>
     </Transition>
 
-    <div class="pointer-events-auto mx-auto flex w-full max-w-[480px] justify-center">
-      <BorderBeam
-        size="sm"
-        color-variant="sunset"
-        theme="dark"
-        :brightness="0.45"
-        :strength="0.4"
-        :saturation="0.9"
-        :duration="4"
-        class="dock-beam w-full"
+    <Transition
+      enter-active-class="duration-200 ease-out"
+      enter-from-class="opacity-0 translate-y-2"
+      enter-to-class="opacity-100 translate-y-0"
+      leave-active-class="duration-150 ease-in"
+      leave-from-class="opacity-100 translate-y-0"
+      leave-to-class="opacity-0 translate-y-2"
+    >
+      <div
+        v-if="expanded"
+        class="pointer-events-auto flex w-[min(28rem,calc(100vw-2rem))] flex-col items-end gap-2"
       >
-        <div
-          class="flex items-center gap-2 rounded-full bg-sand-900 py-2 pl-4 pr-2"
-          @mouseenter="hovered = true"
-          @mouseleave="hovered = false"
+        <Transition
+          enter-active-class="duration-150 ease-out"
+          enter-from-class="opacity-0 translate-y-1"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="duration-100 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 translate-y-1"
         >
-          <Icon
-            name="lucide:sparkles"
-            class="h-4 w-4 shrink-0 text-terra-400"
-            :class="{ 'animate-spin': loading }"
-          />
-          <input
-            ref="inputEl"
-            :value="modelValue"
-            type="text"
-            :disabled="loading || limitReached"
-            :placeholder="placeholder"
-            class="min-w-0 flex-1 border-none bg-transparent text-sm text-sand-50 placeholder:text-sand-400 focus:outline-none disabled:opacity-70"
-            @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
-            @focus="focused = true"
-            @blur="focused = false"
-            @keydown.enter.prevent="handleSubmit"
-          />
-          <span
-            v-if="usageUsed != null && usageLimit != null"
-            class="shrink-0 text-[10px] tabular-nums"
-            :class="(usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-400'"
-            :title="`${usageUsed}/${usageLimit} AI prompts used this month`"
+          <div
+            v-if="feedbackVisible && (feedbackMessage || feedbackError)"
+            class="pointer-events-auto w-full"
           >
-            {{ usageUsed }}/{{ usageLimit }}
-          </span>
-          <button
-            type="button"
-            :disabled="!loading && (!modelValue.trim() || limitReached)"
-            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition disabled:opacity-50"
-            :class="loading ? 'bg-sand-600 hover:bg-sand-500' : 'bg-terra-500 hover:bg-terra-600'"
-            :title="loading ? 'Cancel' : 'Submit'"
-            @click="handleClick"
+            <div
+              v-if="feedbackError"
+              class="flex items-start gap-2 rounded-xl bg-terra-50 px-3 py-2 text-sm text-terra-700 shadow-sm"
+            >
+              <Icon name="lucide:alert-circle" class="mt-0.5 h-4 w-4 shrink-0" />
+              <span class="flex-1">{{ feedbackError }}</span>
+              <button
+                type="button"
+                class="shrink-0 text-terra-400 hover:text-terra-700"
+                @click="emit('dismissFeedback')"
+              >
+                <Icon name="lucide:x" class="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div
+              v-else
+              class="flex items-center gap-2 rounded-xl bg-forest-50 px-3 py-2 text-sm text-forest-700 shadow-sm"
+            >
+              <Icon name="lucide:check-circle" class="h-4 w-4 shrink-0" />
+              <span class="flex-1">{{ feedbackMessage }}</span>
+              <button
+                v-if="undoAvailable"
+                type="button"
+                :disabled="undoing"
+                class="shrink-0 text-sm font-medium text-forest-700 underline underline-offset-2 hover:text-forest-900 disabled:opacity-50"
+                @click="emit('undo')"
+              >
+                <span v-if="undoing">Undoing…</span>
+                <span v-else>Undo</span>
+              </button>
+              <button
+                type="button"
+                class="shrink-0 text-forest-400 hover:text-forest-700"
+                @click="emit('dismissFeedback')"
+              >
+                <Icon name="lucide:x" class="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+          <div
+            v-else-if="revealMode === 'quick'"
+            class="pointer-events-auto flex w-full flex-wrap justify-end gap-1.5"
           >
-            <Icon :name="loading ? 'lucide:x' : 'lucide:arrow-up'" class="h-4 w-4" />
-          </button>
+            <button
+              type="button"
+              :disabled="loading"
+              class="rounded-full border border-sand-200 bg-white/95 px-3 py-1 text-xs text-sand-700 shadow-sm transition hover:border-terra-300 hover:text-terra-700"
+              @mousedown.prevent
+              @click="emit('fillGaps')"
+            >
+              <Icon name="lucide:wand-2" class="mr-1 inline h-3 w-3" />
+              Fill gaps
+            </button>
+            <button
+              type="button"
+              :disabled="loading || !hasActivities"
+              class="rounded-full border border-sand-200 bg-white/95 px-3 py-1 text-xs text-sand-700 shadow-sm transition hover:border-terra-300 hover:text-terra-700 disabled:opacity-40"
+              @mousedown.prevent
+              @click="emit('optimizeRoute')"
+            >
+              <Icon name="lucide:route" class="mr-1 inline h-3 w-3" />
+              Optimize route
+            </button>
+            <button
+              type="button"
+              :disabled="loading"
+              class="rounded-full border border-sand-200 bg-white/95 px-3 py-1 text-xs text-sand-700 shadow-sm transition hover:border-terra-300 hover:text-terra-700"
+              @mousedown.prevent
+              @click="emit('generateFull')"
+            >
+              <Icon name="lucide:sparkles" class="mr-1 inline h-3 w-3" />
+              Generate full itinerary
+            </button>
+          </div>
+          <div
+            v-else-if="revealMode === 'suggestions'"
+            class="pointer-events-auto flex w-full flex-wrap justify-end gap-1.5"
+          >
+            <button
+              v-for="s in suggestions"
+              :key="s"
+              type="button"
+              class="rounded-full border border-sand-200 bg-white/95 px-3 py-1 text-xs text-sand-600 shadow-sm transition hover:border-terra-300 hover:text-terra-700"
+              @mousedown.prevent
+              @click="selectSuggestion(s)"
+            >
+              {{ s }}
+            </button>
+          </div>
+        </Transition>
+
+        <div class="pointer-events-auto w-full">
+          <BorderBeam
+            size="sm"
+            color-variant="sunset"
+            theme="dark"
+            :brightness="0.45"
+            :strength="0.4"
+            :saturation="0.9"
+            :duration="4"
+            class="dock-beam w-full"
+          >
+            <div
+              class="flex items-center gap-2 rounded-full bg-sand-900 py-2 pl-2 pr-2"
+              @mouseenter="hovered = true"
+              @mouseleave="hovered = false"
+            >
+              <button
+                type="button"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sand-400 transition hover:bg-white/10 hover:text-sand-50 disabled:opacity-50"
+                :disabled="loading"
+                title="Close"
+                @click="collapse"
+              >
+                <Icon name="lucide:x" class="h-4 w-4" />
+              </button>
+              <Icon
+                name="lucide:sparkles"
+                class="h-4 w-4 shrink-0 text-terra-400"
+                :class="{ 'animate-spin': loading }"
+              />
+              <input
+                ref="inputEl"
+                :value="modelValue"
+                type="text"
+                :disabled="loading || limitReached"
+                :placeholder="placeholder"
+                class="min-w-0 flex-1 border-none bg-transparent text-sm text-sand-50 placeholder:text-sand-400 focus:outline-none disabled:opacity-70"
+                @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+                @focus="focused = true"
+                @blur="focused = false"
+                @keydown.enter.prevent="handleSubmit"
+              />
+              <span
+                v-if="usageUsed != null && usageLimit != null"
+                class="shrink-0 text-[10px] tabular-nums"
+                :class="
+                  (usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-400'
+                "
+                :title="`${usageUsed}/${usageLimit} AI prompts used this month`"
+              >
+                {{ usageUsed }}/{{ usageLimit }}
+              </span>
+              <button
+                type="button"
+                :disabled="!loading && (!modelValue.trim() || limitReached)"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition disabled:opacity-50"
+                :class="
+                  loading ? 'bg-sand-600 hover:bg-sand-500' : 'bg-terra-500 hover:bg-terra-600'
+                "
+                :title="loading ? 'Cancel' : 'Submit'"
+                @click="handleClick"
+              >
+                <Icon :name="loading ? 'lucide:x' : 'lucide:arrow-up'" class="h-4 w-4" />
+              </button>
+            </div>
+          </BorderBeam>
         </div>
-      </BorderBeam>
-    </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
