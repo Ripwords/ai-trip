@@ -160,7 +160,7 @@ The `BorderBeam` component from `vue-border-beam` continues to wrap the dock pil
 A single horizontally-centered region directly above the dock (about 60px above the dock's top edge). At any one time it shows zero or one of the following — never multiple stacked:
 
 - **Empty:** when the input is not focused and there is no recent feedback message.
-- **Quick action chips:** appear when the input gains focus *or* the dock is hovered (whichever first). Three white-on-light chips — `Fill gaps`, `Optimize route`, `Generate full itinerary`. Each chip is a button that triggers the existing `submitAiPrompt` path with a canned prompt (matching today's `AiQuickActions` component). The "Generate full itinerary" chip routes through the existing `GenerateFullItineraryButton` logic, calling the same backend endpoint — the chip is a thin wrapper that emits a `generate-full` event the page handles.
+- **Quick action chips:** appear when the input gains focus _or_ the dock is hovered (whichever first). Three white-on-light chips — `Fill gaps`, `Optimize route`, `Generate full itinerary`. Each chip is a button that triggers the existing `submitAiPrompt` path with a canned prompt (matching today's `AiQuickActions` component). The "Generate full itinerary" chip routes through the existing `GenerateFullItineraryButton` logic, calling the same backend endpoint — the chip is a thin wrapper that emits a `generate-full` event the page handles.
 - **Suggestion chips:** appear when the input is focused, empty, and has been empty for ~600ms (debounce so the suggestions don't flicker on every keystroke). Two to three destination-specific suggestion chips supplied by the existing `AiPromptSuggestions` component (refactored to emit chips into a slot, not render its own row). Tapping a chip populates the input — does not submit. As soon as the input has any content, suggestions are removed.
 - **Feedback toast:** appears for 6 seconds after a successful AI run. Dark green pill (`bg-forest-700`) with check icon, the AI message text, an "Undo" link (when `undoAvailable`), and an `✕` to dismiss. Auto-dismisses after 6s. Only one toast at a time. Errors show in the same slot but with a terra-red palette.
 
@@ -181,31 +181,31 @@ The reveal zone's position is `absolute`/`-top-N` relative to the dock. It does 
 
 ### Behavioral specification
 
-| State | Trigger | Above-dock content |
-|---|---|---|
-| Idle | Page load, no focus | Nothing |
-| Hover (desktop) | Pointer enters dock | Quick action chips |
-| Focused, empty, immediate | Click input | Quick action chips |
-| Focused, empty, 600ms | Click input + wait | Suggestion chips replace quick actions |
-| Focused, typing | User typed any char | Reveal zone empty |
-| Submitting | Send tapped, AI running | Reveal zone empty + dock shimmers |
-| Just succeeded | AI returned with message | Feedback toast (6s) |
-| Just failed | AI returned with error | Error toast (sticky until ✕) |
+| State                     | Trigger                  | Above-dock content                     |
+| ------------------------- | ------------------------ | -------------------------------------- |
+| Idle                      | Page load, no focus      | Nothing                                |
+| Hover (desktop)           | Pointer enters dock      | Quick action chips                     |
+| Focused, empty, immediate | Click input              | Quick action chips                     |
+| Focused, empty, 600ms     | Click input + wait       | Suggestion chips replace quick actions |
+| Focused, typing           | User typed any char      | Reveal zone empty                      |
+| Submitting                | Send tapped, AI running  | Reveal zone empty + dock shimmers      |
+| Just succeeded            | AI returned with message | Feedback toast (6s)                    |
+| Just failed               | AI returned with error   | Error toast (sticky until ✕)           |
 
 When the user dismisses a feedback toast manually, it does not reappear for that AI run. Closing the toast also clears `aiMessage` / `lastSnapshot` (matching today's behavior in the existing message-close button).
 
 ### Where the existing UI bits go
 
-| Today's element | New home |
-|---|---|
-| `AiQuickActions` (Fill gaps / Optimize route) | Reveal-zone chips, called from same emit handlers |
-| Usage counter `12/100` | Inside the dock as `text-white/40` |
-| `BorderBeam`-wrapped input + arrow-up | Becomes the dock itself |
-| `AiPromptSuggestions` row | Reveal-zone chips on empty-focus |
-| Success message div with check + undo + ✕ | Reveal-zone success toast |
-| Error message div | Reveal-zone error toast (sticky) |
-| Full-page `AiLoadingOverlay` | **Removed** in favor of dock shimmer |
-| `GenerateFullItineraryButton` separate CTA | **Removed** standalone, becomes the third quick-action chip |
+| Today's element                               | New home                                                    |
+| --------------------------------------------- | ----------------------------------------------------------- |
+| `AiQuickActions` (Fill gaps / Optimize route) | Reveal-zone chips, called from same emit handlers           |
+| Usage counter `12/100`                        | Inside the dock as `text-white/40`                          |
+| `BorderBeam`-wrapped input + arrow-up         | Becomes the dock itself                                     |
+| `AiPromptSuggestions` row                     | Reveal-zone chips on empty-focus                            |
+| Success message div with check + undo + ✕     | Reveal-zone success toast                                   |
+| Error message div                             | Reveal-zone error toast (sticky)                            |
+| Full-page `AiLoadingOverlay`                  | **Removed** in favor of dock shimmer                        |
+| `GenerateFullItineraryButton` separate CTA    | **Removed** standalone, becomes the third quick-action chip |
 
 ### Cancel during AI run (Part 3.5)
 
@@ -266,16 +266,16 @@ Underline-style tabs with a "More" overflow:
 
 Display-name mapping (preserve all backing TabValue strings unchanged):
 
-| Backing value | Display label |
-|---|---|
-| `itinerary` | Itinerary |
-| `overview` | Overview |
-| `expenses` | Expenses |
-| `reservations` | Bookings |
-| `notes` | Notes (in More) |
-| `documents` | Documents (in More) |
-| `team` | Team (in More) |
-| `flights` | Flights (in More) |
+| Backing value  | Display label       |
+| -------------- | ------------------- |
+| `itinerary`    | Itinerary           |
+| `overview`     | Overview            |
+| `expenses`     | Expenses            |
+| `reservations` | Bookings            |
+| `notes`        | Notes (in More)     |
+| `documents`    | Documents (in More) |
+| `team`         | Team (in More)      |
+| `flights`      | Flights (in More)   |
 
 ### Files
 
@@ -311,22 +311,22 @@ Compact numeric tiles, single neutral row:
 
 A summary of where chrome color lives in the redesign. This is the rule of thumb for any future tweaks.
 
-| Surface | Color |
-|---|---|
-| Body text | `text-sand-900` |
-| Secondary text, metadata, dividers | `text-sand-500` / `text-sand-300` |
-| Quiet backgrounds (hover states, segment containers) | `bg-sand-100` |
-| Card borders | `border-sand-200` |
-| Page background | unchanged |
-| **Active tab underline** | `bg-terra-500` |
-| **Active day tile** | `bg-sand-900` |
-| **AI dock background** | `bg-sand-900` |
-| **AI dock send button** | `bg-terra-500` |
-| **Status text in header** | `text-terra-600` (or matching `getTripStatus.textClass`) |
-| **Today's day text (when not active)** | `text-terra-600` |
-| **Low-usage warning** | `text-terra-300` (in dock) / `text-terra-500` (elsewhere) |
-| Success toast | existing forest palette |
-| Error toast | existing terra palette |
+| Surface                                              | Color                                                     |
+| ---------------------------------------------------- | --------------------------------------------------------- |
+| Body text                                            | `text-sand-900`                                           |
+| Secondary text, metadata, dividers                   | `text-sand-500` / `text-sand-300`                         |
+| Quiet backgrounds (hover states, segment containers) | `bg-sand-100`                                             |
+| Card borders                                         | `border-sand-200`                                         |
+| Page background                                      | unchanged                                                 |
+| **Active tab underline**                             | `bg-terra-500`                                            |
+| **Active day tile**                                  | `bg-sand-900`                                             |
+| **AI dock background**                               | `bg-sand-900`                                             |
+| **AI dock send button**                              | `bg-terra-500`                                            |
+| **Status text in header**                            | `text-terra-600` (or matching `getTripStatus.textClass`)  |
+| **Today's day text (when not active)**               | `text-terra-600`                                          |
+| **Low-usage warning**                                | `text-terra-300` (in dock) / `text-terra-500` (elsewhere) |
+| Success toast                                        | existing forest palette                                   |
+| Error toast                                          | existing terra palette                                    |
 
 Terra accent is rationed: used only where the user's attention should land — the primary action button, the active selection, and the "today" signal. Everywhere else, `sand` neutrals.
 

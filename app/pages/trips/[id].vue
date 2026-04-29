@@ -905,92 +905,6 @@ async function recomputeSegments(dayId: string) {
         </div>
       </div>
 
-      <!-- Preferences editor -->
-      <div v-if="showPrefsEditor" class="mt-4 rounded-xl border border-sand-200 bg-white p-4">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm font-semibold text-sand-900">Trip Preferences</h3>
-          <button
-            class="text-xs text-sand-400 hover:text-sand-600"
-            @click="showPrefsEditor = false"
-          >
-            <Icon name="lucide:x" class="h-4 w-4" />
-          </button>
-        </div>
-        <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-          <div>
-            <label class="block text-xs font-medium text-sand-500">Budget</label>
-            <select
-              :value="trip.preferences?.budget || ''"
-              class="mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm input-focus"
-              @change="updatePreference('budget', ($event.target as HTMLSelectElement).value)"
-            >
-              <option value="">Any</option>
-              <option value="budget">Budget</option>
-              <option value="moderate">Moderate</option>
-              <option value="luxury">Luxury</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-sand-500">Pace</label>
-            <select
-              :value="trip.preferences?.pace || ''"
-              class="mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm input-focus"
-              @change="updatePreference('pace', ($event.target as HTMLSelectElement).value)"
-            >
-              <option value="">Any</option>
-              <option value="relaxed">Relaxed</option>
-              <option value="moderate">Moderate</option>
-              <option value="packed">Packed</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-sand-500">Currency</label>
-            <select
-              :value="trip.currencyCode || 'USD'"
-              :disabled="currencyConverting"
-              class="mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm input-focus disabled:opacity-50"
-              @change="handleCurrencyChange(($event.target as HTMLSelectElement).value)"
-            >
-              <option value="USD">USD ($)</option>
-              <option value="EUR">EUR (€)</option>
-              <option value="GBP">GBP (£)</option>
-              <option value="JPY">JPY (¥)</option>
-              <option value="KRW">KRW (₩)</option>
-              <option value="THB">THB (฿)</option>
-              <option value="SGD">SGD (S$)</option>
-              <option value="AUD">AUD (A$)</option>
-              <option value="CAD">CAD (C$)</option>
-              <option value="MYR">MYR (RM)</option>
-              <option value="IDR">IDR (Rp)</option>
-              <option value="TWD">TWD (NT$)</option>
-              <option value="VND">VND (₫)</option>
-              <option value="PHP">PHP (₱)</option>
-              <option value="INR">INR (₹)</option>
-              <option value="CNY">CNY (¥)</option>
-            </select>
-          </div>
-          <div class="sm:col-span-3">
-            <label class="block text-xs font-medium text-sand-500">Interests</label>
-            <input
-              :value="trip.preferences?.interests?.join(', ') || ''"
-              type="text"
-              placeholder="e.g. temples, street food, nature, nightlife"
-              class="mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm input-focus"
-              @change="
-                updatePreference(
-                  'interests',
-                  ($event.target as HTMLInputElement).value
-                    .split(',')
-                    .map((s) => s.trim())
-                    .filter(Boolean),
-                )
-              "
-            />
-          </div>
-        </div>
-        <p class="mt-2 text-xs text-sand-400">AI suggestions will respect these preferences.</p>
-      </div>
-
       <!-- Tabs -->
       <div class="mt-6">
         <TripDetailTabs v-model="activeTab" />
@@ -1355,6 +1269,17 @@ async function recomputeSegments(dayId: string) {
         </div>
       </div>
     </div>
+
+    <!-- Preferences sheet -->
+    <TripPreferencesSheet
+      v-if="trip && !isViewer"
+      :open="showPrefsEditor"
+      :trip="trip"
+      :currency-converting="currencyConverting"
+      @close="showPrefsEditor = false"
+      @update-preference="updatePreference"
+      @change-currency="handleCurrencyChange"
+    />
 
     <!-- Edit modal -->
     <LazyEditActivityModal

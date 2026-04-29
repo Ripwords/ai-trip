@@ -21,7 +21,7 @@
   - `upcoming` → `bg-ocean-50 text-ocean-700`
   - `ongoing` → `bg-forest-50 text-forest-700`
   - `completed` → `bg-sand-200 text-sand-600`
-  When the spec says "status text in `text-terra-600`", read that as "use the existing foreground color from `getTripStatus.badgeClass` minus the background" — the actual values to apply are the three above.
+    When the spec says "status text in `text-terra-600`", read that as "use the existing foreground color from `getTripStatus.badgeClass` minus the background" — the actual values to apply are the three above.
 - **Conventional Commits, no `--amend`, never `--no-verify`.** The repo runs `oxlint` + `oxfmt` on commit via Husky.
 - **The order matters.** Task 4 (Tabs) and Task 5 (Preferences) are independent. Task 6, 7, 8, 9, 10, 11 build the dock incrementally — do them in order. Task 12 wires it into the page. Task 13 deletes the corpses.
 
@@ -30,17 +30,20 @@
 ## File Structure
 
 **Created:**
+
 - `app/components/AiDock.vue` — owns the floating dock, the input, the reveal zone, all four states (idle / focused / loading / feedback).
 - `app/components/TripPreferencesSheet.vue` — slide-up sheet replacement for the inline preferences panel.
 - `app/composables/useAiPromptSuggestions.ts` — destination-aware suggestion strings used by the dock's reveal zone.
 - `app/composables/useGenerateFullItinerary.ts` — extracts the per-day-loop logic from `GenerateFullItineraryButton.vue` so the dock's "Generate full itinerary" chip can call it.
 
 **Modified:**
+
 - `app/composables/useTripStatus.ts` — adds a `textClass` field next to `badgeClass`.
 - `app/components/TripDetailTabs.vue` — restructured to underline-tabs + "More" overflow.
 - `app/pages/trips/[id].vue` — header, day selector, AI block all rewritten; the inline preferences div removed; `<AiDock>` and `<TripPreferencesSheet>` mounted.
 
 **Deleted:**
+
 - `app/components/AiQuickActions.vue`
 - `app/components/AiPromptSuggestions.vue`
 - `app/components/AiLoadingOverlay.vue`
@@ -53,6 +56,7 @@
 **Goal:** Give callers a way to render the status as inline text (no pill background) without redefining the color.
 
 **Files:**
+
 - Modify: `app/composables/useTripStatus.ts`
 
 - [ ] **Step 1: Open the file and read the current shape.**
@@ -135,6 +139,7 @@
 **Goal:** Replace the back arrow + title + dates row plus the six-pill metadata-and-actions row with a cleaner two-column layout: title block on the left (with one quiet meta line under the destination), three icon-only buttons on the right.
 
 **Files:**
+
 - Modify: `app/pages/trips/[id].vue`
 
 - [ ] **Step 1: Locate the existing header block.**
@@ -406,6 +411,7 @@
 **Goal:** Replace the row of terra-pill day buttons with compact vertical-stack tiles (number + 3-letter weekday). Active tile is `bg-sand-900`. Today (when not active) is `text-terra-600` with no extra ring.
 
 **Files:**
+
 - Modify: `app/pages/trips/[id].vue`
 
 - [ ] **Step 1: Locate the existing day-tabs block.**
@@ -468,6 +474,7 @@
 **Goal:** Five visible tabs (Itinerary, Overview, Expenses, Bookings, More ▾). Active tab has a 2px terra underline. The "More" item dropdown contains Notes, Documents, Team, Flights — clicking activates that tab and the More label keeps a small underline accent.
 
 **Files:**
+
 - Modify: `app/components/TripDetailTabs.vue`
 
 - [ ] **Step 1: Replace the component contents.**
@@ -507,10 +514,7 @@
 
   if (import.meta.client) {
     document.addEventListener("click", (e) => {
-      if (
-        overflowOpen.value &&
-        !(e.target as HTMLElement).closest("[data-tabs-more]")
-      ) {
+      if (overflowOpen.value && !(e.target as HTMLElement).closest("[data-tabs-more]")) {
         overflowOpen.value = false
       }
     })
@@ -609,6 +613,7 @@
 **Goal:** Replace the inline preferences `<div>` with a slide-up sheet on mobile / right-side drawer on desktop. Same four fields, same handlers — only the wrapper moves.
 
 **Files:**
+
 - Create: `app/components/TripPreferencesSheet.vue`
 - Modify: `app/pages/trips/[id].vue`
 
@@ -732,9 +737,7 @@
             <select
               :value="trip.preferences?.pace || ''"
               class="input-focus mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
-              @change="
-                emit('updatePreference', 'pace', ($event.target as HTMLSelectElement).value)
-              "
+              @change="emit('updatePreference', 'pace', ($event.target as HTMLSelectElement).value)"
             >
               <option value="">Any</option>
               <option value="relaxed">Relaxed</option>
@@ -822,6 +825,7 @@
 **Goal:** Move the destination-aware suggestion list out of the (soon-deleted) `AiPromptSuggestions.vue` component into a composable so the dock can consume it.
 
 **Files:**
+
 - Create: `app/composables/useAiPromptSuggestions.ts`
 
 - [ ] **Step 1: Create the composable.**
@@ -831,10 +835,7 @@
   ```ts
   import { computed, type Ref } from "vue"
 
-  export function useAiPromptSuggestions(
-    destination: Ref<string>,
-    hasActivities: Ref<boolean>,
-  ) {
+  export function useAiPromptSuggestions(destination: Ref<string>, hasActivities: Ref<boolean>) {
     const emptyDaySuggestions = computed(() => [
       `Plan my full day in ${destination.value}`,
       "Find breakfast, lunch, and dinner spots",
@@ -881,6 +882,7 @@
 **Goal:** Move the per-day-loop logic out of `GenerateFullItineraryButton.vue` into a composable so the dock's "Generate full itinerary" chip can reuse it.
 
 **Files:**
+
 - Create: `app/composables/useGenerateFullItinerary.ts`
 
 - [ ] **Step 1: Create the composable.**
@@ -974,6 +976,7 @@
 **Goal:** Create the dock component with the input, sparkle, usage counter, and send button. Wire it to the same `submitAiPrompt` / `aiPrompt` / `aiUsage` props/emits the parent will pass. No reveal-zone yet — that comes in Task 9.
 
 **Files:**
+
 - Create: `app/components/AiDock.vue`
 
 - [ ] **Step 1: Create the component skeleton.**
@@ -1019,15 +1022,17 @@
     if (limitReached.value) return "Limit reached. Resets next month."
     if (props.loading) {
       switch (props.loadingMode) {
-        case "optimize": return "Optimizing route…"
-        case "remove": return "Removing stops…"
-        case "reschedule": return "Rescheduling…"
-        default: return "Generating activities…"
+        case "optimize":
+          return "Optimizing route…"
+        case "remove":
+          return "Removing stops…"
+        case "reschedule":
+          return "Rescheduling…"
+        default:
+          return "Generating activities…"
       }
     }
-    return props.hasActivities
-      ? "Add, remove, reschedule, find a hotel…"
-      : "What to do today?"
+    return props.hasActivities ? "Add, remove, reschedule, find a hotel…" : "What to do today?"
   })
 
   function handleSubmit() {
@@ -1094,10 +1099,7 @@
               :title="loading ? 'Cancel' : 'Submit'"
               @click="handleClick"
             >
-              <Icon
-                :name="loading ? 'lucide:x' : 'lucide:arrow-up'"
-                class="h-4 w-4"
-              />
+              <Icon :name="loading ? 'lucide:x' : 'lucide:arrow-up'" class="h-4 w-4" />
             </button>
           </div>
         </BorderBeam>
@@ -1113,8 +1115,12 @@
   }
 
   @keyframes shimmer {
-    0% { background-position: 0 0; }
-    100% { background-position: -200% 0; }
+    0% {
+      background-position: 0 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1149,6 +1155,7 @@
 **Goal:** Add the "above the dock" reveal zone. When the input is focused (or the dock is hovered) the zone shows three quick-action chips. When the input is focused, empty, and stays empty for 600ms, the zone replaces the chips with destination-specific suggestion chips.
 
 **Files:**
+
 - Modify: `app/components/AiDock.vue`
 
 - [ ] **Step 1: Add the reveal-zone state machine to the script.**
@@ -1322,6 +1329,7 @@
 **Goal:** While `loading` is true, the dock shimmers and the placeholder cycles through the existing per-mode step strings (preserving the warmth of the deleted `AiLoadingOverlay`).
 
 **Files:**
+
 - Modify: `app/components/AiDock.vue`
 
 - [ ] **Step 1: Add the per-mode step library.**
@@ -1387,9 +1395,7 @@
   const placeholder = computed(() => {
     if (limitReached.value) return "Limit reached. Resets next month."
     if (props.loading) return loadingPlaceholder.value
-    return props.hasActivities
-      ? "Add, remove, reschedule, find a hotel…"
-      : "What to do today?"
+    return props.hasActivities ? "Add, remove, reschedule, find a hotel…" : "What to do today?"
   })
   ```
 
@@ -1412,6 +1418,7 @@
 **Goal:** When `feedbackMessage` or `feedbackError` is non-empty, render a toast in the reveal zone above the dock. Success toasts auto-dismiss after 6s; error toasts are sticky until ✕.
 
 **Files:**
+
 - Modify: `app/components/AiDock.vue`
 
 - [ ] **Step 1: Add the toast state machine to the script.**
@@ -1429,24 +1436,21 @@
     }
   }
 
-  watch(
-    [() => props.feedbackMessage, () => props.feedbackError],
-    ([message, error]) => {
-      clearToastTimer()
-      if (error) {
-        // Sticky until dismissed
-        feedbackVisible.value = true
-      } else if (message) {
-        feedbackVisible.value = true
-        // Respect prefers-reduced-motion: still auto-dismiss, just no fade
-        toastTimer = setTimeout(() => {
-          emit("dismissFeedback")
-        }, 6000)
-      } else {
-        feedbackVisible.value = false
-      }
-    },
-  )
+  watch([() => props.feedbackMessage, () => props.feedbackError], ([message, error]) => {
+    clearToastTimer()
+    if (error) {
+      // Sticky until dismissed
+      feedbackVisible.value = true
+    } else if (message) {
+      feedbackVisible.value = true
+      // Respect prefers-reduced-motion: still auto-dismiss, just no fade
+      toastTimer = setTimeout(() => {
+        emit("dismissFeedback")
+      }, 6000)
+    } else {
+      feedbackVisible.value = false
+    }
+  })
 
   onUnmounted(clearToastTimer)
   ```
@@ -1580,6 +1584,7 @@
 **Goal:** Connect the dock to the page's existing `submitAiPrompt` / `handleUndo` / quick-action handlers. Add a cancel path. Delete the old `AiQuickActions`, `AiPromptSuggestions`, `BorderBeam` input form, `AiLoadingOverlay`, and `GenerateFullItineraryButton` from the page (their files are deleted in Task 13).
 
 **Files:**
+
 - Modify: `app/pages/trips/[id].vue`
 
 - [ ] **Step 1: Add the abort controller and cancel handler to the script.**
@@ -1724,13 +1729,15 @@
   Because the dock is now `position: fixed` overlapping the bottom of the viewport, the activities list needs bottom padding so the last activity isn't hidden. Find the left column wrapper for the itinerary content (around line 1156):
 
   ```html
-  <div class="flex-1 space-y-6 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-4">
+  <div class="flex-1 space-y-6 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-4"></div>
   ```
 
   Change to:
 
   ```html
-  <div class="flex-1 space-y-6 pb-24 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-4 lg:pb-6">
+  <div
+    class="flex-1 space-y-6 pb-24 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-4 lg:pb-6"
+  ></div>
   ```
 
   The `pb-24` (96px) on small viewports keeps activities clear of the dock; on `lg:` the scrollable column already has its own bottom edge, so `pb-6` is enough.
@@ -1761,6 +1768,7 @@
 **Goal:** Remove the four components whose responsibilities are now in `AiDock` / the two new composables.
 
 **Files:**
+
 - Delete: `app/components/AiQuickActions.vue`
 - Delete: `app/components/AiPromptSuggestions.vue`
 - Delete: `app/components/AiLoadingOverlay.vue`
@@ -1811,7 +1819,6 @@
 - [ ] **Step 1: Owner flow.**
 
   As an owner, on a trip with mixed empty and populated days:
-
   - Header: title, dates, day count, status (correct color), budget, pace all visible as quiet inline text. Three icons on the right.
   - Click sliders → preferences sheet slides up (mobile) / from the right (desktop). Change budget — header updates. Change currency — convert dialog appears.
   - Click link icon (no token yet) → token generated and link copied.
@@ -1826,7 +1833,6 @@
 - [ ] **Step 2: Viewer flow.**
 
   Open the same trip as a viewer (someone with `_role: "viewer"` from the members API):
-
   - Sliders icon hidden.
   - Share icon hidden.
   - More menu hidden in non-itinerary tabs (or only shows non-edit items).
@@ -1836,7 +1842,6 @@
 - [ ] **Step 3: Mobile width.**
 
   Resize the browser to ~390px wide (iPhone). Confirm:
-
   - Header still legible — meta line wraps if needed.
   - Day tiles scroll horizontally.
   - Tabs scroll horizontally.
