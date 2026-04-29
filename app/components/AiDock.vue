@@ -186,35 +186,21 @@ function handleClick() {
     class="pointer-events-none fixed bottom-20 right-4 z-40 flex flex-col items-end gap-2 sm:bottom-6 sm:right-6"
     :style="{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }"
   >
-    <Transition
-      enter-active-class="duration-200 ease-out"
-      enter-from-class="opacity-0 scale-90 translate-y-2"
-      enter-to-class="opacity-100 scale-100 translate-y-0"
-      leave-active-class="duration-150 ease-in"
-      leave-from-class="opacity-100 scale-100 translate-y-0"
-      leave-to-class="opacity-0 scale-90 translate-y-2"
-    >
+    <Transition name="dock-morph" mode="out-in">
       <button
         v-if="!expanded"
+        key="fab"
         type="button"
-        class="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-terra-500 text-white shadow-lg transition hover:scale-105 hover:bg-terra-600"
+        class="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-terra-500 text-white shadow-lg transition-colors hover:bg-terra-600"
         title="Ask AI"
         @click="expand"
       >
         <Icon name="lucide:sparkles" class="h-5 w-5" />
       </button>
-    </Transition>
 
-    <Transition
-      enter-active-class="duration-200 ease-out"
-      enter-from-class="opacity-0 translate-y-2"
-      enter-to-class="opacity-100 translate-y-0"
-      leave-active-class="duration-150 ease-in"
-      leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 translate-y-2"
-    >
       <div
-        v-if="expanded"
+        v-else
+        key="pill"
         class="pointer-events-auto flex w-[min(28rem,calc(100vw-2rem))] flex-col items-end gap-2"
       >
         <Transition
@@ -373,7 +359,36 @@ function handleClick() {
   border-radius: 9999px;
 }
 
+.dock-morph-enter-active,
+.dock-morph-leave-active {
+  transition:
+    opacity 0.18s ease-out,
+    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: bottom right;
+  will-change: transform, opacity;
+}
+
+.dock-morph-enter-from,
+.dock-morph-leave-to {
+  opacity: 0;
+  transform: scale(0.7);
+}
+
+.dock-morph-enter-to,
+.dock-morph-leave-from {
+  opacity: 1;
+  transform: scale(1);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .dock-morph-enter-active,
+  .dock-morph-leave-active {
+    transition: opacity 0.15s ease-out;
+  }
+  .dock-morph-enter-from,
+  .dock-morph-leave-to {
+    transform: none;
+  }
   .animate-spin {
     animation: none;
   }
