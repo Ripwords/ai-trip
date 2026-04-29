@@ -203,6 +203,21 @@ function handleClick() {
 </script>
 
 <template>
+  <Transition
+    enter-active-class="duration-200 ease-out"
+    enter-from-class="opacity-0"
+    enter-to-class="opacity-100"
+    leave-active-class="duration-150 ease-in"
+    leave-from-class="opacity-100"
+    leave-to-class="opacity-0"
+  >
+    <div
+      v-if="expanded"
+      class="fixed inset-0 z-30 bg-sand-900/40 backdrop-blur-[2px]"
+      @click="collapse"
+    />
+  </Transition>
+
   <div
     class="pointer-events-none fixed bottom-20 right-4 z-40 flex flex-col items-end gap-2 sm:bottom-6 sm:right-6"
     :style="{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }"
