@@ -609,6 +609,7 @@ function handleActivityAdded(payload: {
 }
 
 const showMoreMenu = ref(false)
+const showShareMenu = ref(false)
 const showEditTripModal = ref(false)
 
 function handleTripUpdated(updated: unknown) {
@@ -619,11 +620,15 @@ function handleTripUpdated(updated: unknown) {
   trip.value = { ...(updated as TripResponse), _role: role ?? "owner" }
 }
 
-// Close more menu on click outside
+// Close menus on click outside
 if (import.meta.client) {
   document.addEventListener("click", (e) => {
-    if (showMoreMenu.value && !(e.target as HTMLElement).closest(".relative")) {
+    const target = e.target as HTMLElement
+    if (showMoreMenu.value && !target.closest(".relative")) {
       showMoreMenu.value = false
+    }
+    if (showShareMenu.value && !target.closest(".relative")) {
+      showShareMenu.value = false
     }
   })
 }
@@ -706,11 +711,11 @@ async function recomputeSegments(dayId: string) {
     <!-- Trip detail -->
     <div v-else>
       <!-- Header -->
-      <div>
-        <div class="flex items-center gap-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex min-w-0 flex-1 items-start gap-2">
           <NuxtLink
             to="/dashboard"
-            class="shrink-0 rounded-lg p-1.5 text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+            class="mt-1 shrink-0 rounded-lg p-1.5 text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
           >
             <Icon name="lucide:arrow-left" class="h-5 w-5" />
           </NuxtLink>
@@ -719,17 +724,16 @@ async function recomputeSegments(dayId: string) {
               {{ trip.destination }}
             </h1>
             <div
-              class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-sand-500 sm:text-sm sm:gap-2"
+              class="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-sand-500 sm:text-sm"
             >
-              <span class="flex items-center gap-1">
-                <Icon name="lucide:calendar" class="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span class="inline-flex items-center gap-1">
                 <NuxtTime
                   :datetime="trip.startDate + 'T00:00:00'"
                   locale="en-US"
                   month="short"
                   day="numeric"
                 />
-                -
+                –
                 <NuxtTime
                   :datetime="trip.endDate + 'T00:00:00'"
                   locale="en-US"
@@ -739,50 +743,109 @@ async function recomputeSegments(dayId: string) {
                 />
               </span>
               <span class="text-sand-300">·</span>
-              <span
-                class="rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="getTripStatus(trip.startDate, trip.endDate).badgeClass"
-              >
+              <span>{{ sortedDays.length }} days</span>
+              <span class="text-sand-300">·</span>
+              <span :class="getTripStatus(trip.startDate, trip.endDate).textClass">
                 {{ getTripStatus(trip.startDate, trip.endDate).label }}
               </span>
+              <template v-if="trip.preferences?.budget">
+                <span class="text-sand-300">·</span>
+                <span class="capitalize">{{ trip.preferences.budget }}</span>
+              </template>
+              <template v-if="trip.preferences?.pace">
+                <span class="text-sand-300">·</span>
+                <span class="capitalize">{{ trip.preferences.pace }}</span>
+              </template>
             </div>
           </div>
         </div>
 
-        <div class="mt-3 flex flex-wrap items-center gap-2">
-          <span class="rounded-full bg-terra-50 px-2.5 py-1 text-xs font-medium text-terra-700">
-            {{ sortedDays.length }} days
-          </span>
+        <div class="flex shrink-0 items-center gap-0.5">
           <button
             v-if="!isViewer"
-            class="inline-flex items-center gap-1.5 rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
-            title="Edit trip preferences"
+            type="button"
+            class="flex h-9 w-9 items-center justify-center rounded-lg text-sand-500 transition hover:bg-sand-100 hover:text-sand-800"
+            title="Trip preferences"
             @click="showPrefsEditor = !showPrefsEditor"
           >
-            <Icon name="lucide:sliders-horizontal" class="h-3 w-3" />
-            <span class="hidden sm:inline">Preferences</span>
-            <span class="sm:hidden">Prefs</span>
+            <Icon name="lucide:sliders-horizontal" class="h-4 w-4" />
           </button>
-          <span
-            v-if="trip.preferences?.budget"
-            class="rounded-full bg-sand-100 px-2 py-0.5 text-[11px] text-sand-500 capitalize"
-          >
-            {{ trip.preferences.budget }}
-          </span>
-          <span
-            v-if="trip.preferences?.pace"
-            class="rounded-full bg-sand-100 px-2 py-0.5 text-[11px] text-sand-500 capitalize"
-          >
-            {{ trip.preferences.pace }}
-          </span>
-          <!-- More options dropdown -->
+
+          <template v-if="tripRole === 'owner'">
+            <button
+              v-if="!trip.shareToken"
+              type="button"
+              :disabled="shareLoading"
+              class="flex h-9 w-9 items-center justify-center rounded-lg text-sand-500 transition hover:bg-sand-100 hover:text-sand-800 disabled:opacity-50"
+              title="Generate share link"
+              @click="handleToggleShare"
+            >
+              <Icon
+                :name="shareLoading ? 'lucide:loader' : 'lucide:share-2'"
+                class="h-4 w-4"
+                :class="{ 'animate-spin': shareLoading }"
+              />
+            </button>
+            <div v-else class="relative">
+              <button
+                type="button"
+                class="flex h-9 w-9 items-center justify-center rounded-lg text-ocean-600 transition hover:bg-ocean-50"
+                :title="shareCopied ? 'Copied!' : 'Share options'"
+                @click="showShareMenu = !showShareMenu"
+              >
+                <Icon :name="shareCopied ? 'lucide:check' : 'lucide:link'" class="h-4 w-4" />
+              </button>
+              <Transition
+                enter-active-class="duration-150 ease-out"
+                enter-from-class="opacity-0 scale-95"
+                enter-to-class="opacity-100 scale-100"
+                leave-active-class="duration-100 ease-in"
+                leave-from-class="opacity-100 scale-100"
+                leave-to-class="opacity-0 scale-95"
+              >
+                <div
+                  v-if="showShareMenu"
+                  class="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
+                >
+                  <button
+                    type="button"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
+                    @click="
+                      () => {
+                        handleCopyShareLink()
+                        showShareMenu = false
+                      }
+                    "
+                  >
+                    <Icon name="lucide:copy" class="h-4 w-4 text-sand-400" />
+                    Copy link
+                  </button>
+                  <button
+                    type="button"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                    @click="
+                      () => {
+                        handleToggleShare()
+                        showShareMenu = false
+                      }
+                    "
+                  >
+                    <Icon name="lucide:link-2-off" class="h-4 w-4" />
+                    Revoke link
+                  </button>
+                </div>
+              </Transition>
+            </div>
+          </template>
+
           <div class="relative">
             <button
-              class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200"
+              type="button"
+              class="flex h-9 w-9 items-center justify-center rounded-lg text-sand-500 transition hover:bg-sand-100 hover:text-sand-800"
               title="More options"
               @click="showMoreMenu = !showMoreMenu"
             >
-              <Icon name="lucide:more-horizontal" class="h-3.5 w-3.5" />
+              <Icon name="lucide:more-horizontal" class="h-4 w-4" />
             </button>
             <Transition
               enter-active-class="duration-150 ease-out"
@@ -811,6 +874,7 @@ async function recomputeSegments(dayId: string) {
                   Edit trip
                 </button>
                 <button
+                  type="button"
                   class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
                   @click="
                     () => {
@@ -823,6 +887,7 @@ async function recomputeSegments(dayId: string) {
                   Export KML
                 </button>
                 <button
+                  type="button"
                   class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
                   @click="
                     () => {
@@ -837,41 +902,6 @@ async function recomputeSegments(dayId: string) {
               </div>
             </Transition>
           </div>
-          <!-- Share button (owner only) -->
-          <template v-if="tripRole === 'owner'">
-            <button
-              v-if="!trip.shareToken"
-              :disabled="shareLoading"
-              class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200 disabled:opacity-50"
-              title="Generate shareable public link"
-              @click="handleToggleShare"
-            >
-              <Icon
-                :name="shareLoading ? 'lucide:loader' : 'lucide:share-2'"
-                class="h-3 w-3"
-                :class="{ 'animate-spin': shareLoading }"
-              />
-              <span class="hidden sm:inline">Share</span>
-            </button>
-            <div v-else class="inline-flex items-center gap-1">
-              <button
-                class="inline-flex items-center gap-1 rounded-l-full bg-ocean-50 px-2.5 py-1 text-xs font-medium text-ocean-700 transition hover:bg-ocean-100"
-                title="Copy share link"
-                @click="handleCopyShareLink"
-              >
-                <Icon :name="shareCopied ? 'lucide:check' : 'lucide:link'" class="h-3 w-3" />
-                <span class="hidden sm:inline">{{ shareCopied ? "Copied!" : "Copy Link" }}</span>
-              </button>
-              <button
-                :disabled="shareLoading"
-                class="inline-flex items-center rounded-r-full bg-sand-100 px-2 py-1 text-xs text-sand-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
-                title="Revoke share link"
-                @click="handleToggleShare"
-              >
-                <Icon name="lucide:x" class="h-3 w-3" />
-              </button>
-            </div>
-          </template>
         </div>
       </div>
 
