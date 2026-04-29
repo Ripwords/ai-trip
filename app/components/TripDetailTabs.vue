@@ -43,7 +43,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-wrap items-end gap-x-5 gap-y-1 border-b border-sand-200">
+  <div class="flex items-end gap-x-4 gap-y-1 border-b border-sand-200 sm:gap-x-6">
     <button
       v-for="tab in primaryTabs"
       :key="tab.value"
@@ -89,7 +89,7 @@ onUnmounted(() => {
       >
         <div
           v-if="overflowOpen"
-          class="absolute left-0 top-full z-30 mt-1 w-40 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
+          class="absolute right-0 top-full z-30 mt-1 w-40 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
         >
           <button
             v-for="tab in overflowTabs"

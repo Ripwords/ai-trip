@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { BorderBeam } from "vue-border-beam"
 import type { TripActivity, TripDay, TripResponse } from "~/types/trip"
 
 definePageMeta({ layout: "app" })
@@ -127,6 +126,7 @@ async function handleToggleParticipant(activityId: string, userId: string) {
 }
 
 const aiLoading = ref(false)
+const aiAbortController = ref<AbortController | null>(null)
 const aiLoadingMode = ref<"generate" | "optimize" | "remove" | "reschedule">("generate")
 const lastSnapshot = ref<string | null>(null)
 const editingActivity = ref<TripActivity | null>(null)
@@ -447,24 +447,57 @@ async function submitAiPrompt(prompt: string) {
   }
 
   try {
+    aiAbortController.value = new AbortController()
     const result = await $fetch(`/api/trips/${tripId}/days/${activeDayId.value}/ai`, {
       method: "POST",
       body: { prompt },
+      signal: aiAbortController.value.signal,
     })
     aiMessage.value = result.message
     await refresh()
   } catch (e: unknown) {
-    const err = e as { data?: { message?: string } }
-    aiError.value = err.data?.message ?? "Something went wrong"
-    lastSnapshot.value = null // Clear snapshot on error
+    const err = e as { name?: string; data?: { message?: string } }
+    if (err.name === "AbortError") {
+      lastSnapshot.value = null
+    } else {
+      aiError.value = err.data?.message ?? "Something went wrong"
+      lastSnapshot.value = null
+    }
   } finally {
     aiLoading.value = false
+    aiAbortController.value = null
     refreshUsage()
   }
 }
 
-async function handleAiSubmit() {
-  await submitAiPrompt(aiPrompt.value.trim())
+function handleAiCancel() {
+  aiAbortController.value?.abort()
+  aiLoading.value = false
+  aiAbortController.value = null
+}
+
+const { run: runGenerateFullItinerary } = useGenerateFullItinerary(tripId)
+
+async function handleGenerateFullItinerary() {
+  const ran = await runGenerateFullItinerary(sortedDays.value, aiUsage.value?.remaining)
+  if (ran) {
+    await refresh()
+    await refreshUsage()
+  }
+}
+
+function handleQuickFillGaps() {
+  void submitAiPrompt("Fill in the gaps in my schedule for today")
+}
+
+function handleQuickOptimizeRoute() {
+  void submitAiPrompt("Optimize the route and reorder activities for minimum travel time")
+}
+
+function handleDismissAiFeedback() {
+  aiMessage.value = ""
+  aiError.value = ""
+  lastSnapshot.value = null
 }
 
 const undoLoading = ref(false)
@@ -954,146 +987,13 @@ async function recomputeSegments(dayId: string) {
           </div>
         </ClientOnly>
 
-        <!-- Generate all empty days (experimental) -->
-        <GenerateFullItineraryButton
-          v-if="!isViewer"
-          :trip-id="tripId"
-          :days="sortedDays"
-          :disabled="aiLoading || (aiUsage?.remaining ?? 1) <= 0"
-          :ai-remaining="aiUsage?.remaining"
-          class="mt-3"
-          @done="
-            () => {
-              refresh()
-              refreshUsage()
-            }
-          "
-        />
-
-        <!-- AI prompt bar (hidden for viewers) -->
-        <div v-if="activeDay && !isViewer" class="mt-4">
-          <!-- Quick action buttons -->
-          <div class="mb-2 flex items-center justify-between">
-            <AiQuickActions
-              :disabled="aiLoading || (aiUsage?.remaining ?? 1) <= 0"
-              :has-activities="activeDayHasActivities"
-              @fill-gaps="aiPrompt = 'Fill in the gaps in my schedule for today'"
-              @optimize-route="
-                aiPrompt = 'Optimize the route and reorder activities for minimum travel time'
-              "
-            />
-            <!-- Usage counter -->
-            <span
-              v-if="aiUsage"
-              class="shrink-0 text-xs tabular-nums"
-              :class="aiUsage.remaining <= 10 ? 'text-terra-500 font-medium' : 'text-sand-400'"
-              :title="`${aiUsage.used}/${aiUsage.limit} AI prompts used this month`"
-            >
-              {{ aiUsage.used }}/{{ aiUsage.limit }}
-            </span>
-          </div>
-
-          <form class="flex items-center gap-1.5 sm:gap-2" @submit.prevent="handleAiSubmit">
-            <BorderBeam
-              size="sm"
-              color-variant="sunset"
-              theme="dark"
-              :brightness="0.4"
-              :strength="0.3"
-              :saturation="0.8"
-              :duration="4"
-              class="min-w-0 flex-1"
-            >
-              <div class="relative">
-                <Icon
-                  name="lucide:sparkles"
-                  class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-terra-400 sm:h-4 sm:w-4"
-                />
-                <input
-                  v-model="aiPrompt"
-                  type="text"
-                  :disabled="aiLoading || (aiUsage?.remaining ?? 1) <= 0"
-                  :placeholder="
-                    (aiUsage?.remaining ?? 1) <= 0
-                      ? `Limit reached. Resets next month.`
-                      : activeDayHasActivities
-                        ? 'Add, remove, reschedule, find a hotel...'
-                        : 'What to do today?'
-                  "
-                  class="block w-full rounded-xl border-none bg-transparent py-2 pl-9 pr-3 text-sm text-sand-900 placeholder:text-sand-400 focus:outline-none disabled:opacity-50 sm:py-2.5 sm:pl-10 sm:pr-4"
-                />
-              </div>
-            </BorderBeam>
-            <button
-              type="submit"
-              :disabled="aiLoading || !aiPrompt.trim() || (aiUsage?.remaining ?? 1) <= 0"
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-terra-500 text-white transition hover:bg-terra-600 disabled:opacity-50 sm:h-10 sm:w-10"
-            >
-              <Icon
-                :name="aiLoading ? 'lucide:loader' : 'lucide:arrow-up'"
-                class="h-4 w-4"
-                :class="{ 'animate-spin': aiLoading }"
-              />
-            </button>
-          </form>
-
-          <!-- Prompt suggestions -->
-          <AiPromptSuggestions
-            v-if="!aiLoading && !aiMessage && !aiError && trip"
-            :destination="trip.destination"
-            :has-activities="activeDayHasActivities"
-            @select="aiPrompt = $event"
-          />
-
-          <!-- AI feedback messages -->
-          <div
-            v-if="aiMessage && !aiError"
-            class="mt-2 flex items-center gap-2 rounded-lg bg-forest-50 px-3 py-2 text-sm text-forest-700"
-          >
-            <Icon name="lucide:check-circle" class="h-4 w-4 shrink-0" />
-            <span>{{ aiMessage }}</span>
-            <button
-              v-if="undoAvailable"
-              :disabled="undoLoading"
-              class="ml-auto shrink-0 text-sm font-medium text-forest-700 underline underline-offset-2 hover:text-forest-900 disabled:opacity-50"
-              @click="handleUndo"
-            >
-              <span v-if="undoLoading">Undoing...</span>
-              <span v-else>Undo</span>
-            </button>
-            <button
-              class="shrink-0 text-forest-400 hover:text-forest-700"
-              :class="{ 'ml-auto': !undoAvailable }"
-              @click="
-                () => {
-                  aiMessage = ''
-                  lastSnapshot = null
-                }
-              "
-            >
-              <Icon name="lucide:x" class="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <div
-            v-if="aiError"
-            class="mt-2 flex items-start gap-2 rounded-lg bg-terra-50 px-3 py-2 text-sm text-terra-600"
-          >
-            <Icon name="lucide:alert-circle" class="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{{ aiError }}</span>
-            <button
-              class="ml-auto shrink-0 text-terra-400 hover:text-terra-700"
-              @click="aiError = ''"
-            >
-              <Icon name="lucide:x" class="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-
         <!-- Active day content -->
         <div v-if="activeDay" class="mt-4">
           <div class="flex flex-col gap-6 lg:flex-row">
             <!-- Left: Ideas + Accommodation + Activities -->
-            <div class="flex-1 space-y-6 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-4">
+            <div
+              class="flex-1 space-y-6 pb-24 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-4 lg:pb-6"
+            >
               <!-- Ideas bucket (hidden for viewers) -->
               <IdeasBucket
                 v-if="!isViewer"
@@ -1116,9 +1016,6 @@ async function recomputeSegments(dayId: string) {
                 :accommodation-lng="activeDay.accommodationLng"
                 @updated="refresh"
               />
-
-              <!-- AI loading overlay -->
-              <AiLoadingOverlay :visible="aiLoading" :mode="aiLoadingMode" />
 
               <!-- Activities for this day -->
               <DaySection
@@ -1279,6 +1176,30 @@ async function recomputeSegments(dayId: string) {
       @close="showPrefsEditor = false"
       @update-preference="updatePreference"
       @change-currency="handleCurrencyChange"
+    />
+
+    <!-- AI dock -->
+    <AiDock
+      v-if="trip && activeTab === 'itinerary' && activeDay && !isViewer"
+      v-model="aiPrompt"
+      :loading="aiLoading"
+      :loading-mode="aiLoadingMode"
+      :usage-used="aiUsage?.used ?? null"
+      :usage-limit="aiUsage?.limit ?? null"
+      :usage-remaining="aiUsage?.remaining ?? null"
+      :has-activities="activeDayHasActivities"
+      :destination="trip.destination"
+      :feedback-message="aiMessage"
+      :feedback-error="aiError"
+      :undo-available="undoAvailable"
+      :undoing="undoLoading"
+      @submit="submitAiPrompt"
+      @cancel="handleAiCancel"
+      @undo="handleUndo"
+      @dismiss-feedback="handleDismissAiFeedback"
+      @fill-gaps="handleQuickFillGaps"
+      @optimize-route="handleQuickOptimizeRoute"
+      @generate-full="handleGenerateFullItinerary"
     />
 
     <!-- Edit modal -->
