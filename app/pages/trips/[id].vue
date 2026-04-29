@@ -1059,16 +1059,6 @@ async function recomputeSegments(dayId: string) {
               </div>
             </div>
           </div>
-
-          <!-- Stats -->
-          <div class="mt-8">
-            <TripStats
-              :days="sortedDays"
-              :budget="trip.budget ?? null"
-              :currency-code="trip.currencyCode ?? 'USD'"
-              :total-expenses="totalExpenses"
-            />
-          </div>
         </div>
       </div>
 
