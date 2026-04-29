@@ -179,7 +179,9 @@ function handleClick() {
 </script>
 
 <template>
-  <div class="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-3 sm:pb-5">
+  <div
+    class="pointer-events-none fixed inset-x-0 bottom-16 z-40 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:bottom-0 sm:pb-5"
+  >
     <Transition
       enter-active-class="duration-150 ease-out"
       enter-from-class="opacity-0 translate-y-1"
@@ -285,17 +287,17 @@ function handleClick() {
 
     <div class="pointer-events-auto mx-auto flex w-full max-w-[480px] justify-center">
       <BorderBeam
-        size="sm"
+        size="md"
         color-variant="sunset"
         theme="dark"
-        :brightness="0.4"
-        :strength="0.3"
-        :saturation="0.8"
+        :brightness="0.7"
+        :strength="0.6"
+        :saturation="1"
         :duration="4"
-        class="w-full"
+        class="dock-beam w-full"
       >
         <div
-          class="flex items-center gap-2 rounded-full bg-[#1c1a14] py-2 pl-4 pr-2 shadow-[0_12px_28px_-8px_rgba(28,26,20,.5)]"
+          class="flex items-center gap-2 rounded-full bg-[#1c1a14] py-2 pl-4 pr-2 ring-1 ring-white/10 shadow-[0_18px_40px_-10px_rgba(232,93,58,.45),0_8px_24px_-8px_rgba(0,0,0,.5)]"
           :class="{ 'dock-shimmer': loading }"
           @mouseenter="hovered = true"
           @mouseleave="hovered = false"
@@ -342,6 +344,10 @@ function handleClick() {
 </template>
 
 <style scoped>
+.dock-beam {
+  border-radius: 9999px;
+}
+
 .dock-shimmer {
   background: linear-gradient(90deg, #1c1a14 0%, #4a4639 50%, #1c1a14 100%);
   background-size: 200% 100%;
