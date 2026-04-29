@@ -1012,33 +1012,29 @@ async function recomputeSegments(dayId: string) {
       <div v-else-if="activeTab === 'itinerary'" class="mt-6">
         <!-- Day tabs (client-only to avoid hydration mismatch with sessionStorage) -->
         <ClientOnly>
-          <div class="flex gap-1.5 overflow-x-auto pb-2 scrollbar-thin sm:gap-2">
+          <div class="flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
             <button
               v-for="day in sortedDays"
               :key="day.id"
-              class="relative shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition sm:px-4 sm:text-sm"
+              type="button"
+              class="flex shrink-0 flex-col items-center gap-0.5 rounded-xl px-3 py-2 transition"
               :class="
                 day.id === activeDayId
-                  ? 'bg-terra-500 text-white shadow-sm'
+                  ? 'bg-sand-900 text-white'
                   : day.date === todayDate
-                    ? 'bg-terra-50 text-terra-700 ring-1 ring-terra-300 hover:bg-terra-100'
-                    : 'bg-sand-100 text-sand-600 hover:bg-sand-200'
+                    ? 'text-terra-600 hover:bg-sand-100'
+                    : 'text-sand-600 hover:bg-sand-100'
               "
               @click="activeDayId = day.id"
             >
-              <span class="sm:hidden">D{{ day.dayNumber }}</span>
-              <span class="hidden sm:inline"
-                >Day {{ day.dayNumber }} &middot;
-                <NuxtTime
-                  :datetime="day.date + 'T00:00:00'"
-                  locale="en-US"
-                  weekday="short"
-                  month="short"
-                  day="numeric"
-              /></span>
-              <span
-                v-if="day.date === todayDate && day.id !== activeDayId"
-                class="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-terra-500"
+              <span class="text-base font-semibold leading-none tabular-nums sm:text-lg">{{
+                day.dayNumber
+              }}</span>
+              <NuxtTime
+                class="text-[10px] uppercase tracking-wider opacity-70"
+                :datetime="day.date + 'T00:00:00'"
+                locale="en-US"
+                weekday="short"
               />
             </button>
           </div>
