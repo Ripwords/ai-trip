@@ -118,58 +118,73 @@ const countdown = computed(() => {
 </script>
 
 <template>
-  <div class="space-y-8">
+  <div class="space-y-6 sm:space-y-8">
     <!-- Stats strip -->
-    <div v-if="stats" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-      <div class="rounded-2xl border border-sand-200 bg-white p-4">
-        <p class="text-2xl font-bold tabular-nums text-sand-900">{{ stats.totalTrips }}</p>
-        <p class="mt-0.5 text-xs text-sand-500">Trips planned</p>
+    <div v-if="stats" class="grid grid-cols-3 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
+      <div class="rounded-xl border border-sand-200 bg-white p-3 sm:rounded-2xl sm:p-4">
+        <p class="text-lg font-bold tabular-nums text-sand-900 sm:text-2xl">
+          {{ stats.totalTrips }}
+        </p>
+        <p class="mt-0.5 text-[11px] text-sand-500 sm:text-xs">Trips</p>
       </div>
-      <div class="rounded-2xl border border-sand-200 bg-white p-4">
-        <p class="text-2xl font-bold tabular-nums text-terra-600">{{ stats.completedTrips }}</p>
-        <p class="mt-0.5 text-xs text-sand-500">Completed</p>
+      <div class="rounded-xl border border-sand-200 bg-white p-3 sm:rounded-2xl sm:p-4">
+        <p class="text-lg font-bold tabular-nums text-terra-600 sm:text-2xl">
+          {{ stats.completedTrips }}
+        </p>
+        <p class="mt-0.5 text-[11px] text-sand-500 sm:text-xs">Completed</p>
       </div>
-      <div class="rounded-2xl border border-sand-200 bg-white p-4">
-        <p class="text-2xl font-bold tabular-nums text-ocean-600">{{ stats.countriesVisited }}</p>
-        <p class="mt-0.5 text-xs text-sand-500">Countries</p>
+      <div class="rounded-xl border border-sand-200 bg-white p-3 sm:rounded-2xl sm:p-4">
+        <p class="text-lg font-bold tabular-nums text-ocean-600 sm:text-2xl">
+          {{ stats.countriesVisited }}
+        </p>
+        <p class="mt-0.5 text-[11px] text-sand-500 sm:text-xs">Countries</p>
       </div>
-      <div class="rounded-2xl border border-sand-200 bg-white p-4">
-        <p class="text-2xl font-bold tabular-nums text-forest-600">{{ stats.totalDays }}</p>
-        <p class="mt-0.5 text-xs text-sand-500">Days travelling</p>
+      <div class="rounded-xl border border-sand-200 bg-white p-3 sm:rounded-2xl sm:p-4">
+        <p class="text-lg font-bold tabular-nums text-forest-600 sm:text-2xl">
+          {{ stats.totalDays }}
+        </p>
+        <p class="mt-0.5 text-[11px] text-sand-500 sm:text-xs">Days</p>
       </div>
-      <div class="rounded-2xl border border-sand-200 bg-white p-4">
-        <p class="text-2xl font-bold tabular-nums text-sand-900">{{ stats.totalActivities }}</p>
-        <p class="mt-0.5 text-xs text-sand-500">Activities</p>
+      <div class="rounded-xl border border-sand-200 bg-white p-3 sm:rounded-2xl sm:p-4">
+        <p class="text-lg font-bold tabular-nums text-sand-900 sm:text-2xl">
+          {{ stats.totalActivities }}
+        </p>
+        <p class="mt-0.5 text-[11px] text-sand-500 sm:text-xs">Activities</p>
       </div>
-      <div class="rounded-2xl border border-sand-200 bg-white p-4">
-        <p class="text-2xl font-bold tabular-nums text-sand-900">{{ stats.totalFlights }}</p>
-        <p class="mt-0.5 text-xs text-sand-500">Flights</p>
+      <div class="rounded-xl border border-sand-200 bg-white p-3 sm:rounded-2xl sm:p-4">
+        <p class="text-lg font-bold tabular-nums text-sand-900 sm:text-2xl">
+          {{ stats.totalFlights }}
+        </p>
+        <p class="mt-0.5 text-[11px] text-sand-500 sm:text-xs">Flights</p>
       </div>
     </div>
 
     <!-- Next flight + Trip countdown row -->
     <div v-if="nextFlight || (nextTrip && countdown)" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <!-- Next flight -->
-      <div
+      <NuxtLink
         v-if="nextFlight"
-        class="flex items-center gap-4 rounded-2xl border border-ocean-200 bg-ocean-50 p-4"
+        to="/flights"
+        class="flex items-center gap-3 rounded-2xl border border-ocean-200 bg-ocean-50 p-3 transition hover:bg-ocean-100/60 sm:gap-4 sm:p-4"
       >
-        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ocean-100">
-          <Icon name="lucide:plane" class="h-5 w-5 text-ocean-600" />
+        <div
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ocean-100 sm:h-10 sm:w-10"
+        >
+          <Icon name="lucide:plane" class="h-4 w-4 text-ocean-600 sm:h-5 sm:w-5" />
         </div>
         <div class="min-w-0 flex-1">
-          <p class="text-xs font-medium text-ocean-600">Next flight</p>
-          <p class="font-display text-sand-900">
+          <p class="text-[11px] font-medium text-ocean-600 sm:text-xs">Next flight</p>
+          <p class="truncate font-display text-sand-900">
             {{ nextFlight.flightNumber }}
           </p>
-          <p class="text-sm text-sand-500">
+          <p class="truncate text-xs text-sand-500 sm:text-sm">
             {{ nextFlight.departureAirport ?? "???" }}
             &#8594;
             {{ nextFlight.arrivalAirport ?? "???" }}
           </p>
         </div>
-        <div class="text-right text-sm">
-          <p class="font-medium text-sand-900">
+        <div class="shrink-0 text-right">
+          <p class="text-sm font-medium text-sand-900">
             <NuxtTime
               v-if="nextFlight.departureTime"
               :datetime="nextFlight.departureTime"
@@ -179,7 +194,7 @@ const countdown = computed(() => {
             />
             <template v-else>--:--</template>
           </p>
-          <p class="text-xs text-sand-500">
+          <p class="text-[11px] text-sand-500 sm:text-xs">
             <NuxtTime
               :datetime="nextFlight.flightDate + 'T00:00:00'"
               locale="en-US"
@@ -189,26 +204,23 @@ const countdown = computed(() => {
             />
           </p>
         </div>
-        <NuxtLink
-          to="/flights"
-          class="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-ocean-600 transition hover:bg-ocean-100"
-        >
-          View all
-        </NuxtLink>
-      </div>
+      </NuxtLink>
 
       <!-- Trip countdown -->
-      <div
+      <NuxtLink
         v-if="nextTrip && countdown"
-        class="flex items-center gap-4 rounded-2xl border border-terra-200 bg-terra-50 p-4"
+        :to="`/trips/${nextTrip.id}`"
+        class="flex items-center gap-3 rounded-2xl border border-terra-200 bg-terra-50 p-3 transition hover:bg-terra-100/60 sm:gap-4 sm:p-4"
       >
-        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-terra-100">
-          <Icon name="lucide:map-pin" class="h-5 w-5 text-terra-600" />
+        <div
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-terra-100 sm:h-10 sm:w-10"
+        >
+          <Icon name="lucide:map-pin" class="h-4 w-4 text-terra-600 sm:h-5 sm:w-5" />
         </div>
         <div class="min-w-0 flex-1">
-          <p class="text-xs font-medium text-terra-600">Next adventure</p>
-          <p class="font-display text-sand-900">{{ nextTrip.destination }}</p>
-          <p class="text-xs text-sand-500">
+          <p class="text-[11px] font-medium text-terra-600 sm:text-xs">Next adventure</p>
+          <p class="truncate font-display text-sand-900">{{ nextTrip.destination }}</p>
+          <p class="text-[11px] text-sand-500 sm:text-xs">
             <NuxtTime
               :datetime="nextTrip.startDate + 'T00:00:00'"
               locale="en-US"
@@ -218,46 +230,47 @@ const countdown = computed(() => {
             />
           </p>
         </div>
-        <div class="flex items-baseline gap-2 tabular-nums sm:gap-3">
+        <div class="flex shrink-0 items-baseline gap-1.5 tabular-nums sm:gap-3">
           <div class="text-center">
-            <p class="font-display text-lg text-terra-600 sm:text-xl">{{ countdown.days }}</p>
-            <p class="text-[10px] uppercase tracking-wider text-sand-500">days</p>
+            <p class="font-display text-base text-terra-600 sm:text-xl">{{ countdown.days }}</p>
+            <p class="text-[10px] uppercase tracking-wider text-sand-500">d</p>
           </div>
           <span class="text-sand-300">:</span>
           <div class="text-center">
-            <p class="font-display text-lg text-terra-600 sm:text-xl">
+            <p class="font-display text-base text-terra-600 sm:text-xl">
               {{ String(countdown.hours).padStart(2, "0") }}
             </p>
-            <p class="text-[10px] uppercase tracking-wider text-sand-500">hrs</p>
+            <p class="text-[10px] uppercase tracking-wider text-sand-500">h</p>
           </div>
           <span class="text-sand-300">:</span>
           <div class="text-center">
-            <p class="font-display text-lg text-terra-600 sm:text-xl">
+            <p class="font-display text-base text-terra-600 sm:text-xl">
               {{ String(countdown.minutes).padStart(2, "0") }}
             </p>
-            <p class="text-[10px] uppercase tracking-wider text-sand-500">min</p>
+            <p class="text-[10px] uppercase tracking-wider text-sand-500">m</p>
           </div>
-          <span class="text-sand-300">:</span>
-          <div class="text-center">
-            <p class="font-display text-lg text-terra-600 sm:text-xl">
+          <span class="hidden text-sand-300 sm:inline">:</span>
+          <div class="hidden text-center sm:block">
+            <p class="font-display text-base text-terra-600 sm:text-xl">
               {{ String(countdown.seconds).padStart(2, "0") }}
             </p>
-            <p class="text-[10px] uppercase tracking-wider text-sand-500">sec</p>
+            <p class="text-[10px] uppercase tracking-wider text-sand-500">s</p>
           </div>
         </div>
-      </div>
+      </NuxtLink>
     </div>
 
     <!-- Trips section -->
     <div>
       <div class="flex items-center justify-between">
-        <h1 class="font-display text-2xl text-sand-900">My Trips</h1>
+        <h1 class="font-display text-xl text-sand-900 sm:text-2xl">My Trips</h1>
         <NuxtLink
           to="/trips/new"
-          class="inline-flex items-center gap-2 rounded-xl bg-terra-500 px-5 py-2.5 text-sm font-medium text-white shadow-md shadow-terra-500/15 transition hover:bg-terra-600 hover:shadow-lg hover:shadow-terra-500/20"
+          class="inline-flex items-center gap-1.5 rounded-xl bg-terra-500 px-3.5 py-2 text-sm font-medium text-white shadow-md shadow-terra-500/15 transition hover:bg-terra-600 hover:shadow-lg hover:shadow-terra-500/20 sm:gap-2 sm:px-5 sm:py-2.5"
         >
           <Icon name="lucide:plus" class="h-4 w-4" />
-          New Trip
+          <span class="hidden sm:inline">New Trip</span>
+          <span class="sm:hidden">New</span>
         </NuxtLink>
       </div>
 
@@ -284,13 +297,13 @@ const countdown = computed(() => {
       </div>
 
       <template v-else>
-        <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="mt-5 grid gap-4 sm:mt-6 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <div
             v-for="trip in paginatedTrips"
             :key="trip.id"
             class="card-hover group relative rounded-2xl border border-sand-200 bg-white"
           >
-            <NuxtLink :to="`/trips/${trip.id}`" class="block p-6">
+            <NuxtLink :to="`/trips/${trip.id}`" class="block p-5 sm:p-6">
               <h2 class="font-display text-lg text-sand-900">
                 {{ trip.destination }}
               </h2>
