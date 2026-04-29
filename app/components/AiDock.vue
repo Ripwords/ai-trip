@@ -110,43 +110,8 @@ const placeholder = computed(() => {
   return props.hasActivities ? "Add, remove, reschedule, find a hotel…" : "What to do today?"
 })
 
-type RevealMode = "none" | "quick" | "suggestions"
-
-const revealMode = ref<RevealMode>("none")
-let suggestionTimer: ReturnType<typeof setTimeout> | null = null
-
-function clearSuggestionTimer() {
-  if (suggestionTimer) {
-    clearTimeout(suggestionTimer)
-    suggestionTimer = null
-  }
-}
-
-watch(
-  [focused, hovered, () => props.modelValue, () => props.loading],
-  ([isFocused, isHovered, value, isLoading]) => {
-    clearSuggestionTimer()
-
-    if (isLoading) {
-      revealMode.value = "none"
-      return
-    }
-    if (!isFocused && !isHovered) {
-      revealMode.value = "none"
-      return
-    }
-    if (value.trim().length > 0) {
-      revealMode.value = "quick"
-      return
-    }
-    revealMode.value = "quick"
-    if (isFocused) {
-      suggestionTimer = setTimeout(() => {
-        revealMode.value = "suggestions"
-      }, 600)
-    }
-  },
-  { immediate: true },
+const showSuggestions = computed(
+  () => !props.loading && (focused.value || hovered.value) && props.modelValue.trim().length === 0,
 )
 
 const feedbackVisible = ref(false)
@@ -175,7 +140,6 @@ watch([() => props.feedbackMessage, () => props.feedbackError], ([message, error
 
 onUnmounted(() => {
   stopCycle()
-  clearSuggestionTimer()
   clearToastTimer()
 })
 
@@ -306,29 +270,9 @@ function handleClick() {
             </div>
           </div>
           <div
-            v-else-if="revealMode === 'quick'"
+            v-else-if="showSuggestions"
             class="pointer-events-auto flex w-full flex-wrap justify-end gap-1.5"
           >
-            <button
-              type="button"
-              :disabled="loading"
-              class="rounded-full border border-sand-200 bg-white/95 px-3 py-1 text-xs text-sand-700 shadow-sm transition hover:border-terra-300 hover:text-terra-700"
-              @mousedown.prevent
-              @click="emit('fillGaps')"
-            >
-              <Icon name="lucide:wand-2" class="mr-1 inline h-3 w-3" />
-              Fill gaps
-            </button>
-            <button
-              type="button"
-              :disabled="loading || !hasActivities"
-              class="rounded-full border border-sand-200 bg-white/95 px-3 py-1 text-xs text-sand-700 shadow-sm transition hover:border-terra-300 hover:text-terra-700 disabled:opacity-40"
-              @mousedown.prevent
-              @click="emit('optimizeRoute')"
-            >
-              <Icon name="lucide:route" class="mr-1 inline h-3 w-3" />
-              Optimize route
-            </button>
             <button
               type="button"
               :disabled="loading"
@@ -336,14 +280,9 @@ function handleClick() {
               @mousedown.prevent
               @click="emit('generateFull')"
             >
-              <Icon name="lucide:sparkles" class="mr-1 inline h-3 w-3" />
+              <Icon name="lucide:sparkles" class="mr-1 inline h-3 w-3 text-terra-500" />
               Generate full itinerary
             </button>
-          </div>
-          <div
-            v-else-if="revealMode === 'suggestions'"
-            class="pointer-events-auto flex w-full flex-wrap justify-end gap-1.5"
-          >
             <button
               v-for="s in suggestions"
               :key="s"
