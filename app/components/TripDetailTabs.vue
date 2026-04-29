@@ -7,33 +7,102 @@ const emit = defineEmits<{
   "update:modelValue": [value: string]
 }>()
 
-const tabs = [
-  { value: "overview", label: "Overview", icon: "lucide:layout-dashboard" },
-  { value: "itinerary", label: "Itinerary", icon: "lucide:map" },
-  { value: "notes", label: "Notes", icon: "lucide:notebook-text" },
-  { value: "expenses", label: "Expenses", icon: "lucide:wallet" },
-  { value: "reservations", label: "Bookings", icon: "lucide:ticket" },
-  { value: "documents", label: "Docs", icon: "lucide:paperclip" },
-  { value: "team", label: "Team", icon: "lucide:users" },
-  { value: "flights", label: "Flights", icon: "lucide:plane" },
-]
+const primaryTabs = [
+  { value: "itinerary", label: "Itinerary" },
+  { value: "overview", label: "Overview" },
+  { value: "expenses", label: "Expenses" },
+  { value: "reservations", label: "Bookings" },
+] as const
+
+const overflowTabs = [
+  { value: "notes", label: "Notes" },
+  { value: "documents", label: "Documents" },
+  { value: "team", label: "Team" },
+  { value: "flights", label: "Flights" },
+] as const
+
+const overflowOpen = ref(false)
+
+function pick(value: string) {
+  emit("update:modelValue", value)
+  overflowOpen.value = false
+}
+
+if (import.meta.client) {
+  document.addEventListener("click", (e) => {
+    if (overflowOpen.value && !(e.target as HTMLElement).closest("[data-tabs-more]")) {
+      overflowOpen.value = false
+    }
+  })
+}
 </script>
 
 <template>
-  <div class="flex gap-1.5 overflow-x-auto scrollbar-thin sm:gap-2">
+  <div class="flex items-end gap-6 overflow-x-auto border-b border-sand-200 scrollbar-thin">
     <button
-      v-for="tab in tabs"
+      v-for="tab in primaryTabs"
       :key="tab.value"
-      class="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition sm:gap-1.5 sm:px-4 sm:py-2 sm:text-sm"
+      type="button"
+      class="relative shrink-0 py-2.5 text-sm transition"
       :class="
-        modelValue === tab.value
-          ? 'bg-terra-500 text-white'
-          : 'bg-sand-200 text-sand-700 hover:bg-sand-300'
+        modelValue === tab.value ? 'font-medium text-sand-900' : 'text-sand-500 hover:text-sand-800'
       "
-      @click="emit('update:modelValue', tab.value)"
+      @click="pick(tab.value)"
     >
-      <Icon :name="tab.icon" class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
       {{ tab.label }}
+      <span
+        v-if="modelValue === tab.value"
+        class="absolute -bottom-px left-0 right-0 h-0.5 rounded-full bg-terra-500"
+      />
     </button>
+
+    <div data-tabs-more class="relative shrink-0">
+      <button
+        type="button"
+        class="relative inline-flex items-center gap-1 py-2.5 text-sm transition"
+        :class="
+          overflowTabs.some((t) => t.value === modelValue)
+            ? 'font-medium text-sand-900'
+            : 'text-sand-500 hover:text-sand-800'
+        "
+        @click="overflowOpen = !overflowOpen"
+      >
+        More
+        <Icon name="lucide:chevron-down" class="h-3 w-3" />
+        <span
+          v-if="overflowTabs.some((t) => t.value === modelValue)"
+          class="absolute -bottom-px left-0 right-0 h-0.5 rounded-full bg-terra-500"
+        />
+      </button>
+      <Transition
+        enter-active-class="duration-150 ease-out"
+        enter-from-class="opacity-0 scale-95"
+        enter-to-class="opacity-100 scale-100"
+        leave-active-class="duration-100 ease-in"
+        leave-from-class="opacity-100 scale-100"
+        leave-to-class="opacity-0 scale-95"
+      >
+        <div
+          v-if="overflowOpen"
+          class="absolute right-0 top-full z-20 mt-1 w-40 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
+        >
+          <button
+            v-for="tab in overflowTabs"
+            :key="tab.value"
+            type="button"
+            class="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-sand-50"
+            :class="modelValue === tab.value ? 'font-medium text-sand-900' : 'text-sand-700'"
+            @click="pick(tab.value)"
+          >
+            {{ tab.label }}
+            <Icon
+              v-if="modelValue === tab.value"
+              name="lucide:check"
+              class="h-3.5 w-3.5 text-terra-500"
+            />
+          </button>
+        </div>
+      </Transition>
+    </div>
   </div>
 </template>
