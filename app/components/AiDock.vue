@@ -314,7 +314,7 @@ function handleClick() {
             >
               <button
                 type="button"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sand-50/60 transition hover:bg-sand-50/10 hover:text-sand-50 disabled:opacity-50"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sand-50 transition hover:bg-sand-50/15 disabled:opacity-50"
                 :disabled="loading"
                 title="Close"
                 @click="collapse"
@@ -332,7 +332,7 @@ function handleClick() {
                 type="text"
                 :disabled="loading || limitReached"
                 :placeholder="placeholder"
-                class="min-w-0 flex-1 border-none bg-transparent text-sm text-sand-50 placeholder:text-sand-50/55 focus:outline-none disabled:opacity-70"
+                class="min-w-0 flex-1 border-none bg-transparent text-sm text-sand-50 placeholder:text-sand-50/80 focus:outline-none disabled:opacity-70"
                 @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
                 @focus="focused = true"
                 @blur="focused = false"
