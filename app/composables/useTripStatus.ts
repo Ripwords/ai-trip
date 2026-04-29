@@ -4,6 +4,7 @@ export interface TripStatusInfo {
   label: string
   status: TripStatus
   badgeClass: string
+  textClass: string
 }
 
 export function getTripStatus(startDate: string, endDate: string): TripStatusInfo {
@@ -14,10 +15,25 @@ export function getTripStatus(startDate: string, endDate: string): TripStatusInf
   const end = new Date(endDate + "T00:00:00")
 
   if (today < start) {
-    return { label: "Upcoming", status: "upcoming", badgeClass: "bg-ocean-50 text-ocean-700" }
+    return {
+      label: "Upcoming",
+      status: "upcoming",
+      badgeClass: "bg-ocean-50 text-ocean-700",
+      textClass: "text-ocean-700",
+    }
   }
   if (today > end) {
-    return { label: "Completed", status: "completed", badgeClass: "bg-sand-200 text-sand-600" }
+    return {
+      label: "Completed",
+      status: "completed",
+      badgeClass: "bg-sand-200 text-sand-600",
+      textClass: "text-sand-600",
+    }
   }
-  return { label: "Ongoing", status: "ongoing", badgeClass: "bg-forest-50 text-forest-700" }
+  return {
+    label: "Ongoing",
+    status: "ongoing",
+    badgeClass: "bg-forest-50 text-forest-700",
+    textClass: "text-forest-700",
+  }
 }
