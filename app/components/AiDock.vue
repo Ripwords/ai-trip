@@ -31,6 +31,7 @@ const inputEl = ref<HTMLInputElement | null>(null)
 const focused = ref(false)
 const hovered = ref(false)
 const expanded = ref(false)
+const { open: keyboardOpen } = useKeyboardOpen()
 
 function expand() {
   expanded.value = true
@@ -177,13 +178,14 @@ function handleClick() {
   >
     <div
       v-if="expanded"
-      class="fixed inset-0 z-30 bg-black/50 backdrop-blur-[2px]"
+      class="fixed inset-0 z-[60] bg-black/50 backdrop-blur-[2px]"
       @click="collapse"
     />
   </Transition>
 
   <div
-    class="pointer-events-none fixed bottom-20 right-4 z-40 flex flex-col items-end gap-2 sm:bottom-6 sm:right-6"
+    class="pointer-events-none fixed right-4 z-[70] flex flex-col items-end gap-2 sm:bottom-6 sm:right-6"
+    :class="keyboardOpen ? 'bottom-6' : 'bottom-20'"
     :style="{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }"
   >
     <Transition name="dock-morph" mode="out-in">
