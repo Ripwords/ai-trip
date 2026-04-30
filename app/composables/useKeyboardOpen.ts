@@ -20,6 +20,13 @@ export function useKeyboardOpen() {
   function check() {
     const vv = window.visualViewport
     if (!vv) return
+    // visualViewport.scroll also fires during pinch-zoom panning, and zooming
+    // shrinks vv.height (fewer CSS pixels fit on screen). Gate on scale≈1 so
+    // pinch-zoom doesn't get mistaken for the keyboard opening.
+    if (vv.scale > 1.05) {
+      open.value = false
+      return
+    }
     open.value = window.innerHeight - vv.height > KEYBOARD_THRESHOLD_PX
   }
 
