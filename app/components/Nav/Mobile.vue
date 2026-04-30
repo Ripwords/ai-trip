@@ -4,10 +4,13 @@ const tabs = [
   { label: "Explore", icon: "lucide:globe", to: "/explore" },
   { label: "Flights", icon: "lucide:plane", to: "/flights" },
 ]
+
+const { open: keyboardOpen } = useKeyboardOpen()
 </script>
 
 <template>
   <nav
+    v-show="!keyboardOpen"
     class="fixed bottom-0 left-0 z-50 w-full border-t border-sand-200/50 bg-sand-50 sm:hidden"
     style="
       padding-bottom: env(safe-area-inset-bottom);
