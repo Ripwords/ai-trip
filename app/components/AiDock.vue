@@ -31,16 +31,6 @@ const inputEl = ref<HTMLInputElement | null>(null)
 const focused = ref(false)
 const hovered = ref(false)
 const expanded = ref(false)
-const { open: keyboardOpen } = useKeyboardOpen()
-
-// `interactive-widget=resizes-content` (set in nuxt.config) makes the layout
-// viewport shrink when the keyboard opens, so `position: fixed` elements
-// anchored to the bottom sit naturally above the keyboard. We only toggle the
-// safe-area padding: skip it when the keyboard is open (the keyboard already
-// handles the bottom inset and we want to hug it tightly).
-const dockStyle = computed(() => ({
-  paddingBottom: keyboardOpen.value ? "0" : "env(safe-area-inset-bottom, 0px)",
-}))
 
 function expand() {
   expanded.value = true
@@ -177,6 +167,7 @@ function handleClick() {
 </script>
 
 <template>
+  <!-- Backdrop covering the entire viewport -->
   <Transition
     enter-active-class="duration-200 ease-out"
     enter-from-class="opacity-0"
@@ -192,177 +183,178 @@ function handleClick() {
     />
   </Transition>
 
-  <div
-    class="pointer-events-none fixed right-4 z-[70] flex flex-col items-end gap-2 sm:bottom-6 sm:right-6"
-    :class="keyboardOpen ? 'bottom-6' : 'bottom-20'"
-    :style="dockStyle"
-  >
-    <Transition name="dock-morph" mode="out-in">
-      <button
-        v-if="!expanded"
-        key="fab"
-        type="button"
-        class="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-terra-500 text-white shadow-lg transition-colors hover:bg-terra-600"
-        title="Ask AI"
-        @click="expand"
-      >
-        <Icon name="lucide:sparkles" class="h-5 w-5" />
-      </button>
+  <!-- Collapsed FAB at bottom-right (default state) -->
+  <Transition name="fab-pop">
+    <button
+      v-if="!expanded"
+      type="button"
+      class="pointer-events-auto fixed bottom-20 right-4 z-[70] flex h-12 w-12 items-center justify-center rounded-full bg-terra-500 text-white shadow-lg transition-colors hover:bg-terra-600 sm:bottom-6 sm:right-6"
+      title="Ask AI"
+      @click="expand"
+    >
+      <Icon name="lucide:sparkles" class="h-5 w-5" />
+    </button>
+  </Transition>
 
-      <div
-        v-else
-        key="pill"
-        class="pointer-events-auto flex w-[min(28rem,calc(100vw-2rem))] flex-col items-end gap-2"
-      >
-        <Transition
-          mode="out-in"
-          enter-active-class="duration-200 ease-out"
-          enter-from-class="opacity-0"
-          enter-to-class="opacity-100"
-          leave-active-class="duration-150 ease-in"
-          leave-from-class="opacity-100"
-          leave-to-class="opacity-0"
+  <!-- Expanded top sheet: input pill at the top, chips/feedback below.
+       Anchored to the top of the viewport on purpose — the keyboard opens at
+       the bottom and never overlaps the input here. -->
+  <Transition name="sheet-down">
+    <div
+      v-if="expanded"
+      class="pointer-events-none fixed inset-x-0 top-0 z-[70] flex flex-col items-center gap-2 px-4 pb-2"
+      :style="{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }"
+    >
+      <!-- Input pill -->
+      <div class="pointer-events-auto w-full max-w-[28rem]">
+        <BorderBeam
+          size="sm"
+          color-variant="sunset"
+          theme="dark"
+          :brightness="0.45"
+          :strength="0.4"
+          :saturation="0.9"
+          :duration="4"
+          class="dock-beam w-full"
         >
           <div
-            v-if="feedbackVisible && (feedbackMessage || feedbackError)"
-            class="pointer-events-auto w-full"
+            class="flex items-center gap-2 rounded-full bg-sand-900 py-2 pl-2 pr-2"
+            @mouseenter="hovered = true"
+            @mouseleave="hovered = false"
           >
-            <div
-              v-if="feedbackError"
-              class="flex items-start gap-2 rounded-xl bg-terra-50 px-3 py-2 text-sm text-terra-700 shadow-sm"
+            <button
+              type="button"
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sand-50 transition hover:bg-sand-50/15 disabled:opacity-50"
+              :disabled="loading"
+              title="Close"
+              @click="collapse"
             >
-              <Icon name="lucide:alert-circle" class="mt-0.5 h-4 w-4 shrink-0" />
-              <span class="flex-1">{{ feedbackError }}</span>
-              <button
-                type="button"
-                class="shrink-0 text-terra-400 hover:text-terra-700"
-                @click="emit('dismissFeedback')"
-              >
-                <Icon name="lucide:x" class="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div
-              v-else
-              class="flex items-center gap-2 rounded-xl bg-forest-50 px-3 py-2 text-sm text-forest-700 shadow-sm"
+              <Icon name="lucide:x" class="h-4 w-4" />
+            </button>
+            <Icon
+              name="lucide:sparkles"
+              class="h-4 w-4 shrink-0 text-terra-400"
+              :class="{ 'animate-spin': loading }"
+            />
+            <input
+              ref="inputEl"
+              :value="modelValue"
+              type="text"
+              :disabled="loading || limitReached"
+              :placeholder="placeholder"
+              class="min-w-0 flex-1 border-none bg-transparent text-sm text-sand-50 placeholder:text-sand-50/80 focus:outline-none disabled:opacity-70"
+              @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+              @focus="focused = true"
+              @blur="focused = false"
+              @keydown.enter.prevent="handleSubmit"
+            />
+            <span
+              v-if="usageUsed != null && usageLimit != null"
+              class="shrink-0 text-[10px] tabular-nums"
+              :class="
+                (usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-50/70'
+              "
+              :title="`${usageUsed}/${usageLimit} AI prompts used this month`"
             >
-              <Icon name="lucide:check-circle" class="h-4 w-4 shrink-0" />
-              <span class="flex-1">{{ feedbackMessage }}</span>
-              <button
-                v-if="undoAvailable"
-                type="button"
-                :disabled="undoing"
-                class="shrink-0 text-sm font-medium text-forest-700 underline underline-offset-2 hover:text-forest-900 disabled:opacity-50"
-                @click="emit('undo')"
-              >
-                <span v-if="undoing">Undoing…</span>
-                <span v-else>Undo</span>
-              </button>
-              <button
-                type="button"
-                class="shrink-0 text-forest-400 hover:text-forest-700"
-                @click="emit('dismissFeedback')"
-              >
-                <Icon name="lucide:x" class="h-3.5 w-3.5" />
-              </button>
-            </div>
+              {{ usageUsed }}/{{ usageLimit }}
+            </span>
+            <button
+              type="button"
+              :disabled="!loading && (!modelValue.trim() || limitReached)"
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition disabled:opacity-50"
+              :class="
+                loading ? 'bg-sand-600 hover:bg-sand-500' : 'bg-terra-500 hover:bg-terra-600'
+              "
+              :title="loading ? 'Cancel' : 'Submit'"
+              @click="handleClick"
+            >
+              <Icon :name="loading ? 'lucide:x' : 'lucide:arrow-up'" class="h-4 w-4" />
+            </button>
+          </div>
+        </BorderBeam>
+      </div>
+
+      <!-- Feedback toast or suggestion chips, below the input -->
+      <Transition
+        mode="out-in"
+        enter-active-class="duration-200 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="duration-150 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="feedbackVisible && (feedbackMessage || feedbackError)"
+          class="pointer-events-auto w-full max-w-[28rem]"
+        >
+          <div
+            v-if="feedbackError"
+            class="flex items-start gap-2 rounded-xl bg-terra-50 px-3 py-2 text-sm text-terra-700 shadow-sm"
+          >
+            <Icon name="lucide:alert-circle" class="mt-0.5 h-4 w-4 shrink-0" />
+            <span class="flex-1">{{ feedbackError }}</span>
+            <button
+              type="button"
+              class="shrink-0 text-terra-400 hover:text-terra-700"
+              @click="emit('dismissFeedback')"
+            >
+              <Icon name="lucide:x" class="h-3.5 w-3.5" />
+            </button>
           </div>
           <div
-            v-else-if="showSuggestions"
-            class="pointer-events-auto flex w-full flex-wrap justify-end gap-1.5"
+            v-else
+            class="flex items-center gap-2 rounded-xl bg-forest-50 px-3 py-2 text-sm text-forest-700 shadow-sm"
           >
+            <Icon name="lucide:check-circle" class="h-4 w-4 shrink-0" />
+            <span class="flex-1">{{ feedbackMessage }}</span>
             <button
+              v-if="undoAvailable"
               type="button"
-              :disabled="loading"
-              class="rounded-full border border-stone-200 bg-white/95 px-3 py-1 text-xs text-stone-800 shadow-sm transition hover:border-terra-300 hover:text-terra-700"
-              @mousedown.prevent
-              @click="emit('generateFull')"
+              :disabled="undoing"
+              class="shrink-0 text-sm font-medium text-forest-700 underline underline-offset-2 hover:text-forest-900 disabled:opacity-50"
+              @click="emit('undo')"
             >
-              <Icon name="lucide:sparkles" class="mr-1 inline h-3 w-3 text-terra-500" />
-              Generate full itinerary
+              <span v-if="undoing">Undoing…</span>
+              <span v-else>Undo</span>
             </button>
             <button
-              v-for="s in suggestions"
-              :key="s"
               type="button"
-              class="rounded-full border border-stone-200 bg-white/95 px-3 py-1 text-xs text-stone-700 shadow-sm transition hover:border-terra-300 hover:text-terra-700"
-              @mousedown.prevent
-              @click="selectSuggestion(s)"
+              class="shrink-0 text-forest-400 hover:text-forest-700"
+              @click="emit('dismissFeedback')"
             >
-              {{ s }}
+              <Icon name="lucide:x" class="h-3.5 w-3.5" />
             </button>
           </div>
-        </Transition>
-
-        <div class="pointer-events-auto w-full">
-          <BorderBeam
-            size="sm"
-            color-variant="sunset"
-            theme="dark"
-            :brightness="0.45"
-            :strength="0.4"
-            :saturation="0.9"
-            :duration="4"
-            class="dock-beam w-full"
-          >
-            <div
-              class="flex items-center gap-2 rounded-full bg-sand-900 py-2 pl-2 pr-2"
-              @mouseenter="hovered = true"
-              @mouseleave="hovered = false"
-            >
-              <button
-                type="button"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sand-50 transition hover:bg-sand-50/15 disabled:opacity-50"
-                :disabled="loading"
-                title="Close"
-                @click="collapse"
-              >
-                <Icon name="lucide:x" class="h-4 w-4" />
-              </button>
-              <Icon
-                name="lucide:sparkles"
-                class="h-4 w-4 shrink-0 text-terra-400"
-                :class="{ 'animate-spin': loading }"
-              />
-              <input
-                ref="inputEl"
-                :value="modelValue"
-                type="text"
-                :disabled="loading || limitReached"
-                :placeholder="placeholder"
-                class="min-w-0 flex-1 border-none bg-transparent text-sm text-sand-50 placeholder:text-sand-50/80 focus:outline-none disabled:opacity-70"
-                @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
-                @focus="focused = true"
-                @blur="focused = false"
-                @keydown.enter.prevent="handleSubmit"
-              />
-              <span
-                v-if="usageUsed != null && usageLimit != null"
-                class="shrink-0 text-[10px] tabular-nums"
-                :class="
-                  (usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-50/70'
-                "
-                :title="`${usageUsed}/${usageLimit} AI prompts used this month`"
-              >
-                {{ usageUsed }}/{{ usageLimit }}
-              </span>
-              <button
-                type="button"
-                :disabled="!loading && (!modelValue.trim() || limitReached)"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition disabled:opacity-50"
-                :class="
-                  loading ? 'bg-sand-600 hover:bg-sand-500' : 'bg-terra-500 hover:bg-terra-600'
-                "
-                :title="loading ? 'Cancel' : 'Submit'"
-                @click="handleClick"
-              >
-                <Icon :name="loading ? 'lucide:x' : 'lucide:arrow-up'" class="h-4 w-4" />
-              </button>
-            </div>
-          </BorderBeam>
         </div>
-      </div>
-    </Transition>
-  </div>
+        <div
+          v-else-if="showSuggestions"
+          class="pointer-events-auto flex w-full max-w-[28rem] flex-wrap justify-center gap-1.5"
+        >
+          <button
+            type="button"
+            :disabled="loading"
+            class="rounded-full border border-stone-200 bg-white/95 px-3 py-1 text-xs text-stone-800 shadow-sm transition hover:border-terra-300 hover:text-terra-700"
+            @mousedown.prevent
+            @click="emit('generateFull')"
+          >
+            <Icon name="lucide:sparkles" class="mr-1 inline h-3 w-3 text-terra-500" />
+            Generate full itinerary
+          </button>
+          <button
+            v-for="s in suggestions"
+            :key="s"
+            type="button"
+            class="rounded-full border border-stone-200 bg-white/95 px-3 py-1 text-xs text-stone-700 shadow-sm transition hover:border-terra-300 hover:text-terra-700"
+            @mousedown.prevent
+            @click="selectSuggestion(s)"
+          >
+            {{ s }}
+          </button>
+        </div>
+      </Transition>
+    </div>
+  </Transition>
 </template>
 
 <style scoped>
@@ -370,8 +362,8 @@ function handleClick() {
   border-radius: 9999px;
 }
 
-.dock-morph-enter-active,
-.dock-morph-leave-active {
+.fab-pop-enter-active,
+.fab-pop-leave-active {
   transition:
     opacity 0.18s ease-out,
     transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -379,25 +371,53 @@ function handleClick() {
   will-change: transform, opacity;
 }
 
-.dock-morph-enter-from,
-.dock-morph-leave-to {
+.fab-pop-enter-from,
+.fab-pop-leave-to {
   opacity: 0;
   transform: scale(0.7);
 }
 
-.dock-morph-enter-to,
-.dock-morph-leave-from {
+.fab-pop-enter-to,
+.fab-pop-leave-from {
   opacity: 1;
   transform: scale(1);
 }
 
+.sheet-down-enter-active {
+  transition:
+    transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.22s ease-out;
+}
+
+.sheet-down-leave-active {
+  transition:
+    transform 0.2s ease-in,
+    opacity 0.15s ease-in;
+}
+
+.sheet-down-enter-from,
+.sheet-down-leave-to {
+  opacity: 0;
+  transform: translateY(-100%);
+}
+
+.sheet-down-enter-to,
+.sheet-down-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .dock-morph-enter-active,
-  .dock-morph-leave-active {
+  .fab-pop-enter-active,
+  .fab-pop-leave-active,
+  .sheet-down-enter-active,
+  .sheet-down-leave-active {
     transition: opacity 0.15s ease-out;
   }
-  .dock-morph-enter-from,
-  .dock-morph-leave-to {
+  .fab-pop-enter-from,
+  .fab-pop-leave-to,
+  .sheet-down-enter-from,
+  .sheet-down-leave-to {
     transform: none;
   }
   .animate-spin {
