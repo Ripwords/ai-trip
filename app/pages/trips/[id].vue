@@ -956,9 +956,12 @@ async function recomputeSegments(dayId: string) {
               "
               @click="activeDayId = day.id"
             >
-              <span class="text-base font-semibold leading-none tabular-nums sm:text-lg">{{
-                day.dayNumber
-              }}</span>
+              <NuxtTime
+                class="text-base font-semibold leading-none tabular-nums sm:text-lg"
+                :datetime="day.date + 'T00:00:00'"
+                locale="en-US"
+                day="numeric"
+              />
               <NuxtTime
                 class="text-[10px] uppercase tracking-wider opacity-70"
                 :datetime="day.date + 'T00:00:00'"
@@ -1211,3 +1214,4 @@ async function recomputeSegments(dayId: string) {
     />
   </div>
 </template>
+w

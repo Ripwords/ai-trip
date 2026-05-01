@@ -21,6 +21,7 @@ interface SharedDay {
   dayNumber: number
   date: string
   accommodationName: string | null
+  accommodationAddress: string | null
   accommodationLat: number | null
   accommodationLng: number | null
   activities: SharedActivity[]
@@ -154,8 +155,29 @@ function mapsLinkFor(activity: SharedActivity): string {
 
       <!-- Day content -->
       <div v-if="activeDay" class="mt-6 flex flex-col gap-6 lg:flex-row">
-        <!-- Left: activity list -->
+        <!-- Left: accommodation + activity list -->
         <div class="flex-1 space-y-3">
+          <div
+            v-if="activeDay.accommodationName"
+            class="rounded-2xl border border-ocean-200 bg-ocean-50 p-4"
+          >
+            <div class="flex items-start gap-3">
+              <div
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ocean-100"
+              >
+                <Icon name="lucide:bed-double" class="h-4 w-4 text-ocean-600" />
+              </div>
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-sand-900">
+                  {{ activeDay.accommodationName }}
+                </p>
+                <p v-if="activeDay.accommodationAddress" class="mt-0.5 text-xs text-sand-500">
+                  {{ activeDay.accommodationAddress }}
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div
             v-for="(activity, index) in activeDay.activities"
             :key="activity.id"

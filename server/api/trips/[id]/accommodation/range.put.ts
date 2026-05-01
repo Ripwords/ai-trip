@@ -1,7 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm"
-import { db } from "../../../../../db"
-import { itineraryDays } from "../../../../../db/schema"
-import { updateAccommodationRangeSchema, uuidParamsSchema } from "../../../../../utils/schemas"
+import { db } from "~~/server/db"
+import { itineraryDays } from "~~/server/db/schema"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)

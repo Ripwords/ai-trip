@@ -16,6 +16,7 @@ const KEYBOARD_THRESHOLD_PX = 150
 
 export function useKeyboardOpen() {
   const open = ref(false)
+  const height = ref(0)
 
   function check() {
     const vv = window.visualViewport
@@ -25,9 +26,12 @@ export function useKeyboardOpen() {
     // pinch-zoom doesn't get mistaken for the keyboard opening.
     if (vv.scale > 1.05) {
       open.value = false
+      height.value = 0
       return
     }
-    open.value = window.innerHeight - vv.height > KEYBOARD_THRESHOLD_PX
+    const inset = window.innerHeight - vv.height
+    open.value = inset > KEYBOARD_THRESHOLD_PX
+    height.value = open.value ? inset : 0
   }
 
   onMounted(() => {
@@ -43,5 +47,5 @@ export function useKeyboardOpen() {
     window.visualViewport?.removeEventListener("scroll", check)
   })
 
-  return { open }
+  return { open, height }
 }

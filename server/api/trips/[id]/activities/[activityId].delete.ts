@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm"
-import { db } from "../../../../db"
-import { activities } from "../../../../db/schema"
-import { activityIdParamsSchema } from "../../../../utils/schemas"
-import { computeAndSaveSegments } from "../../../../lib/segments"
+import { db } from "~~/server/db"
+import { activities } from "~~/server/db/schema"
+import { activityIdParamsSchema } from "~~/server/utils/schemas"
+import { computeAndSaveSegments } from "~~/server/lib/segments"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)

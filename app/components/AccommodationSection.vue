@@ -31,13 +31,9 @@ const nights = ref(1)
 
 const hasAccommodation = computed(() => !!props.accommodationName)
 
-const sortedDays = computed(() =>
-  props.days.toSorted((a, b) => a.dayNumber - b.dayNumber),
-)
+const sortedDays = computed(() => props.days.toSorted((a, b) => a.dayNumber - b.dayNumber))
 
-const currentDayIndex = computed(() =>
-  sortedDays.value.findIndex((d) => d.id === props.dayId),
-)
+const currentDayIndex = computed(() => sortedDays.value.findIndex((d) => d.id === props.dayId))
 
 const maxNights = computed(() => {
   const idx = currentDayIndex.value
@@ -197,10 +193,7 @@ async function handleClear() {
             <p class="text-sm font-medium text-sand-900 truncate">
               {{ pendingPlace.name }}
             </p>
-            <p
-              v-if="pendingPlace.formattedAddress"
-              class="mt-0.5 text-xs text-sand-500 truncate"
-            >
+            <p v-if="pendingPlace.formattedAddress" class="mt-0.5 text-xs text-sand-500 truncate">
               {{ pendingPlace.formattedAddress }}
             </p>
           </div>
