@@ -196,17 +196,23 @@ function handleClick() {
     </button>
   </Transition>
 
-  <!-- Expanded top sheet: input pill at the top, chips/feedback below.
-       Anchored to the top of the viewport on purpose — the keyboard opens at
-       the bottom and never overlaps the input here. -->
-  <Transition name="sheet-down">
+  <!-- Expanded bottom sheet: input pill near the top of the sheet, chips
+       below. The sheet's min-height keeps the input comfortably above the
+       on-screen keyboard without any visualViewport math — when the keyboard
+       opens, it covers only the empty lower portion of the sheet. -->
+  <Transition name="sheet-up">
     <div
       v-if="expanded"
-      class="pointer-events-none fixed inset-x-0 top-0 z-[70] flex flex-col items-center gap-2 px-4 pb-2"
-      :style="{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }"
+      class="pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex flex-col gap-3 rounded-t-3xl bg-sand-50 px-4 pt-3 shadow-[0_-12px_40px_-12px_rgba(0,0,0,0.35)]"
+      :style="{
+        minHeight: '58vh',
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)',
+      }"
     >
+      <!-- Drag handle (visual indicator only) -->
+      <div class="mx-auto h-1 w-10 shrink-0 rounded-full bg-sand-300" />
       <!-- Input pill -->
-      <div class="pointer-events-auto w-full max-w-[28rem]">
+      <div class="mx-auto w-full max-w-[28rem]">
         <BorderBeam
           size="sm"
           color-variant="sunset"
@@ -262,9 +268,7 @@ function handleClick() {
               type="button"
               :disabled="!loading && (!modelValue.trim() || limitReached)"
               class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition disabled:opacity-50"
-              :class="
-                loading ? 'bg-sand-600 hover:bg-sand-500' : 'bg-terra-500 hover:bg-terra-600'
-              "
+              :class="loading ? 'bg-sand-600 hover:bg-sand-500' : 'bg-terra-500 hover:bg-terra-600'"
               :title="loading ? 'Cancel' : 'Submit'"
               @click="handleClick"
             >
@@ -286,7 +290,7 @@ function handleClick() {
       >
         <div
           v-if="feedbackVisible && (feedbackMessage || feedbackError)"
-          class="pointer-events-auto w-full max-w-[28rem]"
+          class="mx-auto w-full max-w-[28rem]"
         >
           <div
             v-if="feedbackError"
@@ -329,7 +333,7 @@ function handleClick() {
         </div>
         <div
           v-else-if="showSuggestions"
-          class="pointer-events-auto flex w-full max-w-[28rem] flex-wrap justify-center gap-1.5"
+          class="mx-auto flex w-full max-w-[28rem] flex-wrap justify-center gap-1.5"
         >
           <button
             type="button"
@@ -383,26 +387,26 @@ function handleClick() {
   transform: scale(1);
 }
 
-.sheet-down-enter-active {
+.sheet-up-enter-active {
   transition:
-    transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
     opacity 0.22s ease-out;
 }
 
-.sheet-down-leave-active {
+.sheet-up-leave-active {
   transition:
-    transform 0.2s ease-in,
+    transform 0.22s ease-in,
     opacity 0.15s ease-in;
 }
 
-.sheet-down-enter-from,
-.sheet-down-leave-to {
+.sheet-up-enter-from,
+.sheet-up-leave-to {
   opacity: 0;
-  transform: translateY(-100%);
+  transform: translateY(100%);
 }
 
-.sheet-down-enter-to,
-.sheet-down-leave-from {
+.sheet-up-enter-to,
+.sheet-up-leave-from {
   opacity: 1;
   transform: translateY(0);
 }
@@ -410,14 +414,14 @@ function handleClick() {
 @media (prefers-reduced-motion: reduce) {
   .fab-pop-enter-active,
   .fab-pop-leave-active,
-  .sheet-down-enter-active,
-  .sheet-down-leave-active {
+  .sheet-up-enter-active,
+  .sheet-up-leave-active {
     transition: opacity 0.15s ease-out;
   }
   .fab-pop-enter-from,
   .fab-pop-leave-to,
-  .sheet-down-enter-from,
-  .sheet-down-leave-to {
+  .sheet-up-enter-from,
+  .sheet-up-leave-to {
     transform: none;
   }
   .animate-spin {
