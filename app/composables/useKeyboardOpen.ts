@@ -29,7 +29,12 @@ export function useKeyboardOpen() {
       height.value = 0
       return
     }
-    const inset = window.innerHeight - vv.height
+    // Inset = gap between bottom of visual viewport and bottom of layout
+    // viewport. iOS Safari auto-scrolls the page when an input near the bottom
+    // is focused, which makes vv.offsetTop > 0; without subtracting it, we'd
+    // double-count the scroll AND the keyboard height, throwing fixed elements
+    // anchored via `bottom:` way too high.
+    const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
     open.value = inset > KEYBOARD_THRESHOLD_PX
     height.value = open.value ? inset : 0
   }
