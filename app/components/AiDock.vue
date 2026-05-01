@@ -188,7 +188,7 @@ function handleClick() {
     <button
       v-if="!expanded"
       type="button"
-      class="pointer-events-auto fixed bottom-20 right-4 z-[70] flex h-12 w-12 items-center justify-center rounded-full bg-terra-500 text-white shadow-lg transition-colors hover:bg-terra-600 sm:bottom-6 sm:right-6"
+      class="pointer-events-auto fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-4 z-[70] flex h-12 w-12 items-center justify-center rounded-full bg-terra-500 text-white shadow-lg transition-colors hover:bg-terra-600 sm:bottom-6 sm:right-6"
       title="Ask AI"
       @click="expand"
     >
