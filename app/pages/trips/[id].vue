@@ -996,6 +996,14 @@ async function recomputeSegments(dayId: string) {
                 :accommodation-address="activeDay.accommodationAddress"
                 :accommodation-lat="activeDay.accommodationLat"
                 :accommodation-lng="activeDay.accommodationLng"
+                :days="
+                  sortedDays.map((d) => ({
+                    id: d.id,
+                    dayNumber: d.dayNumber,
+                    date: d.date,
+                    accommodationName: d.accommodationName,
+                  }))
+                "
                 @updated="refresh"
               />
 

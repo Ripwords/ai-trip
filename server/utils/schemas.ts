@@ -172,6 +172,10 @@ export const updateAccommodationSchema = z.object({
   accommodationLng: z.number().nullish(),
 })
 
+export const updateAccommodationRangeSchema = updateAccommodationSchema.extend({
+  dayIds: z.array(z.string().uuid()).min(1),
+})
+
 // Expenses
 export const expenseCategoryEnum = z.enum([
   "accommodation",
