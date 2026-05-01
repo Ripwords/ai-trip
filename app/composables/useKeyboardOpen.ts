@@ -37,8 +37,7 @@ export function useKeyboardOpen() {
     const layoutShrink = baselineHeight - window.innerHeight
     const visualShrink = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
 
-    open.value =
-      layoutShrink > KEYBOARD_THRESHOLD_PX || visualShrink > KEYBOARD_THRESHOLD_PX
+    open.value = layoutShrink > KEYBOARD_THRESHOLD_PX || visualShrink > KEYBOARD_THRESHOLD_PX
   }
 
   onMounted(() => {
