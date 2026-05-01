@@ -31,21 +31,16 @@ const inputEl = ref<HTMLInputElement | null>(null)
 const focused = ref(false)
 const hovered = ref(false)
 const expanded = ref(false)
-const { open: keyboardOpen, height: keyboardHeight } = useKeyboardOpen()
+const { open: keyboardOpen } = useKeyboardOpen()
 
-const backdropStyle = computed(() => ({
-  bottom: keyboardOpen.value ? `${keyboardHeight.value}px` : "0",
+// `interactive-widget=resizes-content` (set in nuxt.config) makes the layout
+// viewport shrink when the keyboard opens, so `position: fixed` elements
+// anchored to the bottom sit naturally above the keyboard. We only toggle the
+// safe-area padding: skip it when the keyboard is open (the keyboard already
+// handles the bottom inset and we want to hug it tightly).
+const dockStyle = computed(() => ({
+  paddingBottom: keyboardOpen.value ? "0" : "env(safe-area-inset-bottom, 0px)",
 }))
-
-const dockStyle = computed(() => {
-  if (keyboardOpen.value) {
-    return {
-      bottom: `${keyboardHeight.value + 16}px`,
-      paddingBottom: "0",
-    }
-  }
-  return { paddingBottom: "env(safe-area-inset-bottom, 0px)" }
-})
 
 function expand() {
   expanded.value = true
@@ -192,14 +187,14 @@ function handleClick() {
   >
     <div
       v-if="expanded"
-      class="fixed inset-x-0 top-0 z-[60] bg-black/50 backdrop-blur-[2px]"
-      :style="backdropStyle"
+      class="fixed inset-0 z-[60] bg-black/50 backdrop-blur-[2px]"
       @click="collapse"
     />
   </Transition>
 
   <div
-    class="pointer-events-none fixed right-4 z-[70] flex flex-col items-end gap-2 bottom-20 sm:bottom-6 sm:right-6"
+    class="pointer-events-none fixed right-4 z-[70] flex flex-col items-end gap-2 sm:bottom-6 sm:right-6"
+    :class="keyboardOpen ? 'bottom-6' : 'bottom-20'"
     :style="dockStyle"
   >
     <Transition name="dock-morph" mode="out-in">

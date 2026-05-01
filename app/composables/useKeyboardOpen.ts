@@ -1,56 +1,61 @@
 import { onMounted, onUnmounted, ref } from "vue"
 
-// Detect virtual-keyboard visibility via VisualViewport API (Chrome 61+, Safari
-// 13+, Firefox 90+).
+// Detect virtual-keyboard visibility. Two signals, because the meta
+// `interactive-widget` value changes which one fires:
 //
-// We listen to BOTH `resize` and `scroll`:
-//   - Android Chrome fires `resize` when the keyboard pushes content up.
-//   - iOS Safari does NOT fire `resize` reliably when the keyboard opens; it
-//     instead offsets the visual viewport (shifting focused content into view),
-//     which fires `scroll`.
+// - `resizes-visual` (legacy default): keyboard shrinks visualViewport but the
+//   layout viewport / window.innerHeight stay full. Detect via
+//   `innerHeight - vv.height - vv.offsetTop`. The offsetTop subtraction matters
+//   on iOS Safari, which auto-scrolls the document when an input near the
+//   bottom is focused.
 //
-// The newer VirtualKeyboard API gives precise geometry but only fires events
-// after opting into `overlaysContent = true`, which removes the browser's
-// default layout behavior — too invasive for detection alone.
+// - `resizes-content` (this app's setting): keyboard shrinks the layout
+//   viewport itself, so innerHeight drops AND vv.height matches innerHeight —
+//   the `innerHeight - vv.height` signal is always 0. Detect instead by
+//   tracking the largest innerHeight ever seen and watching for drops.
+//
+// We compute both and OR them together so this works regardless of the meta
+// value or browser support.
 const KEYBOARD_THRESHOLD_PX = 150
 
 export function useKeyboardOpen() {
   const open = ref(false)
-  const height = ref(0)
+  let baselineHeight = 0
 
   function check() {
     const vv = window.visualViewport
     if (!vv) return
     // visualViewport.scroll also fires during pinch-zoom panning, and zooming
-    // shrinks vv.height (fewer CSS pixels fit on screen). Gate on scale≈1 so
-    // pinch-zoom doesn't get mistaken for the keyboard opening.
+    // shrinks vv.height. Gate on scale≈1 so pinch-zoom isn't mistaken for the
+    // keyboard opening.
     if (vv.scale > 1.05) {
       open.value = false
-      height.value = 0
       return
     }
-    // Inset = gap between bottom of visual viewport and bottom of layout
-    // viewport. iOS Safari auto-scrolls the page when an input near the bottom
-    // is focused, which makes vv.offsetTop > 0; without subtracting it, we'd
-    // double-count the scroll AND the keyboard height, throwing fixed elements
-    // anchored via `bottom:` way too high.
-    const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
-    open.value = inset > KEYBOARD_THRESHOLD_PX
-    height.value = open.value ? inset : 0
+
+    if (window.innerHeight > baselineHeight) baselineHeight = window.innerHeight
+    const layoutShrink = baselineHeight - window.innerHeight
+    const visualShrink = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+
+    open.value =
+      layoutShrink > KEYBOARD_THRESHOLD_PX || visualShrink > KEYBOARD_THRESHOLD_PX
   }
 
   onMounted(() => {
     if (!import.meta.client || !window.visualViewport) return
+    baselineHeight = window.innerHeight
     check()
     window.visualViewport.addEventListener("resize", check)
     window.visualViewport.addEventListener("scroll", check)
+    window.addEventListener("resize", check)
   })
 
   onUnmounted(() => {
     if (!import.meta.client) return
     window.visualViewport?.removeEventListener("resize", check)
     window.visualViewport?.removeEventListener("scroll", check)
+    window.removeEventListener("resize", check)
   })
 
-  return { open, height }
+  return { open }
 }
