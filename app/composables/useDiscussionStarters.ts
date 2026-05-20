@@ -37,7 +37,6 @@ export function useDiscussionStarters(
       starters.push("Should I rearrange any days?")
     }
 
-
     if (t.days.some((day) => !day.accommodationName)) {
       starters.push("Help me pick a hotel for the empty days")
     }

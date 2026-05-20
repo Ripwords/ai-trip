@@ -752,7 +752,6 @@ export async function processUserRequest(params: {
         result.message = `Added ${activities.length} activit${activities.length === 1 ? "y" : "ies"}`
         break
       }
-
     }
   } catch (e) {
     logger.error("=== HANDLER FAILED ===", { intent, error: String(e) })

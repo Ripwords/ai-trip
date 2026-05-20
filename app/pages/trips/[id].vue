@@ -593,7 +593,7 @@ function setProposalState(
     if (m.id !== messageId) return m
     return {
       ...m,
-      proposalStates: { ...(m.proposalStates ?? {}), [proposalId]: state },
+      proposalStates: { ...m.proposalStates, [proposalId]: state },
     }
   })
 }
@@ -728,15 +728,19 @@ async function handleGenerateFullItinerary() {
   }
 }
 
-async function handleAiClose() {
+function handleAiClose() {
+  // Just collapse the dock — keep the conversation in memory for when it reopens.
+}
+
+async function handleAiClear() {
   const hasPending = aiMessages.value.some((m) =>
     Object.values(m.proposalStates ?? {}).includes("pending"),
   )
   if (hasPending) {
     const ok = await confirm({
-      title: "Close discussion?",
+      title: "Clear conversation?",
       message: "Unapplied suggestions will be lost.",
-      confirmText: "Close",
+      confirmText: "Clear",
     })
     if (!ok) return
   }
@@ -1446,6 +1450,7 @@ async function recomputeSegments(dayId: string) {
       @optimize-route="handleQuickOptimizeRoute"
       @generate-full="handleGenerateFullItinerary"
       @close="handleAiClose"
+      @clear="handleAiClear"
     />
 
     <!-- Edit modal -->

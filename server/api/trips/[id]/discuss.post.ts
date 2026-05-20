@@ -8,6 +8,7 @@ import { sanitizePromptInput } from "../../../utils/sanitize"
 import { createDiscussTools } from "../../../lib/ai-tools"
 import { discussAgent } from "../../../lib/discuss-agent"
 import { refundAiCredit } from "../../../utils/ai-limits"
+import { getTripWithRelations } from "../../../lib/trips"
 import type { Proposal } from "../../../lib/proposals"
 
 const discussBodySchema = z.object({
@@ -26,6 +27,59 @@ const discussBodySchema = z.object({
 interface ToolSummaryEntry {
   toolId: string
   args: Record<string, unknown>
+}
+
+async function buildTripContext(tripId: string, focusDayId: string | null): Promise<string> {
+  const trip = await getTripWithRelations(tripId)
+  if (!trip) return ""
+
+  const lines: string[] = []
+  lines.push(`Destination: ${trip.destination}. Dates: ${trip.startDate} → ${trip.endDate}.`)
+
+  const prefs = trip.preferences
+  if (prefs) {
+    const parts: string[] = []
+    if (prefs.pace) parts.push(`pace=${prefs.pace}`)
+    if (prefs.budget) parts.push(`budget=${prefs.budget}`)
+    if (prefs.interests?.length) parts.push(`interests=${prefs.interests.join(",")}`)
+    if (prefs.travelStyle?.length) parts.push(`style=${prefs.travelStyle.join(",")}`)
+    if (prefs.transportMode) parts.push(`transport=${prefs.transportMode}`)
+    if (parts.length > 0) lines.push(`Preferences: ${parts.join(", ")}.`)
+  }
+
+  const sortedDays = trip.days.toSorted((a, b) => a.dayNumber - b.dayNumber)
+  const focusDay = focusDayId ? sortedDays.find((d) => d.id === focusDayId) : null
+
+  if (focusDay) {
+    const head = `--- Active day: Day ${focusDay.dayNumber} (${focusDay.date})${focusDay.accommodationName ? ` · staying at ${focusDay.accommodationName}` : ""} ---`
+    lines.push(head)
+    if (focusDay.activities.length === 0) {
+      lines.push("  (no activities scheduled yet)")
+    } else {
+      const activitiesSorted = focusDay.activities.toSorted((a, b) => a.sortOrder - b.sortOrder)
+      for (const a of activitiesSorted) {
+        const time = a.suggestedTime ?? "??:??"
+        const dur = a.estimatedDurationMinutes ? ` (${a.estimatedDurationMinutes}min)` : ""
+        lines.push(`  • [${a.id}] ${time} ${a.name} — ${a.type}${dur}`)
+      }
+    }
+  }
+
+  // Brief trip-wide outline (other days, names only)
+  const otherDays = sortedDays.filter((d) => d.id !== focusDayId)
+  if (otherDays.length > 0) {
+    lines.push("Other days (overview):")
+    for (const d of otherDays) {
+      const names = d.activities
+        .toSorted((a, b) => a.sortOrder - b.sortOrder)
+        .map((a) => a.name)
+        .slice(0, 8)
+      const tail = d.activities.length > 8 ? ` +${d.activities.length - 8} more` : ""
+      lines.push(`  Day ${d.dayNumber} (${d.date}): ${names.join(", ") || "empty"}${tail}`)
+    }
+  }
+
+  return lines.join("\n")
 }
 
 function describeToolCall(entry: ToolSummaryEntry): string {
@@ -82,6 +136,20 @@ export default defineEventHandler(async (event) => {
 
   const transportMode = normalizeTransportMode(trip.preferences?.transportMode)
   const dayId = body.dayId ?? null
+
+  // Inject trip context into the latest user message so the agent has it on every turn
+  // without needing to call read_day / read_trip_summary.
+  const tripContext = await buildTripContext(id, dayId)
+  if (tripContext) {
+    const lastUserIdx = cleanMessages.findLastIndex((m) => m.role === "user")
+    if (lastUserIdx >= 0) {
+      const original = cleanMessages[lastUserIdx]!
+      cleanMessages[lastUserIdx] = {
+        role: original.role,
+        content: `[Trip context — current state of the user's plan]\n${tripContext}\n\n[User]\n${original.content}`,
+      }
+    }
+  }
 
   const proposalCollector: Proposal[] = []
   const toolCalls: ToolSummaryEntry[] = []

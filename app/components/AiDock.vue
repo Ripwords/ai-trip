@@ -36,6 +36,7 @@ const emit = defineEmits<{
   optimizeRoute: []
   generateFull: []
   close: []
+  clear: []
 }>()
 
 const inputEl = ref<HTMLInputElement | null>(null)
@@ -227,9 +228,18 @@ const proposalKindMeta: Record<
             {{ usageUsed }} / {{ usageLimit }}
           </span>
           <button
+            v-if="messages.length > 0"
             type="button"
             class="flex h-8 w-8 items-center justify-center rounded-full text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
-            title="Close"
+            title="Clear conversation"
+            @click="emit('clear')"
+          >
+            <Icon name="lucide:trash-2" class="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+            title="Close (keep conversation)"
             @click="collapse"
           >
             <Icon name="lucide:x" class="h-4 w-4" />
@@ -629,7 +639,17 @@ const proposalKindMeta: Record<
   font-family: var(--font-sans);
 }
 .dock-chip-quick {
-  background: white;
+  background: var(--color-terra-50);
+  border-color: var(--color-terra-200);
+  color: var(--color-terra-700);
+}
+.dock-chip-quick:hover {
+  background: var(--color-terra-100);
+  border-color: var(--color-terra-300);
+  color: var(--color-terra-800);
+}
+.dock-chip-quick :deep(.iconify) {
+  color: var(--color-terra-600) !important;
 }
 
 .dock-new-reply {

@@ -33,7 +33,7 @@ describe("createDiscussTools", () => {
       },
       collector,
     )
-    const ids = Object.keys(tools).sort()
+    const ids = Object.keys(tools).toSorted()
     assert.deepEqual(ids, [
       "getDistance",
       "getPlaceDetails",
