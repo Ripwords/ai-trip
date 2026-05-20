@@ -9,11 +9,12 @@ import { computeAndSaveSegments } from "../../../../../lib/segments"
 import { getDistanceMatrix } from "../../../../../lib/google-maps"
 import { sanitizePromptInput } from "../../../../../utils/sanitize"
 import { normalizeTransportMode } from "../../../../../utils/transport"
-import { formatItineraryReviewMessage, reviewItinerary } from "../../../../../lib/itinerary-review"
+import { formatItineraryReviewMessage } from "../../../../../lib/itinerary-review"
 import { getTripWithRelations } from "../../../../../lib/trips"
 
 const aiBodySchema = z.object({
   prompt: z.string().min(1).max(2000),
+  mode: z.enum(["plan", "execute"]).default("plan"),
 })
 
 function isReviewPrompt(prompt: string): boolean {
@@ -37,13 +38,13 @@ function getReviewScope(prompt: string): "day" | "trip" {
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const { id, dayId } = await getValidatedRouterParams(event, dayIdParamsSchema.parse)
-  const body = await readValidatedBody(event, aiBodySchema.parse)
+  const { prompt: rawPrompt, mode } = await readValidatedBody(event, aiBodySchema.parse)
 
   // Atomically consume one AI credit (throws 429 if limit reached)
   await tryConsumeAiCredit(session.user.id)
 
   // Sanitize prompt
-  const prompt = sanitizePromptInput(body.prompt)
+  const prompt = sanitizePromptInput(rawPrompt)
   if (!prompt) {
     throw createError({
       statusCode: 400,
@@ -79,13 +80,22 @@ export default defineEventHandler(async (event) => {
 
   if (isReviewPrompt(prompt)) {
     const reviewTrip = await getTripWithRelations(id)
-    if (!reviewTrip) {
-      throw createError({ statusCode: 404, message: "Trip not found" })
-    }
+    if (!reviewTrip) throw createError({ statusCode: 404, message: "Trip not found" })
 
+    const { reviewItineraryWithJudgment } = await import("../../../../../lib/itinerary-review-ai")
     const scope = getReviewScope(prompt)
-    const review = reviewItinerary(reviewTrip, scope === "trip" ? { scope } : { scope, dayId })
+    const transportMode = normalizeTransportMode(trip.preferences?.transportMode)
+    const review = await reviewItineraryWithJudgment(
+      reviewTrip,
+      scope === "trip" ? { scope } : { scope, dayId },
+      { tripId: id, dayId, transportMode },
+    )
     const message = formatItineraryReviewMessage(review)
+    const findings = [
+      ...review.findings.critical,
+      ...review.findings.warning,
+      ...review.findings.suggestion,
+    ]
 
     await logTripAction({
       tripId: id,
@@ -93,7 +103,7 @@ export default defineEventHandler(async (event) => {
       action: "ai_prompt",
       description: `AI review: ${message}`,
       metadata: {
-        prompt: body.prompt,
+        prompt: rawPrompt,
         intent: "review",
         scope,
         findings: review.summary.totalFindings,
@@ -102,13 +112,10 @@ export default defineEventHandler(async (event) => {
 
     return {
       success: true,
-      added: 0,
-      removed: 0,
-      updated: 0,
-      optimized: false,
-      enrichmentFailures: 0,
       intent: "review",
       message,
+      proposals: [],
+      findings,
       review,
     }
   }
@@ -188,6 +195,8 @@ export default defineEventHandler(async (event) => {
     })
   } catch (e: unknown) {
     console.error("[ai.post] AI processing failed:", e)
+    const { refundAiCredit } = await import("../../../../../utils/ai-limits")
+    await refundAiCredit(session.user.id)
     throw createError({
       statusCode: 502,
       message: "AI service is temporarily unavailable. Please try again.",
@@ -201,6 +210,40 @@ export default defineEventHandler(async (event) => {
     updates: result.updates.length,
     shouldOptimize: result.shouldOptimize,
   })
+
+  if (result.intent === "question") {
+    await logTripAction({
+      tripId: id,
+      userId: session.user.id,
+      action: "ai_prompt",
+      description: `AI question: ${result.message}`,
+      metadata: { prompt: rawPrompt, intent: "question" },
+    })
+    return {
+      success: true,
+      intent: "question",
+      message: result.message,
+      proposals: [],
+    }
+  }
+
+  if (mode === "plan") {
+    const { resultToProposals } = await import("../../../../../lib/proposals")
+    const proposals = resultToProposals(result, day)
+    await logTripAction({
+      tripId: id,
+      userId: session.user.id,
+      action: "ai_prompt",
+      description: `AI plan: ${result.message}`,
+      metadata: { prompt: rawPrompt, intent: result.intent, proposalCount: proposals.length },
+    })
+    return {
+      success: true,
+      intent: result.intent,
+      message: result.message,
+      proposals,
+    }
+  }
 
   let addedCount = 0
   let removedCount = 0
@@ -492,7 +535,7 @@ export default defineEventHandler(async (event) => {
     action: "ai_prompt",
     description: `AI ${result.intent}: ${result.message}`,
     metadata: {
-      prompt: body.prompt,
+      prompt: rawPrompt,
       intent: result.intent,
       added: addedCount,
       removed: removedCount,
@@ -508,5 +551,6 @@ export default defineEventHandler(async (event) => {
     enrichmentFailures,
     intent: result.intent,
     message: result.message,
+    proposals: [],
   }
 })
