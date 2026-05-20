@@ -9,30 +9,24 @@ import { computeAndSaveSegments } from "../../../../../lib/segments"
 import { getDistanceMatrix } from "../../../../../lib/google-maps"
 import { sanitizePromptInput } from "../../../../../utils/sanitize"
 import { normalizeTransportMode } from "../../../../../utils/transport"
-import { formatItineraryReviewMessage } from "../../../../../lib/itinerary-review"
-import { getTripWithRelations } from "../../../../../lib/trips"
 
 const aiBodySchema = z.object({
   prompt: z.string().min(1).max(2000),
-  mode: z.enum(["plan", "execute"]).default("plan"),
+  intent: z.enum([
+    "add",
+    "remove",
+    "modify",
+    "optimize",
+    "reschedule",
+    "fill_gaps",
+    "accommodation",
+  ]),
 })
-
-function getReviewScope(prompt: string): "day" | "trip" {
-  if (
-    /\b(whole trip|entire trip|full trip|all days|overall|trip as a whole)\b/i.test(prompt) ||
-    /\btrip\b.*\b(review|problem|problems|issue|issues|risk|risks|feasible|realistic)\b/i.test(
-      prompt,
-    )
-  ) {
-    return "trip"
-  }
-  return "day"
-}
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const { id, dayId } = await getValidatedRouterParams(event, dayIdParamsSchema.parse)
-  const { prompt: rawPrompt, mode } = await readValidatedBody(event, aiBodySchema.parse)
+  const { prompt: rawPrompt, intent } = await readValidatedBody(event, aiBodySchema.parse)
 
   // Atomically consume one AI credit (throws 429 if limit reached)
   await tryConsumeAiCredit(session.user.id)
@@ -117,6 +111,7 @@ export default defineEventHandler(async (event) => {
   try {
     result = await processUserRequest({
       prompt,
+      intent,
       destination: dayLocation,
       tripDestination: trip.destination,
       tripId: id,
@@ -162,81 +157,6 @@ export default defineEventHandler(async (event) => {
     updates: result.updates.length,
     shouldOptimize: result.shouldOptimize,
   })
-
-  if (result.intent === "question") {
-    await logTripAction({
-      tripId: id,
-      userId: session.user.id,
-      action: "ai_prompt",
-      description: `AI question: ${result.message}`,
-      metadata: { prompt: rawPrompt, intent: "question" },
-    })
-    return {
-      success: true,
-      intent: "question",
-      message: result.message,
-      proposals: [],
-    }
-  }
-
-  if (result.intent === "review") {
-    const reviewTrip = await getTripWithRelations(id)
-    if (!reviewTrip) throw createError({ statusCode: 404, message: "Trip not found" })
-
-    const { reviewItineraryWithJudgment } = await import("../../../../../lib/itinerary-review-ai")
-    const scope = getReviewScope(prompt)
-    const review = await reviewItineraryWithJudgment(
-      reviewTrip,
-      scope === "trip" ? { scope } : { scope, dayId },
-      { tripId: id, dayId, transportMode },
-    )
-    const message = formatItineraryReviewMessage(review)
-    const findings = [
-      ...review.findings.critical,
-      ...review.findings.warning,
-      ...review.findings.suggestion,
-    ]
-
-    await logTripAction({
-      tripId: id,
-      userId: session.user.id,
-      action: "ai_prompt",
-      description: `AI review: ${message}`,
-      metadata: {
-        prompt: rawPrompt,
-        intent: "review",
-        scope,
-        findings: review.summary.totalFindings,
-      },
-    })
-
-    return {
-      success: true,
-      intent: "review",
-      message,
-      proposals: [],
-      findings,
-      review,
-    }
-  }
-
-  if (mode === "plan") {
-    const { resultToProposals } = await import("../../../../../lib/proposals")
-    const proposals = resultToProposals(result, day)
-    await logTripAction({
-      tripId: id,
-      userId: session.user.id,
-      action: "ai_prompt",
-      description: `AI plan: ${result.message}`,
-      metadata: { prompt: rawPrompt, intent: result.intent, proposalCount: proposals.length },
-    })
-    return {
-      success: true,
-      intent: result.intent,
-      message: result.message,
-      proposals,
-    }
-  }
 
   let addedCount = 0
   let removedCount = 0
@@ -544,6 +464,5 @@ export default defineEventHandler(async (event) => {
     enrichmentFailures,
     intent: result.intent,
     message: result.message,
-    proposals: [],
   }
 })
