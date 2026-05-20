@@ -24,8 +24,17 @@ interface Activity {
 
 interface TravelSegment {
   fromActivityId: string
+  durationSeconds?: number | null
   durationText: string | null
   distanceText: string | null
+  mode?: "driving" | "walking" | "transit" | "bicycling" | null
+}
+
+interface StartLocation {
+  name: string
+  address: string | null
+  lat: number | null
+  lng: number | null
 }
 
 interface Day {
@@ -52,6 +61,8 @@ const props = defineProps<{
   tripId: string
   highlightedActivityId?: string | null
   travelSegments?: TravelSegment[]
+  travelMode?: "driving" | "walking" | "transit" | "bicycling"
+  startLocation?: StartLocation | null
   readonly?: boolean
   participantsMap?: Record<string, Participant[]>
   members?: Member[]
@@ -67,7 +78,15 @@ const emit = defineEmits<{
   toggleParticipant: [activityId: string, userId: string]
 }>()
 
-const mapsUrl = computed(() => getGoogleMapsDirectionsUrl(props.day.activities))
+const mapsUrl = computed(() =>
+  getGoogleMapsDirectionsUrl(
+    props.day.activities,
+    props.travelMode ?? "transit",
+    props.startLocation?.lat != null && props.startLocation.lng != null
+      ? { lat: props.startLocation.lat, lng: props.startLocation.lng }
+      : null,
+  ),
+)
 
 // Drag and drop
 const localActivities = ref([...props.day.activities])
@@ -122,7 +141,9 @@ function isOutOfOrder(index: number): boolean {
   if (prevMinutes === null || currMinutes === null) return false
 
   // Compare current start vs previous start (+ duration if available)
-  const prevEnd = prevMinutes + (prev.estimatedDurationMinutes ?? 0)
+  const segment = getSegmentForActivity(prev.id)
+  const travelMinutes = segment?.durationSeconds ? Math.ceil(segment.durationSeconds / 60) : 0
+  const prevEnd = prevMinutes + (prev.estimatedDurationMinutes ?? 0) + travelMinutes
   return currMinutes < prevEnd
 }
 
@@ -155,6 +176,7 @@ function timeToMinutes(time: string): number | null {
           </p>
         </div>
       </div>
+
       <a
         v-if="mapsUrl"
         :href="mapsUrl"
@@ -166,6 +188,20 @@ function timeToMinutes(time: string): number | null {
         <Icon name="lucide:navigation" class="h-3 w-3" />
         Open in Maps
       </a>
+    </div>
+
+    <div
+      v-if="startLocation"
+      class="mb-3 flex items-start gap-2 rounded-xl border border-ocean-100 bg-ocean-50 px-3 py-2 text-sm text-sand-600"
+    >
+      <Icon name="lucide:bed-double" class="mt-0.5 h-4 w-4 shrink-0 text-ocean-600" />
+      <div class="min-w-0">
+        <span class="font-medium text-sand-800">Starts from previous stay:</span>
+        <span class="ml-1">{{ startLocation.name }}</span>
+        <p v-if="startLocation.address" class="truncate text-xs text-sand-500">
+          {{ startLocation.address }}
+        </p>
+      </div>
     </div>
 
     <div v-if="!readonly" class="mb-3">
@@ -189,6 +225,9 @@ function timeToMinutes(time: string): number | null {
         :disabled="readonly"
         ghost-class="opacity-30"
         drag-class="shadow-lg"
+        :force-fallback="true"
+        :scroll-sensitivity="200"
+        :scroll-speed="15"
         class="space-y-3"
         @start="isDragging = true"
         @end="handleDragEnd"
@@ -234,6 +273,8 @@ function timeToMinutes(time: string): number | null {
               v-if="index < localActivities.length - 1 && !isDragging"
               :duration-text="getSegmentForActivity(activity.id)?.durationText ?? null"
               :distance-text="getSegmentForActivity(activity.id)?.distanceText ?? null"
+              :mode="getSegmentForActivity(activity.id)?.mode ?? travelMode ?? null"
+              :preferred-mode="travelMode ?? null"
             />
           </div>
         </template>

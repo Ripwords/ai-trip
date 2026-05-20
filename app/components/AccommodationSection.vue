@@ -143,6 +143,12 @@ async function handleClear() {
     isSaving.value = false
   }
 }
+
+defineExpose({
+  openEditor() {
+    isEditing.value = true
+  },
+})
 </script>
 
 <template>

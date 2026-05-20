@@ -18,7 +18,10 @@ interface Accommodation {
 const props = defineProps<{
   activities: Activity[]
   showRoute?: boolean
-  accommodation?: Accommodation | null
+  // Where the day starts — previous night's accommodation
+  startAccommodation?: Accommodation | null
+  // Where the day ends — tonight's accommodation
+  endAccommodation?: Accommodation | null
 }>()
 
 const emit = defineEmits<{
@@ -33,7 +36,7 @@ const mapMode = ref<MapMode>("light")
 
 let map: google.maps.Map | null = null
 let markers: google.maps.marker.AdvancedMarkerElement[] = []
-let accommodationMarker: google.maps.marker.AdvancedMarkerElement | null = null
+let accommodationMarkers: google.maps.marker.AdvancedMarkerElement[] = []
 let polylines: google.maps.Polyline[] = []
 let MapClass: typeof google.maps.Map
 let MarkerClass: typeof google.maps.marker.AdvancedMarkerElement
@@ -163,13 +166,14 @@ const mapModeLabel = computed(() => {
   }
 })
 
-function createAccommodationMarkerContent(): HTMLElement {
+function createAccommodationMarkerContent(variant: "previous" | "current"): HTMLElement {
   const div = document.createElement("div")
+  const isPrevious = variant === "previous"
   div.style.cssText = `
     width: 30px;
     height: 30px;
     border-radius: 8px;
-    background: #22C55E;
+    background: ${isPrevious ? "#A78BFA" : "#22C55E"};
     color: white;
     display: flex;
     align-items: center;
@@ -179,8 +183,23 @@ function createAccommodationMarkerContent(): HTMLElement {
     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     cursor: pointer;
   `
-  div.innerHTML = "🏠"
+  div.innerHTML = isPrevious ? "🛏️" : "🏠"
   return div
+}
+
+function sameAccommodation(
+  a: Accommodation | null | undefined,
+  b: Accommodation | null | undefined,
+) {
+  if (!a || !b) return false
+  if (a.lat == null || a.lng == null || b.lat == null || b.lng == null) return false
+  return Math.abs(a.lat - b.lat) < 1e-5 && Math.abs(a.lng - b.lng) < 1e-5
+}
+
+function accommodationHasPosition(
+  a: Accommodation | null | undefined,
+): a is Accommodation & { lat: number; lng: number } {
+  return a != null && a.lat != null && a.lng != null
 }
 
 function updateMarkers(AdvancedMarkerElement?: typeof google.maps.marker.AdvancedMarkerElement) {
@@ -188,10 +207,8 @@ function updateMarkers(AdvancedMarkerElement?: typeof google.maps.marker.Advance
 
   markers.forEach((m) => (m.map = null))
   markers = []
-  if (accommodationMarker) {
-    accommodationMarker.map = null
-    accommodationMarker = null
-  }
+  accommodationMarkers.forEach((m) => (m.map = null))
+  accommodationMarkers = []
 
   // props.activities is already sorted by sortOrder from the API
   // Use array index for marker numbering to match v-for index in DaySection
@@ -199,15 +216,7 @@ function updateMarkers(AdvancedMarkerElement?: typeof google.maps.marker.Advance
     .map((a, i) => ({ ...a, displayIndex: i }))
     .filter((a) => a.lat != null && a.lng != null && !hiddenTypes.value.has(a.type))
 
-  if (geoActivities.length === 0) {
-    map.setCenter({ lat: 0, lng: 0 })
-    map.setZoom(2)
-    updatePolylines()
-    return
-  }
-
   const MClass = AdvancedMarkerElement ?? MarkerClass
-
   const bounds = new google.maps.LatLngBounds()
 
   geoActivities.forEach((activity) => {
@@ -228,23 +237,57 @@ function updateMarkers(AdvancedMarkerElement?: typeof google.maps.marker.Advance
     markers.push(marker)
   })
 
-  // Add accommodation marker if available
-  if (props.accommodation?.lat != null && props.accommodation?.lng != null) {
-    const accomPos = { lat: props.accommodation.lat, lng: props.accommodation.lng }
-    bounds.extend(accomPos)
-    accommodationMarker = new MClass({
-      map,
-      position: accomPos,
-      content: createAccommodationMarkerContent(),
-      title: props.accommodation.name ?? "Accommodation",
-    })
+  // Accommodation markers: show start (previous night) and end (tonight).
+  // When both exist at the same place, render only the end marker to avoid overlap.
+  const start = accommodationHasPosition(props.startAccommodation) ? props.startAccommodation : null
+  const end = accommodationHasPosition(props.endAccommodation) ? props.endAccommodation : null
+  const sameStay = sameAccommodation(start, end)
+
+  if (start && !sameStay) {
+    const pos = { lat: start.lat, lng: start.lng }
+    bounds.extend(pos)
+    accommodationMarkers.push(
+      new MClass({
+        map,
+        position: pos,
+        content: createAccommodationMarkerContent("previous"),
+        title: start.name ? `Previous stay: ${start.name}` : "Previous stay",
+      }),
+    )
   }
 
-  if (geoActivities.length === 1 && !accommodationMarker) {
-    map.setCenter({
-      lat: geoActivities[0]!.lat!,
-      lng: geoActivities[0]!.lng!,
-    })
+  if (end) {
+    const pos = { lat: end.lat, lng: end.lng }
+    bounds.extend(pos)
+    accommodationMarkers.push(
+      new MClass({
+        map,
+        position: pos,
+        content: createAccommodationMarkerContent("current"),
+        title: end.name
+          ? sameStay
+            ? `Stay: ${end.name}`
+            : `Tonight's stay: ${end.name}`
+          : "Tonight's stay",
+      }),
+    )
+  }
+
+  const totalPoints = geoActivities.length + accommodationMarkers.length
+  if (totalPoints === 0) {
+    map.setCenter({ lat: 0, lng: 0 })
+    map.setZoom(2)
+    updatePolylines()
+    return
+  }
+
+  if (totalPoints === 1) {
+    if (geoActivities.length === 1) {
+      map.setCenter({ lat: geoActivities[0]!.lat!, lng: geoActivities[0]!.lng! })
+    } else {
+      const only = end ?? start!
+      map.setCenter({ lat: only.lat, lng: only.lng })
+    }
     map.setZoom(15)
   } else {
     map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 })
@@ -263,12 +306,18 @@ function updatePolylines() {
     .filter((a) => a.lat != null && a.lng != null && !hiddenTypes.value.has(a.type))
     .toSorted((a, b) => a.sortOrder - b.sortOrder)
 
-  if (geoActivities.length < 2) return
+  const start = accommodationHasPosition(props.startAccommodation) ? props.startAccommodation : null
+  const end = accommodationHasPosition(props.endAccommodation) ? props.endAccommodation : null
+  const sameStay = sameAccommodation(start, end)
 
-  const path = geoActivities.map((a) => ({
-    lat: a.lat!,
-    lng: a.lng!,
-  }))
+  const path = [
+    ...(start ? [{ lat: start.lat, lng: start.lng }] : []),
+    ...geoActivities.map((a) => ({ lat: a.lat!, lng: a.lng! })),
+    // Avoid duplicating the same coordinate at both ends when start and end match.
+    ...(end && !sameStay ? [{ lat: end.lat, lng: end.lng }] : []),
+  ]
+
+  if (path.length < 2) return
 
   const polyline = new google.maps.Polyline({
     path,
@@ -289,7 +338,7 @@ function centerOnActivity(activity: Activity) {
 }
 
 watch(
-  [() => props.activities, () => props.accommodation],
+  [() => props.activities, () => props.startAccommodation, () => props.endAccommodation],
   () => {
     if (isLoaded.value && map) {
       updateMarkers()

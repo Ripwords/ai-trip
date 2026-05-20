@@ -32,6 +32,13 @@ const currencies = [
   { code: "CNY", label: "CNY (¥)" },
 ] as const
 
+const transportModes = [
+  { value: "driving", label: "Drive / taxi" },
+  { value: "walking", label: "Walk" },
+  { value: "transit", label: "Transit" },
+  { value: "bicycling", label: "Bike" },
+] as const
+
 function onEsc(e: KeyboardEvent) {
   if (e.key === "Escape") emit("close")
 }
@@ -124,6 +131,21 @@ onUnmounted(() => {
             @change="emit('changeCurrency', ($event.target as HTMLSelectElement).value)"
           >
             <option v-for="c in currencies" :key="c.code" :value="c.code">{{ c.label }}</option>
+          </select>
+        </div>
+
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-medium text-sand-500">Travel time mode</label>
+          <select
+            :value="trip.preferences?.transportMode || 'driving'"
+            class="input-focus mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
+            @change="
+              emit('updatePreference', 'transportMode', ($event.target as HTMLSelectElement).value)
+            "
+          >
+            <option v-for="m in transportModes" :key="m.value" :value="m.value">
+              {{ m.label }}
+            </option>
           </select>
         </div>
 

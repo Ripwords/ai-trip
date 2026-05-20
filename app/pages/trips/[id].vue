@@ -3,6 +3,16 @@ import type { TripActivity, TripDay, TripResponse } from "~/types/trip"
 
 definePageMeta({ layout: "app" })
 
+type TransportMode = "driving" | "walking" | "transit" | "bicycling"
+type AiLoadingMode = "generate" | "optimize" | "remove" | "reschedule" | "review"
+
+const transportModeOptions: { value: TransportMode; label: string; icon: string }[] = [
+  { value: "driving", label: "Drive", icon: "lucide:car" },
+  { value: "walking", label: "Walk", icon: "lucide:person-standing" },
+  { value: "transit", label: "Transit", icon: "lucide:train" },
+  { value: "bicycling", label: "Bike", icon: "lucide:bike" },
+]
+
 const route = useRoute()
 const tripId = route.params.id as string
 
@@ -127,7 +137,7 @@ async function handleToggleParticipant(activityId: string, userId: string) {
 
 const aiLoading = ref(false)
 const aiAbortController = ref<AbortController | null>(null)
-const aiLoadingMode = ref<"generate" | "optimize" | "remove" | "reschedule">("generate")
+const aiLoadingMode = ref<AiLoadingMode>("generate")
 const lastSnapshot = ref<string | null>(null)
 const editingActivity = ref<TripActivity | null>(null)
 const editModalOpen = ref(false)
@@ -141,6 +151,7 @@ const storageKeyDay = `trip-${tripId}-day`
 type TabValue =
   | "overview"
   | "itinerary"
+  | "review"
   | "notes"
   | "expenses"
   | "reservations"
@@ -150,6 +161,7 @@ type TabValue =
 const validTabs: TabValue[] = [
   "overview",
   "itinerary",
+  "review",
   "notes",
   "expenses",
   "reservations",
@@ -187,6 +199,38 @@ function handleNavigateToDay(dayId: string) {
     sessionStorage.setItem(storageKeyTab, "itinerary")
     sessionStorage.setItem(storageKeyDay, dayId)
   }
+}
+
+const accommodationSectionRef = ref<{ openEditor: () => void } | null>(null)
+
+interface ReviewFixFinding {
+  code: string
+  dayId: string
+  activityIds?: string[]
+}
+
+async function handleReviewFix(finding: ReviewFixFinding) {
+  handleNavigateToDay(finding.dayId)
+  await nextTick()
+
+  const accommodationCodes = ["missing-start-point", "missing-accommodation-coordinates"]
+  const mealCodes = ["missing-lunch", "missing-dinner"]
+
+  if (accommodationCodes.includes(finding.code)) {
+    accommodationSectionRef.value?.openEditor()
+    return
+  }
+
+  if (mealCodes.includes(finding.code)) {
+    handleAddActivity(finding.dayId)
+    return
+  }
+
+  const firstId = finding.activityIds?.[0]
+  if (!firstId) return
+  const day = sortedDays.value.find((d) => d.id === finding.dayId)
+  const activity = day?.activities.find((a) => a.id === firstId)
+  if (activity) handleEditActivity(activity)
 }
 
 const { downloadPdf } = useExportPdf()
@@ -302,8 +346,8 @@ async function handleCurrencyChange(newCurrency: string) {
   }
 }
 
-async function updatePreference(key: string, value: string | string[]) {
-  if (!trip.value) return
+async function updatePreference(key: string, value: string | string[]): Promise<boolean> {
+  if (!trip.value) return false
   const currentPrefs = trip.value.preferences ?? {}
   const updatedPrefs = { ...currentPrefs, [key]: value || undefined }
   try {
@@ -311,9 +355,14 @@ async function updatePreference(key: string, value: string | string[]) {
       method: "PUT",
       body: { preferences: updatedPrefs },
     })
+    if (key === "transportMode") {
+      await recomputeSegmentsForAllDays()
+    }
     await refresh()
+    return true
   } catch (e: unknown) {
     console.error("Failed to update preferences:", e)
+    return false
   }
 }
 let sessionRestored = false
@@ -351,6 +400,64 @@ const sortedDays = computed(() => {
 const activeDay = computed(() => sortedDays.value.find((d) => d.id === activeDayId.value) ?? null)
 
 const activeDayActivities = computed(() => activeDay.value?.activities ?? [])
+
+const activeTransportMode = computed<TransportMode>(
+  () => trip.value?.preferences?.transportMode ?? "driving",
+)
+
+const transportUpdating = ref(false)
+
+async function recomputeSegmentsForAllDays() {
+  await Promise.all(
+    sortedDays.value
+      .filter((d) => d.activities.filter((a) => a.lat != null && a.lng != null).length >= 2)
+      .map((d) =>
+        $fetch(`/api/trips/${tripId}/days/${d.id}/segments`, {
+          method: "POST",
+        }),
+      ),
+  )
+}
+
+const activeDayStartLocation = computed(() => {
+  const day = activeDay.value
+  if (!day) return null
+  const days = sortedDays.value
+  const index = days.findIndex((d) => d.id === day.id)
+  const previousDay = index > 0 ? days[index - 1] : null
+
+  if (previousDay?.accommodationName) {
+    return {
+      name: previousDay.accommodationName,
+      address: previousDay.accommodationAddress,
+      lat: previousDay.accommodationLat,
+      lng: previousDay.accommodationLng,
+    }
+  }
+
+  return null
+})
+
+const activeDayEndAccommodation = computed(() => {
+  const day = activeDay.value
+  if (!day?.accommodationName) return null
+  return {
+    name: day.accommodationName,
+    address: day.accommodationAddress,
+    lat: day.accommodationLat,
+    lng: day.accommodationLng,
+  }
+})
+
+async function handleTransportModeChange(mode: TransportMode) {
+  if (mode === activeTransportMode.value || transportUpdating.value) return
+  transportUpdating.value = true
+  try {
+    await updatePreference("transportMode", mode)
+  } finally {
+    transportUpdating.value = false
+  }
+}
 
 const totalExpenses = computed(() => {
   if (!expensesList.value) return 0
@@ -423,18 +530,27 @@ const aiError = ref("")
 const aiMessage = ref("")
 const aiPrompt = ref("")
 
+function isReviewPrompt(prompt: string): boolean {
+  return /\b(review|audit|check|problem|problems|problematic|issue|issues|risk|risks|feasible|feasibility|realistic|workable|too much|too packed|too tight|conflict|conflicts|overlap|overlaps)\b/i.test(
+    prompt,
+  )
+}
+
 async function submitAiPrompt(prompt: string) {
   if (!activeDayId.value || !prompt.trim()) return
   aiPrompt.value = ""
   aiError.value = ""
   aiMessage.value = ""
   aiLoading.value = true
+  const reviewPrompt = isReviewPrompt(prompt)
 
   // Snapshot current activities for undo
-  lastSnapshot.value = JSON.stringify(activeDay.value?.activities ?? [])
+  lastSnapshot.value = reviewPrompt ? null : JSON.stringify(activeDay.value?.activities ?? [])
 
   // Guess loading mode for the overlay based on prompt keywords
-  if (/\b(optimize|reorder|rearrange|best route|efficient)\b/i.test(prompt)) {
+  if (reviewPrompt) {
+    aiLoadingMode.value = "review"
+  } else if (/\b(optimize|reorder|rearrange|best route|efficient)\b/i.test(prompt)) {
     aiLoadingMode.value = "optimize"
   } else if (/\b(remove|delete|drop|get rid of)\b/i.test(prompt)) {
     aiLoadingMode.value = "remove"
@@ -972,6 +1088,33 @@ async function recomputeSegments(dayId: string) {
           </div>
         </ClientOnly>
 
+        <div
+          class="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sand-200 bg-white px-3 py-2"
+        >
+          <div class="flex items-center gap-2 text-sm text-sand-600">
+            <Icon name="lucide:route" class="h-4 w-4 text-sand-400" />
+            <span>Travel time estimates</span>
+          </div>
+          <div class="flex flex-wrap gap-1">
+            <button
+              v-for="mode in transportModeOptions"
+              :key="mode.value"
+              type="button"
+              :disabled="transportUpdating"
+              class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition disabled:opacity-50"
+              :class="
+                activeTransportMode === mode.value
+                  ? 'bg-terra-500 text-white'
+                  : 'bg-sand-100 text-sand-600 hover:bg-sand-200'
+              "
+              @click="handleTransportModeChange(mode.value)"
+            >
+              <Icon :name="mode.icon" class="h-3.5 w-3.5" />
+              {{ mode.label }}
+            </button>
+          </div>
+        </div>
+
         <!-- Active day content -->
         <div v-if="activeDay" class="mt-4">
           <div class="flex flex-col gap-6 lg:flex-row">
@@ -993,6 +1136,7 @@ async function recomputeSegments(dayId: string) {
               <!-- Accommodation (hidden for viewers) -->
               <AccommodationSection
                 v-if="!isViewer"
+                ref="accommodationSectionRef"
                 :trip-id="tripId"
                 :day-id="activeDay.id"
                 :accommodation-name="activeDay.accommodationName"
@@ -1017,6 +1161,8 @@ async function recomputeSegments(dayId: string) {
                 :trip-id="tripId"
                 :highlighted-activity-id="highlightedActivityId"
                 :travel-segments="activeDay.travelSegments"
+                :travel-mode="activeTransportMode"
+                :start-location="activeDayStartLocation"
                 :readonly="isViewer"
                 :participants-map="participantsMap ?? undefined"
                 :members="tripMembers?.filter((m) => m.status === 'active')"
@@ -1038,12 +1184,21 @@ async function recomputeSegments(dayId: string) {
                 <TripMap
                   ref="tripMapRef"
                   :activities="activeDayActivities"
-                  :accommodation="
-                    activeDay
+                  :start-accommodation="
+                    activeDayStartLocation
                       ? {
-                          name: activeDay.accommodationName,
-                          lat: activeDay.accommodationLat,
-                          lng: activeDay.accommodationLng,
+                          name: activeDayStartLocation.name,
+                          lat: activeDayStartLocation.lat,
+                          lng: activeDayStartLocation.lng,
+                        }
+                      : null
+                  "
+                  :end-accommodation="
+                    activeDayEndAccommodation
+                      ? {
+                          name: activeDayEndAccommodation.name,
+                          lat: activeDayEndAccommodation.lat,
+                          lng: activeDayEndAccommodation.lng,
                         }
                       : null
                   "
@@ -1053,6 +1208,17 @@ async function recomputeSegments(dayId: string) {
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Review tab -->
+      <div v-else-if="activeTab === 'review'" class="mt-8 max-w-3xl">
+        <ItineraryReviewPanel
+          :trip-id="tripId"
+          :days="sortedDays"
+          initial-scope="trip"
+          :initial-day-id="activeDayId ?? undefined"
+          @fix="handleReviewFix"
+        />
       </div>
 
       <!-- Notes tab -->

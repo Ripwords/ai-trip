@@ -39,10 +39,16 @@ const detailsLoading = ref(false)
 watch(
   () => props.open,
   async (isOpen) => {
-    if (isOpen && props.activity?.placeId && !props.activity.openingHours?.length) {
+    if (
+      isOpen &&
+      props.activity?.placeId &&
+      (!props.activity.openingHours?.length || !props.activity.photos?.length)
+    ) {
       detailsLoading.value = true
       try {
-        const details = await $fetch<PlaceDetails>(`/api/places/${props.activity.placeId}/details`)
+        const details = await $fetch<PlaceDetails>(
+          `/api/places/${encodeURIComponent(props.activity.placeId)}/details`,
+        )
         placeDetails.value = details
       } catch {
         // Graceful — details are optional
@@ -67,7 +73,24 @@ const resolvedPriceLevel = computed(
   () => props.activity?.priceLevel ?? placeDetails.value?.priceLevel ?? null,
 )
 
-const mapsApiKey = useRuntimeConfig().public.googleMapsApiKey
+function getPlacePhotoUrl(photo: string, maxWidthPx = 200): string | null {
+  const placeId =
+    props.activity?.placeId ?? photo.match(/^places\/([^/?#]+)\/photos\/[^/?#]+$/)?.[1] ?? null
+  if (!placeId) return null
+
+  const params = new URLSearchParams({
+    photo,
+    maxWidthPx: maxWidthPx.toString(),
+  })
+  return `/api/places/${encodeURIComponent(placeId)}/photo?${params.toString()}`
+}
+
+const resolvedPhotoUrls = computed(() =>
+  resolvedPhotos.value
+    .slice(0, 3)
+    .map((photo) => getPlacePhotoUrl(photo, 200))
+    .filter((url): url is string => Boolean(url)),
+)
 
 const emit = defineEmits<{
   save: [
@@ -129,11 +152,11 @@ function handleSave() {
         <h2 class="text-lg font-display text-sand-900">Edit Activity</h2>
 
         <!-- Photos strip (lazy-loaded from Google Maps) -->
-        <div v-if="resolvedPhotos.length" class="mt-3 flex gap-2 overflow-x-auto scrollbar-thin">
+        <div v-if="resolvedPhotoUrls.length" class="mt-3 flex gap-2 overflow-x-auto scrollbar-thin">
           <img
-            v-for="(photo, i) in resolvedPhotos.slice(0, 3)"
-            :key="i"
-            :src="`https://places.googleapis.com/v1/${photo}/media?maxWidthPx=200&key=${mapsApiKey}`"
+            v-for="photoUrl in resolvedPhotoUrls"
+            :key="photoUrl"
+            :src="photoUrl"
             :alt="activity?.name"
             class="h-20 w-28 shrink-0 rounded-xl object-cover"
             loading="lazy"

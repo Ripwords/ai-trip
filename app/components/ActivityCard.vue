@@ -15,11 +15,17 @@ interface Activity {
   costEstimate: string | null
   notes: string | null
   actualCost: string | null
-  photos: string[]
+  photos: string[] | null
   openingHours: string[] | null
   tags: string[]
   sortOrder: number
 }
+
+interface PlaceDetails {
+  photos?: string[]
+}
+
+const placeDetailsCache = new Map<string, Promise<PlaceDetails | null>>()
 
 function formatPriceLevel(level: number): string {
   return "$".repeat(Math.min(level, 4))
@@ -73,6 +79,96 @@ const emit = defineEmits<{
 }>()
 
 const showParticipantPicker = ref(false)
+const cardRef = ref<HTMLElement | null>(null)
+const loadedPlacePhotos = ref<string[]>([])
+const detailsLoading = ref(false)
+const imageFailed = ref(false)
+let visibilityObserver: IntersectionObserver | null = null
+
+const resolvedPhotos = computed(() =>
+  props.activity.photos?.length ? props.activity.photos : loadedPlacePhotos.value,
+)
+
+function getPhotoPlaceId(photo: string): string | null {
+  return props.activity.placeId ?? photo.match(/^places\/([^/?#]+)\/photos\/[^/?#]+$/)?.[1] ?? null
+}
+
+const thumbnailUrl = computed(() => {
+  const photo = resolvedPhotos.value[0]
+  if (!photo || imageFailed.value) return null
+
+  const placeId = getPhotoPlaceId(photo)
+  if (!placeId) return null
+
+  const params = new URLSearchParams({
+    photo,
+    maxWidthPx: "240",
+  })
+  return `/api/places/${encodeURIComponent(placeId)}/photo?${params.toString()}`
+})
+
+async function loadPlacePhotos() {
+  const placeId = props.activity.placeId
+  if (
+    !placeId ||
+    props.activity.photos?.length ||
+    loadedPlacePhotos.value.length ||
+    detailsLoading.value
+  ) {
+    return
+  }
+
+  detailsLoading.value = true
+  try {
+    if (!placeDetailsCache.has(placeId)) {
+      placeDetailsCache.set(
+        placeId,
+        $fetch<PlaceDetails>(`/api/places/${encodeURIComponent(placeId)}/details`),
+      )
+    }
+
+    const details = await placeDetailsCache.get(placeId)
+    loadedPlacePhotos.value = details?.photos ?? []
+  } catch {
+    loadedPlacePhotos.value = []
+  } finally {
+    detailsLoading.value = false
+  }
+}
+
+onMounted(() => {
+  if (props.activity.photos?.length || !props.activity.placeId) return
+
+  if (!("IntersectionObserver" in window) || !cardRef.value) {
+    void loadPlacePhotos()
+    return
+  }
+
+  visibilityObserver = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return
+      visibilityObserver?.disconnect()
+      visibilityObserver = null
+      void loadPlacePhotos()
+    },
+    { rootMargin: "200px" },
+  )
+
+  visibilityObserver.observe(cardRef.value)
+})
+
+onBeforeUnmount(() => {
+  visibilityObserver?.disconnect()
+})
+
+watch(
+  () => props.activity.id,
+  () => {
+    loadedPlacePhotos.value = []
+    imageFailed.value = false
+    void loadPlacePhotos()
+  },
+)
 
 function isParticipant(userId: string): boolean {
   return props.participants?.some((p) => p.userId === userId) ?? false
@@ -120,6 +216,7 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
 
 <template>
   <div
+    ref="cardRef"
     class="group rounded-2xl border bg-white p-5 transition cursor-pointer hover:shadow-md"
     :class="
       highlighted
@@ -135,6 +232,20 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
         >
           {{ index + 1 }}
         </span>
+        <div
+          class="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-sand-100 text-sand-300"
+        >
+          <img
+            v-if="thumbnailUrl"
+            :src="thumbnailUrl"
+            :alt="activity.name"
+            class="h-full w-full object-cover"
+            loading="lazy"
+            @error="imageFailed = true"
+          />
+          <Icon v-else-if="detailsLoading" name="lucide:loader" class="h-5 w-5 animate-spin" />
+          <Icon v-else name="lucide:image" class="h-5 w-5" />
+        </div>
         <div class="min-w-0">
           <h4 class="text-base font-semibold text-sand-900 truncate">
             {{ activity.name }}

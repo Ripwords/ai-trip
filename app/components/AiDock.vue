@@ -4,7 +4,7 @@ import { BorderBeam } from "vue-border-beam"
 const props = defineProps<{
   modelValue: string
   loading: boolean
-  loadingMode: "generate" | "optimize" | "remove" | "reschedule"
+  loadingMode: "generate" | "optimize" | "remove" | "reschedule" | "review"
   usageUsed: number | null
   usageLimit: number | null
   usageRemaining: number | null
@@ -71,6 +71,11 @@ const stepSets = {
   ],
   remove: ["Identifying activities to remove…", "Updating your itinerary…"],
   reschedule: ["Analyzing your current schedule…", "Adjusting times and order…"],
+  review: [
+    "Checking timing and overlaps…",
+    "Reviewing travel segments…",
+    "Scanning meals and start points…",
+  ],
 } as const
 
 const cycleIndex = ref(0)
@@ -107,7 +112,7 @@ const loadingPlaceholder = computed(() => {
 const placeholder = computed(() => {
   if (limitReached.value) return "Limit reached. Resets next month."
   if (props.loading) return loadingPlaceholder.value
-  return props.hasActivities ? "Add, remove, reschedule, find a hotel…" : "What to do today?"
+  return props.hasActivities ? "Ask to add, reschedule, optimize, or review…" : "What to do today?"
 })
 
 const showSuggestions = computed(
