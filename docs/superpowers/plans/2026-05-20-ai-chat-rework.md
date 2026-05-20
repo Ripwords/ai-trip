@@ -15,6 +15,7 @@
 ## File Structure
 
 **New files:**
+
 - `server/lib/proposals.ts` — `Proposal` discriminated union, zod schema, `resultToProposals`, `applyProposal`.
 - `server/lib/proposals.test.ts` — unit tests for both helpers.
 - `server/lib/ai-tools.ts` — Mastra `createTool` definitions wrapping existing functions.
@@ -23,6 +24,7 @@
 - `server/api/trips/[id]/proposals/apply.post.ts` — apply endpoint.
 
 **Modified files:**
+
 - `server/utils/ai-limits.ts` — add `refundAiCredit(userId)`.
 - `server/lib/itinerary-review.ts` — extend `ItineraryReviewFinding` (optional `proposal`, new `code` values). No logic change.
 - `server/lib/ai.ts` — register tools on `plannerAgent`, add `question` intent + `handleQuestion`.
@@ -39,6 +41,7 @@
 ## Task 1: Define the `Proposal` type and zod schema
 
 **Files:**
+
 - Create: `server/lib/proposals.ts`
 - Test: `server/lib/proposals.test.ts`
 
@@ -200,6 +203,7 @@ git commit -m "feat(ai): add Proposal discriminated union and zod schema"
 ## Task 2: Implement `resultToProposals`
 
 **Files:**
+
 - Modify: `server/lib/proposals.ts`
 - Modify: `server/lib/proposals.test.ts`
 
@@ -281,7 +285,10 @@ describe("resultToProposals", () => {
     const proposals = resultToProposals(result, dayFixture)
     assert.equal(proposals.length, 1)
     if (proposals[0]?.kind !== "reschedule") throw new Error("wrong kind")
-    assert.equal(proposals[0].payload.updates[0]?.activityId, "33333333-3333-4333-8333-333333333333")
+    assert.equal(
+      proposals[0].payload.updates[0]?.activityId,
+      "33333333-3333-4333-8333-333333333333",
+    )
   })
 
   it("returns an optimize-route proposal when shouldOptimize is true and no other changes", () => {
@@ -343,10 +350,7 @@ export interface DayForProposals {
   activities: { id: string; name: string }[]
 }
 
-function findActivityIdByName(
-  day: DayForProposals,
-  name: string,
-): string | undefined {
+function findActivityIdByName(day: DayForProposals, name: string): string | undefined {
   const normalized = name.toLowerCase().trim()
   return day.activities.find((a) => a.name.toLowerCase().trim() === normalized)?.id
 }
@@ -360,10 +364,7 @@ function describeActivities(activities: { name: string; suggestedTime?: string }
   return `${head.name} and ${activities.length - 1} more`
 }
 
-export function resultToProposals(
-  result: AIProcessResult,
-  day: DayForProposals,
-): Proposal[] {
+export function resultToProposals(result: AIProcessResult, day: DayForProposals): Proposal[] {
   const proposals: Proposal[] = []
 
   if (result.newActivities.length > 0) {
@@ -463,6 +464,7 @@ git commit -m "feat(ai): map AIProcessResult to Proposal[] via resultToProposals
 This task lifts the mutation slices currently inline in `server/api/trips/[id]/days/[dayId]/ai.post.ts` into a shared helper. The endpoint will call it in Task 10; the new apply endpoint will call it in Task 9.
 
 **Files:**
+
 - Modify: `server/lib/proposals.ts`
 - Test: `server/lib/proposals.test.ts` (integration-style with a real DB is overkill here; we cover the apply branches via the endpoint tests in Task 9. Keep this task focused on the function shape.)
 
@@ -540,10 +542,7 @@ export interface ApplyResult {
   enrichmentFailures: number
 }
 
-export async function applyProposal(
-  proposal: Proposal,
-  ctx: ApplyContext,
-): Promise<ApplyResult> {
+export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Promise<ApplyResult> {
   if (proposal.dayId !== ctx.dayId) {
     throw createError({ statusCode: 400, message: "Proposal dayId mismatch with route" })
   }
@@ -794,6 +793,7 @@ git commit -m "feat(ai): add applyProposal helper extracted from ai.post.ts"
 ## Task 4: Add `refundAiCredit`
 
 **Files:**
+
 - Modify: `server/utils/ai-limits.ts`
 
 - [ ] **Step 1: Write the test**
@@ -853,6 +853,7 @@ git commit -m "feat(ai): add refundAiCredit for plan-time failures"
 ## Task 5: Create agent tool definitions
 
 **Files:**
+
 - Create: `server/lib/ai-tools.ts`
 
 This file exports a factory `createTripTools(ctx)` that returns Mastra tools bound to the current trip/day context. Tools wrap existing functions (`searchPlace`, `getPlaceDetails`, `getDistanceMatrix`) and DB reads. `tripId`/`dayId` are closed over so the model cannot query other trips.
@@ -925,7 +926,9 @@ export function createTripTools(ctx: TripToolsContext) {
         .describe("Optional bias point for the search"),
     }),
     execute: async (input) => {
-      const biased = input.near ? `${input.query} near ${input.near.lat},${input.near.lng}` : input.query
+      const biased = input.near
+        ? `${input.query} near ${input.near.lat},${input.near.lng}`
+        : input.query
       const candidates = await searchPlace(biased)
       return {
         candidates: candidates.slice(0, 5).map((c) => ({
@@ -942,7 +945,8 @@ export function createTripTools(ctx: TripToolsContext) {
 
   const getPlaceDetailsTool = createTool({
     id: "get-place-details",
-    description: "Get opening hours, rating, price level, and photos for a Google Place by placeId.",
+    description:
+      "Get opening hours, rating, price level, and photos for a Google Place by placeId.",
     inputSchema: z.object({ placeId: z.string() }),
     execute: async ({ placeId }) => {
       const details = await getPlaceDetails(placeId)
@@ -1061,6 +1065,7 @@ git commit -m "feat(ai): add Mastra tool factory wrapping places/distance/day/tr
 ## Task 6: Add `question` intent and `handleQuestion`
 
 **Files:**
+
 - Modify: `server/lib/ai.ts`
 
 - [ ] **Step 1: Locate the intent schema**
@@ -1197,6 +1202,7 @@ git commit -m "feat(ai): add question intent and handleQuestion using tool-equip
 ## Task 7: Extend `ItineraryReviewFinding` type
 
 **Files:**
+
 - Modify: `server/lib/itinerary-review.ts`
 - Modify: `server/lib/itinerary-review.test.ts`
 
@@ -1317,6 +1323,7 @@ git commit -m "feat(review): extend ItineraryReviewFinding with judgment codes a
 ## Task 8: Implement `reviewItineraryWithJudgment`
 
 **Files:**
+
 - Create: `server/lib/itinerary-review-ai.ts`
 - Create: `server/lib/itinerary-review-ai.test.ts`
 
@@ -1359,7 +1366,11 @@ describe("mergeFindings", () => {
   })
 
   it("dedupes by dayId + code, preferring the deterministic finding's id", () => {
-    const dup: ItineraryReviewFinding = { ...jud, code: "missing-lunch", id: "d1:missing-lunch:judgment" }
+    const dup: ItineraryReviewFinding = {
+      ...jud,
+      code: "missing-lunch",
+      id: "d1:missing-lunch:judgment",
+    }
     const merged = mergeFindings([det], [dup])
     assert.equal(merged.length, 1)
     assert.equal(merged[0]?.id, det.id)
@@ -1563,6 +1574,7 @@ git commit -m "feat(review): add layered AI judgment review with proposal attach
 ## Task 9: New apply endpoint
 
 **Files:**
+
 - Create: `server/api/trips/[id]/proposals/apply.post.ts`
 
 - [ ] **Step 1: Implement the endpoint**
@@ -1641,6 +1653,7 @@ git commit -m "feat(ai): add POST /api/trips/:id/proposals/apply endpoint"
 ## Task 10: Reshape the AI endpoint with `mode` and review-judgment routing
 
 **Files:**
+
 - Modify: `server/api/trips/[id]/days/[dayId]/ai.post.ts`
 
 - [ ] **Step 1: Extend the body schema**
@@ -1699,7 +1712,12 @@ if (isReviewPrompt(prompt)) {
     userId: session.user.id,
     action: "ai_prompt",
     description: `AI review: ${message}`,
-    metadata: { prompt: rawPrompt, intent: "review", scope, findings: review.summary.totalFindings },
+    metadata: {
+      prompt: rawPrompt,
+      intent: "review",
+      scope,
+      findings: review.summary.totalFindings,
+    },
   })
 
   return {
@@ -1830,6 +1848,7 @@ git commit -m "feat(ai): add plan/execute mode and route review to judgment laye
 ## Task 11: Update prompt suggestions
 
 **Files:**
+
 - Modify: `app/composables/useAiPromptSuggestions.ts`
 
 - [ ] **Step 1: Replace `withActivitiesSuggestions`**
@@ -1861,6 +1880,7 @@ git commit -m "feat(ai-dock): surface Q&A and review suggestions when day has ac
 ## Task 12: Add response panel to `AiDock.vue`
 
 **Files:**
+
 - Modify: `app/components/AiDock.vue`
 
 - [ ] **Step 1: Extend props and emits**
@@ -1969,16 +1989,49 @@ Create `app/types/proposal.ts`:
 ```ts
 // Mirror of server/lib/proposals.ts. Kept in sync manually — narrow types are fine for the UI.
 export type Proposal =
-  | { id: string; kind: "add-activities"; dayId: string; summary: string;
-      payload: { activities: unknown[] } }
-  | { id: string; kind: "remove-activities"; dayId: string; summary: string;
-      payload: { activityIds: string[] } }
-  | { id: string; kind: "reschedule"; dayId: string; summary: string;
-      payload: { updates: { activityId: string; suggestedTime: string; estimatedDurationMinutes: number }[] } }
-  | { id: string; kind: "optimize-route"; dayId: string; summary: string;
-      payload: { orderedActivityIds?: string[] } }
-  | { id: string; kind: "set-accommodation"; dayId: string; summary: string;
-      payload: { name: string; address: string | null; lat: number | null; lng: number | null; placeId: string | null } }
+  | {
+      id: string
+      kind: "add-activities"
+      dayId: string
+      summary: string
+      payload: { activities: unknown[] }
+    }
+  | {
+      id: string
+      kind: "remove-activities"
+      dayId: string
+      summary: string
+      payload: { activityIds: string[] }
+    }
+  | {
+      id: string
+      kind: "reschedule"
+      dayId: string
+      summary: string
+      payload: {
+        updates: { activityId: string; suggestedTime: string; estimatedDurationMinutes: number }[]
+      }
+    }
+  | {
+      id: string
+      kind: "optimize-route"
+      dayId: string
+      summary: string
+      payload: { orderedActivityIds?: string[] }
+    }
+  | {
+      id: string
+      kind: "set-accommodation"
+      dayId: string
+      summary: string
+      payload: {
+        name: string
+        address: string | null
+        lat: number | null
+        lng: number | null
+        placeId: string | null
+      }
+    }
 ```
 
 Create `app/types/review.ts`:
@@ -2114,6 +2167,7 @@ git commit -m "feat(ai-dock): add response panel rendering proposals and finding
 ## Task 13: Update `ItineraryReviewPanel.vue`
 
 **Files:**
+
 - Modify: `app/components/ItineraryReviewPanel.vue`
 
 - [ ] **Step 1: Extend the `ReviewFinding` interface (local) to include `proposal`**
@@ -2204,6 +2258,7 @@ git commit -m "feat(review-panel): show Apply button on findings with proposals 
 ## Task 14: Wire dock response state in the trip page
 
 **Files:**
+
 - Modify: `app/pages/trips/[id].vue`
 
 - [ ] **Step 1: Add response state**
@@ -2222,7 +2277,10 @@ interface AiDockResponse {
 }
 
 const aiResponse = ref<AiDockResponse | null>(null)
-const aiDockRef = ref<{ markApplied: (id: string) => void; markApplyFailed: (id: string) => void } | null>(null)
+const aiDockRef = ref<{
+  markApplied: (id: string) => void
+  markApplyFailed: (id: string) => void
+} | null>(null)
 ```
 
 Pass them to the dock:
@@ -2384,7 +2442,9 @@ function handleRequestAiReview(scope: "day" | "trip", dayId: string | undefined)
     activeDayId.value = dayId
   }
   aiPrompt.value =
-    scope === "trip" ? "Review the whole trip and propose fixes" : "Review this day and propose fixes"
+    scope === "trip"
+      ? "Review the whole trip and propose fixes"
+      : "Review this day and propose fixes"
   // Submit the review prompt immediately.
   void submitAiPrompt(aiPrompt.value)
 }
@@ -2407,6 +2467,7 @@ async function handleReviewFix(finding: ReviewFinding) {
 
 Run: `bun run dev`
 In the browser:
+
 - Open a trip with at least one populated day.
 - Type "add a coffee shop nearby" → expect a proposal card with Apply / Dismiss; the day must NOT mutate until Apply.
 - Click Apply → toast + the new activity appears.
@@ -2449,6 +2510,7 @@ git commit -m "feat(trip-page): wire dock propose-then-apply and Ask AI review h
 **Placeholder scan:** every step contains complete code; no TBDs or "implement later". Task 3's note about replacing the placeholder `remove-activities` branch is intentional — the canonical block immediately follows.
 
 **Type consistency check:**
+
 - `Proposal` discriminated union: same `kind` literals used in Task 1 (schema), Task 2 (resultToProposals), Task 3 (applyProposal switch), Task 12 (client types), Task 13 (review panel local type). ✓
 - `applyProposal` signature: takes `(Proposal, ApplyContext)` — Task 3 defines; Task 9 calls with matching shape. ✓
 - `createTripTools(ctx)` returns 6 tools whose ids match the smoke test in Task 5. ✓

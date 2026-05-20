@@ -74,6 +74,7 @@ This has three concrete UX problems:
 The dock UI shape (FAB → bottom sheet → input pill + chips) does not change.
 
 **Submit (free-text):**
+
 1. User types a prompt and hits send.
 2. Loading state runs (existing cycler).
 3. Server returns `{ message, proposals: Proposal[], findings?: ItineraryReviewFinding[] }`.
@@ -88,10 +89,12 @@ The dock UI shape (FAB → bottom sheet → input pill + chips) does not change.
 **Q&A prompts (new intent `question`):** the server returns `{ message, proposals: [] }`. The response panel shows only the assistant message. No Apply buttons because nothing is being changed.
 
 **Review flow:**
+
 - Free-text prompts matching the existing `isReviewPrompt(prompt)` regex run the AI judgment review and return findings inside the dock response panel.
 - The `ItineraryReviewPanel` on the Review tab gains an "Ask AI for fixes" button that opens the dock with the prompt pre-filled. The tab itself continues to call only the deterministic review (zero credit cost) so the always-on view stays free.
 
 **State boundaries:**
+
 - Proposals and findings live only in dock component state.
 - Closing the dock, reloading the page, or switching trips drops them.
 - Nothing about chat / proposals is persisted to the database.
@@ -105,26 +108,53 @@ The only types added are TypeScript types, shared between server and client.
 ```ts
 // server/lib/proposals.ts (new file)
 export type Proposal =
-  | { id: string; kind: "add-activities"; dayId: string; summary: string;
-      payload: { activities: AIActivity[] } }
-  | { id: string; kind: "remove-activities"; dayId: string; summary: string;
-      payload: { activityIds: string[] } }
-  | { id: string; kind: "reschedule"; dayId: string; summary: string;
-      payload: { updates: {
-        activityId: string;
-        suggestedTime: string;
-        estimatedDurationMinutes: number;
-      }[] } }
-  | { id: string; kind: "optimize-route"; dayId: string; summary: string;
-      payload: { orderedActivityIds?: string[] } }
-  | { id: string; kind: "set-accommodation"; dayId: string; summary: string;
+  | {
+      id: string
+      kind: "add-activities"
+      dayId: string
+      summary: string
+      payload: { activities: AIActivity[] }
+    }
+  | {
+      id: string
+      kind: "remove-activities"
+      dayId: string
+      summary: string
+      payload: { activityIds: string[] }
+    }
+  | {
+      id: string
+      kind: "reschedule"
+      dayId: string
+      summary: string
       payload: {
-        name: string;
-        address: string | null;
-        lat: number | null;
-        lng: number | null;
-        placeId: string | null;
-      } }
+        updates: {
+          activityId: string
+          suggestedTime: string
+          estimatedDurationMinutes: number
+        }[]
+      }
+    }
+  | {
+      id: string
+      kind: "optimize-route"
+      dayId: string
+      summary: string
+      payload: { orderedActivityIds?: string[] }
+    }
+  | {
+      id: string
+      kind: "set-accommodation"
+      dayId: string
+      summary: string
+      payload: {
+        name: string
+        address: string | null
+        lat: number | null
+        lng: number | null
+        placeId: string | null
+      }
+    }
 ```
 
 `id` is a client UUID, used as a render key and for Apply-state tracking. `summary` is human-readable, rendered as the card title. `payload` contains everything `applyProposal` needs — Apply is a stateless POST.
@@ -164,6 +194,7 @@ const aiBodySchema = z.object({
 ```
 
 Flow:
+
 1. Auth + access check + credit consume + sanitize — unchanged.
 2. If `isReviewPrompt(prompt)`:
    - Call new `reviewItineraryWithJudgment` (see below).
@@ -183,6 +214,7 @@ const applyBodySchema = z.object({
 ```
 
 Flow:
+
 1. Auth + `requireTripAccess(id, userId, ["owner", "editor"])`.
 2. Validate `proposal.dayId` belongs to the trip.
 3. Validate `proposal.payload` references (`activityIds` exist on the day, `placeId` resolvable, etc.).
@@ -211,20 +243,21 @@ After the refactor, `ai.post.ts` becomes thin: it routes between `mode: "plan"` 
 
 Today's `plannerAgent` has only `webSearchTool`. Add the following tools (Mastra `createTool`, defined in `server/lib/ai-tools.ts`):
 
-| Tool id | Wraps | Input | Output |
-|---|---|---|---|
-| `search_places` | `searchPlace` in `server/lib/google-maps.ts` | `{ query: string, near?: {lat, lng}, type?: string }` | `{ candidates: Place[] }` |
-| `get_place_details` | new — `placeDetails(placeId)` to be added in `google-maps.ts` | `{ placeId: string }` | `{ name, address, openingHours, rating, priceLevel, photos }` |
-| `get_distance` | `getDistanceMatrix` | `{ from: {lat, lng}, to: {lat, lng}, mode?: TransportMode }` | `{ durationSeconds, distanceMeters }` |
-| `read_day` | `db.query.itineraryDays.findFirst({ with: activities })` | `{ dayId: string }` | day record with activities, accommodation, travel segments |
-| `read_trip_summary` | `getTripWithRelations` | `{ tripId: string }` | trimmed view: destination, dates, prefs, per-day activity names + types |
-| `run_review` | `reviewItinerary` | `{ scope: "day"|"trip", dayId?: string }` | `ItineraryReviewResult` |
+| Tool id             | Wraps                                                         | Input                                                        | Output                                                                  |
+| ------------------- | ------------------------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------- | ----------------------- |
+| `search_places`     | `searchPlace` in `server/lib/google-maps.ts`                  | `{ query: string, near?: {lat, lng}, type?: string }`        | `{ candidates: Place[] }`                                               |
+| `get_place_details` | new — `placeDetails(placeId)` to be added in `google-maps.ts` | `{ placeId: string }`                                        | `{ name, address, openingHours, rating, priceLevel, photos }`           |
+| `get_distance`      | `getDistanceMatrix`                                           | `{ from: {lat, lng}, to: {lat, lng}, mode?: TransportMode }` | `{ durationSeconds, distanceMeters }`                                   |
+| `read_day`          | `db.query.itineraryDays.findFirst({ with: activities })`      | `{ dayId: string }`                                          | day record with activities, accommodation, travel segments              |
+| `read_trip_summary` | `getTripWithRelations`                                        | `{ tripId: string }`                                         | trimmed view: destination, dates, prefs, per-day activity names + types |
+| `run_review`        | `reviewItinerary`                                             | `{ scope: "day"                                              | "trip", dayId?: string }`                                               | `ItineraryReviewResult` |
 
 Tools are registered on `plannerAgent`. Tool calls are bounded with `stopWhen: stepCountIs(4)` to cap latency and credit cost (4 picked because: 1 review + 1 read_day + 2 search_places / get_distance covers the heaviest planning loop we expect; revisit if traces show truncation).
 
 `tripId` and `dayId` for the current request are bound into each tool's closure when the agent is invoked, so the model can't query other trips (defense in depth — `requireTripAccess` already enforces this at the endpoint, but the tools should not be wired to query arbitrary trips).
 
 Handlers updated to pass tools to their `generateObject` / `agent.generate` calls:
+
 - `handleAdd` — uses `search_places` to verify candidate venues.
 - `handleFillGaps` — uses `search_places` + `read_day` for context.
 - `handleReschedule` — uses `get_distance` to validate the new times respect travel buffers.
@@ -239,9 +272,14 @@ Add one intent:
 ```ts
 const intentSchema = z.object({
   intent: z.enum([
-    "add", "remove", "modify", "optimize",
-    "reschedule", "fill_gaps", "accommodation",
-    "question",      // ← new
+    "add",
+    "remove",
+    "modify",
+    "optimize",
+    "reschedule",
+    "fill_gaps",
+    "accommodation",
+    "question", // ← new
     "general",
   ]),
   reasoning: z.string(),
@@ -249,6 +287,7 @@ const intentSchema = z.object({
 ```
 
 `question` is selected for read-only prompts:
+
 - "is 3 days enough in Kyoto?"
 - "how long from the hotel to Senso-ji?"
 - "is Tsukiji open Tuesday?"
@@ -271,6 +310,7 @@ export async function reviewItineraryWithJudgment(
 ```
 
 Flow:
+
 1. Call `reviewItinerary(trip, options)` to get deterministic findings.
 2. Build a context object: deterministic findings + trip preferences + per-day summary (names, times, durations, coords).
 3. Invoke `plannerAgent.generate(...)` with the AI tools available and a structured-output schema that returns:
@@ -317,14 +357,14 @@ Add Q&A suggestions when activities exist:
 
 ```ts
 const withActivitiesSuggestions = [
-  "Is this day too packed?",                // question
+  "Is this day too packed?", // question
   "How long from my hotel to the first stop?", // question
-  "Review this day for timing problems",    // review
-  "Review the whole trip for issues",       // review
-  "Add a coffee shop nearby",               // add
-  "Move dinner to 7 PM",                    // reschedule
-  "Optimize the route",                     // optimize (quick chip)
-  "Fill the gaps",                          // fill (quick chip)
+  "Review this day for timing problems", // review
+  "Review the whole trip for issues", // review
+  "Add a coffee shop nearby", // add
+  "Move dinner to 7 PM", // reschedule
+  "Optimize the route", // optimize (quick chip)
+  "Fill the gaps", // fill (quick chip)
 ]
 ```
 
@@ -360,6 +400,7 @@ No DB migration, no feature flag needed (the changes are additive on the server 
 ## File summary
 
 **New:**
+
 - `server/api/trips/[id]/proposals/apply.post.ts`
 - `server/lib/proposals.ts`
 - `server/lib/ai-tools.ts`
@@ -367,6 +408,7 @@ No DB migration, no feature flag needed (the changes are additive on the server 
 - Tests listed above.
 
 **Modified:**
+
 - `server/api/trips/[id]/days/[dayId]/ai.post.ts` — add `mode`, split plan/execute, route review prompts to AI judgment layer.
 - `server/lib/ai.ts` — register new tools on `plannerAgent`, add `question` intent + `handleQuestion`, thread tools into existing handlers.
 - `server/lib/itinerary-review.ts` — add optional `proposal` field, expand `code` union. No logic change.
@@ -378,5 +420,6 @@ No DB migration, no feature flag needed (the changes are additive on the server 
 - `app/composables/useAiPromptSuggestions.ts` — Q&A suggestions.
 
 **Unchanged:**
+
 - `server/api/trips/[id]/review.post.ts` — deterministic-only, the Review tab keeps calling it.
 - All schema files. All other features.
