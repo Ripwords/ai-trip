@@ -4,6 +4,7 @@ import { Mastra } from "@mastra/core/mastra"
 import { PinoLogger } from "@mastra/loggers"
 import { z } from "zod"
 import type { TripPreferences } from "../db/schema/trips"
+import type { TransportMode } from "../utils/transport"
 import { sanitizePromptInput } from "../utils/sanitize"
 import { getModel } from "./ai-config"
 
@@ -247,6 +248,7 @@ const intentSchema = z.object({
     "reschedule",
     "fill_gaps",
     "accommodation",
+    "question",
     "general",
   ]),
   reasoning: z.string().describe("Why this intent was chosen"),
@@ -275,6 +277,7 @@ Choose the MOST appropriate intent:
 - "optimize": wants to REORDER all activities for best route efficiency (e.g., "optimize the route", "minimize travel time")
 - "fill_gaps": wants AI to SUGGEST activities for empty time slots (e.g., "fill the gaps", "what should I do between lunch and dinner", "plan my day")
 - "accommodation": wants to SET or FIND accommodation/hotel/airbnb for this day (e.g., "book a hotel near Shibuya", "find accommodation", "I'm staying at Hotel X", "set the hotel")
+- "question": user is asking a question, NOT requesting a change. e.g. "is 3 days enough?", "how long from the hotel to X?", "is Y open Tuesday?", "should I do A on Day 2 or Day 4?", "tell me about Z"
 - "general": mixed or unclear
 
 IMPORTANT: If the user complains about timing/scheduling (too late, too early, overlapping, cramped), choose "reschedule" NOT "modify".`,
@@ -621,12 +624,54 @@ async function handleAccommodation(params: {
   }
 }
 
+// ── Question Handler ─────────────────────────────────────────────────
+
+async function handleQuestion(params: {
+  prompt: string
+  tripId: string
+  dayId: string
+  destination: string
+  preferences?: TripPreferences
+  transportMode: TransportMode
+}): Promise<{ message: string }> {
+  logger.info("[question] Answering", { prompt: params.prompt })
+
+  const { createTripTools } = await import("./ai-tools")
+  const tools = createTripTools({
+    tripId: params.tripId,
+    dayId: params.dayId,
+    transportMode: params.transportMode,
+  })
+
+  try {
+    const agent = mastra.getAgent("planner")
+    const response = await agent.generate(
+      `Answer the traveler's question using the tools available. ONLY answer — do NOT propose changes.
+      The traveler is in ${params.destination}.
+      ${formatPreferences(params.preferences)}
+
+      Question: ${params.prompt}
+
+      Use readDay, readTripSummary, getDistance, getPlaceDetails, searchPlaces as needed.
+      Reply in 2-4 sentences, factual and concise.`,
+      { toolsets: { question: tools }, maxSteps: 4 },
+    )
+    return { message: response.text }
+  } catch (e) {
+    logger.error("[question] Failed", { error: String(e) })
+    return { message: "Sorry — I couldn't look that up right now. Try again in a moment." }
+  }
+}
+
 // ── Unified Entry Point ──────────────────────────────────────────────
 
 export async function processUserRequest(params: {
   prompt: string
   destination: string
   tripDestination: string
+  tripId: string
+  dayId: string
+  transportMode: TransportMode
   date: string
   dayNumber: number
   existingActivities: {
@@ -796,6 +841,19 @@ export async function processUserRequest(params: {
         result.updates = timeUpdates
         result.shouldOptimize = true
         result.message = `Added ${activities.length} activit${activities.length === 1 ? "y" : "ies"}`
+        break
+      }
+
+      case "question": {
+        const { message } = await handleQuestion({
+          prompt: params.prompt,
+          tripId: params.tripId,
+          dayId: params.dayId,
+          destination: params.destination,
+          preferences: params.preferences,
+          transportMode: params.transportMode,
+        })
+        result.message = message
         break
       }
 

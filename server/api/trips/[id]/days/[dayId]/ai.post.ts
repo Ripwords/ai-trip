@@ -160,6 +160,9 @@ export default defineEventHandler(async (event) => {
       prompt,
       destination: dayLocation,
       tripDestination: trip.destination,
+      tripId: id,
+      dayId,
+      transportMode,
       date: day.date,
       dayNumber: day.dayNumber,
       existingActivities: day.activities.map((a) => ({
