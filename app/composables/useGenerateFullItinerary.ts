@@ -44,6 +44,7 @@ export function useGenerateFullItinerary(tripId: string) {
           method: "POST",
           body: {
             prompt: "Plan this day with a good mix of activities, food, and sightseeing",
+            mode: "execute",
           },
         })
       } catch {

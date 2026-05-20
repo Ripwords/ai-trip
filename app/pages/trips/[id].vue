@@ -1,5 +1,14 @@
 <script setup lang="ts">
 import type { TripActivity, TripDay, TripResponse } from "~/types/trip"
+import type { Proposal } from "~/types/proposal"
+import type { ReviewFinding } from "~/types/review"
+
+interface AiDockResponse {
+  message: string
+  proposals: Proposal[]
+  findings?: ReviewFinding[]
+  intent?: string
+}
 
 definePageMeta({ layout: "app" })
 
@@ -203,13 +212,12 @@ function handleNavigateToDay(dayId: string) {
 
 const accommodationSectionRef = ref<{ openEditor: () => void } | null>(null)
 
-interface ReviewFixFinding {
-  code: string
-  dayId: string
-  activityIds?: string[]
-}
+async function handleReviewFix(finding: ReviewFinding) {
+  if (finding.proposal) {
+    await handleApplyProposal(finding.proposal)
+    return
+  }
 
-async function handleReviewFix(finding: ReviewFixFinding) {
   handleNavigateToDay(finding.dayId)
   await nextTick()
 
@@ -231,6 +239,16 @@ async function handleReviewFix(finding: ReviewFixFinding) {
   const day = sortedDays.value.find((d) => d.id === finding.dayId)
   const activity = day?.activities.find((a) => a.id === firstId)
   if (activity) handleEditActivity(activity)
+}
+
+function handleRequestAiReview(scope: "day" | "trip", dayId: string | undefined) {
+  activeTab.value = "itinerary"
+  if (scope === "day" && dayId) {
+    activeDayId.value = dayId
+  }
+  aiPrompt.value =
+    scope === "trip" ? "Review the whole trip and propose fixes" : "Review this day and propose fixes"
+  void submitAiPrompt(aiPrompt.value)
 }
 
 const { downloadPdf } = useExportPdf()
@@ -529,6 +547,8 @@ watch(
 const aiError = ref("")
 const aiMessage = ref("")
 const aiPrompt = ref("")
+const aiResponse = ref<AiDockResponse | null>(null)
+const aiDockRef = ref<{ markApplied: (id: string) => void; markApplyFailed: (id: string) => void } | null>(null)
 
 function isReviewPrompt(prompt: string): boolean {
   return /\b(review|audit|check|problem|problems|problematic|issue|issues|risk|risks|feasible|feasibility|realistic|workable|too much|too packed|too tight|conflict|conflicts|overlap|overlaps)\b/i.test(
@@ -564,13 +584,26 @@ async function submitAiPrompt(prompt: string) {
 
   try {
     aiAbortController.value = new AbortController()
-    const result = await $fetch(`/api/trips/${tripId}/days/${activeDayId.value}/ai`, {
+    const raw = await $fetch(`/api/trips/${tripId}/days/${activeDayId.value}/ai`, {
       method: "POST",
-      body: { prompt },
+      body: { prompt, mode: "plan" },
       signal: aiAbortController.value.signal,
     })
-    aiMessage.value = result.message
-    await refresh()
+    const data = raw as {
+      message: string
+      proposals?: Proposal[]
+      findings?: ReviewFinding[]
+      intent?: string
+    }
+    aiResponse.value = {
+      message: data.message,
+      proposals: data.proposals ?? [],
+      findings: data.findings,
+      intent: data.intent,
+    }
+    if (data.intent !== "question" && (data.proposals?.length ?? 0) === 0 && !data.findings?.length) {
+      aiMessage.value = data.message || "Nothing to change."
+    }
   } catch (e: unknown) {
     const err = e as { name?: string; data?: { message?: string } }
     if (err.name === "AbortError") {
@@ -602,12 +635,46 @@ async function handleGenerateFullItinerary() {
   }
 }
 
-function handleQuickFillGaps() {
-  void submitAiPrompt("Fill in the gaps in my schedule for today")
+async function handleQuickFillGaps() {
+  if (!activeDay.value) return
+  aiLoading.value = true
+  aiLoadingMode.value = "generate"
+  aiError.value = ""
+  aiMessage.value = ""
+  try {
+    const data = await $fetch(`/api/trips/${tripId}/days/${activeDay.value.id}/ai`, {
+      method: "POST",
+      body: { prompt: "Fill in the gaps in my schedule for today", mode: "execute" },
+    })
+    aiMessage.value = data.message
+    await refresh()
+  } catch (e: unknown) {
+    aiError.value = e instanceof Error ? e.message : "AI failed"
+  } finally {
+    aiLoading.value = false
+    refreshUsage()
+  }
 }
 
-function handleQuickOptimizeRoute() {
-  void submitAiPrompt("Optimize the route and reorder activities for minimum travel time")
+async function handleQuickOptimizeRoute() {
+  if (!activeDay.value) return
+  aiLoading.value = true
+  aiLoadingMode.value = "optimize"
+  aiError.value = ""
+  aiMessage.value = ""
+  try {
+    const data = await $fetch(`/api/trips/${tripId}/days/${activeDay.value.id}/ai`, {
+      method: "POST",
+      body: { prompt: "Optimize the route and reorder activities for minimum travel time", mode: "execute" },
+    })
+    aiMessage.value = data.message
+    await refresh()
+  } catch (e: unknown) {
+    aiError.value = e instanceof Error ? e.message : "AI failed"
+  } finally {
+    aiLoading.value = false
+    refreshUsage()
+  }
 }
 
 function handleDismissAiFeedback() {
@@ -637,6 +704,40 @@ async function handleUndo() {
   }
 }
 
+async function handleApplyProposal(proposal: Proposal) {
+  try {
+    const data = await $fetch(`/api/trips/${tripId}/proposals/apply`, {
+      method: "POST",
+      body: { proposal },
+    })
+    aiMessage.value = data.message
+    aiDockRef.value?.markApplied(proposal.id)
+    if (aiResponse.value) {
+      aiResponse.value = {
+        ...aiResponse.value,
+        proposals: aiResponse.value.proposals.filter((p) => p.id !== proposal.id),
+        findings: aiResponse.value.findings?.map((f) =>
+          f.proposal?.id === proposal.id ? { ...f, proposal: undefined } : f,
+        ),
+      }
+    }
+    await refresh()
+  } catch (e: unknown) {
+    aiDockRef.value?.markApplyFailed(proposal.id)
+    aiError.value = e instanceof Error ? e.message : "Apply failed"
+  } finally {
+    refreshUsage()
+  }
+}
+
+function handleDismissProposal(proposalId: string) {
+  if (!aiResponse.value) return
+  aiResponse.value = {
+    ...aiResponse.value,
+    proposals: aiResponse.value.proposals.filter((p) => p.id !== proposalId),
+  }
+}
+
 async function handleUpdateDayNotes(notes: string) {
   if (!activeDayId.value) return
   try {
@@ -654,6 +755,7 @@ watch(activeDayId, () => {
   lastSnapshot.value = null
   aiMessage.value = ""
   aiError.value = ""
+  aiResponse.value = null
 })
 
 const tripRole = computed(() => trip.value?._role ?? "owner")
@@ -1218,6 +1320,7 @@ async function recomputeSegments(dayId: string) {
           initial-scope="trip"
           :initial-day-id="activeDayId ?? undefined"
           @fix="handleReviewFix"
+          @request-ai-review="handleRequestAiReview"
         />
       </div>
 
@@ -1329,6 +1432,7 @@ async function recomputeSegments(dayId: string) {
 
     <!-- AI dock -->
     <AiDock
+      ref="aiDockRef"
       v-if="trip && activeTab === 'itinerary' && activeDay && !isViewer"
       v-model="aiPrompt"
       :loading="aiLoading"
@@ -1342,6 +1446,7 @@ async function recomputeSegments(dayId: string) {
       :feedback-error="aiError"
       :undo-available="undoAvailable"
       :undoing="undoLoading"
+      :response="aiResponse"
       @submit="submitAiPrompt"
       @cancel="handleAiCancel"
       @undo="handleUndo"
@@ -1349,6 +1454,9 @@ async function recomputeSegments(dayId: string) {
       @fill-gaps="handleQuickFillGaps"
       @optimize-route="handleQuickOptimizeRoute"
       @generate-full="handleGenerateFullItinerary"
+      @apply-proposal="handleApplyProposal"
+      @dismiss-proposal="handleDismissProposal"
+      @close-response="aiResponse = null"
     />
 
     <!-- Edit modal -->
