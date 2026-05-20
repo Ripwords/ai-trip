@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TripDay } from "~/types/trip"
+import type { Proposal } from "~/types/proposal"
 
 type ReviewScope = "day" | "trip"
 type ReviewSeverity = "critical" | "warning" | "suggestion"
@@ -14,6 +15,7 @@ interface ReviewFinding {
   dayId: string
   dayNumber: number
   activityIds?: string[]
+  proposal?: Proposal
 }
 
 interface ReviewResult {
@@ -48,6 +50,7 @@ const emit = defineEmits<{
   "update:dayId": [dayId: string | undefined]
   reviewed: [result: ReviewResult]
   fix: [finding: ReviewFinding]
+  requestAiReview: [scope: ReviewScope, dayId: string | undefined]
 }>()
 
 const scope = ref<ReviewScope>(props.initialScope)
@@ -198,15 +201,25 @@ onMounted(() => {
         </p>
       </div>
 
-      <button
-        type="button"
-        class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-terra-500 px-3 text-sm font-medium text-white transition hover:bg-terra-600 disabled:cursor-not-allowed disabled:opacity-60"
-        :disabled="loading"
-        @click="runReview"
-      >
-        <Icon name="lucide:refresh-cw" class="h-4 w-4" :class="{ 'animate-spin': loading }" />
-        {{ loading ? "Reviewing" : "Review" }}
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-terra-200 bg-white px-3 text-sm font-medium text-terra-700 transition hover:bg-terra-50"
+          @click="emit('requestAiReview', scope, scope === 'day' ? selectedDayId : undefined)"
+        >
+          <Icon name="lucide:sparkles" class="h-4 w-4" />
+          Ask AI for fixes
+        </button>
+        <button
+          type="button"
+          class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-terra-500 px-3 text-sm font-medium text-white transition hover:bg-terra-600 disabled:cursor-not-allowed disabled:opacity-60"
+          :disabled="loading"
+          @click="runReview"
+        >
+          <Icon name="lucide:refresh-cw" class="h-4 w-4" :class="{ 'animate-spin': loading }" />
+          {{ loading ? "Reviewing" : "Review" }}
+        </button>
+      </div>
     </div>
 
     <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -324,7 +337,16 @@ onMounted(() => {
             <span class="font-medium">Recommendation:</span>
             {{ finding.recommendation }}
           </p>
-          <div class="mt-3 flex justify-end">
+          <div class="mt-3 flex justify-end gap-2">
+            <button
+              v-if="finding.proposal"
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-terra-600"
+              @click="emit('fix', finding)"
+            >
+              <Icon name="lucide:sparkles" class="h-3.5 w-3.5" />
+              Apply suggested fix
+            </button>
             <button
               type="button"
               class="inline-flex items-center gap-1.5 rounded-lg border border-sand-200 bg-white px-3 py-1.5 text-xs font-medium text-sand-700 transition hover:border-terra-300 hover:bg-terra-50 hover:text-terra-700"
