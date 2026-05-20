@@ -249,6 +249,7 @@ const intentSchema = z.object({
     "fill_gaps",
     "accommodation",
     "question",
+    "review",
     "general",
   ]),
   reasoning: z.string().describe("Why this intent was chosen"),
@@ -277,10 +278,13 @@ Choose the MOST appropriate intent:
 - "optimize": wants to REORDER all activities for best route efficiency (e.g., "optimize the route", "minimize travel time")
 - "fill_gaps": wants AI to SUGGEST activities for empty time slots (e.g., "fill the gaps", "what should I do between lunch and dinner", "plan my day")
 - "accommodation": wants to SET or FIND accommodation/hotel/airbnb for this day (e.g., "book a hotel near Shibuya", "find accommodation", "I'm staying at Hotel X", "set the hotel")
-- "question": user is asking a question, NOT requesting a change. e.g. "is 3 days enough?", "how long from the hotel to X?", "is Y open Tuesday?", "should I do A on Day 2 or Day 4?", "tell me about Z"
+- "question": user is asking a yes/no or open-ended question, NOT requesting a change AND NOT asking for a full audit. e.g. "is 3 days enough?", "is this day too packed?", "how long from the hotel to X?", "is Y open Tuesday?", "should I do A on Day 2 or Day 4?", "tell me about Z". CRITICAL: a question that wonders/asks about the itinerary ("is it too much?", "is it realistic?") is "question", NOT "review".
+- "review": user explicitly asks for a full audit/scan of the itinerary with a list of issues. e.g. "review this day", "audit my trip", "find problems with the schedule", "scan the itinerary for issues". The intent is to get a STRUCTURED LIST of issues, not a conversational answer.
 - "general": mixed or unclear
 
-IMPORTANT: If the user complains about timing/scheduling (too late, too early, overlapping, cramped), choose "reschedule" NOT "modify".`,
+IMPORTANT:
+- If the user complains about timing/scheduling (too late, too early, overlapping, cramped), choose "reschedule" NOT "modify".
+- Prefer "question" over "review" when the user phrases it as a question they want answered, even if it touches on feasibility. Only choose "review" when they literally want the full structured audit.`,
     })
 
     logger.info("[intent] Result", { intent: object.intent, reasoning: object.reasoning })

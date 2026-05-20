@@ -104,13 +104,26 @@ export function formatItineraryReviewMessage(result: ItineraryReviewResult): str
       : null,
   ].filter(Boolean)
 
-  const topFindings = [
+  // Group findings by (dayId, code) so N copies of the same issue collapse into one line.
+  const all = [
     ...result.findings.critical,
     ...result.findings.warning,
     ...result.findings.suggestion,
   ]
+  const groups = new Map<string, { sample: (typeof all)[number]; count: number }>()
+  for (const f of all) {
+    const key = `${f.dayId}:${f.code}`
+    const existing = groups.get(key)
+    if (existing) existing.count += 1
+    else groups.set(key, { sample: f, count: 1 })
+  }
+
+  const topFindings = Array.from(groups.values())
     .slice(0, 3)
-    .map((finding) => `Day ${finding.dayNumber}: ${finding.title}. ${finding.recommendation}`)
+    .map(({ sample, count }) => {
+      const label = count > 1 ? `${count} ${sample.title.toLowerCase()}` : sample.title
+      return `Day ${sample.dayNumber}: ${label}. ${sample.recommendation}`
+    })
 
   return `I found ${summary.totalFindings} ${summary.totalFindings === 1 ? "issue" : "issues"} in this ${scopeLabel}: ${counts.join(", ")}. ${topFindings.join(" ")}`
 }

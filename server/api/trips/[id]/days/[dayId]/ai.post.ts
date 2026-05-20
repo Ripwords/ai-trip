@@ -17,12 +17,6 @@ const aiBodySchema = z.object({
   mode: z.enum(["plan", "execute"]).default("plan"),
 })
 
-function isReviewPrompt(prompt: string): boolean {
-  return /\b(review|audit|check|problem|problems|problematic|issue|issues|risk|risks|feasible|feasibility|realistic|workable|too much|too packed|too tight|conflict|conflicts|overlap|overlaps)\b/i.test(
-    prompt,
-  )
-}
-
 function getReviewScope(prompt: string): "day" | "trip" {
   if (
     /\b(whole trip|entire trip|full trip|all days|overall|trip as a whole)\b/i.test(prompt) ||
@@ -76,48 +70,6 @@ export default defineEventHandler(async (event) => {
 
   if (!day) {
     throw createError({ statusCode: 404, message: "Day not found" })
-  }
-
-  if (isReviewPrompt(prompt)) {
-    const reviewTrip = await getTripWithRelations(id)
-    if (!reviewTrip) throw createError({ statusCode: 404, message: "Trip not found" })
-
-    const { reviewItineraryWithJudgment } = await import("../../../../../lib/itinerary-review-ai")
-    const scope = getReviewScope(prompt)
-    const transportMode = normalizeTransportMode(trip.preferences?.transportMode)
-    const review = await reviewItineraryWithJudgment(
-      reviewTrip,
-      scope === "trip" ? { scope } : { scope, dayId },
-      { tripId: id, dayId, transportMode },
-    )
-    const message = formatItineraryReviewMessage(review)
-    const findings = [
-      ...review.findings.critical,
-      ...review.findings.warning,
-      ...review.findings.suggestion,
-    ]
-
-    await logTripAction({
-      tripId: id,
-      userId: session.user.id,
-      action: "ai_prompt",
-      description: `AI review: ${message}`,
-      metadata: {
-        prompt: rawPrompt,
-        intent: "review",
-        scope,
-        findings: review.summary.totalFindings,
-      },
-    })
-
-    return {
-      success: true,
-      intent: "review",
-      message,
-      proposals: [],
-      findings,
-      review,
-    }
   }
 
   // Fetch saved ideas for AI context
@@ -224,6 +176,47 @@ export default defineEventHandler(async (event) => {
       intent: "question",
       message: result.message,
       proposals: [],
+    }
+  }
+
+  if (result.intent === "review") {
+    const reviewTrip = await getTripWithRelations(id)
+    if (!reviewTrip) throw createError({ statusCode: 404, message: "Trip not found" })
+
+    const { reviewItineraryWithJudgment } = await import("../../../../../lib/itinerary-review-ai")
+    const scope = getReviewScope(prompt)
+    const review = await reviewItineraryWithJudgment(
+      reviewTrip,
+      scope === "trip" ? { scope } : { scope, dayId },
+      { tripId: id, dayId, transportMode },
+    )
+    const message = formatItineraryReviewMessage(review)
+    const findings = [
+      ...review.findings.critical,
+      ...review.findings.warning,
+      ...review.findings.suggestion,
+    ]
+
+    await logTripAction({
+      tripId: id,
+      userId: session.user.id,
+      action: "ai_prompt",
+      description: `AI review: ${message}`,
+      metadata: {
+        prompt: rawPrompt,
+        intent: "review",
+        scope,
+        findings: review.summary.totalFindings,
+      },
+    })
+
+    return {
+      success: true,
+      intent: "review",
+      message,
+      proposals: [],
+      findings,
+      review,
     }
   }
 
