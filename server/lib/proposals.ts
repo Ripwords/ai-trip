@@ -71,10 +71,7 @@ export interface DayForProposals {
   activities: { id: string; name: string }[]
 }
 
-function findActivityIdByName(
-  day: DayForProposals,
-  name: string,
-): string | undefined {
+function findActivityIdByName(day: DayForProposals, name: string): string | undefined {
   const normalized = name.toLowerCase().trim()
   return day.activities.find((a) => a.name.toLowerCase().trim() === normalized)?.id
 }
@@ -88,10 +85,238 @@ function describeActivities(activities: { name: string; suggestedTime?: string }
   return `${head.name} and ${activities.length - 1} more`
 }
 
-export function resultToProposals(
-  result: AIProcessResult,
-  day: DayForProposals,
-): Proposal[] {
+import { and, asc, eq, inArray } from "drizzle-orm"
+import { db } from "../db"
+import { activities, itineraryDays } from "../db/schema"
+import { enrichItinerary } from "./enrich"
+import { computeAndSaveSegments } from "./segments"
+import { getDistanceMatrix } from "./google-maps"
+import { computeSchedule, parseOpeningTime } from "../utils/schedule"
+import { logTripAction } from "../utils/trip-access"
+import type { TransportMode } from "../utils/transport"
+
+export interface ApplyContext {
+  tripId: string
+  dayId: string
+  userId: string
+  transportMode: TransportMode
+  /** Optional bias for enrichment when adding activities. */
+  dayLocation?: string
+  /** Optional coordinates for place-search bias during enrichment. */
+  destinationCoords?: { lat: number; lng: number }
+  /** Optional previous-day accommodation used by optimize. */
+  startLocation?: { lat: number | null; lng: number | null } | null
+}
+
+export interface ApplyResult {
+  message: string
+  added: number
+  removed: number
+  updated: number
+  optimized: boolean
+  enrichmentFailures: number
+}
+
+export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Promise<ApplyResult> {
+  if (proposal.dayId !== ctx.dayId) {
+    throw Object.assign(new Error("Proposal dayId mismatch with route"), { statusCode: 400 })
+  }
+
+  let added = 0
+  let removed = 0
+  let updated = 0
+  let optimized = false
+  let enrichmentFailures = 0
+  let message = ""
+
+  switch (proposal.kind) {
+    case "remove-activities": {
+      const deleteResult = await db
+        .delete(activities)
+        .where(
+          and(
+            eq(activities.itineraryDayId, ctx.dayId),
+            inArray(activities.id, proposal.payload.activityIds),
+          ),
+        )
+        .returning({ id: activities.id })
+      removed = deleteResult.length
+      message = `Removed ${removed} activit${removed === 1 ? "y" : "ies"}`
+      break
+    }
+
+    case "reschedule": {
+      await Promise.all(
+        proposal.payload.updates.map((u) =>
+          db
+            .update(activities)
+            .set({
+              suggestedTime: u.suggestedTime,
+              estimatedDurationMinutes: u.estimatedDurationMinutes,
+            })
+            .where(and(eq(activities.id, u.activityId), eq(activities.itineraryDayId, ctx.dayId))),
+        ),
+      )
+      updated = proposal.payload.updates.length
+      message = `Rescheduled ${updated} activit${updated === 1 ? "y" : "ies"}`
+      break
+    }
+
+    case "add-activities": {
+      try {
+        const enriched = await enrichItinerary(
+          {
+            days: [{ dayNumber: 0, theme: "", activities: proposal.payload.activities }],
+          },
+          ctx.dayLocation ?? "",
+          ctx.destinationCoords,
+        )
+        enrichmentFailures = enriched.enrichmentFailures
+        const enrichedActivities = enriched.days[0]?.activities ?? []
+        if (enrichedActivities.length > 0) {
+          const current = await db.query.activities.findMany({
+            where: eq(activities.itineraryDayId, ctx.dayId),
+            orderBy: [asc(activities.sortOrder)],
+          })
+          const maxSort = current.length > 0 ? Math.max(...current.map((a) => a.sortOrder)) : -1
+          await db.insert(activities).values(
+            enrichedActivities.map((a, i) => ({
+              itineraryDayId: ctx.dayId,
+              name: a.name,
+              placeId: a.placeId,
+              type: a.type,
+              description: a.description,
+              lat: a.lat,
+              lng: a.lng,
+              address: a.address,
+              rating: a.rating?.toString() ?? null,
+              priceLevel: a.priceLevel,
+              openingHours: a.openingHours,
+              photos: a.photos,
+              suggestedTime: a.suggestedTime,
+              estimatedDurationMinutes: a.estimatedDurationMinutes,
+              costEstimate: a.costEstimate.toString(),
+              tags: a.tags,
+              sortOrder: maxSort + 1 + i,
+            })),
+          )
+          added = enrichedActivities.length
+        }
+      } catch (e) {
+        console.error("[applyProposal] enrichment failed:", e)
+      }
+      message = `Added ${added} activit${added === 1 ? "y" : "ies"}`
+      break
+    }
+
+    case "optimize-route": {
+      const dayActivities = await db.query.activities.findMany({
+        where: eq(activities.itineraryDayId, ctx.dayId),
+        orderBy: [asc(activities.sortOrder)],
+      })
+      if (dayActivities.length >= 2) {
+        if (proposal.payload.orderedActivityIds?.length) {
+          await Promise.all(
+            proposal.payload.orderedActivityIds.map((id, i) =>
+              db.update(activities).set({ sortOrder: i }).where(eq(activities.id, id)),
+            ),
+          )
+          optimized = true
+        } else {
+          const day = await db.query.itineraryDays.findFirst({
+            where: eq(itineraryDays.id, ctx.dayId),
+          })
+          if (!day) throw Object.assign(new Error("Day not found"), { statusCode: 404 })
+
+          const geo = dayActivities.filter((a) => a.lat != null && a.lng != null)
+          const travelTimes: { fromId: string; toId: string; durationMinutes: number }[] = []
+          if (geo.length >= 2) {
+            try {
+              const origins = geo.slice(0, -1).map((a) => ({ lat: a.lat!, lng: a.lng! }))
+              const destinations = geo.slice(1).map((a) => ({ lat: a.lat!, lng: a.lng! }))
+              const matrix = await getDistanceMatrix(origins, destinations, ctx.transportMode)
+              for (let i = 0; i < origins.length; i++) {
+                const el = matrix[i]?.[i]
+                if (el?.duration?.value) {
+                  travelTimes.push({
+                    fromId: geo[i]!.id,
+                    toId: geo[i + 1]!.id,
+                    durationMinutes: Math.ceil(el.duration.value / 60),
+                  })
+                }
+              }
+            } catch {
+              /* proceed without travel times */
+            }
+          }
+
+          const schedule = computeSchedule({
+            activities: dayActivities.map((a) => ({
+              id: a.id,
+              name: a.name,
+              estimatedDurationMinutes: a.estimatedDurationMinutes,
+              lat: a.lat,
+              lng: a.lng,
+              openingMinutes: parseOpeningTime(a.openingHours, day.date),
+            })),
+            travelTimes,
+            startHour: 9,
+            startMinute: 0,
+            startTravelTimeMinutes: 0,
+            bufferMinutes: 15,
+          })
+          await Promise.all(
+            schedule.map((s) =>
+              db
+                .update(activities)
+                .set({ sortOrder: s.sortOrder, suggestedTime: s.suggestedTime })
+                .where(eq(activities.id, s.id)),
+            ),
+          )
+          optimized = true
+        }
+      }
+      message = optimized ? "Optimized route" : "Nothing to optimize"
+      break
+    }
+
+    case "set-accommodation": {
+      await db
+        .update(itineraryDays)
+        .set({
+          accommodationName: proposal.payload.name,
+          accommodationAddress: proposal.payload.address,
+          accommodationLat: proposal.payload.lat,
+          accommodationLng: proposal.payload.lng,
+          accommodationPlaceId: proposal.payload.placeId,
+        })
+        .where(eq(itineraryDays.id, ctx.dayId))
+      message = `Set accommodation to ${proposal.payload.name}`
+      break
+    }
+  }
+
+  // Recompute segments after any mutation that changed activities or accommodation.
+  await computeAndSaveSegments(ctx.dayId, ctx.transportMode)
+
+  await logTripAction({
+    tripId: ctx.tripId,
+    userId: ctx.userId,
+    action: "ai_proposal_apply",
+    description: `Applied proposal: ${proposal.summary}`,
+    metadata: {
+      proposalKind: proposal.kind,
+      added,
+      removed,
+      updated,
+      optimized,
+    },
+  })
+
+  return { message, added, removed, updated, optimized, enrichmentFailures }
+}
+
+export function resultToProposals(result: AIProcessResult, day: DayForProposals): Proposal[] {
   const proposals: Proposal[] = []
 
   if (result.newActivities.length > 0) {

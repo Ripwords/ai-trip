@@ -130,7 +130,10 @@ describe("resultToProposals", () => {
     const proposals = resultToProposals(result, dayFixture)
     assert.equal(proposals.length, 1)
     if (proposals[0]?.kind !== "reschedule") throw new Error("wrong kind")
-    assert.equal(proposals[0].payload.updates[0]?.activityId, "33333333-3333-4333-8333-333333333333")
+    assert.equal(
+      proposals[0].payload.updates[0]?.activityId,
+      "33333333-3333-4333-8333-333333333333",
+    )
   })
 
   it("returns an optimize-route proposal when shouldOptimize is true and no other changes", () => {
@@ -168,7 +171,33 @@ describe("resultToProposals", () => {
     })
     const proposals = resultToProposals(result, dayFixture)
     assert.equal(proposals.length, 2)
-    const kinds = proposals.map((p) => p.kind).sort()
+    const kinds = proposals.map((p) => p.kind).toSorted()
     assert.deepEqual(kinds, ["add-activities", "remove-activities"])
+  })
+})
+
+import { applyProposal } from "./proposals"
+
+describe("applyProposal", () => {
+  it("rejects a proposal whose dayId does not match the ctx", async () => {
+    await assert.rejects(
+      () =>
+        applyProposal(
+          {
+            id: "11111111-1111-4111-8111-111111111111",
+            kind: "optimize-route",
+            dayId: "99999999-9999-4999-8999-999999999999",
+            summary: "Optimize",
+            payload: {},
+          },
+          {
+            tripId: "55555555-5555-4555-8555-555555555555",
+            dayId: "22222222-2222-4222-8222-222222222222",
+            userId: "u1",
+            transportMode: "walking",
+          },
+        ),
+      /dayId mismatch/i,
+    )
   })
 })
