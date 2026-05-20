@@ -78,7 +78,11 @@ const SCHEDULE_RULES = `SCHEDULE GUARDRAILS:
 - Temples/shrines/museums/parks: 08:00–17:00
 - Dinner: 18:00–21:00, Lunch: 11:30–14:00, Breakfast: 07:30–09:30
 - Activities per day follow the traveler's pace preference (see preferences below). Default is 4-5 for moderate pace.
-- 30min buffer between activities
+
+DURATION RULE (MUST FOLLOW):
+- estimatedDurationMinutes is the time spent AT the venue ONLY.
+- Do NOT include travel time, walking time, or transit time in the duration.
+- Travel between activities is computed separately by the segments engine — leave it out of the duration.
 
 DEFAULT DAY BLUEPRINT (use this structure unless the traveler specifies otherwise):
 1. Morning activity/attraction (09:00–11:30)
@@ -565,7 +569,7 @@ ${JSON.stringify(params.activities.map((a) => ({ name: a.name, type: a.type, tim
 ${params.startLocation ? `Start point: ${params.startLocation.name}${params.startLocation.address ? ` (${params.startLocation.address})` : ""}` : ""}
 
 Adjust the times to fix the issue the traveler described. Return ALL activities with updated times. Keep the same activities — only change when they happen.
-Ensure no overlaps: each activity starts after the previous one ends (with 15-30min buffer for travel).`,
+Ensure activity times don't overlap each other. The segments engine handles travel time between activities — do NOT pad estimatedDurationMinutes for travel.`,
   })
 
   logger.info("[reschedule] Done", { updates: object.timeUpdates.length })
