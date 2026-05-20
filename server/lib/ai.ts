@@ -40,7 +40,7 @@ export interface AIItineraryOutput {
 
 // Result from unified AI processing
 export interface AIProcessResult {
-  intent: string
+  intent: "add" | "remove" | "modify" | "optimize" | "reschedule" | "fill_gaps" | "accommodation"
   message: string
   newActivities: AIActivity[]
   removals: { name: string; reason: string }[]
@@ -238,64 +238,6 @@ async function doResearch(destination: string, userContext?: string): Promise<st
   } catch (e) {
     logger.error("[research] Web search failed, proceeding without research", { error: String(e) })
     return "" // Graceful degradation — AI will use training data instead
-  }
-}
-
-// ── Intent Classification ────────────────────────────────────────────
-
-const intentSchema = z.object({
-  intent: z.enum([
-    "add",
-    "remove",
-    "modify",
-    "optimize",
-    "reschedule",
-    "fill_gaps",
-    "accommodation",
-    "question",
-    "review",
-    "general",
-  ]),
-  reasoning: z.string().describe("Why this intent was chosen"),
-})
-
-async function classifyIntent(
-  prompt: string,
-  hasActivities: boolean,
-): Promise<z.infer<typeof intentSchema>> {
-  logger.info("[intent] Classifying", { prompt, hasActivities })
-
-  try {
-    const { generateObject } = await import("ai")
-    const { object } = await generateObject({
-      model: getModel("classify"),
-      schema: intentSchema,
-      prompt: `Classify the user's intent. They have ${hasActivities ? "existing activities" : "no activities"} planned.
-
-User says: "${prompt}"
-
-Choose the MOST appropriate intent:
-- "add": wants to ADD new specific places (e.g., "add a ramen shop", "I want to visit X")
-- "remove": wants to REMOVE specific activities (e.g., "remove the castle", "I don't want X")
-- "modify": wants to REPLACE an activity with a different one (e.g., "change the restaurant to sushi instead")
-- "reschedule": wants to FIX TIMING issues — activities are too early, too late, overlapping, or need reordering WITHOUT adding/removing (e.g., "dinner is too late", "move lunch earlier", "the times don't work", "too cramped in the morning")
-- "optimize": wants to REORDER all activities for best route efficiency (e.g., "optimize the route", "minimize travel time")
-- "fill_gaps": wants AI to SUGGEST activities for empty time slots (e.g., "fill the gaps", "what should I do between lunch and dinner", "plan my day")
-- "accommodation": wants to SET or FIND accommodation/hotel/airbnb for this day (e.g., "book a hotel near Shibuya", "find accommodation", "I'm staying at Hotel X", "set the hotel")
-- "question": user is asking a yes/no or open-ended question, NOT requesting a change AND NOT asking for a full audit. e.g. "is 3 days enough?", "is this day too packed?", "how long from the hotel to X?", "is Y open Tuesday?", "should I do A on Day 2 or Day 4?", "tell me about Z". CRITICAL: a question that wonders/asks about the itinerary ("is it too much?", "is it realistic?") is "question", NOT "review".
-- "review": user explicitly asks for a full audit/scan of the itinerary with a list of issues. e.g. "review this day", "audit my trip", "find problems with the schedule", "scan the itinerary for issues". The intent is to get a STRUCTURED LIST of issues, not a conversational answer.
-- "general": mixed or unclear
-
-IMPORTANT:
-- If the user complains about timing/scheduling (too late, too early, overlapping, cramped), choose "reschedule" NOT "modify".
-- Prefer "question" over "review" when the user phrases it as a question they want answered, even if it touches on feasibility. Only choose "review" when they literally want the full structured audit.`,
-    })
-
-    logger.info("[intent] Result", { intent: object.intent, reasoning: object.reasoning })
-    return object
-  } catch (e) {
-    logger.error("[intent] Classification failed, defaulting to general", { error: String(e) })
-    return { intent: "general" as const, reasoning: "classification failed" }
   }
 }
 
@@ -632,49 +574,11 @@ async function handleAccommodation(params: {
   }
 }
 
-// ── Question Handler ─────────────────────────────────────────────────
-
-async function handleQuestion(params: {
-  prompt: string
-  tripId: string
-  dayId: string
-  destination: string
-  preferences?: TripPreferences
-  transportMode: TransportMode
-}): Promise<{ message: string }> {
-  logger.info("[question] Answering", { prompt: params.prompt })
-
-  const { createTripTools } = await import("./ai-tools")
-  const tools = createTripTools({
-    tripId: params.tripId,
-    dayId: params.dayId,
-    transportMode: params.transportMode,
-  })
-
-  try {
-    const agent = mastra.getAgent("planner")
-    const response = await agent.generate(
-      `Answer the traveler's question using the tools available. ONLY answer — do NOT propose changes.
-      The traveler is in ${params.destination}.
-      ${formatPreferences(params.preferences)}
-
-      Question: ${params.prompt}
-
-      Use readDay, readTripSummary, getDistance, getPlaceDetails, searchPlaces as needed.
-      Reply in 2-4 sentences, factual and concise.`,
-      { toolsets: { question: tools }, maxSteps: 4 },
-    )
-    return { message: response.text }
-  } catch (e) {
-    logger.error("[question] Failed", { error: String(e) })
-    return { message: "Sorry — I couldn't look that up right now. Try again in a moment." }
-  }
-}
-
 // ── Unified Entry Point ──────────────────────────────────────────────
 
 export async function processUserRequest(params: {
   prompt: string
+  intent: "add" | "remove" | "modify" | "optimize" | "reschedule" | "fill_gaps" | "accommodation"
   destination: string
   tripDestination: string
   tripId: string
@@ -699,10 +603,7 @@ export async function processUserRequest(params: {
   tripNotes?: string | null
   savedIdeas?: { name: string; type: string; description: string | null }[]
 }): Promise<AIProcessResult> {
-  const hasActivities = params.existingActivities.length > 0
-
-  // Step 1: Classify intent
-  const { intent } = await classifyIntent(params.prompt, hasActivities)
+  const intent = params.intent
 
   logger.info("=== PROCESSING ===", { intent, prompt: params.prompt })
 
@@ -852,45 +753,6 @@ export async function processUserRequest(params: {
         break
       }
 
-      case "question": {
-        const { message } = await handleQuestion({
-          prompt: params.prompt,
-          tripId: params.tripId,
-          dayId: params.dayId,
-          destination: params.destination,
-          preferences: params.preferences,
-          transportMode: params.transportMode,
-        })
-        result.message = message
-        break
-      }
-
-      case "general": {
-        // If day is empty or near-empty, fill gaps is reasonable
-        if (!hasActivities || params.existingActivities.length < 2) {
-          const { activities, timeUpdates } = await handleFillGaps({
-            prompt: params.prompt,
-            destination: params.destination,
-            date: params.date,
-            dayNumber: params.dayNumber,
-            existingActivities: params.existingActivities,
-            accommodation: params.accommodation,
-            startLocation: params.startLocation,
-            preferences: params.preferences,
-            otherDayActivities: params.otherDayActivities,
-            ...sharedCtx,
-          })
-          result.newActivities = activities
-          result.updates = timeUpdates
-          result.shouldOptimize = true
-          result.message = `Added ${activities.length} activit${activities.length === 1 ? "y" : "ies"}`
-        } else {
-          // Day has content — unclear what user wants
-          result.message =
-            'I\'m not sure what you\'d like to change. Try: "add a coffee shop", "remove the museum", "fill the gaps", or "optimize the route".'
-        }
-        break
-      }
     }
   } catch (e) {
     logger.error("=== HANDLER FAILED ===", { intent, error: String(e) })
