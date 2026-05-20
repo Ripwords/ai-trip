@@ -9,13 +9,14 @@ export function useAiPromptSuggestions(destination: Ref<string>, hasActivities: 
   ])
 
   const withActivitiesSuggestions = [
+    "Is this day too packed?",
+    "How long from my hotel to the first stop?",
     "Review this day for timing problems",
     "Review the whole trip for issues",
     "Add a coffee shop nearby",
     "Move dinner to 7 PM",
     "Optimize the route",
     "Fill the gaps",
-    "Find a hotel nearby",
   ]
 
   const suggestions = computed(() =>
