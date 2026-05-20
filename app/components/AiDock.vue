@@ -1,5 +1,14 @@
 <script setup lang="ts">
 import { BorderBeam } from "vue-border-beam"
+import type { Proposal } from "~/types/proposal"
+import type { ReviewFinding } from "~/types/review"
+
+export interface AiDockResponse {
+  message: string
+  proposals?: Proposal[]
+  findings?: ReviewFinding[]
+  intent?: string
+}
 
 const props = defineProps<{
   modelValue: string
@@ -14,6 +23,7 @@ const props = defineProps<{
   feedbackError: string
   undoAvailable: boolean
   undoing: boolean
+  response: AiDockResponse | null
 }>()
 
 const emit = defineEmits<{
@@ -25,6 +35,9 @@ const emit = defineEmits<{
   fillGaps: []
   optimizeRoute: []
   generateFull: []
+  applyProposal: [proposal: Proposal]
+  dismissProposal: [proposalId: string]
+  closeResponse: []
 }>()
 
 const inputEl = ref<HTMLInputElement | null>(null)
@@ -116,8 +129,39 @@ const placeholder = computed(() => {
 })
 
 const showSuggestions = computed(
-  () => !props.loading && (focused.value || hovered.value) && props.modelValue.trim().length === 0,
+  () =>
+    !props.loading &&
+    !props.response &&
+    (focused.value || hovered.value) &&
+    props.modelValue.trim().length === 0,
 )
+
+const appliedProposalIds = ref<Set<string>>(new Set())
+const applyingProposalIds = ref<Set<string>>(new Set())
+
+function isApplied(id: string) {
+  return appliedProposalIds.value.has(id)
+}
+function isApplying(id: string) {
+  return applyingProposalIds.value.has(id)
+}
+
+async function onApply(proposal: Proposal) {
+  if (isApplied(proposal.id) || isApplying(proposal.id)) return
+  applyingProposalIds.value.add(proposal.id)
+  emit("applyProposal", proposal)
+}
+
+function markApplied(id: string) {
+  applyingProposalIds.value.delete(id)
+  appliedProposalIds.value.add(id)
+}
+
+function markApplyFailed(id: string) {
+  applyingProposalIds.value.delete(id)
+}
+
+defineExpose({ markApplied, markApplyFailed })
 
 const feedbackVisible = ref(false)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
@@ -281,6 +325,97 @@ function handleClick() {
             </button>
           </div>
         </BorderBeam>
+      </div>
+
+      <!-- Response panel (proposals + findings) -->
+      <div
+        v-if="response"
+        class="mx-auto flex w-full max-w-[28rem] flex-col gap-3"
+      >
+        <div class="flex items-start justify-between gap-2">
+          <p class="flex-1 text-sm text-sand-800">{{ response.message }}</p>
+          <button
+            type="button"
+            class="shrink-0 rounded-full p-1 text-sand-400 hover:text-sand-700"
+            title="Close"
+            @click="emit('closeResponse')"
+          >
+            <Icon name="lucide:x" class="h-4 w-4" />
+          </button>
+        </div>
+
+        <!-- Findings (review prompts) -->
+        <div v-if="response.findings?.length" class="flex flex-col gap-2">
+          <article
+            v-for="finding in response.findings"
+            :key="finding.id"
+            class="rounded-xl border border-sand-200 bg-white p-3"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <p class="text-xs uppercase tracking-wide text-sand-500">
+                  Day {{ finding.dayNumber }} · {{ finding.severity }}
+                </p>
+                <h4 class="text-sm font-semibold text-sand-900">{{ finding.title }}</h4>
+                <p class="mt-1 text-xs text-sand-600">{{ finding.message }}</p>
+              </div>
+            </div>
+            <p class="mt-2 text-xs text-sand-700">
+              <span class="font-medium">Fix:</span> {{ finding.recommendation }}
+            </p>
+            <div v-if="finding.proposal" class="mt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                :disabled="isApplying(finding.proposal.id) || isApplied(finding.proposal.id)"
+                class="rounded-lg bg-terra-500 px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+                @click="onApply(finding.proposal)"
+              >
+                {{ isApplied(finding.proposal.id)
+                  ? "Applied"
+                  : isApplying(finding.proposal.id)
+                    ? "Applying…"
+                    : "Apply fix" }}
+              </button>
+            </div>
+          </article>
+        </div>
+
+        <!-- Proposal cards (mutation prompts) -->
+        <div v-if="response.proposals?.length" class="flex flex-col gap-2">
+          <article
+            v-for="proposal in response.proposals"
+            :key="proposal.id"
+            class="rounded-xl border border-sand-200 bg-white p-3"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <p class="text-xs uppercase tracking-wide text-sand-500">{{ proposal.kind }}</p>
+                <h4 class="text-sm font-semibold text-sand-900">{{ proposal.summary }}</h4>
+              </div>
+            </div>
+            <div class="mt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                class="rounded-lg border border-sand-200 px-3 py-1 text-xs text-sand-700 hover:bg-sand-50"
+                @click="emit('dismissProposal', proposal.id)"
+              >
+                Dismiss
+              </button>
+              <button
+                type="button"
+                :disabled="isApplying(proposal.id) || isApplied(proposal.id)"
+                class="rounded-lg bg-terra-500 px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+                @click="onApply(proposal)"
+              >
+                {{ isApplied(proposal.id)
+                  ? "Applied"
+                  : isApplying(proposal.id)
+                    ? "Applying…"
+                    : "Apply" }}
+              </button>
+            </div>
+          </article>
+        </div>
       </div>
 
       <!-- Feedback toast or suggestion chips, below the input -->
