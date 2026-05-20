@@ -62,3 +62,111 @@ export const proposalSchema = z.discriminatedUnion("kind", [
 
 export type Proposal = z.infer<typeof proposalSchema>
 export type ProposalKind = Proposal["kind"]
+
+import { randomUUID } from "node:crypto"
+import type { AIProcessResult } from "./ai"
+
+export interface DayForProposals {
+  id: string
+  activities: { id: string; name: string }[]
+}
+
+function findActivityIdByName(
+  day: DayForProposals,
+  name: string,
+): string | undefined {
+  const normalized = name.toLowerCase().trim()
+  return day.activities.find((a) => a.name.toLowerCase().trim() === normalized)?.id
+}
+
+function describeActivities(activities: { name: string; suggestedTime?: string }[]): string {
+  const head = activities[0]
+  if (!head) return ""
+  if (activities.length === 1) {
+    return head.suggestedTime ? `${head.name} at ${head.suggestedTime}` : head.name
+  }
+  return `${head.name} and ${activities.length - 1} more`
+}
+
+export function resultToProposals(
+  result: AIProcessResult,
+  day: DayForProposals,
+): Proposal[] {
+  const proposals: Proposal[] = []
+
+  if (result.newActivities.length > 0) {
+    proposals.push({
+      id: randomUUID(),
+      kind: "add-activities",
+      dayId: day.id,
+      summary: `Add ${describeActivities(result.newActivities)}`,
+      payload: { activities: result.newActivities },
+    })
+  }
+
+  if (result.removals.length > 0) {
+    const activityIds = result.removals
+      .map((r) => findActivityIdByName(day, r.name))
+      .filter((id): id is string => !!id)
+    if (activityIds.length > 0) {
+      const names = result.removals
+        .filter((r) => findActivityIdByName(day, r.name))
+        .map((r) => r.name)
+      proposals.push({
+        id: randomUUID(),
+        kind: "remove-activities",
+        dayId: day.id,
+        summary: `Remove ${names.join(", ")}`,
+        payload: { activityIds },
+      })
+    }
+  }
+
+  if (result.updates.length > 0) {
+    const updates = result.updates
+      .map((u) => {
+        const activityId = findActivityIdByName(day, u.name)
+        if (!activityId) return null
+        return {
+          activityId,
+          suggestedTime: u.suggestedTime,
+          estimatedDurationMinutes: u.estimatedDurationMinutes,
+        }
+      })
+      .filter((u): u is NonNullable<typeof u> => u !== null)
+    if (updates.length > 0) {
+      proposals.push({
+        id: randomUUID(),
+        kind: "reschedule",
+        dayId: day.id,
+        summary: `Reschedule ${updates.length} activit${updates.length === 1 ? "y" : "ies"}`,
+        payload: { updates },
+      })
+    }
+  }
+
+  if (result.shouldOptimize && result.newActivities.length === 0 && result.removals.length === 0) {
+    const orderedActivityIds = result.orderedActivities
+      ?.map((o) => findActivityIdByName(day, o.name))
+      .filter((id): id is string => !!id)
+    proposals.push({
+      id: randomUUID(),
+      kind: "optimize-route",
+      dayId: day.id,
+      summary: "Optimize route for the day",
+      payload: orderedActivityIds?.length ? { orderedActivityIds } : {},
+    })
+  }
+
+  if (result.accommodation) {
+    proposals.push({
+      id: randomUUID(),
+      kind: "set-accommodation",
+      dayId: day.id,
+      summary: `Set accommodation to ${result.accommodation.name}`,
+      payload: result.accommodation,
+    })
+  }
+
+  return proposals
+}

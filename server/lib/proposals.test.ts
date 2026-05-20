@@ -56,3 +56,119 @@ describe("proposalSchema", () => {
     assert.equal(result.success, true)
   })
 })
+
+import { resultToProposals } from "./proposals"
+import type { AIProcessResult } from "./ai"
+
+const dayFixture = {
+  id: "22222222-2222-4222-8222-222222222222",
+  activities: [
+    { id: "33333333-3333-4333-8333-333333333333", name: "Museum" },
+    { id: "44444444-4444-4444-8444-444444444444", name: "Temple" },
+  ],
+}
+
+function blankResult(overrides: Partial<AIProcessResult> = {}): AIProcessResult {
+  return {
+    intent: "general",
+    message: "",
+    newActivities: [],
+    removals: [],
+    updates: [],
+    shouldOptimize: false,
+    ...overrides,
+  }
+}
+
+describe("resultToProposals", () => {
+  it("returns an add-activities proposal when newActivities is non-empty", () => {
+    const result = blankResult({
+      intent: "add",
+      newActivities: [
+        {
+          name: "Afuri Ramen",
+          type: "restaurant",
+          description: "yuzu shio",
+          suggestedTime: "12:30",
+          estimatedDurationMinutes: 60,
+          costEstimate: 15,
+          tags: ["lunch"],
+        },
+      ],
+    })
+    const proposals = resultToProposals(result, dayFixture)
+    assert.equal(proposals.length, 1)
+    assert.equal(proposals[0]?.kind, "add-activities")
+    assert.equal(proposals[0]?.dayId, dayFixture.id)
+  })
+
+  it("returns a remove-activities proposal with resolved activity ids", () => {
+    const result = blankResult({
+      intent: "remove",
+      removals: [{ name: "Museum", reason: "not interested" }],
+    })
+    const proposals = resultToProposals(result, dayFixture)
+    assert.equal(proposals.length, 1)
+    if (proposals[0]?.kind !== "remove-activities") throw new Error("wrong kind")
+    assert.deepEqual(proposals[0].payload.activityIds, ["33333333-3333-4333-8333-333333333333"])
+  })
+
+  it("drops removals that don't match any activity name", () => {
+    const result = blankResult({
+      intent: "remove",
+      removals: [{ name: "Nonexistent place", reason: "?" }],
+    })
+    const proposals = resultToProposals(result, dayFixture)
+    assert.equal(proposals.length, 0)
+  })
+
+  it("returns a reschedule proposal when updates is non-empty", () => {
+    const result = blankResult({
+      intent: "reschedule",
+      updates: [{ name: "Museum", suggestedTime: "10:00", estimatedDurationMinutes: 90 }],
+    })
+    const proposals = resultToProposals(result, dayFixture)
+    assert.equal(proposals.length, 1)
+    if (proposals[0]?.kind !== "reschedule") throw new Error("wrong kind")
+    assert.equal(proposals[0].payload.updates[0]?.activityId, "33333333-3333-4333-8333-333333333333")
+  })
+
+  it("returns an optimize-route proposal when shouldOptimize is true and no other changes", () => {
+    const result = blankResult({ intent: "optimize", shouldOptimize: true })
+    const proposals = resultToProposals(result, dayFixture)
+    assert.equal(proposals.length, 1)
+    assert.equal(proposals[0]?.kind, "optimize-route")
+  })
+
+  it("returns a set-accommodation proposal when accommodation is present", () => {
+    const result = blankResult({
+      intent: "accommodation",
+      accommodation: { name: "Hotel X", address: "1-1", lat: 35.6, lng: 139.7, placeId: "p1" },
+    })
+    const proposals = resultToProposals(result, dayFixture)
+    assert.equal(proposals.length, 1)
+    assert.equal(proposals[0]?.kind, "set-accommodation")
+  })
+
+  it("returns multiple proposals for modify intent (remove + add)", () => {
+    const result = blankResult({
+      intent: "modify",
+      removals: [{ name: "Museum", reason: "swap" }],
+      newActivities: [
+        {
+          name: "Gallery",
+          type: "museum",
+          description: "",
+          suggestedTime: "10:00",
+          estimatedDurationMinutes: 90,
+          costEstimate: 10,
+          tags: [],
+        },
+      ],
+    })
+    const proposals = resultToProposals(result, dayFixture)
+    assert.equal(proposals.length, 2)
+    const kinds = proposals.map((p) => p.kind).sort()
+    assert.deepEqual(kinds, ["add-activities", "remove-activities"])
+  })
+})
