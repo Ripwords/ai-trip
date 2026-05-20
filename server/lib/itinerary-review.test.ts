@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { formatItineraryReviewMessage, reviewItinerary } from "./itinerary-review"
+import type { ItineraryReviewFinding } from "./itinerary-review"
 
 const baseDay = {
   id: "day-1",
@@ -156,5 +157,54 @@ describe("reviewItinerary", () => {
     assert.match(message, /I found \d+ issues in this trip/)
     assert.match(message, /Day 1:/)
     assert.match(message, /critical/)
+  })
+})
+
+describe("ItineraryReviewFinding type", () => {
+  it("accepts the new judgment codes", () => {
+    const f: ItineraryReviewFinding = {
+      id: "x",
+      code: "pace-mismatch",
+      severity: "warning",
+      title: "Pace mismatch",
+      message: "...",
+      recommendation: "...",
+      dayId: "d1",
+      dayNumber: 1,
+    }
+    assert.equal(f.code, "pace-mismatch")
+  })
+
+  it("accepts an optional proposal field", () => {
+    const f: ItineraryReviewFinding = {
+      id: "x",
+      code: "missing-lunch",
+      severity: "suggestion",
+      title: "Lunch missing",
+      message: "...",
+      recommendation: "...",
+      dayId: "d1",
+      dayNumber: 1,
+      proposal: {
+        id: "p1",
+        kind: "add-activities",
+        dayId: "d1",
+        summary: "Add lunch",
+        payload: {
+          activities: [
+            {
+              name: "Soba Spot",
+              type: "restaurant",
+              description: "",
+              suggestedTime: "12:30",
+              estimatedDurationMinutes: 60,
+              costEstimate: 12,
+              tags: [],
+            },
+          ],
+        },
+      },
+    }
+    assert.equal(f.proposal?.kind, "add-activities")
   })
 })

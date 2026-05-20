@@ -44,6 +44,8 @@ export interface ItineraryReviewOptions {
   dayId?: string
 }
 
+import type { Proposal } from "./proposals"
+
 export interface ItineraryReviewFinding {
   id: string
   code:
@@ -57,6 +59,11 @@ export interface ItineraryReviewFinding {
     | "missing-dinner"
     | "late-ending"
     | "missing-activity-coordinates"
+    | "pace-mismatch"
+    | "backtracking-route"
+    | "closed-on-date"
+    | "interest-mismatch"
+    | "energy-imbalance"
   severity: ItineraryReviewSeverity
   title: string
   message: string
@@ -64,6 +71,7 @@ export interface ItineraryReviewFinding {
   dayId: string
   dayNumber: number
   activityIds?: string[]
+  proposal?: Proposal
 }
 
 export interface ItineraryReviewResult {
