@@ -1,4 +1,15 @@
+import { randomUUID } from "node:crypto"
+import { and, asc, eq, inArray } from "drizzle-orm"
 import { z } from "zod"
+import { db } from "../db"
+import { activities, itineraryDays } from "../db/schema"
+import { enrichItinerary } from "./enrich"
+import { computeAndSaveSegments } from "./segments"
+import { getDistanceMatrix } from "./google-maps"
+import { computeSchedule, parseOpeningTime } from "../utils/schedule"
+import { logTripAction } from "../utils/trip-access"
+import type { TransportMode } from "../utils/transport"
+import type { AIProcessResult } from "./ai"
 
 const aiActivityPayloadSchema = z.object({
   name: z.string(),
@@ -63,9 +74,6 @@ export const proposalSchema = z.discriminatedUnion("kind", [
 export type Proposal = z.infer<typeof proposalSchema>
 export type ProposalKind = Proposal["kind"]
 
-import { randomUUID } from "node:crypto"
-import type { AIProcessResult } from "./ai"
-
 export interface DayForProposals {
   id: string
   activities: { id: string; name: string }[]
@@ -84,16 +92,6 @@ function describeActivities(activities: { name: string; suggestedTime?: string }
   }
   return `${head.name} and ${activities.length - 1} more`
 }
-
-import { and, asc, eq, inArray } from "drizzle-orm"
-import { db } from "../db"
-import { activities, itineraryDays } from "../db/schema"
-import { enrichItinerary } from "./enrich"
-import { computeAndSaveSegments } from "./segments"
-import { getDistanceMatrix } from "./google-maps"
-import { computeSchedule, parseOpeningTime } from "../utils/schedule"
-import { logTripAction } from "../utils/trip-access"
-import type { TransportMode } from "../utils/transport"
 
 export interface ApplyContext {
   tripId: string
@@ -119,7 +117,7 @@ export interface ApplyResult {
 
 export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Promise<ApplyResult> {
   if (proposal.dayId !== ctx.dayId) {
-    throw Object.assign(new Error("Proposal dayId mismatch with route"), { statusCode: 400 })
+    throw createError({ statusCode: 400, message: "Proposal dayId mismatch with route" })
   }
 
   let added = 0
@@ -226,7 +224,7 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
           const day = await db.query.itineraryDays.findFirst({
             where: eq(itineraryDays.id, ctx.dayId),
           })
-          if (!day) throw Object.assign(new Error("Day not found"), { statusCode: 404 })
+          if (!day) throw createError({ statusCode: 404, message: "Day not found" })
 
           const geo = dayActivities.filter((a) => a.lat != null && a.lng != null)
           const travelTimes: { fromId: string; toId: string; durationMinutes: number }[] = []
