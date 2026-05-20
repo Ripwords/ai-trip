@@ -1,49 +1,48 @@
 <script setup lang="ts">
 import { BorderBeam } from "vue-border-beam"
 import type { Proposal } from "~/types/proposal"
-import type { ReviewFinding } from "~/types/review"
 
-export interface AiDockResponse {
-  message: string
+export type ChatRole = "user" | "assistant" | "system"
+
+export interface ChatMessage {
+  id: string
+  role: ChatRole
+  content: string
+  toolCallSummary?: string[]
   proposals?: Proposal[]
-  findings?: ReviewFinding[]
-  intent?: string
+  proposalStates?: Record<string, "pending" | "applying" | "applied" | "dismissed">
+  timestamp: number
 }
 
 const props = defineProps<{
-  modelValue: string
+  messages: ChatMessage[]
+  input: string
   loading: boolean
-  loadingMode: "generate" | "optimize" | "remove" | "reschedule" | "review"
   usageUsed: number | null
   usageLimit: number | null
   usageRemaining: number | null
   hasActivities: boolean
   destination: string
-  feedbackMessage: string
-  feedbackError: string
-  undoAvailable: boolean
-  undoing: boolean
-  response: AiDockResponse | null
+  starters: string[]
 }>()
 
 const emit = defineEmits<{
-  "update:modelValue": [value: string]
-  submit: [prompt: string]
+  "update:input": [value: string]
+  submit: [text: string]
   cancel: []
-  undo: []
-  dismissFeedback: []
+  applyProposal: [messageId: string, proposal: Proposal]
+  dismissProposal: [messageId: string, proposalId: string]
   fillGaps: []
   optimizeRoute: []
   generateFull: []
-  applyProposal: [proposal: Proposal]
-  dismissProposal: [proposalId: string]
-  closeResponse: []
+  close: []
 }>()
 
 const inputEl = ref<HTMLInputElement | null>(null)
-const focused = ref(false)
-const hovered = ref(false)
 const expanded = ref(false)
+const listEl = ref<HTMLElement | null>(null)
+const userScrolledUp = ref(false)
+const newReplyPending = ref(false)
 
 function expand() {
   expanded.value = true
@@ -52,10 +51,68 @@ function expand() {
 
 function collapse() {
   if (props.loading) return
+  emit("close")
   expanded.value = false
-  focused.value = false
-  hovered.value = false
 }
+
+const limitReached = computed(() => (props.usageRemaining ?? 1) <= 0)
+
+const placeholder = computed(() => {
+  if (limitReached.value) return "Limit reached. Resets next month."
+  if (props.loading) return "Thinking…"
+  return "Ask, discuss, or push back…"
+})
+
+function handleSubmit() {
+  if (props.loading || !props.input.trim() || limitReached.value) return
+  emit("submit", props.input.trim())
+}
+
+function handleSendClick() {
+  if (props.loading) {
+    emit("cancel")
+  } else {
+    handleSubmit()
+  }
+}
+
+function selectStarter(text: string) {
+  emit("update:input", text)
+  nextTick(() => inputEl.value?.focus())
+}
+
+// ── Scroll behavior ─────────────────────────────────────────────────
+
+function isAtBottom() {
+  const el = listEl.value
+  if (!el) return true
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 24
+}
+
+function scrollToBottom(smooth = true) {
+  const el = listEl.value
+  if (!el) return
+  el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" })
+  userScrolledUp.value = false
+  newReplyPending.value = false
+}
+
+function onListScroll() {
+  if (!listEl.value) return
+  userScrolledUp.value = !isAtBottom()
+  if (!userScrolledUp.value) newReplyPending.value = false
+}
+
+watch(
+  () => props.messages.length,
+  () => {
+    if (userScrolledUp.value) {
+      newReplyPending.value = true
+    } else {
+      nextTick(() => scrollToBottom())
+    }
+  },
+)
 
 watch(
   () => props.loading,
@@ -64,157 +121,41 @@ watch(
   },
 )
 
-watch([() => props.feedbackMessage, () => props.feedbackError], ([m, e]) => {
-  if (m || e) expanded.value = true
-})
+// ── Quick chips ─────────────────────────────────────────────────────
 
-const limitReached = computed(() => (props.usageRemaining ?? 1) <= 0)
-
-const stepSets = {
-  generate: [
-    "Searching travel blogs & local guides…",
-    "Finding hidden gems & local favorites…",
-    "Validating places on Google Maps…",
-    "Building your itinerary…",
-  ],
-  optimize: [
-    "Researching routes & transit options…",
-    "Calculating optimal order…",
-    "Assigning realistic times…",
-  ],
-  remove: ["Identifying activities to remove…", "Updating your itinerary…"],
-  reschedule: ["Analyzing your current schedule…", "Adjusting times and order…"],
-  review: [
-    "Checking timing and overlaps…",
-    "Reviewing travel segments…",
-    "Scanning meals and start points…",
-  ],
-} as const
-
-const cycleIndex = ref(0)
-let cycleTimer: ReturnType<typeof setInterval> | null = null
-
-function startCycle() {
-  if (cycleTimer) clearInterval(cycleTimer)
-  cycleIndex.value = 0
-  cycleTimer = setInterval(() => {
-    const steps = stepSets[props.loadingMode] ?? stepSets.generate
-    cycleIndex.value = (cycleIndex.value + 1) % steps.length
-  }, 2500)
-}
-
-function stopCycle() {
-  if (cycleTimer) clearInterval(cycleTimer)
-  cycleTimer = null
-  cycleIndex.value = 0
-}
-
-watch(
-  () => props.loading,
-  (isLoading) => {
-    if (isLoading) startCycle()
-    else stopCycle()
-  },
+const quickActions = computed(() =>
+  props.hasActivities
+    ? [
+        { label: "Fill the gaps", icon: "lucide:sparkles", emit: "fillGaps" as const },
+        { label: "Optimize route", icon: "lucide:route", emit: "optimizeRoute" as const },
+        { label: "Generate full day", icon: "lucide:wand-2", emit: "generateFull" as const },
+      ]
+    : [
+        { label: "Generate full day", icon: "lucide:wand-2", emit: "generateFull" as const },
+      ],
 )
 
-const loadingPlaceholder = computed(() => {
-  const steps = stepSets[props.loadingMode] ?? stepSets.generate
-  return steps[cycleIndex.value % steps.length]!
-})
-
-const placeholder = computed(() => {
-  if (limitReached.value) return "Limit reached. Resets next month."
-  if (props.loading) return loadingPlaceholder.value
-  return props.hasActivities ? "Ask, propose, or review…" : "Where shall we begin?"
-})
-
-const showSuggestions = computed(
-  () =>
-    !props.loading &&
-    !props.response &&
-    (focused.value || hovered.value) &&
-    props.modelValue.trim().length === 0,
-)
-
-const appliedProposalIds = ref<Set<string>>(new Set())
-const applyingProposalIds = ref<Set<string>>(new Set())
-
-function isApplied(id: string) {
-  return appliedProposalIds.value.has(id)
-}
-function isApplying(id: string) {
-  return applyingProposalIds.value.has(id)
+function fireQuickAction(name: "fillGaps" | "optimizeRoute" | "generateFull") {
+  if (name === "fillGaps") emit("fillGaps")
+  else if (name === "optimizeRoute") emit("optimizeRoute")
+  else if (name === "generateFull") emit("generateFull")
 }
 
-async function onApply(proposal: Proposal) {
-  if (isApplied(proposal.id) || isApplying(proposal.id)) return
-  applyingProposalIds.value.add(proposal.id)
-  emit("applyProposal", proposal)
+// ── Proposal state helpers (pulled from parent via message.proposalStates) ──
+
+function proposalState(message: ChatMessage, id: string): "pending" | "applying" | "applied" | "dismissed" {
+  return message.proposalStates?.[id] ?? "pending"
 }
 
-function markApplied(id: string) {
-  applyingProposalIds.value.delete(id)
-  appliedProposalIds.value.add(id)
+function onApply(message: ChatMessage, proposal: Proposal) {
+  emit("applyProposal", message.id, proposal)
 }
 
-function markApplyFailed(id: string) {
-  applyingProposalIds.value.delete(id)
+function onDismiss(message: ChatMessage, proposal: Proposal) {
+  emit("dismissProposal", message.id, proposal.id)
 }
 
-defineExpose({ markApplied, markApplyFailed })
-
-const feedbackVisible = ref(false)
-let toastTimer: ReturnType<typeof setTimeout> | null = null
-
-function clearToastTimer() {
-  if (toastTimer) {
-    clearTimeout(toastTimer)
-    toastTimer = null
-  }
-}
-
-watch([() => props.feedbackMessage, () => props.feedbackError], ([message, error]) => {
-  clearToastTimer()
-  if (error) {
-    feedbackVisible.value = true
-  } else if (message) {
-    feedbackVisible.value = true
-    toastTimer = setTimeout(() => {
-      emit("dismissFeedback")
-    }, 6000)
-  } else {
-    feedbackVisible.value = false
-  }
-})
-
-onUnmounted(() => {
-  stopCycle()
-  clearToastTimer()
-})
-
-const destinationRef = computed(() => props.destination)
-const hasActivitiesRef = computed(() => props.hasActivities)
-const { suggestions } = useAiPromptSuggestions(destinationRef, hasActivitiesRef)
-
-function selectSuggestion(text: string) {
-  emit("update:modelValue", text)
-  nextTick(() => inputEl.value?.focus())
-}
-
-function handleSubmit() {
-  if (props.loading || !props.modelValue.trim() || limitReached.value) return
-  emit("submit", props.modelValue.trim())
-}
-
-function handleClick() {
-  if (props.loading) {
-    emit("cancel")
-  } else {
-    handleSubmit()
-  }
-}
-
-// ── Proposal helpers ────────────────────────────────────────────────
+// ── Proposal kind metadata (mirror the earlier dock design) ─────────
 
 const proposalKindMeta: Record<
   Proposal["kind"],
@@ -226,62 +167,9 @@ const proposalKindMeta: Record<
   "optimize-route": { label: "Route", symbol: "↗", tone: "ocean" },
   "set-accommodation": { label: "Accommodation", symbol: "✦", tone: "forest" },
 }
-
-function kindMeta(kind: Proposal["kind"]) {
-  return proposalKindMeta[kind]
-}
-
-// ── Finding helpers ─────────────────────────────────────────────────
-
-interface FindingGroup {
-  id: string
-  severity: ReviewFinding["severity"]
-  title: string
-  count: number
-  dayNumber: number
-  recommendation: string
-  proposal: ReviewFinding["proposal"] | undefined
-  sample: ReviewFinding
-}
-
-const groupedFindings = computed<FindingGroup[]>(() => {
-  const all = props.response?.findings ?? []
-  const order = { critical: 0, warning: 1, suggestion: 2 } as const
-  const groups = new Map<string, FindingGroup>()
-  for (const f of all) {
-    const key = `${f.dayId}:${f.code}`
-    const existing = groups.get(key)
-    if (existing) {
-      existing.count += 1
-      if (!existing.proposal && f.proposal) existing.proposal = f.proposal
-    } else {
-      groups.set(key, {
-        id: key,
-        severity: f.severity,
-        title: f.title,
-        count: 1,
-        dayNumber: f.dayNumber,
-        recommendation: f.recommendation,
-        proposal: f.proposal,
-        sample: f,
-      })
-    }
-  }
-  return Array.from(groups.values()).toSorted((a, b) => order[a.severity] - order[b.severity])
-})
-
-const severityMeta: Record<
-  ReviewFinding["severity"],
-  { label: string; ribbon: string; dot: string }
-> = {
-  critical: { label: "Critical", ribbon: "bg-terra-500", dot: "bg-terra-500" },
-  warning: { label: "Warning", ribbon: "bg-sand-500", dot: "bg-sand-500" },
-  suggestion: { label: "Suggestion", ribbon: "bg-ocean-400", dot: "bg-ocean-400" },
-}
 </script>
 
 <template>
-  <!-- Backdrop -->
   <Transition
     enter-active-class="duration-200 ease-out"
     enter-from-class="opacity-0"
@@ -297,54 +185,216 @@ const severityMeta: Record<
     />
   </Transition>
 
-  <!-- Collapsed FAB -->
+  <!-- Collapsed FAB (original style) -->
   <Transition name="fab-pop">
     <button
       v-if="!expanded"
       type="button"
-      class="dock-fab pointer-events-auto fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-4 z-[70] flex h-14 w-14 items-center justify-center rounded-full text-sand-50 shadow-xl sm:bottom-6 sm:right-6"
-      title="Ask the planner"
+      class="pointer-events-auto fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-4 z-[70] flex h-12 w-12 items-center justify-center rounded-full bg-terra-500 text-white shadow-lg transition-colors hover:bg-terra-600 sm:bottom-6 sm:right-6"
+      title="Discuss with AI"
       @click="expand"
     >
-      <span class="dock-fab-symbol font-display text-2xl italic">✦</span>
+      <Icon name="lucide:sparkles" class="h-5 w-5" />
     </button>
   </Transition>
 
-  <!-- Expanded bottom sheet -->
+  <!-- Expanded chat sheet -->
   <Transition name="sheet-up">
     <div
       v-if="expanded"
-      class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex flex-col gap-4 rounded-t-[28px] px-4 pt-3"
+      class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex flex-col rounded-t-[28px]"
       :style="{
-        minHeight: '58vh',
+        minHeight: '70vh',
         maxHeight: '92vh',
-        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)',
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
       }"
     >
-      <!-- Drag handle -->
-      <div class="mx-auto h-1 w-12 shrink-0 rounded-full bg-sand-400/40" />
+      <div class="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-sand-400/40" />
 
-      <!-- Letterhead -->
-      <header class="mx-auto flex w-full max-w-[28rem] items-baseline justify-between">
+      <header
+        class="mx-auto mt-3 flex w-full max-w-[28rem] items-baseline justify-between px-4"
+      >
         <div class="flex items-baseline gap-2">
           <span class="font-display text-base italic text-terra-500">✦</span>
-          <span class="text-[10px] uppercase tracking-[0.22em] text-sand-500 dark:text-sand-600">
+          <span class="text-[10px] uppercase tracking-[0.22em] text-sand-500">
             From your planner
           </span>
         </div>
-        <span
-          v-if="usageUsed != null && usageLimit != null"
-          class="text-[10px] uppercase tracking-[0.18em] tabular-nums"
-          :class="(usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-500'"
-          :title="`${usageUsed}/${usageLimit} AI prompts used this month`"
-        >
-          {{ usageUsed }} / {{ usageLimit }}
-        </span>
+        <div class="flex items-baseline gap-3">
+          <span
+            v-if="usageUsed != null && usageLimit != null"
+            class="text-[10px] uppercase tracking-[0.18em] tabular-nums"
+            :class="(usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-500'"
+            :title="`${usageUsed}/${usageLimit} AI prompts used this month`"
+          >
+            {{ usageUsed }} / {{ usageLimit }}
+          </span>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+            title="Close"
+            @click="collapse"
+          >
+            <Icon name="lucide:x" class="h-4 w-4" />
+          </button>
+        </div>
       </header>
-      <div class="mx-auto h-px w-full max-w-[28rem] bg-sand-300/60 dark:bg-sand-300/30" />
+      <div class="mx-auto mt-2 h-px w-full max-w-[28rem] bg-sand-300/60" />
 
-      <!-- Input pill -->
-      <div class="mx-auto w-full max-w-[28rem]">
+      <!-- Message list -->
+      <div
+        ref="listEl"
+        class="dock-list relative mx-auto w-full max-w-[28rem] flex-1 overflow-y-auto px-4 py-3"
+        @scroll="onListScroll"
+      >
+        <!-- Empty state -->
+        <div v-if="messages.length === 0" class="flex flex-col gap-3">
+          <p class="font-display text-[18px] italic leading-snug text-sand-900">
+            Hi — what's on your mind about this trip?
+          </p>
+          <p class="text-[11px] text-sand-500">
+            Each reply uses 1 of your {{ usageLimit ?? 100 }} monthly credits.
+          </p>
+
+          <div v-if="starters.length > 0" class="mt-2 flex flex-col gap-2">
+            <span class="text-[10px] uppercase tracking-[0.22em] text-sand-500">Or try</span>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="s in starters"
+                :key="s"
+                type="button"
+                class="dock-chip"
+                @mousedown.prevent
+                @click="selectStarter(s)"
+              >
+                {{ s }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Messages -->
+        <ul v-else class="flex list-none flex-col gap-4 p-0">
+          <li v-for="msg in messages" :key="msg.id">
+            <!-- User message -->
+            <div v-if="msg.role === 'user'" class="flex justify-end">
+              <div class="dock-user-bubble">{{ msg.content }}</div>
+            </div>
+
+            <!-- System message -->
+            <div v-else-if="msg.role === 'system'" class="flex justify-center">
+              <span class="dock-system-line">{{ msg.content }}</span>
+            </div>
+
+            <!-- Assistant message -->
+            <div v-else class="flex flex-col gap-2">
+              <div v-if="msg.toolCallSummary?.length" class="flex flex-col gap-0.5">
+                <p
+                  v-for="(line, i) in msg.toolCallSummary"
+                  :key="i"
+                  class="dock-tool-line"
+                >
+                  <Icon name="lucide:eye" class="dock-tool-icon" />
+                  {{ line }}
+                </p>
+              </div>
+              <p class="dock-assistant-body">{{ msg.content }}</p>
+
+              <!-- Inline proposal cards -->
+              <ul
+                v-if="msg.proposals?.length"
+                class="mt-1 flex list-none flex-col gap-2 p-0"
+              >
+                <li
+                  v-for="p in msg.proposals"
+                  :key="p.id"
+                  class="dock-proposal"
+                >
+                  <template v-if="proposalState(msg, p.id) === 'applied'">
+                    <span class="dock-applied-stamp">Applied</span>
+                  </template>
+                  <template v-else-if="proposalState(msg, p.id) === 'dismissed'" />
+                  <template v-else>
+                    <div class="flex items-center justify-between gap-2 border-b border-dashed border-sand-300/60 px-3 py-1.5">
+                      <div class="flex items-center gap-2">
+                        <span
+                          class="dock-stamp"
+                          :data-tone="proposalKindMeta[p.kind].tone"
+                        >{{ proposalKindMeta[p.kind].symbol }}</span>
+                        <span class="text-[10px] uppercase tracking-[0.22em] text-sand-700">
+                          {{ proposalKindMeta[p.kind].label }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="px-3 pb-2.5 pt-2">
+                      <h4 class="font-display text-[16px] leading-snug text-sand-900">
+                        {{ p.summary }}
+                      </h4>
+                      <div class="mt-2 flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          class="dock-dismiss"
+                          :disabled="proposalState(msg, p.id) === 'applying'"
+                          @click="onDismiss(msg, p)"
+                        >
+                          Dismiss
+                        </button>
+                        <button
+                          type="button"
+                          :disabled="proposalState(msg, p.id) === 'applying'"
+                          class="dock-apply"
+                          @click="onApply(msg, p)"
+                        >
+                          <span class="dock-apply-symbol">✦</span>
+                          <span>{{ proposalState(msg, p.id) === "applying" ? "Applying" : "Apply" }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+                </li>
+              </ul>
+            </div>
+          </li>
+        </ul>
+
+        <Transition
+          enter-active-class="duration-150 ease-out"
+          enter-from-class="opacity-0 translate-y-1"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="duration-100 ease-in"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
+        >
+          <button
+            v-if="newReplyPending"
+            type="button"
+            class="dock-new-reply"
+            @click="scrollToBottom()"
+          >
+            ↓ new reply
+          </button>
+        </Transition>
+      </div>
+
+      <!-- Quick action chips -->
+      <div class="mx-auto w-full max-w-[28rem] px-4 pb-2">
+        <div class="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+          <button
+            v-for="qa in quickActions"
+            :key="qa.label"
+            type="button"
+            :disabled="loading"
+            class="dock-chip dock-chip-quick"
+            @click="fireQuickAction(qa.emit)"
+          >
+            <Icon :name="qa.icon" class="h-3.5 w-3.5 text-terra-500" />
+            {{ qa.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Sticky input -->
+      <div class="dock-input-area mx-auto w-full max-w-[28rem] px-4 pb-2">
         <BorderBeam
           size="sm"
           color-variant="sunset"
@@ -355,23 +405,12 @@ const severityMeta: Record<
           :duration="4"
           class="dock-beam w-full"
         >
-          <div
-            class="flex items-center gap-2 rounded-full bg-sand-900 py-2 pl-3 pr-2"
-            @mouseenter="hovered = true"
-            @mouseleave="hovered = false"
-          >
-            <button
-              type="button"
-              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sand-50 transition hover:bg-sand-50/15 disabled:opacity-50"
-              :disabled="loading"
-              title="Close"
-              @click="collapse"
+          <div class="flex items-center gap-2 rounded-full bg-sand-900 py-2 pl-3 pr-2">
+            <span
+              v-if="loading"
+              class="flex shrink-0 items-end gap-[3px] pl-1"
+              aria-hidden="true"
             >
-              <Icon name="lucide:x" class="h-4 w-4" />
-            </button>
-
-            <!-- Loading dots OR sparkle -->
-            <span v-if="loading" class="flex shrink-0 items-end gap-[3px] pl-1" aria-hidden="true">
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
@@ -380,298 +419,40 @@ const severityMeta: Record<
               v-else
               class="font-display text-base italic leading-none text-terra-400"
               aria-hidden="true"
-            >
-              ✦
-            </span>
-
+            >✦</span>
             <input
               ref="inputEl"
-              :value="modelValue"
+              :value="input"
               type="text"
               :disabled="loading || limitReached"
               :placeholder="placeholder"
               class="min-w-0 flex-1 border-none bg-transparent text-sm text-sand-50 placeholder:italic placeholder:text-sand-50/70 focus:outline-none disabled:opacity-70"
-              @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
-              @focus="focused = true"
-              @blur="focused = false"
+              @input="emit('update:input', ($event.target as HTMLInputElement).value)"
               @keydown.enter.prevent="handleSubmit"
             />
             <button
               type="button"
-              :disabled="!loading && (!modelValue.trim() || limitReached)"
+              :disabled="!loading && (!input.trim() || limitReached)"
               class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition disabled:opacity-40"
               :class="loading ? 'bg-sand-600 hover:bg-sand-500' : 'bg-terra-500 hover:bg-terra-600'"
               :title="loading ? 'Cancel' : 'Send'"
-              @click="handleClick"
+              @click="handleSendClick"
             >
               <Icon :name="loading ? 'lucide:x' : 'lucide:arrow-up'" class="h-4 w-4" />
             </button>
           </div>
         </BorderBeam>
       </div>
-
-      <!-- Body scrollable area -->
-      <div class="dock-scroll mx-auto w-full max-w-[28rem] flex-1 overflow-y-auto pb-4">
-        <!-- Response (curator's note + cards) -->
-        <Transition name="ink-rise">
-          <div v-if="response" class="flex flex-col gap-4">
-            <!-- Curator's note -->
-            <div class="dock-note relative pr-9">
-              <button
-                type="button"
-                class="absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-full text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
-                title="Close"
-                @click="emit('closeResponse')"
-              >
-                <Icon name="lucide:x" class="h-4 w-4" />
-              </button>
-              <p
-                class="font-display text-[17px] italic leading-snug text-sand-900 dark:text-sand-900"
-              >
-                <span class="mr-1 text-terra-500">“</span>{{ response.message
-                }}<span class="ml-0.5 text-terra-500">”</span>
-              </p>
-              <p class="mt-2 text-[10px] uppercase tracking-[0.22em] text-sand-500">— Planner</p>
-            </div>
-
-            <!-- Findings (review intent) -->
-            <ul
-              v-if="groupedFindings.length"
-              class="dock-stack flex list-none flex-col gap-2.5 p-0"
-            >
-              <li
-                v-for="(group, i) in groupedFindings"
-                :key="group.id"
-                class="dock-card-enter group relative overflow-hidden rounded-2xl border border-sand-300/70 bg-white pl-3 pr-3 pt-3 pb-2.5 shadow-[0_1px_0_0_rgba(61,51,40,0.04),0_8px_24px_-12px_rgba(61,51,40,0.18)] dark:border-sand-300/30 dark:bg-sand-100"
-                :style="{ animationDelay: `${i * 60}ms` }"
-              >
-                <!-- Severity ribbon -->
-                <span
-                  class="absolute inset-y-0 left-0 w-[3px]"
-                  :class="severityMeta[group.severity].ribbon"
-                  aria-hidden="true"
-                />
-                <div class="flex items-start justify-between gap-3 pl-2">
-                  <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-2">
-                      <span
-                        class="inline-flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-sand-700 dark:text-sand-700"
-                      >
-                        <span
-                          class="h-1 w-1 rounded-full"
-                          :class="severityMeta[group.severity].dot"
-                        />
-                        {{ severityMeta[group.severity].label }}
-                      </span>
-                      <span class="text-[10px] uppercase tracking-[0.18em] text-sand-500">
-                        Day {{ group.dayNumber }}
-                      </span>
-                      <span
-                        v-if="group.count > 1"
-                        class="text-[10px] uppercase tracking-[0.18em] text-sand-500"
-                      >
-                        · ×{{ group.count }}
-                      </span>
-                    </div>
-                    <h4
-                      class="mt-1 font-display text-[16px] leading-tight text-sand-900 dark:text-sand-900"
-                    >
-                      {{ group.title }}
-                    </h4>
-                    <p class="mt-1.5 text-[12.5px] leading-snug text-sand-700 dark:text-sand-700">
-                      {{ group.recommendation }}
-                    </p>
-                  </div>
-                </div>
-
-                <div v-if="group.proposal" class="mt-2.5 flex justify-end pl-2">
-                  <button
-                    v-if="isApplied(group.proposal.id)"
-                    type="button"
-                    class="dock-applied"
-                    disabled
-                  >
-                    <span class="dock-applied-stamp">Applied</span>
-                  </button>
-                  <button
-                    v-else
-                    type="button"
-                    :disabled="isApplying(group.proposal.id)"
-                    class="dock-apply"
-                    @click="onApply(group.proposal)"
-                  >
-                    <span class="dock-apply-symbol">✦</span>
-                    <span>{{ isApplying(group.proposal.id) ? "Applying" : "Apply fix" }}</span>
-                  </button>
-                </div>
-              </li>
-            </ul>
-
-            <!-- Proposal cards (mutation intents) -->
-            <ul
-              v-if="response.proposals?.length"
-              class="dock-stack flex list-none flex-col gap-2.5 p-0"
-            >
-              <li
-                v-for="(proposal, i) in response.proposals"
-                :key="proposal.id"
-                class="dock-card-enter group relative overflow-hidden rounded-2xl border border-sand-300/70 bg-white shadow-[0_1px_0_0_rgba(61,51,40,0.04),0_8px_24px_-12px_rgba(61,51,40,0.18)] dark:border-sand-300/30 dark:bg-sand-100"
-                :style="{ animationDelay: `${i * 60}ms` }"
-              >
-                <!-- Kind header strip -->
-                <div
-                  class="flex items-center justify-between border-b border-dashed border-sand-300/60 px-3.5 py-1.5 dark:border-sand-300/20"
-                >
-                  <div class="flex items-center gap-2">
-                    <span
-                      class="dock-stamp"
-                      :data-tone="kindMeta(proposal.kind).tone"
-                      aria-hidden="true"
-                    >
-                      {{ kindMeta(proposal.kind).symbol }}
-                    </span>
-                    <span
-                      class="text-[10px] uppercase tracking-[0.22em] text-sand-700 dark:text-sand-700"
-                    >
-                      {{ kindMeta(proposal.kind).label }}
-                    </span>
-                  </div>
-                  <span
-                    class="text-[10px] uppercase tracking-[0.18em] text-sand-400 dark:text-sand-500"
-                  >
-                    Proposal
-                  </span>
-                </div>
-
-                <!-- Body -->
-                <div class="px-3.5 pb-3 pt-2.5">
-                  <h4
-                    class="font-display text-[18px] leading-snug text-sand-900 dark:text-sand-900"
-                  >
-                    {{ proposal.summary }}
-                  </h4>
-                  <div class="mt-3 flex items-center justify-end gap-3">
-                    <template v-if="isApplied(proposal.id)">
-                      <span class="dock-applied-stamp inline-flex">Applied</span>
-                    </template>
-                    <template v-else>
-                      <button
-                        type="button"
-                        class="dock-dismiss"
-                        @click="emit('dismissProposal', proposal.id)"
-                      >
-                        Dismiss
-                      </button>
-                      <button
-                        type="button"
-                        :disabled="isApplying(proposal.id)"
-                        class="dock-apply"
-                        @click="onApply(proposal)"
-                      >
-                        <span class="dock-apply-symbol">✦</span>
-                        <span>{{ isApplying(proposal.id) ? "Applying" : "Apply" }}</span>
-                      </button>
-                    </template>
-                  </div>
-                </div>
-              </li>
-            </ul>
-          </div>
-        </Transition>
-
-        <!-- Feedback toast / suggestion chips -->
-        <Transition
-          mode="out-in"
-          enter-active-class="duration-200 ease-out"
-          enter-from-class="opacity-0"
-          enter-to-class="opacity-100"
-          leave-active-class="duration-150 ease-in"
-          leave-from-class="opacity-100"
-          leave-to-class="opacity-0"
-        >
-          <div v-if="feedbackVisible && (feedbackMessage || feedbackError)" class="mt-2 w-full">
-            <div
-              v-if="feedbackError"
-              class="flex items-start gap-2 rounded-xl border border-terra-200 bg-terra-50 px-3 py-2 text-sm text-terra-700"
-            >
-              <Icon name="lucide:alert-circle" class="mt-0.5 h-4 w-4 shrink-0" />
-              <span class="flex-1">{{ feedbackError }}</span>
-              <button
-                type="button"
-                class="shrink-0 text-terra-400 hover:text-terra-700"
-                @click="emit('dismissFeedback')"
-              >
-                <Icon name="lucide:x" class="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div
-              v-else
-              class="flex items-center gap-2 rounded-xl border border-forest-100 bg-forest-50 px-3 py-2 text-sm text-forest-700"
-            >
-              <Icon name="lucide:check-circle" class="h-4 w-4 shrink-0" />
-              <span class="flex-1">{{ feedbackMessage }}</span>
-              <button
-                v-if="undoAvailable"
-                type="button"
-                :disabled="undoing"
-                class="shrink-0 text-sm font-medium text-forest-700 underline underline-offset-2 hover:text-forest-900 disabled:opacity-50"
-                @click="emit('undo')"
-              >
-                <span v-if="undoing">Undoing…</span>
-                <span v-else>Undo</span>
-              </button>
-              <button
-                type="button"
-                class="shrink-0 text-forest-400 hover:text-forest-700"
-                @click="emit('dismissFeedback')"
-              >
-                <Icon name="lucide:x" class="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-
-          <!-- Suggestion chips -->
-          <div v-else-if="showSuggestions" class="mt-2 flex flex-col gap-2">
-            <p class="font-display text-sm italic text-sand-500 dark:text-sand-600">
-              A few thoughts to begin with…
-            </p>
-            <div class="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                :disabled="loading"
-                class="dock-chip dock-chip-primary"
-                @mousedown.prevent
-                @click="emit('generateFull')"
-              >
-                <span class="dock-chip-symbol">✦</span>
-                Generate full itinerary
-              </button>
-              <button
-                v-for="s in suggestions"
-                :key="s"
-                type="button"
-                class="dock-chip"
-                @mousedown.prevent
-                @click="selectSuggestion(s)"
-              >
-                {{ s }}
-              </button>
-            </div>
-          </div>
-        </Transition>
-      </div>
     </div>
   </Transition>
 </template>
 
 <style scoped>
-/* ── Bottom sheet: cream paper with subtle grain ─────────────────── */
 .dock-sheet {
   background: var(--color-sand-50);
   box-shadow:
     0 -1px 0 0 var(--color-sand-300) inset,
     0 -28px 60px -20px rgba(61, 51, 40, 0.35);
-  position: fixed;
 }
 .dock-sheet::before {
   content: "";
@@ -687,69 +468,67 @@ const severityMeta: Record<
   z-index: 1;
 }
 
-/* ── FAB: wax-seal-style circle ─────────────────────────────────── */
-.dock-fab {
-  background: radial-gradient(
-    circle at 32% 28%,
-    var(--color-terra-400) 0%,
-    var(--color-terra-500) 45%,
-    var(--color-terra-700) 100%
-  );
-  box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.22) inset,
-    0 10px 24px -6px rgba(180, 60, 30, 0.55),
-    0 2px 4px 0 rgba(0, 0, 0, 0.15);
-  transition:
-    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.2s ease;
+.dock-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-sand-300) transparent;
 }
-.dock-fab:hover {
-  transform: translateY(-2px) rotate(-3deg);
-  box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.22) inset,
-    0 16px 28px -8px rgba(180, 60, 30, 0.6),
-    0 3px 6px 0 rgba(0, 0, 0, 0.18);
-}
-.dock-fab:active {
-  transform: translateY(0) scale(0.97);
-}
-.dock-fab-symbol {
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
-  transform: translateY(-1px);
-}
-
-/* ── Input pill ──────────────────────────────────────────────────── */
-.dock-beam {
+.dock-list::-webkit-scrollbar { width: 4px; }
+.dock-list::-webkit-scrollbar-track { background: transparent; }
+.dock-list::-webkit-scrollbar-thumb {
+  background: var(--color-sand-300);
   border-radius: 9999px;
 }
 
-/* ── Curator's note ──────────────────────────────────────────────── */
-.dock-note {
-  border-left: 2px solid var(--color-terra-300);
-  padding: 0 0 0 14px;
-  margin: 4px 0 0 4px;
+.dock-user-bubble {
+  background: var(--color-sand-100);
+  color: var(--color-sand-900);
+  border: 1px solid var(--color-sand-200);
+  border-radius: 18px;
+  padding: 8px 14px;
+  max-width: 80%;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 
-/* ── Cards: paper with stamp tags ───────────────────────────────── */
-.dock-stack {
-  margin: 0;
+.dock-assistant-body {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--color-sand-900);
+  white-space: pre-wrap;
 }
 
-.dock-card-enter {
-  animation: cardRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-@keyframes cardRise {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.dock-system-line {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--color-sand-500);
 }
 
-/* Kind stamp: a small monogram on the proposal card */
+.dock-tool-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-sand-500);
+  font-style: italic;
+}
+.dock-tool-icon {
+  width: 12px;
+  height: 12px;
+  color: var(--color-sand-500);
+}
+
+.dock-proposal {
+  border: 1px solid var(--color-sand-300);
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    0 1px 0 0 rgba(61, 51, 40, 0.04),
+    0 6px 18px -10px rgba(61, 51, 40, 0.18);
+}
+
 .dock-stamp {
   display: inline-flex;
   align-items: center;
@@ -760,7 +539,6 @@ const severityMeta: Record<
   font-family: var(--font-display);
   font-style: italic;
   font-size: 13px;
-  line-height: 1;
   background: var(--color-sand-100);
   border: 1px solid var(--color-sand-300);
   color: var(--color-sand-800);
@@ -782,8 +560,6 @@ const severityMeta: Record<
   color: var(--color-forest-700);
 }
 
-/* ── Buttons: Apply (filled), Dismiss (link), Applied (stamp) ──── */
-/* Sized for comfortable touch targets on mobile (≥44px tap zone via height + padding). */
 .dock-apply {
   display: inline-flex;
   align-items: center;
@@ -796,38 +572,13 @@ const severityMeta: Record<
   font-weight: 500;
   color: white;
   background: linear-gradient(180deg, var(--color-terra-500) 0%, var(--color-terra-600) 100%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
-    0 1px 2px 0 rgba(180, 60, 30, 0.3),
-    0 0 0 0 rgba(180, 60, 30, 0);
-  transition:
-    box-shadow 0.18s ease,
-    transform 0.12s ease,
-    background 0.18s ease;
   touch-action: manipulation;
 }
-.dock-apply:hover:not(:disabled) {
-  background: linear-gradient(180deg, var(--color-terra-400) 0%, var(--color-terra-500) 100%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.25),
-    0 4px 10px -2px rgba(180, 60, 30, 0.45),
-    0 0 0 3px rgba(240, 123, 90, 0.12);
-}
-.dock-apply:active:not(:disabled) {
-  transform: translateY(1px);
-  box-shadow:
-    inset 0 1px 2px 0 rgba(0, 0, 0, 0.18),
-    0 0 0 3px rgba(240, 123, 90, 0.1);
-}
-.dock-apply:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
+.dock-apply:disabled { opacity: 0.6; cursor: progress; }
 .dock-apply-symbol {
   font-family: var(--font-display);
   font-style: italic;
   font-size: 13px;
-  line-height: 1;
   transform: translateY(-1px);
 }
 
@@ -839,26 +590,15 @@ const severityMeta: Record<
   display: inline-flex;
   align-items: center;
   border-radius: 6px;
-  transition: color 0.15s ease;
   touch-action: manipulation;
 }
-.dock-dismiss:hover {
-  color: var(--color-sand-900);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  text-decoration-thickness: 1px;
-  text-decoration-color: var(--color-sand-500);
-}
 
-.dock-applied {
-  display: inline-flex;
-  align-items: center;
-}
 .dock-applied-stamp {
   display: inline-flex;
   align-items: center;
   min-height: 32px;
   padding: 0 12px;
+  margin: 8px 12px;
   border: 1.5px solid var(--color-forest-500);
   border-radius: 6px;
   color: var(--color-forest-700);
@@ -868,10 +608,8 @@ const severityMeta: Record<
   letter-spacing: 0.04em;
   background: var(--color-forest-50);
   transform: rotate(-4deg);
-  box-shadow: 0 1px 0 0 rgba(0, 0, 0, 0.02);
 }
 
-/* ── Suggestion chips ───────────────────────────────────────────── */
 .dock-chip {
   display: inline-flex;
   align-items: center;
@@ -884,163 +622,67 @@ const severityMeta: Record<
   border: 1px solid var(--color-sand-300);
   border-bottom-width: 2px;
   border-radius: 999px;
-  transition:
-    transform 0.15s ease,
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
-  font-family: var(--font-sans);
+  white-space: nowrap;
   touch-action: manipulation;
+  font-family: var(--font-sans);
 }
-.dock-chip:hover {
-  background: var(--color-terra-50);
-  border-color: var(--color-terra-300);
-  color: var(--color-terra-700);
-  transform: translateY(-1px);
+.dock-chip-quick {
+  background: white;
 }
-.dock-chip-primary {
+
+.dock-new-reply {
+  position: sticky;
+  bottom: 8px;
+  margin: 0 auto;
+  display: block;
+  padding: 6px 14px;
+  border-radius: 9999px;
   background: var(--color-sand-900);
   color: var(--color-sand-50);
-  border-color: var(--color-sand-900);
-}
-.dock-chip-primary:hover {
-  background: var(--color-terra-600);
-  border-color: var(--color-terra-700);
-  color: white;
-}
-.dock-chip-symbol {
-  font-family: var(--font-display);
-  font-style: italic;
-  font-size: 13px;
-  color: var(--color-terra-400);
-  transform: translateY(-1px);
-}
-.dock-chip-primary .dock-chip-symbol {
-  color: var(--color-sand-50);
+  font-size: 12px;
+  box-shadow: 0 6px 18px -6px rgba(61, 51, 40, 0.4);
 }
 
-/* ── Loading dots ───────────────────────────────────────────────── */
-.dock-dot {
-  animation: dotPulse 1.4s ease-in-out infinite;
-}
-.dock-dot:nth-child(2) {
-  animation-delay: 0.16s;
-}
-.dock-dot:nth-child(3) {
-  animation-delay: 0.32s;
-}
+.dock-dot { animation: dotPulse 1.4s ease-in-out infinite; }
+.dock-dot:nth-child(2) { animation-delay: 0.16s; }
+.dock-dot:nth-child(3) { animation-delay: 0.32s; }
 @keyframes dotPulse {
-  0%,
-  60%,
-  100% {
-    transform: scale(0.7);
-    opacity: 0.55;
-  }
-  30% {
-    transform: scale(1);
-    opacity: 1;
-  }
+  0%, 60%, 100% { transform: scale(0.7); opacity: 0.55; }
+  30% { transform: scale(1); opacity: 1; }
 }
 
-/* ── Scroll area ────────────────────────────────────────────────── */
-.dock-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-sand-300) transparent;
-}
-.dock-scroll::-webkit-scrollbar {
-  width: 4px;
-}
-.dock-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.dock-scroll::-webkit-scrollbar-thumb {
-  background: var(--color-sand-300);
-  border-radius: 9999px;
-}
+.dock-beam { border-radius: 9999px; }
 
-/* ── Transitions ────────────────────────────────────────────────── */
 .fab-pop-enter-active,
 .fab-pop-leave-active {
-  transition:
-    opacity 0.18s ease-out,
-    transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: opacity 0.18s ease-out, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-origin: bottom right;
-  will-change: transform, opacity;
 }
 .fab-pop-enter-from,
-.fab-pop-leave-to {
-  opacity: 0;
-  transform: scale(0.6) rotate(-12deg);
-}
+.fab-pop-leave-to { opacity: 0; transform: scale(0.7); }
 .fab-pop-enter-to,
-.fab-pop-leave-from {
-  opacity: 1;
-  transform: scale(1) rotate(0deg);
-}
+.fab-pop-leave-from { opacity: 1; transform: scale(1); }
 
 .sheet-up-enter-active {
-  transition:
-    transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.22s ease-out;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease-out;
 }
 .sheet-up-leave-active {
-  transition:
-    transform 0.22s ease-in,
-    opacity 0.15s ease-in;
+  transition: transform 0.22s ease-in, opacity 0.15s ease-in;
 }
 .sheet-up-enter-from,
-.sheet-up-leave-to {
-  opacity: 0;
-  transform: translateY(100%);
-}
+.sheet-up-leave-to { opacity: 0; transform: translateY(100%); }
 .sheet-up-enter-to,
-.sheet-up-leave-from {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.ink-rise-enter-active {
-  transition:
-    opacity 0.32s ease-out,
-    transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.ink-rise-leave-active {
-  transition:
-    opacity 0.18s ease-in,
-    transform 0.18s ease-in;
-}
-.ink-rise-enter-from,
-.ink-rise-leave-to {
-  opacity: 0;
-  transform: translateY(6px);
-}
-.ink-rise-enter-to,
-.ink-rise-leave-from {
-  opacity: 1;
-  transform: translateY(0);
-}
+.sheet-up-leave-from { opacity: 1; transform: translateY(0); }
 
 @media (prefers-reduced-motion: reduce) {
   .fab-pop-enter-active,
   .fab-pop-leave-active,
   .sheet-up-enter-active,
-  .sheet-up-leave-active,
-  .ink-rise-enter-active,
-  .ink-rise-leave-active,
-  .dock-card-enter {
-    transition: opacity 0.15s ease-out;
-    animation: none;
-  }
+  .sheet-up-leave-active { transition: opacity 0.15s ease-out; }
   .fab-pop-enter-from,
   .fab-pop-leave-to,
   .sheet-up-enter-from,
-  .sheet-up-leave-to,
-  .ink-rise-enter-from,
-  .ink-rise-leave-to {
-    transform: none;
-  }
-  .dock-dot {
-    animation: none;
-  }
+  .sheet-up-leave-to { transform: none; }
+  .dock-dot { animation: none; }
 }
 </style>
