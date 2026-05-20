@@ -73,3 +73,15 @@ export async function tryConsumeAiCredit(userId: string): Promise<boolean> {
     message: `You've used ${existing.promptCount}/${MONTHLY_LIMIT} AI prompts this month. Your limit resets on ${getResetDate()}.`,
   })
 }
+
+/**
+ * Refund one AI credit. Use after a planning step fails and no work was committed.
+ * Does NOT go below zero. Safe to call multiple times if a single consume succeeded.
+ */
+export async function refundAiCredit(userId: string): Promise<void> {
+  const month = getCurrentMonth()
+  await db
+    .update(aiUsage)
+    .set({ promptCount: sql`GREATEST(${aiUsage.promptCount} - 1, 0)`, updatedAt: new Date() })
+    .where(and(eq(aiUsage.userId, userId), eq(aiUsage.month, month)))
+}
