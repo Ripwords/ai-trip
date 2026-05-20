@@ -125,6 +125,11 @@ function getSegmentForActivity(activityId: string): TravelSegment | undefined {
   return props.travelSegments?.find((s) => s.fromActivityId === activityId)
 }
 
+function getPairMapsUrl(from: Activity, to: Activity | undefined): string | null {
+  if (!to || from.lat == null || from.lng == null || to.lat == null || to.lng == null) return null
+  return getGoogleMapsDirectionsUrl([from, to], "transit")
+}
+
 /**
  * Returns true if this activity's time is earlier than the previous activity's
  * end time (start + duration), indicating an out-of-order schedule.
@@ -275,6 +280,7 @@ function timeToMinutes(time: string): number | null {
               :distance-text="getSegmentForActivity(activity.id)?.distanceText ?? null"
               :mode="getSegmentForActivity(activity.id)?.mode ?? travelMode ?? null"
               :preferred-mode="travelMode ?? null"
+              :maps-url="getPairMapsUrl(activity, localActivities[index + 1])"
             />
           </div>
         </template>

@@ -6,6 +6,7 @@ const props = defineProps<{
   distanceText: string | null
   mode?: Mode | null
   preferredMode?: Mode | null
+  mapsUrl?: string | null
 }>()
 
 const modeIcons: Record<Mode, string> = {
@@ -24,24 +25,38 @@ const modeNouns: Record<Mode, string> = {
 
 const hasData = computed(() => Boolean(props.durationText || props.distanceText))
 const displayMode = computed<Mode>(() => props.mode ?? props.preferredMode ?? "driving")
-const isFallback = computed(() =>
-  Boolean(hasData.value && props.preferredMode && props.mode && props.preferredMode !== props.mode),
+// Transit durations come from Google Maps directly (legacy Distance Matrix
+// transit data is too sparse to be useful), so always render the link state
+// for transit pairs — regardless of whether stale walking-fallback data exists.
+const showTransitLink = computed(() => props.preferredMode === "transit" && Boolean(props.mapsUrl))
+const showEmpty = computed(
+  () => !hasData.value && !showTransitLink.value && Boolean(props.preferredMode ?? props.mode),
 )
-const showEmpty = computed(() => !hasData.value && Boolean(props.preferredMode ?? props.mode))
 </script>
 
 <template>
-  <div v-if="hasData" class="flex items-center gap-2 py-2 pl-7 text-sm text-sand-500">
+  <a
+    v-if="showTransitLink"
+    :href="mapsUrl ?? undefined"
+    target="_blank"
+    rel="noopener noreferrer"
+    class="group flex items-center gap-2 py-2 pl-7 text-sm text-sand-500 transition hover:text-terra-600"
+  >
+    <div class="h-5 border-l border-dashed border-sand-300" />
+    <Icon name="lucide:train" class="h-3.5 w-3.5 text-sand-400" />
+    <span>Transit time in Maps</span>
+    <Icon
+      name="lucide:external-link"
+      class="h-3 w-3 text-sand-400 transition group-hover:text-terra-500"
+    />
+  </a>
+  <div v-else-if="hasData" class="flex items-center gap-2 py-2 pl-7 text-sm text-sand-500">
     <div class="h-5 border-l border-dashed border-sand-300" />
     <Icon :name="modeIcons[displayMode]" class="h-3.5 w-3.5 text-sand-400" />
     <span>
       <template v-if="durationText">~{{ durationText }}</template>
       <template v-if="durationText && distanceText"> &middot; </template>
       <template v-if="distanceText">{{ distanceText }}</template>
-      <template v-if="isFallback && preferredMode">
-        &middot;
-        <span class="italic text-sand-400">no {{ modeNouns[preferredMode] }} route</span>
-      </template>
     </span>
   </div>
   <div v-else-if="showEmpty" class="flex items-center gap-2 py-2 pl-7 text-sm italic text-sand-400">
