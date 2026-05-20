@@ -2,18 +2,11 @@
 import type { TripActivity, TripDay, TripResponse } from "~/types/trip"
 import type { Proposal } from "~/types/proposal"
 import type { ReviewFinding } from "~/types/review"
-
-interface AiDockResponse {
-  message: string
-  proposals: Proposal[]
-  findings?: ReviewFinding[]
-  intent?: string
-}
+import type { ChatMessage } from "~/components/AiDock.vue"
 
 definePageMeta({ layout: "app" })
 
 type TransportMode = "driving" | "walking" | "transit" | "bicycling"
-type AiLoadingMode = "generate" | "optimize" | "remove" | "reschedule" | "review"
 
 const transportModeOptions: { value: TransportMode; label: string; icon: string }[] = [
   { value: "driving", label: "Drive", icon: "lucide:car" },
@@ -60,12 +53,6 @@ const { data: expensesList, refresh: refreshExpenses } = useLazyFetch<
     paidAt: string | null
   }[]
 >(`/api/trips/${tripId}/expenses`)
-
-const { data: aiUsage, refresh: refreshUsage } = useLazyFetch<{
-  used: number
-  limit: number
-  remaining: number
-}>("/api/ai/usage")
 
 const { data: tripFlights, refresh: refreshFlights } = useLazyFetch(`/api/trips/${tripId}/flights`)
 
@@ -145,9 +132,6 @@ async function handleToggleParticipant(activityId: string, userId: string) {
 }
 
 const aiLoading = ref(false)
-const aiAbortController = ref<AbortController | null>(null)
-const aiLoadingMode = ref<AiLoadingMode>("generate")
-const lastSnapshot = ref<string | null>(null)
 const editingActivity = ref<TripActivity | null>(null)
 const editModalOpen = ref(false)
 const highlightedActivityId = ref<string | null>(null)
@@ -212,45 +196,17 @@ function handleNavigateToDay(dayId: string) {
 
 const accommodationSectionRef = ref<{ openEditor: () => void } | null>(null)
 
-async function handleReviewFix(finding: ReviewFinding) {
-  if (finding.proposal) {
-    await handleApplyProposal(finding.proposal)
-    return
+function handleReviewFix(finding: ReviewFinding) {
+  // open edit modal for the activity referenced by the finding, if any
+  const activityId = finding.activityIds?.[0]
+  if (activityId) {
+    const activity = sortedDays.value.flatMap((d) => d.activities).find((a) => a.id === activityId)
+    if (activity) {
+      handleEditActivity(activity)
+      return
+    }
   }
-
-  handleNavigateToDay(finding.dayId)
-  await nextTick()
-
-  const accommodationCodes = ["missing-start-point", "missing-accommodation-coordinates"]
-  const mealCodes = ["missing-lunch", "missing-dinner"]
-
-  if (accommodationCodes.includes(finding.code)) {
-    accommodationSectionRef.value?.openEditor()
-    return
-  }
-
-  if (mealCodes.includes(finding.code)) {
-    handleAddActivity(finding.dayId)
-    return
-  }
-
-  const firstId = finding.activityIds?.[0]
-  if (!firstId) return
-  const day = sortedDays.value.find((d) => d.id === finding.dayId)
-  const activity = day?.activities.find((a) => a.id === firstId)
-  if (activity) handleEditActivity(activity)
-}
-
-function handleRequestAiReview(scope: "day" | "trip", dayId: string | undefined) {
-  activeTab.value = "itinerary"
-  if (scope === "day" && dayId) {
-    activeDayId.value = dayId
-  }
-  aiPrompt.value =
-    scope === "trip"
-      ? "Review the whole trip and propose fixes"
-      : "Review this day and propose fixes"
-  void submitAiPrompt(aiPrompt.value)
+  // Otherwise no specific activity — no-op.
 }
 
 const { downloadPdf } = useExportPdf()
@@ -546,208 +502,246 @@ watch(
   { immediate: true },
 )
 
-const aiError = ref("")
-const aiMessage = ref("")
-const aiPrompt = ref("")
-const aiResponse = ref<AiDockResponse | null>(null)
-const aiDockRef = ref<{
-  markApplied: (id: string) => void
-  markApplyFailed: (id: string) => void
-} | null>(null)
+const aiInput = ref("")
+const aiMessages = ref<ChatMessage[]>([])
+const aiUsage = ref<{ used: number; limit: number; remaining: number } | null>(null)
 
-function isReviewPrompt(prompt: string): boolean {
-  return /\b(review|audit|check|problem|problems|problematic|issue|issues|risk|risks|feasible|feasibility|realistic|workable|too much|too packed|too tight|conflict|conflicts|overlap|overlaps)\b/i.test(
-    prompt,
-  )
+async function refreshAiUsage() {
+  try {
+    aiUsage.value = await $fetch("/api/ai/usage")
+  } catch {
+    /* ignore */
+  }
 }
 
-async function submitAiPrompt(prompt: string) {
-  if (!activeDayId.value || !prompt.trim()) return
-  aiPrompt.value = ""
-  aiError.value = ""
-  aiMessage.value = ""
-  aiLoading.value = true
-  const reviewPrompt = isReviewPrompt(prompt)
+const aiStarters = useDiscussionStarters(
+  trip as unknown as Ref<{
+    id: string
+    destination: string
+    days: {
+      id: string
+      dayNumber: number
+      accommodationName: string | null
+      activities: { id: string; name: string; type: string }[]
+    }[]
+  } | null>,
+  activeDay as unknown as Ref<{
+    id: string
+    dayNumber: number
+    accommodationName: string | null
+    activities: { id: string; name: string; type: string }[]
+  } | null>,
+)
 
-  // Snapshot current activities for undo
-  lastSnapshot.value = reviewPrompt ? null : JSON.stringify(activeDay.value?.activities ?? [])
+function makeMessageId() {
+  return crypto.randomUUID()
+}
 
-  // Guess loading mode for the overlay based on prompt keywords
-  if (reviewPrompt) {
-    aiLoadingMode.value = "review"
-  } else if (/\b(optimize|reorder|rearrange|best route|efficient)\b/i.test(prompt)) {
-    aiLoadingMode.value = "optimize"
-  } else if (/\b(remove|delete|drop|get rid of)\b/i.test(prompt)) {
-    aiLoadingMode.value = "remove"
-  } else if (
-    /\b(reschedule|move.*earlier|move.*later|too late|too early|change.*time)\b/i.test(prompt)
-  ) {
-    aiLoadingMode.value = "reschedule"
-  } else {
-    aiLoadingMode.value = "generate"
+async function handleAiSubmit(text: string) {
+  if (!trip.value) return
+  const userMsg: ChatMessage = {
+    id: makeMessageId(),
+    role: "user",
+    content: text,
+    timestamp: Date.now(),
   }
-
+  aiMessages.value = [...aiMessages.value, userMsg]
+  aiInput.value = ""
+  aiLoading.value = true
   try {
-    aiAbortController.value = new AbortController()
-    const raw = await $fetch(`/api/trips/${tripId}/days/${activeDayId.value}/ai`, {
-      method: "POST",
-      body: { prompt, mode: "plan" },
-      signal: aiAbortController.value.signal,
-    })
-    const data = raw as {
+    const body = {
+      messages: aiMessages.value
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      dayId: activeDay.value?.id,
+    }
+    const data = await $fetch<{
       message: string
-      proposals?: Proposal[]
-      findings?: ReviewFinding[]
-      intent?: string
+      proposals: Proposal[]
+      toolCallSummary: string[]
+    }>(`/api/trips/${tripId}/discuss`, { method: "POST", body })
+    const assistant: ChatMessage = {
+      id: makeMessageId(),
+      role: "assistant",
+      content: data.message,
+      toolCallSummary: data.toolCallSummary,
+      proposals: data.proposals,
+      proposalStates: Object.fromEntries(data.proposals.map((p) => [p.id, "pending" as const])),
+      timestamp: Date.now(),
     }
-    aiResponse.value = {
-      message: data.message,
-      proposals: data.proposals ?? [],
-      findings: data.findings,
-      intent: data.intent,
-    }
-    if (
-      data.intent !== "question" &&
-      (data.proposals?.length ?? 0) === 0 &&
-      !data.findings?.length
-    ) {
-      aiMessage.value = data.message || "Nothing to change."
-    }
+    aiMessages.value = [...aiMessages.value, assistant]
   } catch (e: unknown) {
-    const err = e as { name?: string; data?: { message?: string } }
-    if (err.name === "AbortError") {
-      lastSnapshot.value = null
-    } else {
-      aiError.value = err.data?.message ?? "Something went wrong"
-      lastSnapshot.value = null
+    const err: ChatMessage = {
+      id: makeMessageId(),
+      role: "system",
+      content: e instanceof Error ? e.message : "AI failed",
+      timestamp: Date.now(),
     }
+    aiMessages.value = [...aiMessages.value, err]
   } finally {
     aiLoading.value = false
-    aiAbortController.value = null
-    refreshUsage()
+    await refreshAiUsage()
   }
 }
 
-function handleAiCancel() {
-  aiAbortController.value?.abort()
-  aiLoading.value = false
-  aiAbortController.value = null
+function setProposalState(
+  messageId: string,
+  proposalId: string,
+  state: "pending" | "applying" | "applied" | "dismissed",
+) {
+  aiMessages.value = aiMessages.value.map((m) => {
+    if (m.id !== messageId) return m
+    return {
+      ...m,
+      proposalStates: { ...(m.proposalStates ?? {}), [proposalId]: state },
+    }
+  })
 }
 
-const { run: runGenerateFullItinerary } = useGenerateFullItinerary(tripId)
-
-async function handleGenerateFullItinerary() {
-  const ran = await runGenerateFullItinerary(sortedDays.value, aiUsage.value?.remaining)
-  if (ran) {
+async function handleAiApplyProposal(messageId: string, proposal: Proposal) {
+  setProposalState(messageId, proposal.id, "applying")
+  try {
+    await $fetch(`/api/trips/${tripId}/proposals/apply`, {
+      method: "POST",
+      body: { proposal },
+    })
+    setProposalState(messageId, proposal.id, "applied")
     await refresh()
-    await refreshUsage()
+  } catch (e: unknown) {
+    setProposalState(messageId, proposal.id, "pending")
+    const err: ChatMessage = {
+      id: makeMessageId(),
+      role: "system",
+      content: e instanceof Error ? e.message : "Apply failed",
+      timestamp: Date.now(),
+    }
+    aiMessages.value = [...aiMessages.value, err]
   }
+}
+
+function handleAiDismissProposal(messageId: string, proposalId: string) {
+  setProposalState(messageId, proposalId, "dismissed")
 }
 
 async function handleQuickFillGaps() {
   if (!activeDay.value) return
   aiLoading.value = true
-  aiLoadingMode.value = "generate"
-  aiError.value = ""
-  aiMessage.value = ""
   try {
-    const data = await $fetch(`/api/trips/${tripId}/days/${activeDay.value.id}/ai`, {
-      method: "POST",
-      body: { prompt: "Fill in the gaps in my schedule for today", mode: "execute" },
-    })
-    aiMessage.value = data.message
+    const data = await $fetch<{ message: string }>(
+      `/api/trips/${tripId}/days/${activeDay.value.id}/ai`,
+      {
+        method: "POST",
+        body: { prompt: "Fill the gaps in this day", intent: "fill_gaps" },
+      },
+    )
+    aiMessages.value = [
+      ...aiMessages.value,
+      {
+        id: makeMessageId(),
+        role: "system",
+        content: data.message ?? "Filled gaps.",
+        timestamp: Date.now(),
+      },
+    ]
     await refresh()
   } catch (e: unknown) {
-    aiError.value = e instanceof Error ? e.message : "AI failed"
+    aiMessages.value = [
+      ...aiMessages.value,
+      {
+        id: makeMessageId(),
+        role: "system",
+        content: e instanceof Error ? e.message : "Fill gaps failed",
+        timestamp: Date.now(),
+      },
+    ]
   } finally {
     aiLoading.value = false
-    refreshUsage()
+    await refreshAiUsage()
   }
 }
 
 async function handleQuickOptimizeRoute() {
   if (!activeDay.value) return
   aiLoading.value = true
-  aiLoadingMode.value = "optimize"
-  aiError.value = ""
-  aiMessage.value = ""
   try {
-    const data = await $fetch(`/api/trips/${tripId}/days/${activeDay.value.id}/ai`, {
-      method: "POST",
-      body: {
-        prompt: "Optimize the route and reorder activities for minimum travel time",
-        mode: "execute",
+    const data = await $fetch<{ message: string }>(
+      `/api/trips/${tripId}/days/${activeDay.value.id}/ai`,
+      {
+        method: "POST",
+        body: { prompt: "Optimize the route", intent: "optimize" },
       },
-    })
-    aiMessage.value = data.message
+    )
+    aiMessages.value = [
+      ...aiMessages.value,
+      {
+        id: makeMessageId(),
+        role: "system",
+        content: data.message ?? "Optimized.",
+        timestamp: Date.now(),
+      },
+    ]
     await refresh()
   } catch (e: unknown) {
-    aiError.value = e instanceof Error ? e.message : "AI failed"
+    aiMessages.value = [
+      ...aiMessages.value,
+      {
+        id: makeMessageId(),
+        role: "system",
+        content: e instanceof Error ? e.message : "Optimize failed",
+        timestamp: Date.now(),
+      },
+    ]
   } finally {
     aiLoading.value = false
-    refreshUsage()
+    await refreshAiUsage()
   }
 }
 
-function handleDismissAiFeedback() {
-  aiMessage.value = ""
-  aiError.value = ""
-  lastSnapshot.value = null
-}
-
-const undoLoading = ref(false)
-const undoAvailable = computed(() => !!lastSnapshot.value && !!aiMessage.value)
-
-async function handleUndo() {
-  if (!activeDayId.value || !lastSnapshot.value) return
-  undoLoading.value = true
+async function handleGenerateFullItinerary() {
+  aiLoading.value = true
   try {
-    await $fetch(`/api/trips/${tripId}/days/${activeDayId.value}/restore`, {
-      method: "POST",
-      body: { activities: JSON.parse(lastSnapshot.value) },
-    })
-    lastSnapshot.value = null
-    aiMessage.value = ""
-    await refresh()
-  } catch {
-    aiError.value = "Failed to undo. Please try again."
-  } finally {
-    undoLoading.value = false
-  }
-}
-
-async function handleApplyProposal(proposal: Proposal) {
-  try {
-    const data = await $fetch(`/api/trips/${tripId}/proposals/apply`, {
-      method: "POST",
-      body: { proposal },
-    })
-    aiMessage.value = data.message
-    aiDockRef.value?.markApplied(proposal.id)
-    if (aiResponse.value) {
-      aiResponse.value = {
-        ...aiResponse.value,
-        proposals: aiResponse.value.proposals.filter((p) => p.id !== proposal.id),
-        findings: aiResponse.value.findings?.map((f) =>
-          f.proposal?.id === proposal.id ? { ...f, proposal: undefined } : f,
-        ),
-      }
-    }
+    const { run } = useGenerateFullItinerary(tripId)
+    await run(sortedDays.value, aiUsage.value?.remaining ?? undefined)
+    aiMessages.value = [
+      ...aiMessages.value,
+      {
+        id: makeMessageId(),
+        role: "system",
+        content: "Generated full itinerary.",
+        timestamp: Date.now(),
+      },
+    ]
     await refresh()
   } catch (e: unknown) {
-    aiDockRef.value?.markApplyFailed(proposal.id)
-    aiError.value = e instanceof Error ? e.message : "Apply failed"
+    aiMessages.value = [
+      ...aiMessages.value,
+      {
+        id: makeMessageId(),
+        role: "system",
+        content: e instanceof Error ? e.message : "Generate failed",
+        timestamp: Date.now(),
+      },
+    ]
   } finally {
-    refreshUsage()
+    aiLoading.value = false
+    await refreshAiUsage()
   }
 }
 
-function handleDismissProposal(proposalId: string) {
-  if (!aiResponse.value) return
-  aiResponse.value = {
-    ...aiResponse.value,
-    proposals: aiResponse.value.proposals.filter((p) => p.id !== proposalId),
+async function handleAiClose() {
+  const hasPending = aiMessages.value.some((m) =>
+    Object.values(m.proposalStates ?? {}).includes("pending"),
+  )
+  if (hasPending) {
+    const ok = await confirm({
+      title: "Close discussion?",
+      message: "Unapplied suggestions will be lost.",
+      confirmText: "Close",
+    })
+    if (!ok) return
   }
+  aiMessages.value = []
+  aiInput.value = ""
 }
 
 async function handleUpdateDayNotes(notes: string) {
@@ -761,14 +755,6 @@ async function handleUpdateDayNotes(notes: string) {
     console.error("Failed to update day notes:", e)
   }
 }
-
-// Clear undo state when switching days
-watch(activeDayId, () => {
-  lastSnapshot.value = null
-  aiMessage.value = ""
-  aiError.value = ""
-  aiResponse.value = null
-})
 
 const tripRole = computed(() => trip.value?._role ?? "owner")
 const isViewer = computed(() => tripRole.value === "viewer")
@@ -1332,7 +1318,6 @@ async function recomputeSegments(dayId: string) {
           initial-scope="trip"
           :initial-day-id="activeDayId ?? undefined"
           @fix="handleReviewFix"
-          @request-ai-review="handleRequestAiReview"
         />
       </div>
 
@@ -1444,31 +1429,23 @@ async function recomputeSegments(dayId: string) {
 
     <!-- AI dock -->
     <AiDock
-      ref="aiDockRef"
       v-if="trip && activeTab === 'itinerary' && activeDay && !isViewer"
-      v-model="aiPrompt"
+      v-model:input="aiInput"
+      :messages="aiMessages"
       :loading="aiLoading"
-      :loading-mode="aiLoadingMode"
       :usage-used="aiUsage?.used ?? null"
       :usage-limit="aiUsage?.limit ?? null"
       :usage-remaining="aiUsage?.remaining ?? null"
       :has-activities="activeDayHasActivities"
       :destination="trip.destination"
-      :feedback-message="aiMessage"
-      :feedback-error="aiError"
-      :undo-available="undoAvailable"
-      :undoing="undoLoading"
-      :response="aiResponse"
-      @submit="submitAiPrompt"
-      @cancel="handleAiCancel"
-      @undo="handleUndo"
-      @dismiss-feedback="handleDismissAiFeedback"
+      :starters="aiStarters"
+      @submit="handleAiSubmit"
+      @apply-proposal="handleAiApplyProposal"
+      @dismiss-proposal="handleAiDismissProposal"
       @fill-gaps="handleQuickFillGaps"
       @optimize-route="handleQuickOptimizeRoute"
       @generate-full="handleGenerateFullItinerary"
-      @apply-proposal="handleApplyProposal"
-      @dismiss-proposal="handleDismissProposal"
-      @close-response="aiResponse = null"
+      @close="handleAiClose"
     />
 
     <!-- Edit modal -->
