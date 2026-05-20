@@ -14,6 +14,8 @@ interface SharedActivity {
   estimatedDurationMinutes: number | null
   tags: string[]
   sortOrder: number
+  placeId: string | null
+  photos: string[] | null
 }
 
 interface SharedDay {
@@ -66,6 +68,23 @@ useSchemaOrg([
 ])
 
 const activeDayId = ref<string | null>(null)
+const highlightedActivityId = ref<string | null>(null)
+const tripMapRef = ref<{ centerOnActivity: (a: SharedActivity) => void } | null>(null)
+
+function handleActivityClick(activity: SharedActivity) {
+  highlightedActivityId.value = activity.id
+  if (tripMapRef.value && activity.lat != null && activity.lng != null) {
+    tripMapRef.value.centerOnActivity(activity)
+  }
+}
+
+function handleMarkerClick(activity: { id: string }) {
+  highlightedActivityId.value = activity.id
+  const el = document.getElementById(`shared-activity-${activity.id}`)
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth", block: "center" })
+  }
+}
 
 const sortedDays = computed(() => {
   if (!trip.value?.days) return []
@@ -83,6 +102,20 @@ const currentDayId = computed(() => {
 
 const activeDay = computed(() => sortedDays.value.find((d) => d.id === currentDayId.value) ?? null)
 
+const activeDayPreviousAccommodation = computed(() => {
+  const day = activeDay.value
+  if (!day) return null
+  const days = sortedDays.value
+  const index = days.findIndex((d) => d.id === day.id)
+  const previousDay = index > 0 ? days[index - 1] : null
+  if (!previousDay?.accommodationName) return null
+  return {
+    name: previousDay.accommodationName,
+    lat: previousDay.accommodationLat,
+    lng: previousDay.accommodationLng,
+  }
+})
+
 function mapsLinkFor(activity: SharedActivity): string {
   const base = "https://www.google.com/maps/search/?api=1&query="
   if (activity.lat != null && activity.lng != null) {
@@ -91,6 +124,21 @@ function mapsLinkFor(activity: SharedActivity): string {
   const q = [activity.name, activity.address].filter(Boolean).join(", ")
   return `${base}${encodeURIComponent(q)}`
 }
+
+function thumbnailUrlFor(activity: SharedActivity): string | null {
+  const photo = activity.photos?.[0]
+  const placeId = activity.placeId
+  if (!photo || !placeId) return null
+  if (!photo.startsWith(`places/${placeId}/photos/`)) return null
+  const params = new URLSearchParams({
+    placeId,
+    photo,
+    maxWidthPx: "240",
+  })
+  return `/api/shared/${token}/photo?${params.toString()}`
+}
+
+const imageFailed = reactive<Record<string, boolean>>({})
 </script>
 
 <template>
@@ -180,8 +228,15 @@ function mapsLinkFor(activity: SharedActivity): string {
 
           <div
             v-for="(activity, index) in activeDay.activities"
+            :id="`shared-activity-${activity.id}`"
             :key="activity.id"
-            class="rounded-2xl border border-sand-200 bg-white p-5"
+            class="cursor-pointer rounded-2xl border bg-white p-5 transition"
+            :class="
+              highlightedActivityId === activity.id
+                ? 'border-terra-400 ring-2 ring-terra-200'
+                : 'border-sand-200 hover:border-terra-300'
+            "
+            @click="handleActivityClick(activity)"
           >
             <div class="flex items-start gap-3">
               <span
@@ -189,6 +244,19 @@ function mapsLinkFor(activity: SharedActivity): string {
               >
                 {{ index + 1 }}
               </span>
+              <div
+                class="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-sand-100 text-sand-300"
+              >
+                <img
+                  v-if="thumbnailUrlFor(activity) && !imageFailed[activity.id]"
+                  :src="thumbnailUrlFor(activity)!"
+                  :alt="activity.name"
+                  class="h-full w-full object-cover"
+                  loading="lazy"
+                  @error="imageFailed[activity.id] = true"
+                />
+                <Icon v-else name="lucide:image" class="h-5 w-5" />
+              </div>
               <div class="min-w-0">
                 <h4 class="text-base font-semibold text-sand-900">{{ activity.name }}</h4>
                 <p v-if="activity.description" class="mt-1 text-sm text-sand-600">
@@ -209,6 +277,7 @@ function mapsLinkFor(activity: SharedActivity): string {
                     rel="noopener noreferrer"
                     class="inline-flex items-center gap-1.5 truncate text-ocean-600 transition hover:text-terra-600"
                     title="Open in Google Maps"
+                    @click.stop
                   >
                     <Icon name="lucide:map-pin" class="h-3.5 w-3.5 shrink-0" />
                     <span
@@ -232,12 +301,15 @@ function mapsLinkFor(activity: SharedActivity): string {
             class="h-[260px] overflow-hidden rounded-2xl shadow-lg sm:h-[320px] lg:sticky lg:top-8 lg:h-[calc(100vh-200px)]"
           >
             <TripMap
+              ref="tripMapRef"
               :activities="activeDay.activities"
-              :accommodation="{
+              :start-accommodation="activeDayPreviousAccommodation"
+              :end-accommodation="{
                 name: activeDay.accommodationName,
                 lat: activeDay.accommodationLat,
                 lng: activeDay.accommodationLng,
               }"
+              @marker-click="handleMarkerClick"
             />
           </div>
         </div>

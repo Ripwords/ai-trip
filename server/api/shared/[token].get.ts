@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../../db"
 import { trips } from "../../db/schema"
+import { getPlaceDetails } from "../../lib/google-maps"
 
 const paramsSchema = z.object({
   token: z.string().uuid(),
@@ -33,6 +34,22 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 410, message: "This shared link has expired" })
   }
 
+  // Enrich photos for activities that have a placeId but no persisted photos.
+  // getPlaceDetails is cached 7 days, so popular places hit memory after first call.
+  const placeIdsNeedingPhotos = new Set<string>()
+  for (const day of trip.days) {
+    for (const a of day.activities) {
+      if (a.placeId && !a.photos?.length) placeIdsNeedingPhotos.add(a.placeId)
+    }
+  }
+  const enrichedPhotos = new Map<string, string[]>()
+  await Promise.allSettled(
+    [...placeIdsNeedingPhotos].map(async (placeId) => {
+      const details = await getPlaceDetails(placeId)
+      if (details?.photos?.length) enrichedPhotos.set(placeId, details.photos)
+    }),
+  )
+
   // Return only public-safe fields — no preferences, notes, or costs
   return {
     destination: trip.destination,
@@ -60,6 +77,8 @@ export default defineEventHandler(async (event) => {
         estimatedDurationMinutes: a.estimatedDurationMinutes,
         tags: a.tags,
         sortOrder: a.sortOrder,
+        placeId: a.placeId,
+        photos: a.photos?.length ? a.photos : (a.placeId && enrichedPhotos.get(a.placeId)) || [],
       })),
       travelSegments: day.travelSegments.map((s) => ({
         fromActivityId: s.fromActivityId,
