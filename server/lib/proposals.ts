@@ -13,7 +13,19 @@ import type { AIProcessResult } from "./ai"
 
 const aiActivityPayloadSchema = z.object({
   name: z.string(),
-  type: z.string(),
+  type: z.enum([
+    "attraction",
+    "restaurant",
+    "hotel",
+    "transport",
+    "shopping",
+    "entertainment",
+    "museum",
+    "park",
+    "cafe",
+    "bar",
+    "spa",
+  ]),
   description: z.string(),
   suggestedTime: z.string(),
   estimatedDurationMinutes: z.number().int().positive(),
