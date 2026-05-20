@@ -10,6 +10,7 @@ const emit = defineEmits<{
 const primaryTabs = [
   { value: "itinerary", label: "Itinerary" },
   { value: "overview", label: "Overview" },
+  { value: "review", label: "Review" },
   { value: "expenses", label: "Expenses" },
   { value: "reservations", label: "Bookings" },
 ] as const
