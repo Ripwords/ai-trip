@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { transportModes } from "./transport"
 
 export const uuidParamsSchema = z.object({
   id: z.string().uuid(),
@@ -16,12 +17,14 @@ export const activityTypeEnum = z.string().min(1)
 
 export const budgetEnum = z.enum(["budget", "moderate", "luxury"])
 export const paceEnum = z.enum(["relaxed", "moderate", "packed"])
+export const transportModeEnum = z.enum(transportModes)
 
 export const tripPreferencesSchema = z.object({
   budget: budgetEnum.optional(),
   interests: z.array(z.string()).optional(),
   pace: paceEnum.optional(),
   travelStyle: z.array(z.string()).optional(),
+  transportMode: transportModeEnum.optional(),
 })
 
 export const createTripSchema = z.object({

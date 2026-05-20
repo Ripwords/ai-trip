@@ -1,3 +1,7 @@
+import { createHash } from "crypto"
+
+import { normalizeTransportMode, type TransportMode } from "../utils/transport"
+
 interface LatLng {
   lat: number
   lng: number
@@ -116,16 +120,22 @@ const _getDistanceMatrix = defineCachedFunction(
     _event: unknown,
     originsStr: string,
     destinationsStr: string,
+    mode: TransportMode,
+    departureTime: number | null,
   ): Promise<DistanceMatrixEntry[][]> => {
+    const params: Record<string, string> = {
+      origins: originsStr,
+      destinations: destinationsStr,
+      mode,
+      key: getServerMapsApiKey(),
+    }
+    if (departureTime != null) params.departure_time = String(departureTime)
+
     const response = await $fetch<{
       rows: Array<{ elements: DistanceMatrixEntry[] }>
       status: string
     }>("https://maps.googleapis.com/maps/api/distancematrix/json", {
-      params: {
-        origins: originsStr,
-        destinations: destinationsStr,
-        key: getServerMapsApiKey(),
-      },
+      params,
     })
 
     if (response.status !== "OK") {
@@ -141,21 +151,34 @@ const _getDistanceMatrix = defineCachedFunction(
     maxAge: 60 * 60 * 6, // 6 hours — travel times can vary by time of day
     name: "distanceMatrix",
     group: "maps",
-    getKey: (_event: unknown, originsStr: string, destinationsStr: string) =>
-      `${originsStr}__${destinationsStr}`,
+    getKey: (
+      _event: unknown,
+      originsStr: string,
+      destinationsStr: string,
+      mode: TransportMode,
+      departureTime: number | null,
+    ) => `${mode}__${departureTime ?? "now"}__${originsStr}__${destinationsStr}`,
   },
 )
 
 export function getDistanceMatrix(
   origins: LatLng[],
   destinations: LatLng[],
+  mode: TransportMode = "driving",
+  departureTime?: number | null,
 ): Promise<DistanceMatrixEntry[][]> {
   // Round coordinates to 4 decimal places (~11m accuracy) to improve cache hits
   const originsStr = origins.map((o) => `${o.lat.toFixed(4)},${o.lng.toFixed(4)}`).join("|")
   const destinationsStr = destinations
     .map((d) => `${d.lat.toFixed(4)},${d.lng.toFixed(4)}`)
     .join("|")
-  return _getDistanceMatrix(null, originsStr, destinationsStr)
+  return _getDistanceMatrix(
+    null,
+    originsStr,
+    destinationsStr,
+    normalizeTransportMode(mode),
+    departureTime ?? null,
+  )
 }
 
 // ── Cached: Place Details ($5-10/1K — cache 7 days) ──────────────────
@@ -220,6 +243,48 @@ export function getPlaceDetails(placeId: string): Promise<PlaceDetails | null> {
   return _getPlaceDetails(null, placeId)
 }
 
+// ── Cached: Time Zone ($5/1K — cache 30 days) ───────────────────────
+//
+// Returns the IANA timeZoneId for a lat/lng (e.g. "America/New_York"). The
+// zone ID is the part that matters for transit departure_time math: once we
+// have it, Intl.DateTimeFormat computes the correct UTC offset for any date
+// (DST-aware). Cached for 30 days because zone boundaries are stable.
+
+const _getTimezone = defineCachedFunction(
+  async (_event: unknown, locationStr: string): Promise<string | null> => {
+    const apiKey = getServerMapsApiKey()
+    if (!apiKey) return null
+
+    // Google requires a timestamp param, but we only consume timeZoneId.
+    // Any present-day timestamp works.
+    const response = await $fetch<{
+      status: string
+      timeZoneId?: string
+    }>("https://maps.googleapis.com/maps/api/timezone/json", {
+      params: {
+        location: locationStr,
+        timestamp: String(Math.floor(Date.now() / 1000)),
+        key: apiKey,
+      },
+    })
+
+    if (response.status !== "OK" || !response.timeZoneId) return null
+    return response.timeZoneId
+  },
+  {
+    maxAge: 60 * 60 * 24 * 30, // 30 days — IANA zones are stable
+    name: "timezone",
+    group: "maps",
+    getKey: (_event: unknown, locationStr: string) => locationStr,
+  },
+)
+
+export function getTimezone(lat: number, lng: number): Promise<string | null> {
+  // Round to 2 decimal places (~1km) — same timezone for any nearby point.
+  const locationStr = `${lat.toFixed(2)},${lng.toFixed(2)}`
+  return _getTimezone(null, locationStr)
+}
+
 // ── Cached: Geocode ($5/1K — cache 30 days) ──────────────────────────
 
 const _geocode = defineCachedFunction(
@@ -263,4 +328,51 @@ export function geocode(
   address: string,
 ): Promise<{ lat: number; lng: number; formattedAddress: string } | null> {
   return _geocode(null, address)
+}
+
+// ── Cached: Place Photo ($7/1K — cache 30 days) ──────────────────────
+
+interface CachedPhoto {
+  data: string // base64
+  contentType: string
+}
+
+const _getPlacePhoto = defineCachedFunction(
+  async (_event: unknown, photo: string, maxWidthPx: number): Promise<CachedPhoto | null> => {
+    const apiKey = getServerMapsApiKey()
+    if (!apiKey) return null
+
+    const url = new URL(`https://places.googleapis.com/v1/${photo}/media`)
+    url.searchParams.set("maxWidthPx", maxWidthPx.toString())
+    url.searchParams.set("skipHttpRedirect", "true")
+    url.searchParams.set("key", apiKey)
+
+    const metadataResponse = await fetch(url)
+    if (!metadataResponse.ok) return null
+
+    const metadata = (await metadataResponse.json()) as { photoUri?: string }
+    if (!metadata.photoUri) return null
+
+    const imageResponse = await fetch(metadata.photoUri)
+    if (!imageResponse.ok) return null
+
+    const buffer = Buffer.from(await imageResponse.arrayBuffer())
+    return {
+      data: buffer.toString("base64"),
+      contentType: imageResponse.headers.get("content-type") ?? "image/jpeg",
+    }
+  },
+  {
+    maxAge: 60 * 60 * 24 * 30, // 30 days — photo content is stable
+    name: "placePhoto",
+    group: "maps",
+    // Hash the photo reference: Google's tokens contain "/" and can exceed
+    // 600 chars, which overruns the 255-byte filename limit on most filesystems.
+    getKey: (_event: unknown, photo: string, maxWidthPx: number) =>
+      `${createHash("sha1").update(photo).digest("hex")}__${maxWidthPx}`,
+  },
+)
+
+export function getPlacePhoto(photo: string, maxWidthPx: number): Promise<CachedPhoto | null> {
+  return _getPlacePhoto(null, photo, maxWidthPx)
 }

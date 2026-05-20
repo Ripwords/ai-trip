@@ -67,4 +67,5 @@ export interface TripPreferences {
   interests?: string[]
   pace?: "relaxed" | "moderate" | "packed"
   travelStyle?: string[]
+  transportMode?: "driving" | "walking" | "transit" | "bicycling"
 }

@@ -21,6 +21,10 @@ export interface TripActivity {
 
 export interface TripTravelSegment {
   fromActivityId: string
+  toActivityId?: string | null
+  durationSeconds?: number | null
+  distanceMeters?: number | null
+  mode?: "driving" | "walking" | "transit" | "bicycling"
   durationText: string | null
   distanceText: string | null
 }
@@ -54,6 +58,7 @@ export interface TripResponse {
     pace?: string
     interests?: string[]
     travelStyle?: string[]
+    transportMode?: "driving" | "walking" | "transit" | "bicycling"
   } | null
   days: TripDay[]
   _role: string

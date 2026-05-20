@@ -37,6 +37,7 @@ export function computeSchedule(params: {
   travelTimes?: TravelTime[]
   startHour?: number
   startMinute?: number
+  startTravelTimeMinutes?: number
   bufferMinutes?: number
 }): ScheduledActivity[] {
   const {
@@ -44,13 +45,14 @@ export function computeSchedule(params: {
     travelTimes = [],
     startHour = 9,
     startMinute = 0,
+    startTravelTimeMinutes = 0,
     bufferMinutes = 15,
   } = params
 
   if (activities.length === 0) return []
 
   const result: ScheduledActivity[] = []
-  let currentMinutes = startHour * 60 + startMinute
+  let currentMinutes = startHour * 60 + startMinute + Math.ceil(startTravelTimeMinutes)
 
   for (let i = 0; i < activities.length; i++) {
     const activity = activities[i]!
