@@ -8,10 +8,31 @@ import { enrichItinerary } from "../../../../../lib/enrich"
 import { computeAndSaveSegments } from "../../../../../lib/segments"
 import { getDistanceMatrix } from "../../../../../lib/google-maps"
 import { sanitizePromptInput } from "../../../../../utils/sanitize"
+import { normalizeTransportMode } from "../../../../../utils/transport"
+import { formatItineraryReviewMessage, reviewItinerary } from "../../../../../lib/itinerary-review"
+import { getTripWithRelations } from "../../../../../lib/trips"
 
 const aiBodySchema = z.object({
   prompt: z.string().min(1).max(2000),
 })
+
+function isReviewPrompt(prompt: string): boolean {
+  return /\b(review|audit|check|problem|problems|problematic|issue|issues|risk|risks|feasible|feasibility|realistic|workable|too much|too packed|too tight|conflict|conflicts|overlap|overlaps)\b/i.test(
+    prompt,
+  )
+}
+
+function getReviewScope(prompt: string): "day" | "trip" {
+  if (
+    /\b(whole trip|entire trip|full trip|all days|overall|trip as a whole)\b/i.test(prompt) ||
+    /\btrip\b.*\b(review|problem|problems|issue|issues|risk|risks|feasible|realistic)\b/i.test(
+      prompt,
+    )
+  ) {
+    return "trip"
+  }
+  return "day"
+}
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -56,6 +77,42 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Day not found" })
   }
 
+  if (isReviewPrompt(prompt)) {
+    const reviewTrip = await getTripWithRelations(id)
+    if (!reviewTrip) {
+      throw createError({ statusCode: 404, message: "Trip not found" })
+    }
+
+    const scope = getReviewScope(prompt)
+    const review = reviewItinerary(reviewTrip, scope === "trip" ? { scope } : { scope, dayId })
+    const message = formatItineraryReviewMessage(review)
+
+    await logTripAction({
+      tripId: id,
+      userId: session.user.id,
+      action: "ai_prompt",
+      description: `AI review: ${message}`,
+      metadata: {
+        prompt: body.prompt,
+        intent: "review",
+        scope,
+        findings: review.summary.totalFindings,
+      },
+    })
+
+    return {
+      success: true,
+      added: 0,
+      removed: 0,
+      updated: 0,
+      optimized: false,
+      enrichmentFailures: 0,
+      intent: "review",
+      message,
+      review,
+    }
+  }
+
   // Fetch saved ideas for AI context
   const savedIdeasRows = await db.query.tripIdeas.findMany({
     where: eq(tripIdeas.tripId, id),
@@ -69,9 +126,22 @@ export default defineEventHandler(async (event) => {
       activities: { columns: { name: true, type: true } },
     },
   })
+  const transportMode = normalizeTransportMode(trip.preferences?.transportMode)
   const otherDayActivities = allTripDays
     .filter((d) => d.id !== dayId)
     .flatMap((d) => d.activities.map((a) => ({ name: a.name, type: a.type })))
+
+  const previousStayDay = allTripDays
+    .filter((d) => d.dayNumber < day.dayNumber && d.accommodationName)
+    .toSorted((a, b) => b.dayNumber - a.dayNumber)[0]
+  const startLocation = previousStayDay?.accommodationName
+    ? {
+        name: previousStayDay.accommodationName,
+        address: previousStayDay.accommodationAddress,
+        lat: previousStayDay.accommodationLat,
+        lng: previousStayDay.accommodationLng,
+      }
+    : null
 
   // Derive day location from activities/accommodation
   let dayLocation = trip.destination
@@ -104,6 +174,9 @@ export default defineEventHandler(async (event) => {
       })),
       accommodation: day.accommodationName
         ? { name: day.accommodationName, address: day.accommodationAddress }
+        : undefined,
+      startLocation: startLocation
+        ? { name: startLocation.name, address: startLocation.address }
         : undefined,
       preferences: trip.preferences ?? undefined,
       otherDayActivities,
@@ -322,7 +395,7 @@ export default defineEventHandler(async (event) => {
         try {
           const origins = geoActivities.slice(0, -1).map((a) => ({ lat: a.lat!, lng: a.lng! }))
           const destinations = geoActivities.slice(1).map((a) => ({ lat: a.lat!, lng: a.lng! }))
-          const matrix = await getDistanceMatrix(origins, destinations)
+          const matrix = await getDistanceMatrix(origins, destinations, transportMode)
           for (let i = 0; i < origins.length; i++) {
             const element = matrix[i]?.[i]
             if (element?.duration?.value) {
@@ -342,6 +415,7 @@ export default defineEventHandler(async (event) => {
       const dayDate = day.date
       let startHour = 9
       let startMinute = 0
+      let startTravelTimeMinutes = 0
       const times = allDayActivities
         .map((a) => a.suggestedTime)
         .filter((t): t is string => !!t)
@@ -350,10 +424,31 @@ export default defineEventHandler(async (event) => {
           return m ? parseInt(m[1]!) * 60 + parseInt(m[2]!) : null
         })
         .filter((m): m is number => m !== null)
-      if (times.length > 0) {
-        const earliest = Math.min(...times)
-        startHour = Math.floor(earliest / 60)
-        startMinute = earliest % 60
+      const earliestActivityMinutes = times.length > 0 ? Math.min(...times) : null
+      if (earliestActivityMinutes != null) {
+        startHour = Math.floor(earliestActivityMinutes / 60)
+        startMinute = earliestActivityMinutes % 60
+      }
+
+      const firstActivity = allDayActivities.find((a) => a.lat != null && a.lng != null)
+      if (startLocation?.lat != null && startLocation.lng != null && firstActivity) {
+        try {
+          const matrix = await getDistanceMatrix(
+            [{ lat: startLocation.lat, lng: startLocation.lng }],
+            [{ lat: firstActivity.lat!, lng: firstActivity.lng! }],
+            transportMode,
+          )
+          const duration = matrix[0]?.[0]?.duration?.value
+          if (duration) startTravelTimeMinutes = Math.ceil(duration / 60)
+        } catch {
+          /* proceed without start travel time */
+        }
+      }
+
+      if (earliestActivityMinutes != null && startTravelTimeMinutes > 0) {
+        const departureMinutes = Math.max(7 * 60, earliestActivityMinutes - startTravelTimeMinutes)
+        startHour = Math.floor(departureMinutes / 60)
+        startMinute = departureMinutes % 60
       }
 
       const schedule = computeSchedule({
@@ -368,6 +463,7 @@ export default defineEventHandler(async (event) => {
         travelTimes,
         startHour,
         startMinute,
+        startTravelTimeMinutes,
         bufferMinutes: 15,
       })
 
@@ -384,7 +480,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Recompute segments
-  await computeAndSaveSegments(dayId)
+  await computeAndSaveSegments(dayId, transportMode)
 
   // Audit log
   await logTripAction({

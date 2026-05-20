@@ -19,21 +19,28 @@ interface ExportDay {
  * Generate a Google Maps directions URL for a day's activities.
  * Max 9 waypoints on desktop, 3 on mobile.
  */
-export function getGoogleMapsDirectionsUrl(activities: ExportActivity[]): string | null {
+export function getGoogleMapsDirectionsUrl(
+  activities: ExportActivity[],
+  travelMode: "driving" | "walking" | "transit" | "bicycling" = "transit",
+  originOverride?: { lat: number; lng: number } | null,
+): string | null {
   const geoActivities = activities.filter((a) => a.lat != null && a.lng != null)
-  if (geoActivities.length < 2) return null
+  if (geoActivities.length === 0) return null
+  if (geoActivities.length < 2 && !originOverride) return null
 
-  const origin = `${geoActivities[0]!.lat},${geoActivities[0]!.lng}`
+  const origin = originOverride
+    ? `${originOverride.lat},${originOverride.lng}`
+    : `${geoActivities[0]!.lat},${geoActivities[0]!.lng}`
   const destination = `${geoActivities[geoActivities.length - 1]!.lat},${geoActivities[geoActivities.length - 1]!.lng}`
 
   // Waypoints are everything between first and last (max 9)
   const waypoints = geoActivities
-    .slice(1, -1)
+    .slice(originOverride ? 0 : 1, -1)
     .slice(0, 9)
     .map((a) => `${a.lat},${a.lng}`)
     .join("|")
 
-  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=transit`
+  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=${travelMode}`
   if (waypoints) {
     url += `&waypoints=${waypoints}`
   }

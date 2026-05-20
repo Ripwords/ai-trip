@@ -9,9 +9,10 @@ export function useAiPromptSuggestions(destination: Ref<string>, hasActivities: 
   ])
 
   const withActivitiesSuggestions = [
+    "Review this day for timing problems",
+    "Review the whole trip for issues",
     "Add a coffee shop nearby",
     "Move dinner to 7 PM",
-    "Remove the museum",
     "Optimize the route",
     "Fill the gaps",
     "Find a hotel nearby",
