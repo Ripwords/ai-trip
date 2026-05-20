@@ -1169,72 +1169,78 @@ async function recomputeSegments(dayId: string) {
       </div>
 
       <div v-else-if="activeTab === 'itinerary'" class="mt-6">
-        <!-- Day tabs (client-only to avoid hydration mismatch with sessionStorage) -->
-        <ClientOnly>
-          <div class="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-            <button
-              v-for="day in sortedDays"
-              :key="day.id"
-              type="button"
-              class="flex shrink-0 flex-col items-center gap-0.5 rounded-xl px-3 py-2 transition"
-              :class="
-                day.id === activeDayId
-                  ? 'bg-terra-500 text-white shadow-sm'
-                  : day.date === todayDate
-                    ? 'text-terra-600 hover:bg-sand-100'
-                    : 'text-sand-600 hover:bg-sand-100'
-              "
-              @click="activeDayId = day.id"
-            >
-              <NuxtTime
-                class="text-base font-semibold leading-none tabular-nums sm:text-lg"
-                :datetime="day.date + 'T00:00:00'"
-                locale="en-US"
-                day="numeric"
-              />
-              <NuxtTime
-                class="text-[10px] uppercase tracking-wider opacity-70"
-                :datetime="day.date + 'T00:00:00'"
-                locale="en-US"
-                weekday="short"
-              />
-            </button>
-          </div>
-        </ClientOnly>
-
-        <div class="mt-2 flex items-center justify-between gap-3 px-1">
-          <div class="flex items-center gap-0.5">
-            <button
-              v-for="mode in transportModeOptions"
-              :key="mode.value"
-              type="button"
-              :disabled="transportUpdating"
-              :title="`${mode.label} travel time`"
-              :aria-label="`Use ${mode.label.toLowerCase()} travel times`"
-              :aria-pressed="activeTransportMode === mode.value"
-              class="flex h-8 w-8 items-center justify-center rounded-lg transition disabled:opacity-50"
-              :class="
-                activeTransportMode === mode.value
-                  ? 'bg-terra-500 text-white shadow-sm'
-                  : 'text-sand-400 hover:bg-sand-100 hover:text-sand-700'
-              "
-              @click="handleTransportModeChange(mode.value)"
-            >
-              <Icon :name="mode.icon" class="h-4 w-4" />
-            </button>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <!-- Day tabs (client-only to avoid hydration mismatch with sessionStorage) -->
+          <div class="min-w-0 sm:flex-1">
+            <ClientOnly>
+              <div class="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+                <button
+                  v-for="day in sortedDays"
+                  :key="day.id"
+                  type="button"
+                  class="flex shrink-0 flex-col items-center gap-0.5 rounded-xl px-3 py-2 transition"
+                  :class="
+                    day.id === activeDayId
+                      ? 'bg-terra-500 text-white shadow-sm'
+                      : day.date === todayDate
+                        ? 'text-terra-600 hover:bg-sand-100'
+                        : 'text-sand-600 hover:bg-sand-100'
+                  "
+                  @click="activeDayId = day.id"
+                >
+                  <NuxtTime
+                    class="text-base font-semibold leading-none tabular-nums sm:text-lg"
+                    :datetime="day.date + 'T00:00:00'"
+                    locale="en-US"
+                    day="numeric"
+                  />
+                  <NuxtTime
+                    class="text-[10px] uppercase tracking-wider opacity-70"
+                    :datetime="day.date + 'T00:00:00'"
+                    locale="en-US"
+                    weekday="short"
+                  />
+                </button>
+              </div>
+            </ClientOnly>
           </div>
 
-          <a
-            v-if="activeDayMapsUrl"
-            :href="activeDayMapsUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-flex items-center gap-1.5 text-xs font-medium text-sand-500 transition hover:text-terra-600"
-            title="Open this day's route in Google Maps"
+          <div
+            class="flex items-center justify-between gap-3 px-1 sm:shrink-0 sm:justify-end sm:gap-3 sm:px-0"
           >
-            <Icon name="lucide:navigation" class="h-3.5 w-3.5" />
-            Open in Maps
-          </a>
+            <div class="flex items-center gap-0.5">
+              <button
+                v-for="mode in transportModeOptions"
+                :key="mode.value"
+                type="button"
+                :disabled="transportUpdating"
+                :title="`${mode.label} travel time`"
+                :aria-label="`Use ${mode.label.toLowerCase()} travel times`"
+                :aria-pressed="activeTransportMode === mode.value"
+                class="flex h-8 w-8 items-center justify-center rounded-lg transition disabled:opacity-50"
+                :class="
+                  activeTransportMode === mode.value
+                    ? 'bg-terra-500 text-white shadow-sm'
+                    : 'text-sand-400 hover:bg-sand-100 hover:text-sand-700'
+                "
+                @click="handleTransportModeChange(mode.value)"
+              >
+                <Icon :name="mode.icon" class="h-4 w-4" />
+              </button>
+            </div>
+
+            <a
+              v-if="activeDayMapsUrl"
+              :href="activeDayMapsUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-1.5 text-xs font-medium text-sand-500 transition hover:text-terra-600"
+              title="Open this day's route in Google Maps"
+            >
+              <Icon name="lucide:navigation" class="h-3.5 w-3.5" />
+              Open in Maps
+            </a>
+          </div>
         </div>
 
         <!-- Active day content -->

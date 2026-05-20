@@ -151,40 +151,6 @@ function timeToMinutes(time: string): number | null {
 
 <template>
   <div>
-    <div class="flex items-center justify-between mb-3">
-      <div class="flex items-center gap-2">
-        <span
-          class="flex h-9 w-9 items-center justify-center rounded-xl bg-terra-500 text-sm font-bold text-white"
-        >
-          {{ day.dayNumber }}
-        </span>
-        <div>
-          <h3 class="text-base font-semibold text-sand-900">Day {{ day.dayNumber }}</h3>
-          <p class="text-sm text-sand-500">
-            <NuxtTime
-              :datetime="day.date + 'T00:00:00'"
-              locale="en-US"
-              weekday="short"
-              month="short"
-              day="numeric"
-            />
-          </p>
-        </div>
-      </div>
-
-      <a
-        v-if="mapsUrl"
-        :href="mapsUrl"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="inline-flex items-center gap-1.5 rounded-full bg-sand-100 px-3 py-1 text-xs font-medium text-sand-600 transition hover:bg-sand-200 hover:text-sand-800"
-        title="Open this day's route in Google Maps"
-      >
-        <Icon name="lucide:navigation" class="h-3 w-3" />
-        Open in Maps
-      </a>
-    </div>
-
     <div
       v-if="startLocation"
       class="mb-3 flex items-start gap-2 rounded-xl border border-ocean-100 bg-ocean-50 px-3 py-2 text-sm text-sand-600"
