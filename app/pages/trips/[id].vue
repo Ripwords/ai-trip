@@ -247,7 +247,9 @@ function handleRequestAiReview(scope: "day" | "trip", dayId: string | undefined)
     activeDayId.value = dayId
   }
   aiPrompt.value =
-    scope === "trip" ? "Review the whole trip and propose fixes" : "Review this day and propose fixes"
+    scope === "trip"
+      ? "Review the whole trip and propose fixes"
+      : "Review this day and propose fixes"
   void submitAiPrompt(aiPrompt.value)
 }
 
@@ -548,7 +550,10 @@ const aiError = ref("")
 const aiMessage = ref("")
 const aiPrompt = ref("")
 const aiResponse = ref<AiDockResponse | null>(null)
-const aiDockRef = ref<{ markApplied: (id: string) => void; markApplyFailed: (id: string) => void } | null>(null)
+const aiDockRef = ref<{
+  markApplied: (id: string) => void
+  markApplyFailed: (id: string) => void
+} | null>(null)
 
 function isReviewPrompt(prompt: string): boolean {
   return /\b(review|audit|check|problem|problems|problematic|issue|issues|risk|risks|feasible|feasibility|realistic|workable|too much|too packed|too tight|conflict|conflicts|overlap|overlaps)\b/i.test(
@@ -601,7 +606,11 @@ async function submitAiPrompt(prompt: string) {
       findings: data.findings,
       intent: data.intent,
     }
-    if (data.intent !== "question" && (data.proposals?.length ?? 0) === 0 && !data.findings?.length) {
+    if (
+      data.intent !== "question" &&
+      (data.proposals?.length ?? 0) === 0 &&
+      !data.findings?.length
+    ) {
       aiMessage.value = data.message || "Nothing to change."
     }
   } catch (e: unknown) {
@@ -665,7 +674,10 @@ async function handleQuickOptimizeRoute() {
   try {
     const data = await $fetch(`/api/trips/${tripId}/days/${activeDay.value.id}/ai`, {
       method: "POST",
-      body: { prompt: "Optimize the route and reorder activities for minimum travel time", mode: "execute" },
+      body: {
+        prompt: "Optimize the route and reorder activities for minimum travel time",
+        mode: "execute",
+      },
     })
     aiMessage.value = data.message
     await refresh()

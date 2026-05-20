@@ -32,7 +32,11 @@ describe("mergeFindings", () => {
   })
 
   it("dedupes by dayId + code, preferring the deterministic finding's id", () => {
-    const dup: ItineraryReviewFinding = { ...jud, code: "missing-lunch", id: "d1:missing-lunch:judgment" }
+    const dup: ItineraryReviewFinding = {
+      ...jud,
+      code: "missing-lunch",
+      id: "d1:missing-lunch:judgment",
+    }
     const merged = mergeFindings([det], [dup])
     assert.equal(merged.length, 1)
     assert.equal(merged[0]?.id, det.id)

@@ -180,7 +180,10 @@ Respond with a JSON object matching this shape (your entire response should be o
     )
 
     // Strip markdown fences if present before parsing
-    const rawText = agentResponse.text.trim().replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "")
+    const rawText = agentResponse.text
+      .trim()
+      .replace(/^```(?:json)?\n?/, "")
+      .replace(/\n?```$/, "")
 
     let parsed: unknown
     try {
@@ -199,10 +202,7 @@ Respond with a JSON object matching this shape (your entire response should be o
       })) as ItineraryReviewFinding[]
     }
   } catch (e) {
-    console.error(
-      "[review-ai] judgment generation failed, returning deterministic only:",
-      e,
-    )
+    console.error("[review-ai] judgment generation failed, returning deterministic only:", e)
   }
 
   const merged = mergeFindings(deterministicFlat, judgmentFlat)

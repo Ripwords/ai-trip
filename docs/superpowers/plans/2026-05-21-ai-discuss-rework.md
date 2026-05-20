@@ -15,6 +15,7 @@
 ## File Structure
 
 **New files:**
+
 - `server/api/trips/[id]/discuss.post.ts` — discuss endpoint.
 - `server/api/trips/[id]/discuss.post.test.ts` — endpoint tests.
 - `server/lib/discuss-agent.ts` — Mastra agent + system prompt.
@@ -23,6 +24,7 @@
 - `app/composables/useDiscussionStarters.test.ts` — starter generation tests.
 
 **Modified files:**
+
 - `server/lib/ai-tools.ts` — add `web_search` + `propose_*` tools + new `createDiscussTools(ctx, collector)` factory.
 - `server/lib/ai.ts` — delete `classifyIntent`, `intentSchema`, `handleQuestion`; delete `question` + `review` cases in `processUserRequest`'s switch; `processUserRequest` accepts an explicit `intent` instead of classifying; edit `SCHEDULE_RULES` to drop the buffer line and add the duration-excludes-travel line; edit `handleReschedule`/`handleAdd`/`handleFillGaps`/`handleOptimize` prompts to remove any duplicate travel-buffer language.
 - `server/api/trips/[id]/days/[dayId]/ai.post.ts` — remove the review-intent branch; remove the `mode` body field; remove the `mode === "plan"` branch and its `resultToProposals` import. Body now requires explicit `intent`. Endpoint is execute-only.
@@ -32,6 +34,7 @@
 - `app/components/ItineraryReviewPanel.vue` — remove "Ask AI for fixes" header button + `requestAiReview` emit; remove "Apply suggested fix" button on findings (findings are now deterministic-only, no embedded proposals).
 
 **Unchanged:**
+
 - `server/api/trips/[id]/proposals/apply.post.ts` — apply endpoint.
 - `server/lib/proposals.ts` — `Proposal` type + `applyProposal` helper.
 - `server/lib/itinerary-review.ts` and `.test.ts` — deterministic review.
@@ -40,9 +43,10 @@
 
 ---
 
-## Task 1: Extend ai-tools.ts with web_search, propose_* tools, and createDiscussTools
+## Task 1: Extend ai-tools.ts with web*search, propose*\* tools, and createDiscussTools
 
 **Files:**
+
 - Modify: `server/lib/ai-tools.ts`
 - Modify: `server/lib/ai-tools.test.ts`
 
@@ -143,7 +147,7 @@ describe("createDiscussTools", () => {
 Run: `bun test server/lib/ai-tools.test.ts`
 Expected: FAIL with `createDiscussTools is not exported`.
 
-- [ ] **Step 3: Implement web_search and propose_* tools + the new factory**
+- [ ] **Step 3: Implement web*search and propose*\* tools + the new factory**
 
 Append to `server/lib/ai-tools.ts` (after the existing `createTripTools` factory):
 
@@ -360,6 +364,7 @@ git commit -m "feat(ai): add discuss tools (web search + propose_* side-effect t
 ## Task 2: Create discuss-agent.ts with system prompt
 
 **Files:**
+
 - Create: `server/lib/discuss-agent.ts`
 - Create: `server/lib/discuss-agent.test.ts`
 
@@ -463,6 +468,7 @@ git commit -m "feat(ai): add discussAgent with thinking-partner system prompt"
 ## Task 3: Implement POST /api/trips/[id]/discuss endpoint
 
 **Files:**
+
 - Create: `server/api/trips/[id]/discuss.post.ts`
 
 - [ ] **Step 1: Implement the endpoint**
@@ -572,7 +578,11 @@ export default defineEventHandler(async (event) => {
     const response = await discussAgent.generate(cleanMessages, {
       toolsets: { discuss: tools },
       maxSteps: 6,
-      onStepFinish: ({ toolCalls: calls }: { toolCalls?: { toolName: string; args?: Record<string, unknown> }[] }) => {
+      onStepFinish: ({
+        toolCalls: calls,
+      }: {
+        toolCalls?: { toolName: string; args?: Record<string, unknown> }[]
+      }) => {
         if (!calls) return
         for (const c of calls) {
           toolCalls.push({ toolId: c.toolName, args: c.args ?? {} })
@@ -632,6 +642,7 @@ git commit -m "feat(ai): add POST /api/trips/:id/discuss endpoint"
 ## Task 4: Update SCHEDULE_RULES and handler prompts for travel-time rule
 
 **Files:**
+
 - Modify: `server/lib/ai.ts`
 
 - [ ] **Step 1: Replace the `SCHEDULE_RULES` block**
@@ -693,6 +704,7 @@ git commit -m "fix(ai): activity duration excludes travel time (clarify SCHEDULE
 ## Task 5: Retire intent classifier; processUserRequest accepts explicit intent
 
 **Files:**
+
 - Modify: `server/lib/ai.ts`
 
 This task removes the LLM-based intent classification. The free-text path is gone (it'll route to `/discuss` in Task 6); quick chips will pass their intent explicitly.
@@ -890,6 +902,7 @@ export async function processUserRequest(params: {
 - [ ] **Step 2: Delete `classifyIntent`, `intentSchema`, and `handleQuestion`**
 
 Remove these from `server/lib/ai.ts`:
+
 - The `intentSchema` zod object
 - The `classifyIntent` async function
 - The `handleQuestion` async function
@@ -933,6 +946,7 @@ git commit -m "refactor(ai): retire intent classifier; processUserRequest takes 
 ## Task 6: ai.post.ts becomes execute-only; require explicit intent
 
 **Files:**
+
 - Modify: `server/api/trips/[id]/days/[dayId]/ai.post.ts`
 
 - [ ] **Step 1: Update the body schema and main handler**
@@ -1080,6 +1094,7 @@ Keep everything from the next line (the existing `let addedCount = 0` block) all
 - [ ] **Step 2: Remove the imports for review/proposal-related code**
 
 In the imports block at the top of the file, remove these lines if they exist:
+
 - `import { formatItineraryReviewMessage } from "../../../../../lib/itinerary-review"`
 - `import { getTripWithRelations } from "../../../../../lib/trips"`
 
@@ -1122,6 +1137,7 @@ git commit -m "refactor(ai): ai.post.ts becomes execute-only; require explicit i
 ## Task 7: useDiscussionStarters composable
 
 **Files:**
+
 - Create: `app/composables/useDiscussionStarters.ts`
 - Create: `app/composables/useDiscussionStarters.test.ts`
 
@@ -1306,6 +1322,7 @@ git commit -m "feat(ai-dock): add context-aware useDiscussionStarters composable
 ## Task 8: Rewrite AiDock.vue as a message-list chat
 
 **Files:**
+
 - Modify: `app/components/AiDock.vue`
 
 This is the biggest single task. The dock becomes a chat thread with sticky input, message bubbles, inline proposal cards, and a scrollable list. The FAB reverts to the original style.
@@ -1447,9 +1464,7 @@ const quickActions = computed(() =>
         { label: "Optimize route", icon: "lucide:route", emit: "optimizeRoute" as const },
         { label: "Generate full day", icon: "lucide:wand-2", emit: "generateFull" as const },
       ]
-    : [
-        { label: "Generate full day", icon: "lucide:wand-2", emit: "generateFull" as const },
-      ],
+    : [{ label: "Generate full day", icon: "lucide:wand-2", emit: "generateFull" as const }],
 )
 
 function fireQuickAction(name: "fillGaps" | "optimizeRoute" | "generateFull") {
@@ -1460,7 +1475,10 @@ function fireQuickAction(name: "fillGaps" | "optimizeRoute" | "generateFull") {
 
 // ── Proposal state helpers (pulled from parent via message.proposalStates) ──
 
-function proposalState(message: ChatMessage, id: string): "pending" | "applying" | "applied" | "dismissed" {
+function proposalState(
+  message: ChatMessage,
+  id: string,
+): "pending" | "applying" | "applied" | "dismissed" {
   return message.proposalStates?.[id] ?? "pending"
 }
 
@@ -1528,9 +1546,7 @@ const proposalKindMeta: Record<
     >
       <div class="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-sand-400/40" />
 
-      <header
-        class="mx-auto mt-3 flex w-full max-w-[28rem] items-baseline justify-between px-4"
-      >
+      <header class="mx-auto mt-3 flex w-full max-w-[28rem] items-baseline justify-between px-4">
         <div class="flex items-baseline gap-2">
           <span class="font-display text-base italic text-terra-500">✦</span>
           <span class="text-[10px] uppercase tracking-[0.22em] text-sand-500">
@@ -1606,11 +1622,7 @@ const proposalKindMeta: Record<
             <!-- Assistant message -->
             <div v-else class="flex flex-col gap-2">
               <div v-if="msg.toolCallSummary?.length" class="flex flex-col gap-0.5">
-                <p
-                  v-for="(line, i) in msg.toolCallSummary"
-                  :key="i"
-                  class="dock-tool-line"
-                >
+                <p v-for="(line, i) in msg.toolCallSummary" :key="i" class="dock-tool-line">
                   <Icon name="lucide:eye" class="dock-tool-icon" />
                   {{ line }}
                 </p>
@@ -1618,26 +1630,20 @@ const proposalKindMeta: Record<
               <p class="dock-assistant-body">{{ msg.content }}</p>
 
               <!-- Inline proposal cards -->
-              <ul
-                v-if="msg.proposals?.length"
-                class="mt-1 flex list-none flex-col gap-2 p-0"
-              >
-                <li
-                  v-for="p in msg.proposals"
-                  :key="p.id"
-                  class="dock-proposal"
-                >
+              <ul v-if="msg.proposals?.length" class="mt-1 flex list-none flex-col gap-2 p-0">
+                <li v-for="p in msg.proposals" :key="p.id" class="dock-proposal">
                   <template v-if="proposalState(msg, p.id) === 'applied'">
                     <span class="dock-applied-stamp">Applied</span>
                   </template>
                   <template v-else-if="proposalState(msg, p.id) === 'dismissed'" />
                   <template v-else>
-                    <div class="flex items-center justify-between gap-2 border-b border-dashed border-sand-300/60 px-3 py-1.5">
+                    <div
+                      class="flex items-center justify-between gap-2 border-b border-dashed border-sand-300/60 px-3 py-1.5"
+                    >
                       <div class="flex items-center gap-2">
-                        <span
-                          class="dock-stamp"
-                          :data-tone="proposalKindMeta[p.kind].tone"
-                        >{{ proposalKindMeta[p.kind].symbol }}</span>
+                        <span class="dock-stamp" :data-tone="proposalKindMeta[p.kind].tone">{{
+                          proposalKindMeta[p.kind].symbol
+                        }}</span>
                         <span class="text-[10px] uppercase tracking-[0.22em] text-sand-700">
                           {{ proposalKindMeta[p.kind].label }}
                         </span>
@@ -1663,7 +1669,9 @@ const proposalKindMeta: Record<
                           @click="onApply(msg, p)"
                         >
                           <span class="dock-apply-symbol">✦</span>
-                          <span>{{ proposalState(msg, p.id) === "applying" ? "Applying" : "Apply" }}</span>
+                          <span>{{
+                            proposalState(msg, p.id) === "applying" ? "Applying" : "Apply"
+                          }}</span>
                         </button>
                       </div>
                     </div>
@@ -1723,11 +1731,7 @@ const proposalKindMeta: Record<
           class="dock-beam w-full"
         >
           <div class="flex items-center gap-2 rounded-full bg-sand-900 py-2 pl-3 pr-2">
-            <span
-              v-if="loading"
-              class="flex shrink-0 items-end gap-[3px] pl-1"
-              aria-hidden="true"
-            >
+            <span v-if="loading" class="flex shrink-0 items-end gap-[3px] pl-1" aria-hidden="true">
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
@@ -1736,7 +1740,8 @@ const proposalKindMeta: Record<
               v-else
               class="font-display text-base italic leading-none text-terra-400"
               aria-hidden="true"
-            >✦</span>
+              >✦</span
+            >
             <input
               ref="inputEl"
               :value="input"
@@ -1789,8 +1794,12 @@ const proposalKindMeta: Record<
   scrollbar-width: thin;
   scrollbar-color: var(--color-sand-300) transparent;
 }
-.dock-list::-webkit-scrollbar { width: 4px; }
-.dock-list::-webkit-scrollbar-track { background: transparent; }
+.dock-list::-webkit-scrollbar {
+  width: 4px;
+}
+.dock-list::-webkit-scrollbar-track {
+  background: transparent;
+}
 .dock-list::-webkit-scrollbar-thumb {
   background: var(--color-sand-300);
   border-radius: 9999px;
@@ -1891,7 +1900,10 @@ const proposalKindMeta: Record<
   background: linear-gradient(180deg, var(--color-terra-500) 0%, var(--color-terra-600) 100%);
   touch-action: manipulation;
 }
-.dock-apply:disabled { opacity: 0.6; cursor: progress; }
+.dock-apply:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
 .dock-apply-symbol {
   font-family: var(--font-display);
   font-style: italic;
@@ -1960,47 +1972,87 @@ const proposalKindMeta: Record<
   box-shadow: 0 6px 18px -6px rgba(61, 51, 40, 0.4);
 }
 
-.dock-dot { animation: dotPulse 1.4s ease-in-out infinite; }
-.dock-dot:nth-child(2) { animation-delay: 0.16s; }
-.dock-dot:nth-child(3) { animation-delay: 0.32s; }
+.dock-dot {
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+.dock-dot:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.dock-dot:nth-child(3) {
+  animation-delay: 0.32s;
+}
 @keyframes dotPulse {
-  0%, 60%, 100% { transform: scale(0.7); opacity: 0.55; }
-  30% { transform: scale(1); opacity: 1; }
+  0%,
+  60%,
+  100% {
+    transform: scale(0.7);
+    opacity: 0.55;
+  }
+  30% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
-.dock-beam { border-radius: 9999px; }
+.dock-beam {
+  border-radius: 9999px;
+}
 
 .fab-pop-enter-active,
 .fab-pop-leave-active {
-  transition: opacity 0.18s ease-out, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition:
+    opacity 0.18s ease-out,
+    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-origin: bottom right;
 }
 .fab-pop-enter-from,
-.fab-pop-leave-to { opacity: 0; transform: scale(0.7); }
+.fab-pop-leave-to {
+  opacity: 0;
+  transform: scale(0.7);
+}
 .fab-pop-enter-to,
-.fab-pop-leave-from { opacity: 1; transform: scale(1); }
+.fab-pop-leave-from {
+  opacity: 1;
+  transform: scale(1);
+}
 
 .sheet-up-enter-active {
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease-out;
+  transition:
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.22s ease-out;
 }
 .sheet-up-leave-active {
-  transition: transform 0.22s ease-in, opacity 0.15s ease-in;
+  transition:
+    transform 0.22s ease-in,
+    opacity 0.15s ease-in;
 }
 .sheet-up-enter-from,
-.sheet-up-leave-to { opacity: 0; transform: translateY(100%); }
+.sheet-up-leave-to {
+  opacity: 0;
+  transform: translateY(100%);
+}
 .sheet-up-enter-to,
-.sheet-up-leave-from { opacity: 1; transform: translateY(0); }
+.sheet-up-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .fab-pop-enter-active,
   .fab-pop-leave-active,
   .sheet-up-enter-active,
-  .sheet-up-leave-active { transition: opacity 0.15s ease-out; }
+  .sheet-up-leave-active {
+    transition: opacity 0.15s ease-out;
+  }
   .fab-pop-enter-from,
   .fab-pop-leave-to,
   .sheet-up-enter-from,
-  .sheet-up-leave-to { transform: none; }
-  .dock-dot { animation: none; }
+  .sheet-up-leave-to {
+    transform: none;
+  }
+  .dock-dot {
+    animation: none;
+  }
 }
 </style>
 ```
@@ -2022,6 +2074,7 @@ git commit -m "feat(ai-dock): rewrite as a multi-turn discussion thread"
 ## Task 9: Wire trip page to /discuss and the new dock
 
 **Files:**
+
 - Modify: `app/pages/trips/[id].vue`
 - Modify: `app/composables/useGenerateFullItinerary.ts`
 
@@ -2061,7 +2114,10 @@ async function refreshAiUsage() {
   }
 }
 
-const { suggestions: aiStarters } = useDiscussionStarters(trip as Ref<MinimalTrip | null>, activeDay as Ref<MinimalDay | null>)
+const { suggestions: aiStarters } = useDiscussionStarters(
+  trip as Ref<MinimalTrip | null>,
+  activeDay as Ref<MinimalDay | null>,
+)
 // where MinimalTrip / MinimalDay shapes match the composable's expectations;
 // reuse the existing trip / activeDay refs (the shapes already include the needed fields).
 
@@ -2116,7 +2172,11 @@ async function handleAiSubmit(text: string) {
   }
 }
 
-function setProposalState(messageId: string, proposalId: string, state: "pending" | "applying" | "applied" | "dismissed") {
+function setProposalState(
+  messageId: string,
+  proposalId: string,
+  state: "pending" | "applying" | "applied" | "dismissed",
+) {
   aiMessages.value = aiMessages.value.map((m) => {
     if (m.id !== messageId) return m
     return {
@@ -2155,13 +2215,21 @@ async function handleQuickFillGaps() {
   if (!activeDay.value) return
   aiLoading.value = true
   try {
-    const data = await $fetch<{ message: string }>(`/api/trips/${tripId}/days/${activeDay.value.id}/ai`, {
-      method: "POST",
-      body: { prompt: "Fill the gaps in this day", intent: "fill_gaps" },
-    })
+    const data = await $fetch<{ message: string }>(
+      `/api/trips/${tripId}/days/${activeDay.value.id}/ai`,
+      {
+        method: "POST",
+        body: { prompt: "Fill the gaps in this day", intent: "fill_gaps" },
+      },
+    )
     aiMessages.value = [
       ...aiMessages.value,
-      { id: makeMessageId(), role: "system", content: data.message ?? "Filled gaps.", timestamp: Date.now() },
+      {
+        id: makeMessageId(),
+        role: "system",
+        content: data.message ?? "Filled gaps.",
+        timestamp: Date.now(),
+      },
     ]
     await refresh()
   } catch (e: unknown) {
@@ -2184,13 +2252,21 @@ async function handleQuickOptimizeRoute() {
   if (!activeDay.value) return
   aiLoading.value = true
   try {
-    const data = await $fetch<{ message: string }>(`/api/trips/${tripId}/days/${activeDay.value.id}/ai`, {
-      method: "POST",
-      body: { prompt: "Optimize the route", intent: "optimize" },
-    })
+    const data = await $fetch<{ message: string }>(
+      `/api/trips/${tripId}/days/${activeDay.value.id}/ai`,
+      {
+        method: "POST",
+        body: { prompt: "Optimize the route", intent: "optimize" },
+      },
+    )
     aiMessages.value = [
       ...aiMessages.value,
-      { id: makeMessageId(), role: "system", content: data.message ?? "Optimized.", timestamp: Date.now() },
+      {
+        id: makeMessageId(),
+        role: "system",
+        content: data.message ?? "Optimized.",
+        timestamp: Date.now(),
+      },
     ]
     await refresh()
   } catch (e: unknown) {
@@ -2217,7 +2293,12 @@ async function handleGenerateFullItinerary() {
     await generateFullItinerary(tripId)
     aiMessages.value = [
       ...aiMessages.value,
-      { id: makeMessageId(), role: "system", content: "Generated full itinerary.", timestamp: Date.now() },
+      {
+        id: makeMessageId(),
+        role: "system",
+        content: "Generated full itinerary.",
+        timestamp: Date.now(),
+      },
     ]
     await refresh()
   } catch (e: unknown) {
@@ -2298,6 +2379,7 @@ git commit -m "feat(trip-page): drive new dock as discussion thread + /discuss e
 ## Task 10: Strip ItineraryReviewPanel of AI review affordances
 
 **Files:**
+
 - Modify: `app/components/ItineraryReviewPanel.vue`
 
 - [ ] **Step 1: Remove the "Ask AI for fixes" header button**
@@ -2371,6 +2453,7 @@ git commit -m "refactor(review-panel): remove AI review affordances; determinist
 **Placeholder scan:** all code blocks contain runnable code; no TBDs. Task 9 references `useGenerateFullItinerary` whose existing implementation is touched only for adding an `intent` field (Step 1 of Task 9).
 
 **Type consistency:**
+
 - `Proposal` discriminated union (existing) is used unchanged across Tasks 1, 8, 9.
 - `ChatMessage` type defined in Task 8 is imported by Task 9 (`import type { ChatMessage } from "~/components/AiDock.vue"`).
 - `AIProcessResult.intent` literal union introduced in Task 5 is referenced by ai.post.ts's body schema in Task 6 — they match.

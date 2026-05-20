@@ -9,7 +9,7 @@ describe("createTripTools", () => {
       dayId: "22222222-2222-4222-8222-222222222222",
       transportMode: "walking",
     })
-    const ids = Object.keys(tools).sort()
+    const ids = Object.keys(tools).toSorted()
     assert.deepEqual(ids, [
       "getDistance",
       "getPlaceDetails",

@@ -328,18 +328,14 @@ const severityMeta: Record<
       <header class="mx-auto flex w-full max-w-[28rem] items-baseline justify-between">
         <div class="flex items-baseline gap-2">
           <span class="font-display text-base italic text-terra-500">✦</span>
-          <span
-            class="text-[10px] uppercase tracking-[0.22em] text-sand-500 dark:text-sand-600"
-          >
+          <span class="text-[10px] uppercase tracking-[0.22em] text-sand-500 dark:text-sand-600">
             From your planner
           </span>
         </div>
         <span
           v-if="usageUsed != null && usageLimit != null"
           class="text-[10px] uppercase tracking-[0.18em] tabular-nums"
-          :class="
-            (usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-500'
-          "
+          :class="(usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-500'"
           :title="`${usageUsed}/${usageLimit} AI prompts used this month`"
         >
           {{ usageUsed }} / {{ usageLimit }}
@@ -375,11 +371,7 @@ const severityMeta: Record<
             </button>
 
             <!-- Loading dots OR sparkle -->
-            <span
-              v-if="loading"
-              class="flex shrink-0 items-end gap-[3px] pl-1"
-              aria-hidden="true"
-            >
+            <span v-if="loading" class="flex shrink-0 items-end gap-[3px] pl-1" aria-hidden="true">
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
@@ -439,9 +431,7 @@ const severityMeta: Record<
                 <span class="mr-1 text-terra-500">“</span>{{ response.message
                 }}<span class="ml-0.5 text-terra-500">”</span>
               </p>
-              <p class="mt-2 text-[10px] uppercase tracking-[0.22em] text-sand-500">
-                — Planner
-              </p>
+              <p class="mt-2 text-[10px] uppercase tracking-[0.22em] text-sand-500">— Planner</p>
             </div>
 
             <!-- Findings (review intent) -->
@@ -494,10 +484,7 @@ const severityMeta: Record<
                   </div>
                 </div>
 
-                <div
-                  v-if="group.proposal"
-                  class="mt-2.5 flex justify-end pl-2"
-                >
+                <div v-if="group.proposal" class="mt-2.5 flex justify-end pl-2">
                   <button
                     v-if="isApplied(group.proposal.id)"
                     type="button"
@@ -645,9 +632,7 @@ const severityMeta: Record<
 
           <!-- Suggestion chips -->
           <div v-else-if="showSuggestions" class="mt-2 flex flex-col gap-2">
-            <p
-              class="font-display text-sm italic text-sand-500 dark:text-sand-600"
-            >
+            <p class="font-display text-sm italic text-sand-500 dark:text-sand-600">
               A few thoughts to begin with…
             </p>
             <div class="flex flex-wrap gap-1.5">

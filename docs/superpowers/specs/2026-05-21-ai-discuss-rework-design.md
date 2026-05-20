@@ -74,10 +74,12 @@ The current chat is a command executor wrapped in a propose-then-apply step. It 
 **Lifecycle.** Open dock → fresh thread. Multi-turn. Close or reload → cleared.
 
 **Free-text vs quick chips.**
+
 - Free-text → `/discuss` endpoint → discuss agent.
 - Quick-action chips (`Generate full itinerary`, `Fill gaps`, `Optimize`, `Set accommodation`, `Review`) → existing `/api/trips/[id]/days/[dayId]/ai` with `mode: "execute"`. On completion, a system message is appended to the thread describing the outcome (`"Generated 5 activities for Day 2."`).
 
 **Message types in the thread:**
+
 - `user` — right-aligned, sand-100 pill, max-w 80%, sans serif.
 - `assistant` — left-aligned, no bubble, body text in `font-sans`. Optional tool-call summary lines above the body (`☁ searched the web for "TeamLab Planets vs Borderless"`). Optional inline proposal cards below the body.
 - `system` — centered, small caps, sand-500. Posted by quick chips, never by the agent.
@@ -87,8 +89,9 @@ The current chat is a command executor wrapped in a propose-then-apply step. It 
 **Close-with-pending warning.** If the user closes the dock while one or more proposals in the thread are pending (not applied or dismissed), show a `ConfirmDialog`: "Close discussion? Unapplied suggestions will be lost."
 
 **Empty state.** When no messages yet:
+
 - Letterhead (existing).
-- One italic serif welcome line: *"Hi — what's on your mind about this trip?"*
+- One italic serif welcome line: _"Hi — what's on your mind about this trip?"_
 - Small caps "Or try" header.
 - Quick-action chips.
 - Suggested discussion-starter chips (see Prompts section).
@@ -102,25 +105,29 @@ The current chat is a command executor wrapped in a propose-then-apply step. It 
 ```ts
 // Request body
 const discussBodySchema = z.object({
-  messages: z.array(
-    z.object({
-      role: z.enum(["user", "assistant"]),
-      content: z.string().min(1).max(4000),
-    }),
-  ).min(1).max(40),
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().min(1).max(4000),
+      }),
+    )
+    .min(1)
+    .max(40),
   dayId: z.string().uuid().optional(),
 })
 
 // Response shape
 type DiscussResponse = {
   success: true
-  message: string                    // assistant reply text
-  proposals: Proposal[]              // 0..N inline proposals
-  toolCallSummary: string[]          // short human-readable lines, e.g. "searched the web for…"
+  message: string // assistant reply text
+  proposals: Proposal[] // 0..N inline proposals
+  toolCallSummary: string[] // short human-readable lines, e.g. "searched the web for…"
 }
 ```
 
 **Flow:**
+
 1. `requireAuth(event)` + `requireTripAccess(id, userId, ["owner", "editor"])`.
 2. `tryConsumeAiCredit(session.user.id)` — 1 credit per turn.
 3. Validate body. Server enforces the 20-turn cap (`messages.slice(-20)`).
@@ -147,7 +154,7 @@ const discussAgent = new Agent({
   name: "Trip Discussion Partner",
   instructions: DISCUSS_SYSTEM_PROMPT,
   model: getModel("research"),
-  tools: {},   // tools bound per-request via toolsets parameter
+  tools: {}, // tools bound per-request via toolsets parameter
 })
 ```
 
@@ -157,19 +164,19 @@ The model is the same `research` tier already used by `plannerAgent` (Gemini Pro
 
 Per-request tool bundle, built by `createDiscussTools(ctx, proposalCollector)` in `server/lib/ai-tools.ts`:
 
-| Tool | Source | Purpose |
-|---|---|---|
-| `read_day` | existing | Read activities + accommodation + segments for `ctx.dayId` (or a specified `dayId` if AI overrides). |
-| `read_trip_summary` | existing | Destination, dates, preferences, per-day activity names + times. |
-| `search_places` | existing | Verify a venue exists. |
-| `get_place_details` | existing | Opening hours, rating, photos. |
-| `get_distance` | existing | Travel time/distance between two coordinates. |
-| `web_search` | new wrapper around the existing `webSearchTool` body | Gemini googleSearch grounding. Returns text summary. |
-| `run_review` | existing | Run the deterministic itinerary review (`reviewItinerary`) for the trip or a day. Returns the same `ItineraryReviewResult` shape. Use as ground truth before forming judgment-based advice. |
-| `propose_add_activities` | new, side-effect | Append `{ kind: "add-activities", payload }` to `proposalCollector`. Returns `{ ok: true }`. |
-| `propose_remove_activities` | new, side-effect | Same shape. |
-| `propose_reschedule` | new, side-effect | Same shape. |
-| `propose_set_accommodation` | new, side-effect | Same shape. |
+| Tool                        | Source                                               | Purpose                                                                                                                                                                                     |
+| --------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `read_day`                  | existing                                             | Read activities + accommodation + segments for `ctx.dayId` (or a specified `dayId` if AI overrides).                                                                                        |
+| `read_trip_summary`         | existing                                             | Destination, dates, preferences, per-day activity names + times.                                                                                                                            |
+| `search_places`             | existing                                             | Verify a venue exists.                                                                                                                                                                      |
+| `get_place_details`         | existing                                             | Opening hours, rating, photos.                                                                                                                                                              |
+| `get_distance`              | existing                                             | Travel time/distance between two coordinates.                                                                                                                                               |
+| `web_search`                | new wrapper around the existing `webSearchTool` body | Gemini googleSearch grounding. Returns text summary.                                                                                                                                        |
+| `run_review`                | existing                                             | Run the deterministic itinerary review (`reviewItinerary`) for the trip or a day. Returns the same `ItineraryReviewResult` shape. Use as ground truth before forming judgment-based advice. |
+| `propose_add_activities`    | new, side-effect                                     | Append `{ kind: "add-activities", payload }` to `proposalCollector`. Returns `{ ok: true }`.                                                                                                |
+| `propose_remove_activities` | new, side-effect                                     | Same shape.                                                                                                                                                                                 |
+| `propose_reschedule`        | new, side-effect                                     | Same shape.                                                                                                                                                                                 |
+| `propose_set_accommodation` | new, side-effect                                     | Same shape.                                                                                                                                                                                 |
 
 `propose_optimize_route` is intentionally NOT exposed — whole-day route optimization is a quick-chip job, not a chat suggestion.
 
@@ -211,6 +218,7 @@ Hard rules:
 ### Tool-call telemetry
 
 During the agent loop, observe each tool invocation and record a short human-readable description:
+
 - `read_day` → `"checked Day {N}'s schedule"`
 - `read_trip_summary` → `"reviewed your trip"`
 - `search_places(query)` → `"searched Google Maps for '{query}'"`
@@ -232,11 +240,13 @@ Edit prompts in `server/lib/ai.ts` to thread the travel-time rule through every 
 **`SCHEDULE_RULES` block** (currently around line 75): remove the line `- 30min buffer between activities`. The schedule engine adds buffer; the LLM should not.
 
 Add a new section to `SCHEDULE_RULES`:
+
 ```
 - estimatedDurationMinutes is time spent AT the venue. Do NOT include travel time, walking time, or transit time. Travel between activities is computed separately.
 ```
 
 Verify `handleReschedule`'s prompt: currently says "Ensure no overlaps: each activity starts after the previous one ends (with 15-30min buffer for travel)." Change to:
+
 ```
 Ensure activity times don't overlap each other. The segments engine handles travel time between activities — do NOT pad estimatedDurationMinutes for travel.
 ```
@@ -253,11 +263,11 @@ New structure (script):
 
 ```ts
 interface ChatMessage {
-  id: string                        // client uuid for keying
+  id: string // client uuid for keying
   role: "user" | "assistant" | "system"
   content: string
-  toolCallSummary?: string[]        // assistant only
-  proposals?: Proposal[]            // assistant only
+  toolCallSummary?: string[] // assistant only
+  proposals?: Proposal[] // assistant only
   proposalStates?: Record<string, "pending" | "applying" | "applied" | "dismissed">
   timestamp: number
 }
@@ -270,6 +280,7 @@ const userScrolledUp = ref(false)
 ```
 
 Key behaviors:
+
 - On submit: append user message, call `/discuss` with full `messages` array, append assistant message on response.
 - On quick-chip click: call existing endpoint, append a system message with the result.
 - On Apply within a proposal card: call `/proposals/apply`, update `proposalStates` to `"applied"`, refresh trip data via parent emit.
@@ -326,6 +337,7 @@ export function useDiscussionStarters(
 These starters appear as small chips on the empty state below the quick-action chips. Tapping one fills the input (does not auto-submit) so the user can edit before sending.
 
 **Mobile behavior:**
+
 - Sheet `min-height: 70vh; max-height: 92vh`.
 - Message list scrolls inside; input pinned via `sticky bottom-0` inside the sheet's flex column.
 - Quick-action chips wrap to 2 rows max; overflow chips become a `lucide:more-horizontal` button that opens a small popover.
@@ -336,6 +348,7 @@ These starters appear as small chips on the empty state below the quick-action c
 ## Deprecation & migration
 
 Code retired (removed or unreachable for free-text):
+
 - `classifyIntent` and `intentSchema` in `server/lib/ai.ts`. Intent classifier deleted.
 - `handleQuestion` in `server/lib/ai.ts`. Replaced by discuss agent.
 - The `question` intent case in `processUserRequest`'s switch — removed along with classifier.
@@ -346,6 +359,7 @@ Code retired (removed or unreachable for free-text):
 - The `ItineraryReviewPanel`'s `proposal?` field on findings — review tab is deterministic-only, never has proposals attached. The optional field stays on the type because the discuss agent's `run_review` tool may still surface proposals via `propose_*`, but the panel itself never renders an Apply button.
 
 Code kept unchanged:
+
 - `POST /api/trips/[id]/proposals/apply` — apply endpoint.
 - `POST /api/trips/[id]/days/[dayId]/ai` for `mode: "execute"` — used by quick chips.
 - `POST /api/trips/[id]/review` — deterministic review for the Review tab.
@@ -359,11 +373,13 @@ Code kept unchanged:
 ## Files touched
 
 **New:**
+
 - `server/api/trips/[id]/discuss.post.ts` — endpoint.
 - `server/lib/discuss-agent.ts` — agent + system prompt.
 - `app/composables/useDiscussionStarters.ts` — context-aware suggestions.
 
 **Modified:**
+
 - `server/lib/ai-tools.ts` — add `web_search` tool wrapping Gemini googleSearch + add `propose_*` side-effect tools; export `createDiscussTools(ctx, collector)` alongside the existing `createTripTools`.
 - `server/lib/ai.ts` — remove `classifyIntent`, `intentSchema`, `handleQuestion`, the `question`/`review` cases in `processUserRequest`. Edit `SCHEDULE_RULES` (drop the buffer line, add the activity-only-duration line). Edit `handleReschedule`/`handleAdd`/`handleFillGaps`/`handleOptimize` prompts to enforce the duration rule.
 - `server/api/trips/[id]/days/[dayId]/ai.post.ts` — remove the review-intent branch and the `mode: "plan"` branch. Only the execute path survives, used by quick chips.
@@ -374,6 +390,7 @@ Code kept unchanged:
 ## Testing
 
 Server:
+
 - `server/api/trips/[id]/discuss.post.test.ts` — new. Test:
   - 401 without auth.
   - 403 without trip access.
@@ -385,10 +402,12 @@ Server:
 - `server/lib/ai-tools.test.ts` — extend to cover the new `web_search` tool and `propose_*` tools.
 
 Client:
+
 - `app/composables/useDiscussionStarters.test.ts` — new. Each starter trigger (packed day, multi-day, same-type duplicates, missing accommodation, fallback).
 - Manual smoke: open dock, send "is my day too packed?", verify multi-turn flow, verify proposal apply, verify close-with-pending dialog, verify quick chip → system message.
 
 Existing tests:
+
 - `server/lib/proposals.test.ts` — unchanged.
 - `server/lib/itinerary-review*.test.ts` — unchanged.
 - The `mode: "plan"` path in `ai.post.ts` had no test; deleting the path doesn't break anything.
@@ -397,7 +416,7 @@ Existing tests:
 
 Each `/discuss` turn = 1 AI credit. The dock UI shows the counter in the letterhead. Multi-turn conversations burn credits per reply, which is fair and matches the existing model. Quick-chip mutations continue to consume 1 credit per click (unchanged).
 
-The empty-state UI should communicate this lightly: a small sentence like "*Each reply uses 1 of your 100 monthly credits.*" appears below the welcome line.
+The empty-state UI should communicate this lightly: a small sentence like "_Each reply uses 1 of your 100 monthly credits._" appears below the welcome line.
 
 ## Out of scope (future)
 
