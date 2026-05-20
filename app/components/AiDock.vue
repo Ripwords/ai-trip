@@ -130,9 +130,7 @@ const quickActions = computed(() =>
         { label: "Optimize route", icon: "lucide:route", emit: "optimizeRoute" as const },
         { label: "Generate full day", icon: "lucide:wand-2", emit: "generateFull" as const },
       ]
-    : [
-        { label: "Generate full day", icon: "lucide:wand-2", emit: "generateFull" as const },
-      ],
+    : [{ label: "Generate full day", icon: "lucide:wand-2", emit: "generateFull" as const }],
 )
 
 function fireQuickAction(name: "fillGaps" | "optimizeRoute" | "generateFull") {
@@ -143,7 +141,10 @@ function fireQuickAction(name: "fillGaps" | "optimizeRoute" | "generateFull") {
 
 // ── Proposal state helpers (pulled from parent via message.proposalStates) ──
 
-function proposalState(message: ChatMessage, id: string): "pending" | "applying" | "applied" | "dismissed" {
+function proposalState(
+  message: ChatMessage,
+  id: string,
+): "pending" | "applying" | "applied" | "dismissed" {
   return message.proposalStates?.[id] ?? "pending"
 }
 
@@ -180,7 +181,7 @@ const proposalKindMeta: Record<
   >
     <div
       v-if="expanded"
-      class="fixed inset-0 z-[60] bg-sand-900/55 backdrop-blur-[3px]"
+      class="fixed inset-0 z-[60] bg-sand-900/40 backdrop-blur-[2px] md:hidden"
       @click="collapse"
     />
   </Transition>
@@ -202,18 +203,14 @@ const proposalKindMeta: Record<
   <Transition name="sheet-up">
     <div
       v-if="expanded"
-      class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex flex-col rounded-t-[28px]"
+      class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex max-h-[70vh] min-h-[50vh] flex-col rounded-t-[28px] md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:max-h-[calc(100vh-2rem)] md:min-h-0 md:w-[400px] md:rounded-3xl"
       :style="{
-        minHeight: '70vh',
-        maxHeight: '92vh',
         paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
       }"
     >
-      <div class="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-sand-400/40" />
+      <div class="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-sand-400/40 md:hidden" />
 
-      <header
-        class="mx-auto mt-3 flex w-full max-w-[28rem] items-baseline justify-between px-4"
-      >
+      <header class="mx-auto mt-3 flex w-full max-w-[28rem] items-baseline justify-between px-4">
         <div class="flex items-baseline gap-2">
           <span class="font-display text-base italic text-terra-500">✦</span>
           <span class="text-[10px] uppercase tracking-[0.22em] text-sand-500">
@@ -289,11 +286,7 @@ const proposalKindMeta: Record<
             <!-- Assistant message -->
             <div v-else class="flex flex-col gap-2">
               <div v-if="msg.toolCallSummary?.length" class="flex flex-col gap-0.5">
-                <p
-                  v-for="(line, i) in msg.toolCallSummary"
-                  :key="i"
-                  class="dock-tool-line"
-                >
+                <p v-for="(line, i) in msg.toolCallSummary" :key="i" class="dock-tool-line">
                   <Icon name="lucide:eye" class="dock-tool-icon" />
                   {{ line }}
                 </p>
@@ -301,26 +294,20 @@ const proposalKindMeta: Record<
               <p class="dock-assistant-body">{{ msg.content }}</p>
 
               <!-- Inline proposal cards -->
-              <ul
-                v-if="msg.proposals?.length"
-                class="mt-1 flex list-none flex-col gap-2 p-0"
-              >
-                <li
-                  v-for="p in msg.proposals"
-                  :key="p.id"
-                  class="dock-proposal"
-                >
+              <ul v-if="msg.proposals?.length" class="mt-1 flex list-none flex-col gap-2 p-0">
+                <li v-for="p in msg.proposals" :key="p.id" class="dock-proposal">
                   <template v-if="proposalState(msg, p.id) === 'applied'">
                     <span class="dock-applied-stamp">Applied</span>
                   </template>
                   <template v-else-if="proposalState(msg, p.id) === 'dismissed'" />
                   <template v-else>
-                    <div class="flex items-center justify-between gap-2 border-b border-dashed border-sand-300/60 px-3 py-1.5">
+                    <div
+                      class="flex items-center justify-between gap-2 border-b border-dashed border-sand-300/60 px-3 py-1.5"
+                    >
                       <div class="flex items-center gap-2">
-                        <span
-                          class="dock-stamp"
-                          :data-tone="proposalKindMeta[p.kind].tone"
-                        >{{ proposalKindMeta[p.kind].symbol }}</span>
+                        <span class="dock-stamp" :data-tone="proposalKindMeta[p.kind].tone">{{
+                          proposalKindMeta[p.kind].symbol
+                        }}</span>
                         <span class="text-[10px] uppercase tracking-[0.22em] text-sand-700">
                           {{ proposalKindMeta[p.kind].label }}
                         </span>
@@ -346,7 +333,9 @@ const proposalKindMeta: Record<
                           @click="onApply(msg, p)"
                         >
                           <span class="dock-apply-symbol">✦</span>
-                          <span>{{ proposalState(msg, p.id) === "applying" ? "Applying" : "Apply" }}</span>
+                          <span>{{
+                            proposalState(msg, p.id) === "applying" ? "Applying" : "Apply"
+                          }}</span>
                         </button>
                       </div>
                     </div>
@@ -406,11 +395,7 @@ const proposalKindMeta: Record<
           class="dock-beam w-full"
         >
           <div class="flex items-center gap-2 rounded-full bg-sand-900 py-2 pl-3 pr-2">
-            <span
-              v-if="loading"
-              class="flex shrink-0 items-end gap-[3px] pl-1"
-              aria-hidden="true"
-            >
+            <span v-if="loading" class="flex shrink-0 items-end gap-[3px] pl-1" aria-hidden="true">
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
@@ -419,7 +404,8 @@ const proposalKindMeta: Record<
               v-else
               class="font-display text-base italic leading-none text-terra-400"
               aria-hidden="true"
-            >✦</span>
+              >✦</span
+            >
             <input
               ref="inputEl"
               :value="input"
@@ -451,8 +437,17 @@ const proposalKindMeta: Record<
 .dock-sheet {
   background: var(--color-sand-50);
   box-shadow:
-    0 -1px 0 0 var(--color-sand-300) inset,
-    0 -28px 60px -20px rgba(61, 51, 40, 0.35);
+    0 0 0 1px rgba(61, 51, 40, 0.08),
+    0 -24px 56px -20px rgba(61, 51, 40, 0.3);
+}
+
+@media (min-width: 768px) {
+  .dock-sheet {
+    box-shadow:
+      0 0 0 1px rgba(61, 51, 40, 0.08),
+      0 24px 48px -16px rgba(61, 51, 40, 0.22),
+      0 -8px 32px -16px rgba(61, 51, 40, 0.1);
+  }
 }
 .dock-sheet::before {
   content: "";
@@ -472,8 +467,12 @@ const proposalKindMeta: Record<
   scrollbar-width: thin;
   scrollbar-color: var(--color-sand-300) transparent;
 }
-.dock-list::-webkit-scrollbar { width: 4px; }
-.dock-list::-webkit-scrollbar-track { background: transparent; }
+.dock-list::-webkit-scrollbar {
+  width: 4px;
+}
+.dock-list::-webkit-scrollbar-track {
+  background: transparent;
+}
 .dock-list::-webkit-scrollbar-thumb {
   background: var(--color-sand-300);
   border-radius: 9999px;
@@ -574,7 +573,10 @@ const proposalKindMeta: Record<
   background: linear-gradient(180deg, var(--color-terra-500) 0%, var(--color-terra-600) 100%);
   touch-action: manipulation;
 }
-.dock-apply:disabled { opacity: 0.6; cursor: progress; }
+.dock-apply:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
 .dock-apply-symbol {
   font-family: var(--font-display);
   font-style: italic;
@@ -643,46 +645,97 @@ const proposalKindMeta: Record<
   box-shadow: 0 6px 18px -6px rgba(61, 51, 40, 0.4);
 }
 
-.dock-dot { animation: dotPulse 1.4s ease-in-out infinite; }
-.dock-dot:nth-child(2) { animation-delay: 0.16s; }
-.dock-dot:nth-child(3) { animation-delay: 0.32s; }
+.dock-dot {
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+.dock-dot:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.dock-dot:nth-child(3) {
+  animation-delay: 0.32s;
+}
 @keyframes dotPulse {
-  0%, 60%, 100% { transform: scale(0.7); opacity: 0.55; }
-  30% { transform: scale(1); opacity: 1; }
+  0%,
+  60%,
+  100% {
+    transform: scale(0.7);
+    opacity: 0.55;
+  }
+  30% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
-.dock-beam { border-radius: 9999px; }
+.dock-beam {
+  border-radius: 9999px;
+}
 
 .fab-pop-enter-active,
 .fab-pop-leave-active {
-  transition: opacity 0.18s ease-out, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition:
+    opacity 0.18s ease-out,
+    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-origin: bottom right;
 }
 .fab-pop-enter-from,
-.fab-pop-leave-to { opacity: 0; transform: scale(0.7); }
+.fab-pop-leave-to {
+  opacity: 0;
+  transform: scale(0.7);
+}
 .fab-pop-enter-to,
-.fab-pop-leave-from { opacity: 1; transform: scale(1); }
+.fab-pop-leave-from {
+  opacity: 1;
+  transform: scale(1);
+}
 
 .sheet-up-enter-active {
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease-out;
+  transition:
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.22s ease-out;
 }
 .sheet-up-leave-active {
-  transition: transform 0.22s ease-in, opacity 0.15s ease-in;
+  transition:
+    transform 0.22s ease-in,
+    opacity 0.15s ease-in;
 }
 .sheet-up-enter-from,
-.sheet-up-leave-to { opacity: 0; transform: translateY(100%); }
+.sheet-up-leave-to {
+  opacity: 0;
+  transform: translateY(100%);
+}
 .sheet-up-enter-to,
-.sheet-up-leave-from { opacity: 1; transform: translateY(0); }
+.sheet-up-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (min-width: 768px) {
+  .sheet-up-enter-from,
+  .sheet-up-leave-to {
+    transform: translateX(110%);
+  }
+  .sheet-up-enter-to,
+  .sheet-up-leave-from {
+    transform: translateX(0);
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .fab-pop-enter-active,
   .fab-pop-leave-active,
   .sheet-up-enter-active,
-  .sheet-up-leave-active { transition: opacity 0.15s ease-out; }
+  .sheet-up-leave-active {
+    transition: opacity 0.15s ease-out;
+  }
   .fab-pop-enter-from,
   .fab-pop-leave-to,
   .sheet-up-enter-from,
-  .sheet-up-leave-to { transform: none; }
-  .dock-dot { animation: none; }
+  .sheet-up-leave-to {
+    transform: none;
+  }
+  .dock-dot {
+    animation: none;
+  }
 }
 </style>
