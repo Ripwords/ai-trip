@@ -57,10 +57,18 @@ async function buildTripContext(tripId: string, focusDayId: string | null): Prom
       lines.push("  (no activities scheduled yet)")
     } else {
       const activitiesSorted = focusDay.activities.toSorted((a, b) => a.sortOrder - b.sortOrder)
+      let hasTransport = false
       for (const a of activitiesSorted) {
         const time = a.suggestedTime ?? "??:??"
         const dur = a.estimatedDurationMinutes ? ` (${a.estimatedDurationMinutes}min)` : ""
-        lines.push(`  • [${a.id}] ${time} ${a.name} — ${a.type}${dur}`)
+        const waypointTag = a.type === "transport" ? " [waypoint, kept for map reference]" : ""
+        if (a.type === "transport") hasTransport = true
+        lines.push(`  • [${a.id}] ${time} ${a.name} — ${a.type}${dur}${waypointTag}`)
+      }
+      if (hasTransport) {
+        lines.push(
+          "  (note: transport-type entries are intentional waypoints, not destinations — do not suggest removing them)",
+        )
       }
     }
   }

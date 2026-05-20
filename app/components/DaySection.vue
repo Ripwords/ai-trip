@@ -78,16 +78,6 @@ const emit = defineEmits<{
   toggleParticipant: [activityId: string, userId: string]
 }>()
 
-const mapsUrl = computed(() =>
-  getGoogleMapsDirectionsUrl(
-    props.day.activities,
-    props.travelMode ?? "transit",
-    props.startLocation?.lat != null && props.startLocation.lng != null
-      ? { lat: props.startLocation.lat, lng: props.startLocation.lng }
-      : null,
-  ),
-)
-
 // Drag and drop
 const localActivities = ref([...props.day.activities])
 const isDragging = ref(false)

@@ -425,6 +425,16 @@ const activeDayEndAccommodation = computed(() => {
   }
 })
 
+const activeDayMapsUrl = computed(() =>
+  getGoogleMapsDirectionsUrl(
+    activeDayActivities.value,
+    activeTransportMode.value,
+    activeDayStartLocation.value?.lat != null && activeDayStartLocation.value.lng != null
+      ? { lat: activeDayStartLocation.value.lat, lng: activeDayStartLocation.value.lng }
+      : null,
+  ),
+)
+
 async function handleTransportModeChange(mode: TransportMode) {
   if (mode === activeTransportMode.value || transportUpdating.value) return
   transportUpdating.value = true
@@ -1192,31 +1202,39 @@ async function recomputeSegments(dayId: string) {
           </div>
         </ClientOnly>
 
-        <div
-          class="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sand-200 bg-white px-3 py-2"
-        >
-          <div class="flex items-center gap-2 text-sm text-sand-600">
-            <Icon name="lucide:route" class="h-4 w-4 text-sand-400" />
-            <span>Travel time estimates</span>
-          </div>
-          <div class="flex flex-wrap gap-1">
+        <div class="mt-2 flex items-center justify-between gap-3 px-1">
+          <div class="flex items-center gap-0.5">
             <button
               v-for="mode in transportModeOptions"
               :key="mode.value"
               type="button"
               :disabled="transportUpdating"
-              class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition disabled:opacity-50"
+              :title="`${mode.label} travel time`"
+              :aria-label="`Use ${mode.label.toLowerCase()} travel times`"
+              :aria-pressed="activeTransportMode === mode.value"
+              class="flex h-8 w-8 items-center justify-center rounded-lg transition disabled:opacity-50"
               :class="
                 activeTransportMode === mode.value
-                  ? 'bg-terra-500 text-white'
-                  : 'bg-sand-100 text-sand-600 hover:bg-sand-200'
+                  ? 'bg-terra-500 text-white shadow-sm'
+                  : 'text-sand-400 hover:bg-sand-100 hover:text-sand-700'
               "
               @click="handleTransportModeChange(mode.value)"
             >
-              <Icon :name="mode.icon" class="h-3.5 w-3.5" />
-              {{ mode.label }}
+              <Icon :name="mode.icon" class="h-4 w-4" />
             </button>
           </div>
+
+          <a
+            v-if="activeDayMapsUrl"
+            :href="activeDayMapsUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1.5 text-xs font-medium text-sand-500 transition hover:text-terra-600"
+            title="Open this day's route in Google Maps"
+          >
+            <Icon name="lucide:navigation" class="h-3.5 w-3.5" />
+            Open in Maps
+          </a>
         </div>
 
         <!-- Active day content -->
@@ -1288,24 +1306,8 @@ async function recomputeSegments(dayId: string) {
                 <TripMap
                   ref="tripMapRef"
                   :activities="activeDayActivities"
-                  :start-accommodation="
-                    activeDayStartLocation
-                      ? {
-                          name: activeDayStartLocation.name,
-                          lat: activeDayStartLocation.lat,
-                          lng: activeDayStartLocation.lng,
-                        }
-                      : null
-                  "
-                  :end-accommodation="
-                    activeDayEndAccommodation
-                      ? {
-                          name: activeDayEndAccommodation.name,
-                          lat: activeDayEndAccommodation.lat,
-                          lng: activeDayEndAccommodation.lng,
-                        }
-                      : null
-                  "
+                  :start-accommodation="activeDayStartLocation"
+                  :end-accommodation="activeDayEndAccommodation"
                   @marker-click="handleMarkerClick"
                 />
               </div>
