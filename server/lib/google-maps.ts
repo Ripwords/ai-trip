@@ -234,10 +234,7 @@ const _getPlaceDetails = defineCachedFunction(
           endPrice?: { units?: string; nanos?: number; currencyCode?: string }
         }
       | undefined
-    const parseMoney = (m?: {
-      units?: string
-      nanos?: number
-    }): number | null => {
+    const parseMoney = (m?: { units?: string; nanos?: number }): number | null => {
       if (!m) return null
       const units = m.units ? Number(m.units) : 0
       const nanos = m.nanos ?? 0
