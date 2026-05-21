@@ -490,6 +490,51 @@ interface AirportMarker {
   variant: "arrival" | "departure"
 }
 
+const tripAirports = computed<AirportMarker[]>(() => {
+  const days = sortedDays.value
+  if (days.length === 0) return []
+  const firstDay = days[0]
+  const lastDay = days[days.length - 1]
+  const flights = sortedTripFlights.value as TripFlightRow[]
+  const markers: AirportMarker[] = []
+
+  const arrival = flights.find(
+    (f) => firstDay && (f.arrivalDate ?? f.flightDate) === firstDay.date,
+  )
+  if (
+    arrival?.arrivalAirport &&
+    arrival.arrivalAirportLat != null &&
+    arrival.arrivalAirportLng != null
+  ) {
+    markers.push({
+      code: arrival.arrivalAirport,
+      name: arrival.arrivalAirportName,
+      lat: arrival.arrivalAirportLat,
+      lng: arrival.arrivalAirportLng,
+      variant: "arrival",
+    })
+  }
+
+  const departure = flights.find(
+    (f) => lastDay && (f.departureDate ?? f.flightDate) === lastDay.date,
+  )
+  if (
+    departure?.departureAirport &&
+    departure.departureAirportLat != null &&
+    departure.departureAirportLng != null
+  ) {
+    markers.push({
+      code: departure.departureAirport,
+      name: departure.departureAirportName,
+      lat: departure.departureAirportLat,
+      lng: departure.departureAirportLng,
+      variant: "departure",
+    })
+  }
+
+  return markers
+})
+
 const activeDayAirports = computed<AirportMarker[]>(() => {
   const day = activeDay.value
   if (!day) return []
@@ -941,6 +986,12 @@ function handleActivityClick(activity: TripActivity) {
   }
 }
 
+function handleAccommodationFocus(point: { lat: number; lng: number }) {
+  if (tripMapRef.value) {
+    tripMapRef.value.centerOnPoint(point)
+  }
+}
+
 function handleMarkerClick(activity: TripActivity) {
   highlightedActivityId.value = activity.id
 
@@ -1264,6 +1315,7 @@ async function recomputeSegments(dayId: string) {
           :expenses-list="expensesList ?? []"
           :total-expenses="totalExpenses"
           :currency-code="trip.currencyCode ?? 'USD'"
+          :airports="tripAirports"
           @navigate-to-day="handleNavigateToDay"
         />
       </div>
@@ -1371,9 +1423,11 @@ async function recomputeSegments(dayId: string) {
                 :accommodation-address="activeDay.accommodationAddress"
                 :accommodation-lat="activeDay.accommodationLat"
                 :accommodation-lng="activeDay.accommodationLng"
+                :accommodation-place-id="activeDay.accommodationPlaceId"
                 :previous-stay-name="activeDayStartLocation?.name ?? null"
                 :arrival-flight="activeDayArrivalFlight"
                 :departure-flight="activeDayDepartureFlight"
+                @focus-map="handleAccommodationFocus"
                 :days="
                   sortedDays.map((d) => ({
                     id: d.id,

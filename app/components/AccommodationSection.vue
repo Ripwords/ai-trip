@@ -21,6 +21,7 @@ const props = defineProps<{
   accommodationAddress: string | null
   accommodationLat: number | null
   accommodationLng: number | null
+  accommodationPlaceId?: string | null
   days: DaySummary[]
   previousStayName?: string | null
   arrivalFlight?: FlightInfo | null
@@ -29,9 +30,32 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   updated: []
+  focusMap: [point: { lat: number; lng: number }]
 }>()
 
 const { confirm } = useConfirm()
+
+const accommodationMapsUrl = computed(() => {
+  if (props.accommodationLat != null && props.accommodationLng != null) {
+    const base = `https://www.google.com/maps/search/?api=1&query=${props.accommodationLat},${props.accommodationLng}`
+    return props.accommodationPlaceId
+      ? `${base}&query_place_id=${props.accommodationPlaceId}`
+      : base
+  }
+  if (props.accommodationAddress) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(props.accommodationAddress)}`
+  }
+  if (props.accommodationName) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(props.accommodationName)}`
+  }
+  return null
+})
+
+function handleCardClick() {
+  if (props.accommodationLat != null && props.accommodationLng != null) {
+    emit("focusMap", { lat: props.accommodationLat, lng: props.accommodationLng })
+  }
+}
 
 const isEditing = ref(false)
 const isSaving = ref(false)
@@ -106,6 +130,7 @@ async function handleSave() {
         method: "PUT",
         body: {
           accommodationName: place.name,
+          accommodationPlaceId: place.placeId,
           accommodationAddress: place.formattedAddress ?? null,
           accommodationLat: place.lat,
           accommodationLng: place.lng,
@@ -117,6 +142,7 @@ async function handleSave() {
         body: {
           dayIds: targetDays.value.map((d) => d.id),
           accommodationName: place.name,
+          accommodationPlaceId: place.placeId,
           accommodationAddress: place.formattedAddress ?? null,
           accommodationLat: place.lat,
           accommodationLng: place.lng,
@@ -139,6 +165,7 @@ async function handleClear() {
       method: "PUT",
       body: {
         accommodationName: null,
+        accommodationPlaceId: null,
         accommodationAddress: null,
         accommodationLat: null,
         accommodationLng: null,
@@ -194,7 +221,7 @@ defineExpose({
             locale="en-US"
             hour="2-digit"
             minute="2-digit"
-            hour12="false"
+            :hour12="false"
             class="tabular-nums"
           />
         </template>
@@ -211,7 +238,7 @@ defineExpose({
             locale="en-US"
             hour="2-digit"
             minute="2-digit"
-            hour12="false"
+            :hour12="false"
             class="tabular-nums"
           />
         </template>
@@ -300,33 +327,56 @@ defineExpose({
     </div>
 
     <!-- Accommodation set -->
-    <div v-else class="rounded-2xl border border-ocean-200 bg-ocean-50 p-4">
+    <div
+      v-else
+      class="rounded-2xl border border-ocean-200 bg-ocean-50 p-4 transition hover:bg-ocean-100/60"
+      :class="{
+        'cursor-pointer': accommodationLat != null && accommodationLng != null,
+      }"
+      role="button"
+      tabindex="0"
+      @click="handleCardClick"
+      @keydown.enter.prevent="handleCardClick"
+      @keydown.space.prevent="handleCardClick"
+    >
       <div class="flex items-start justify-between">
-        <div class="flex items-start gap-3">
+        <div class="flex min-w-0 items-start gap-3">
           <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ocean-100">
             <Icon name="lucide:bed-double" class="h-4 w-4 text-ocean-600" />
           </div>
-          <div>
+          <div class="min-w-0">
             <p class="text-sm font-medium text-sand-900">
               {{ accommodationName }}
             </p>
-            <p v-if="accommodationAddress" class="mt-0.5 text-xs text-sand-500">
+            <a
+              v-if="accommodationAddress && accommodationMapsUrl"
+              :href="accommodationMapsUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="mt-0.5 inline-flex items-start gap-1 text-xs text-sand-500 transition hover:text-terra-600"
+              title="Open in Google Maps"
+              @click.stop
+            >
+              <Icon name="lucide:map-pin" class="mt-0.5 h-3 w-3 shrink-0" />
+              <span>{{ accommodationAddress }}</span>
+            </a>
+            <p v-else-if="accommodationAddress" class="mt-0.5 text-xs text-sand-500">
               {{ accommodationAddress }}
             </p>
           </div>
         </div>
-        <div class="flex items-center gap-1">
+        <div class="flex shrink-0 items-center gap-1">
           <button
             class="rounded px-2 py-1 text-xs text-sand-500 hover:bg-ocean-100 hover:text-sand-700"
             :disabled="isSaving"
-            @click="isEditing = true"
+            @click.stop="isEditing = true"
           >
             Edit
           </button>
           <button
             class="rounded px-2 py-1 text-xs text-sand-400 hover:bg-ocean-100 hover:text-red-600"
             :disabled="isSaving"
-            @click="handleClear"
+            @click.stop="handleClear"
           >
             Clear
           </button>
@@ -350,7 +400,7 @@ defineExpose({
             locale="en-US"
             hour="2-digit"
             minute="2-digit"
-            hour12="false"
+            :hour12="false"
             class="tabular-nums"
           />
         </template>
@@ -367,7 +417,7 @@ defineExpose({
             locale="en-US"
             hour="2-digit"
             minute="2-digit"
-            hour12="false"
+            :hour12="false"
             class="tabular-nums"
           />
         </template>

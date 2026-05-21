@@ -415,6 +415,12 @@ function centerOnActivity(activity: Activity) {
   map.setZoom(16)
 }
 
+function centerOnPoint(point: { lat: number; lng: number }) {
+  if (!map) return
+  map.panTo({ lat: point.lat, lng: point.lng })
+  map.setZoom(16)
+}
+
 watch(
   [
     () => props.activities,
@@ -451,7 +457,7 @@ onMounted(() => {
   initMap()
 })
 
-defineExpose({ centerOnActivity })
+defineExpose({ centerOnActivity, centerOnPoint })
 </script>
 
 <template>

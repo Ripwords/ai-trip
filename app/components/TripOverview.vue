@@ -54,12 +54,21 @@ interface WeatherResponse {
   isHistorical: boolean
 }
 
+interface AirportMarker {
+  code: string
+  name: string | null
+  lat: number
+  lng: number
+  variant: "arrival" | "departure"
+}
+
 const props = defineProps<{
   trip: TripData
   sortedDays: TripDay[]
   expensesList: ExpenseRecord[]
   totalExpenses: number
   currencyCode: string
+  airports?: AirportMarker[]
 }>()
 
 const emit = defineEmits<{
@@ -265,7 +274,11 @@ function formatDayRange(dayNumbers: number[]): string {
     <!-- Mobile: stacked map -->
     <div class="h-[65vh] overflow-hidden rounded-2xl shadow-lg lg:hidden">
       <ClientOnly>
-        <TripOverviewMap :days="sortedDays" :selected-day-id="selectedDayId" />
+        <TripOverviewMap
+          :days="sortedDays"
+          :selected-day-id="selectedDayId"
+          :airports="airports"
+        />
       </ClientOnly>
     </div>
 
@@ -276,7 +289,11 @@ function formatDayRange(dayNumbers: number[]): string {
       <!-- Map fills entire container -->
       <div class="absolute inset-0">
         <ClientOnly>
-          <TripOverviewMap :days="sortedDays" :selected-day-id="selectedDayId" />
+          <TripOverviewMap
+          :days="sortedDays"
+          :selected-day-id="selectedDayId"
+          :airports="airports"
+        />
         </ClientOnly>
       </div>
 

@@ -16,9 +16,18 @@ interface DayWithActivities {
   activities: Activity[]
 }
 
+interface AirportMarker {
+  code: string
+  name: string | null
+  lat: number
+  lng: number
+  variant: "arrival" | "departure"
+}
+
 const props = defineProps<{
   days: DayWithActivities[]
   selectedDayId?: string | null
+  airports?: AirportMarker[]
 }>()
 
 const DAY_COLORS = [
@@ -47,6 +56,7 @@ const mapMode = ref<MapMode>("light")
 
 let map: google.maps.Map | null = null
 let markers: google.maps.marker.AdvancedMarkerElement[] = []
+let airportMarkers: google.maps.marker.AdvancedMarkerElement[] = []
 let clusterer: InstanceType<typeof import("@googlemaps/markerclusterer").MarkerClusterer> | null =
   null
 let polylines: google.maps.Polyline[] = []
@@ -61,7 +71,9 @@ const legendDays = computed(() =>
     .filter((d) => d.activities.some((a) => a.lat != null && a.lng != null)),
 )
 
-const hasGeocodedActivities = computed(() => legendDays.value.length > 0)
+const hasGeocodedActivities = computed(
+  () => legendDays.value.length > 0 || (props.airports ?? []).length > 0,
+)
 
 // Category filter
 const hiddenTypes = ref<Set<string>>(new Set())
@@ -91,6 +103,52 @@ function toggleTypeFilter(type: string) {
     hiddenTypes.value.add(type)
   }
   if (isLoaded.value && map) updateMarkers()
+}
+
+function createAirportMarkerContent(airport: AirportMarker): HTMLElement {
+  const wrap = document.createElement("div")
+  const isArrival = airport.variant === "arrival"
+  const color = isArrival ? "#0EA5E9" : "#F59E0B"
+  const rotation = isArrival ? "rotate(-45deg)" : "rotate(45deg)"
+  wrap.style.cssText = `
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    transform: translateY(-10px);
+  `
+  wrap.innerHTML = `
+    <div style="
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: ${color};
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    ">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+        stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+        style="transform: ${rotation};">
+        <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
+      </svg>
+    </div>
+    <span style="
+      font-size: 10px;
+      font-weight: 700;
+      color: ${color};
+      background: white;
+      padding: 1px 5px;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+      white-space: nowrap;
+    ">${airport.code}</span>
+  `
+  return wrap
 }
 
 function createMarkerContent(label: string, color: string, dimmed: boolean): HTMLElement {
@@ -193,6 +251,8 @@ function updateMarkers() {
   }
   markers.forEach((m) => (m.map = null))
   markers = []
+  airportMarkers.forEach((m) => (m.map = null))
+  airportMarkers = []
   polylines.forEach((p) => p.setMap(null))
   polylines = []
 
@@ -250,6 +310,25 @@ function updateMarkers() {
     }
   })
 
+  // Airport markers (trip-wide arrival + departure). They get added regardless
+  // of selectedDay so the overview always shows where the trip enters and exits.
+  for (const airport of props.airports ?? []) {
+    const pos = { lat: airport.lat, lng: airport.lng }
+    bounds.extend(pos)
+    hasMarkers = true
+    const action = airport.variant === "arrival" ? "Arriving at" : "Departing from"
+    airportMarkers.push(
+      new MarkerClass({
+        map,
+        position: pos,
+        content: createAirportMarkerContent(airport),
+        title: airport.name
+          ? `${action} ${airport.name} (${airport.code})`
+          : `${action} ${airport.code}`,
+      }),
+    )
+  }
+
   if (!hasMarkers) {
     map.setCenter({ lat: 0, lng: 0 })
     map.setZoom(2)
@@ -297,7 +376,7 @@ function updateMarkers() {
 }
 
 watch(
-  [() => props.days, () => props.selectedDayId],
+  [() => props.days, () => props.selectedDayId, () => props.airports],
   () => {
     if (isLoaded.value && map) {
       updateMarkers()

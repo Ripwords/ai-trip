@@ -275,19 +275,24 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
         {{ index + 1 }}
       </span>
 
-      <!-- Mobile drag handle — long-press to reorder -->
+      <!-- Mobile drag handle — long-press to reorder.
+           Anchored next to the number badge (left side) so a long type pill on the right
+           can't collide with it. -->
       <button
         v-if="!readonly"
-        class="drag-handle absolute left-1/2 top-2 flex h-6 w-10 -translate-x-1/2 cursor-grab items-center justify-center rounded-full bg-black/40 text-white/90 backdrop-blur-md active:cursor-grabbing active:bg-black/60"
+        class="drag-handle absolute left-13 top-3.5 flex h-7 w-7 cursor-grab items-center justify-center rounded-full bg-black/45 text-white/90 backdrop-blur-md active:cursor-grabbing active:bg-black/65"
         :title="'Hold to reorder'"
         @click.stop
       >
-        <Icon name="lucide:grip-horizontal" class="h-3.5 w-3.5" />
+        <Icon name="lucide:grip-vertical" class="h-3.5 w-3.5" />
       </button>
 
-      <!-- Type pill (top-right) — uses Tailwind primitives so dark-mode CSS var swap doesn't wreck contrast -->
+      <!-- Type pill (top-right)
+           Uses stone-* palette (not in the project's .dark CSS-var swap)
+           and dodges the global `.dark .bg-white { ... !important }` override,
+           so the pill stays near-white with dark text in BOTH themes. -->
       <span
-        class="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-stone-900 shadow-lg ring-1 ring-black/10"
+        class="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-stone-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-stone-900 shadow-lg ring-1 ring-black/10"
       >
         <span
           class="inline-block h-1.5 w-1.5 rounded-full"
