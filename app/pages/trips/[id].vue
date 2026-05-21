@@ -498,9 +498,7 @@ const tripAirports = computed<AirportMarker[]>(() => {
   const flights = sortedTripFlights.value as TripFlightRow[]
   const markers: AirportMarker[] = []
 
-  const arrival = flights.find(
-    (f) => firstDay && (f.arrivalDate ?? f.flightDate) === firstDay.date,
-  )
+  const arrival = flights.find((f) => firstDay && (f.arrivalDate ?? f.flightDate) === firstDay.date)
   if (
     arrival?.arrivalAirport &&
     arrival.arrivalAirportLat != null &&

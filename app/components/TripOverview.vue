@@ -274,11 +274,7 @@ function formatDayRange(dayNumbers: number[]): string {
     <!-- Mobile: stacked map -->
     <div class="h-[65vh] overflow-hidden rounded-2xl shadow-lg lg:hidden">
       <ClientOnly>
-        <TripOverviewMap
-          :days="sortedDays"
-          :selected-day-id="selectedDayId"
-          :airports="airports"
-        />
+        <TripOverviewMap :days="sortedDays" :selected-day-id="selectedDayId" :airports="airports" />
       </ClientOnly>
     </div>
 
@@ -290,10 +286,10 @@ function formatDayRange(dayNumbers: number[]): string {
       <div class="absolute inset-0">
         <ClientOnly>
           <TripOverviewMap
-          :days="sortedDays"
-          :selected-day-id="selectedDayId"
-          :airports="airports"
-        />
+            :days="sortedDays"
+            :selected-day-id="selectedDayId"
+            :airports="airports"
+          />
         </ClientOnly>
       </div>
 
