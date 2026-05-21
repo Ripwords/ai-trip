@@ -275,13 +275,13 @@ const imageFailed = reactive<Record<string, boolean>>({})
                     :href="mapsLinkFor(activity)"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="inline-flex items-center gap-1.5 truncate text-ocean-600 transition hover:text-terra-600"
-                    title="Open in Google Maps"
+                    class="inline-flex min-w-0 max-w-full items-center gap-1.5 text-ocean-600 transition hover:text-terra-600"
+                    :title="activity.address"
                     @click.stop
                   >
                     <Icon name="lucide:map-pin" class="h-3.5 w-3.5 shrink-0" />
                     <span
-                      class="truncate underline decoration-ocean-300 underline-offset-2 hover:decoration-terra-400"
+                      class="min-w-0 truncate underline decoration-ocean-300 underline-offset-2 hover:decoration-terra-400"
                       >{{ activity.address }}</span
                     >
                     <Icon name="lucide:external-link" class="h-3 w-3 shrink-0 opacity-50" />
