@@ -388,7 +388,10 @@ async function handleFillGaps(
   activities: AIActivity[]
   timeUpdates: { name: string; suggestedTime: string; estimatedDurationMinutes: number }[]
 }> {
-  logger.info("[fill] Filling gaps for day", { day: params.dayNumber, currency: params.currencyCode })
+  logger.info("[fill] Filling gaps for day", {
+    day: params.dayNumber,
+    currency: params.currencyCode,
+  })
 
   const existingNames = params.existingActivities.map((a) => a.name.toLowerCase().trim())
 

@@ -74,9 +74,7 @@ export default defineEventHandler(async (event) => {
         .set({
           costEstimate: sql`ROUND(${activities.costEstimate}::numeric * ${rate}::numeric, 2)`,
         })
-        .where(
-          and(inArray(activities.itineraryDayId, dayIds), isNotNull(activities.costEstimate)),
-        )
+        .where(and(inArray(activities.itineraryDayId, dayIds), isNotNull(activities.costEstimate)))
 
       await tx
         .update(activities)
