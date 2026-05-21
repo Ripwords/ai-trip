@@ -204,7 +204,7 @@ const imageFailed = reactive<Record<string, boolean>>({})
       <!-- Day content -->
       <div v-if="activeDay" class="mt-6 flex flex-col gap-6 lg:flex-row">
         <!-- Left: accommodation + activity list -->
-        <div class="flex-1 space-y-3">
+        <div class="min-w-0 flex-1 space-y-3">
           <div
             v-if="activeDay.accommodationName"
             class="rounded-2xl border border-ocean-200 bg-ocean-50 p-4"
