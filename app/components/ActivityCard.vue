@@ -198,6 +198,21 @@ function getBadgeClass(type: string): string {
   return typeBadgeClasses[type] || "bg-sand-100 text-sand-700"
 }
 
+const typeDotClasses: Record<string, string> = {
+  attraction: "bg-ocean-500",
+  restaurant: "bg-terra-500",
+  hotel: "bg-ocean-500",
+  transport: "bg-sand-500",
+  shopping: "bg-terra-400",
+  entertainment: "bg-forest-500",
+  park: "bg-forest-500",
+  nature: "bg-forest-500",
+}
+
+function getDotClass(type: string): string {
+  return typeDotClasses[type] || "bg-sand-500"
+}
+
 function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes}min`
   const h = Math.floor(minutes / 60)
@@ -217,7 +232,7 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
 <template>
   <div
     ref="cardRef"
-    class="group rounded-2xl border bg-white p-5 transition cursor-pointer hover:shadow-md"
+    class="group relative overflow-hidden rounded-2xl border bg-white transition cursor-pointer hover:shadow-md"
     :class="
       highlighted
         ? 'border-terra-500 bg-terra-50 shadow-md'
@@ -225,109 +240,213 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
     "
     @click="emit('click', activity)"
   >
-    <div class="flex items-start justify-between gap-3">
-      <div class="flex items-start gap-3 min-w-0">
-        <span
-          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-terra-500 text-xs font-bold text-white"
-        >
-          {{ index + 1 }}
-        </span>
-        <div
-          class="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-sand-100 text-sand-300"
-        >
-          <img
-            v-if="thumbnailUrl"
-            :src="thumbnailUrl"
-            :alt="activity.name"
-            class="h-full w-full object-cover"
-            loading="lazy"
-            @error="imageFailed = true"
+    <!-- ─────────────────────────── MOBILE HERO ─────────────────────────── -->
+    <div class="relative sm:hidden">
+      <div class="aspect-[16/10] w-full overflow-hidden bg-sand-100">
+        <img
+          v-if="thumbnailUrl"
+          :src="thumbnailUrl"
+          :alt="activity.name"
+          class="h-full w-full object-cover transition duration-500 group-active:scale-105"
+          loading="lazy"
+          @error="imageFailed = true"
+        />
+        <div v-else class="flex h-full w-full items-center justify-center text-sand-300">
+          <Icon
+            :name="detailsLoading ? 'lucide:loader' : 'lucide:image'"
+            class="h-10 w-10"
+            :class="{ 'animate-spin': detailsLoading }"
           />
-          <Icon v-else-if="detailsLoading" name="lucide:loader" class="h-5 w-5 animate-spin" />
-          <Icon v-else name="lucide:image" class="h-5 w-5" />
-        </div>
-        <div class="min-w-0">
-          <h4 class="text-base font-semibold text-sand-900 truncate">
-            {{ activity.name }}
-          </h4>
-          <div class="mt-1 flex flex-wrap items-center gap-2">
-            <span
-              class="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium"
-              :class="getBadgeClass(activity.type)"
-            >
-              {{ formatType(activity.type) }}
-            </span>
-            <span
-              v-if="activity.suggestedTime"
-              class="inline-flex items-center gap-1 rounded-full bg-terra-50 px-2.5 py-0.5 text-xs font-semibold text-terra-700"
-            >
-              <Icon name="lucide:clock" class="h-3 w-3" />
-              {{ formatTime12h(activity.suggestedTime) }}
-            </span>
-            <span v-if="activity.estimatedDurationMinutes" class="text-sm text-sand-500">
-              {{ formatDuration(activity.estimatedDurationMinutes) }}
-            </span>
-          </div>
         </div>
       </div>
 
+      <!-- Legibility gradient -->
       <div
-        v-if="!readonly"
-        class="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100 transition"
-      >
-        <button
-          class="rounded-lg p-1.5 text-sand-400 hover:bg-terra-50 hover:text-terra-600"
-          title="Edit"
-          @click.stop="emit('edit', activity)"
-        >
-          <Icon name="lucide:edit" class="h-4 w-4" />
-        </button>
-        <button
-          class="rounded-lg p-1.5 text-sand-400 hover:bg-red-50 hover:text-red-600"
-          title="Delete"
-          @click.stop="emit('delete', activity)"
-        >
-          <Icon name="lucide:trash-2" class="h-4 w-4" />
-        </button>
-      </div>
-    </div>
+        class="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/65 via-black/20 to-transparent"
+      ></div>
+      <div
+        class="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/35 to-transparent"
+      ></div>
 
-    <p v-if="activity.description" class="mt-2 text-sm leading-relaxed text-sand-600 line-clamp-2">
-      {{ activity.description }}
-    </p>
-
-    <div v-if="activity.tags?.length" class="mt-2 flex flex-wrap gap-1">
+      <!-- Number badge (top-left) -->
       <span
-        v-for="tag in activity.tags.slice(0, 4)"
-        :key="tag"
-        class="rounded-full bg-sand-100 px-2 py-0.5 text-[10px] text-sand-500"
+        class="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-terra-500 text-sm font-bold text-white shadow-md ring-2 ring-white/90"
       >
-        {{ tag }}
+        {{ index + 1 }}
       </span>
-    </div>
 
-    <div class="mt-3 flex flex-wrap items-center gap-3 text-sm text-sand-500">
-      <a
-        :href="getGoogleMapsUrl(activity)"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="inline-flex items-center gap-1.5 truncate text-ocean-600 transition hover:text-terra-600"
-        title="Open in Google Maps"
+      <!-- Mobile drag handle — long-press to reorder -->
+      <button
+        v-if="!readonly"
+        class="drag-handle absolute left-1/2 top-2 flex h-6 w-10 -translate-x-1/2 cursor-grab items-center justify-center rounded-full bg-black/40 text-white/90 backdrop-blur-md active:cursor-grabbing active:bg-black/60"
+        :title="'Hold to reorder'"
         @click.stop
       >
-        <Icon name="lucide:map-pin" class="h-3.5 w-3.5 shrink-0" />
+        <Icon name="lucide:grip-horizontal" class="h-3.5 w-3.5" />
+      </button>
+
+      <!-- Type pill (top-right) — uses Tailwind primitives so dark-mode CSS var swap doesn't wreck contrast -->
+      <span
+        class="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-stone-900 shadow-lg ring-1 ring-black/10"
+      >
         <span
-          v-if="activity.address"
-          class="truncate underline decoration-ocean-300 underline-offset-2 hover:decoration-terra-400"
-          >{{ activity.address }}</span
-        >
+          class="inline-block h-1.5 w-1.5 rounded-full"
+          :class="getDotClass(activity.type)"
+        ></span>
+        {{ formatType(activity.type) }}
+      </span>
+
+      <!-- Time + duration overlay (bottom) -->
+      <div class="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
         <span
-          v-else
-          class="truncate underline decoration-ocean-300 underline-offset-2 hover:decoration-terra-400"
-          >View on map</span
+          v-if="activity.suggestedTime"
+          class="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-terra-700 shadow-sm backdrop-blur"
         >
-        <Icon name="lucide:external-link" class="h-3 w-3 shrink-0 opacity-50" />
-      </a>
+          <Icon name="lucide:clock" class="h-3 w-3" />
+          {{ formatTime12h(activity.suggestedTime) }}
+        </span>
+        <span
+          v-if="activity.estimatedDurationMinutes"
+          class="inline-flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur"
+        >
+          <Icon name="lucide:hourglass" class="h-3 w-3" />
+          {{ formatDuration(activity.estimatedDurationMinutes) }}
+        </span>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────── CONTENT ─────────────────────────── -->
+    <div class="p-4 sm:p-5">
+      <!-- Desktop header (≥sm) -->
+      <div class="hidden sm:flex sm:items-start sm:justify-between sm:gap-3">
+        <div class="flex items-start gap-3 min-w-0">
+          <span
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-terra-500 text-xs font-bold text-white"
+          >
+            {{ index + 1 }}
+          </span>
+          <div
+            class="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-sand-100 text-sand-300"
+          >
+            <img
+              v-if="thumbnailUrl"
+              :src="thumbnailUrl"
+              :alt="activity.name"
+              class="h-full w-full object-cover"
+              loading="lazy"
+              @error="imageFailed = true"
+            />
+            <Icon v-else-if="detailsLoading" name="lucide:loader" class="h-5 w-5 animate-spin" />
+            <Icon v-else name="lucide:image" class="h-5 w-5" />
+          </div>
+          <div class="min-w-0">
+            <h4 class="text-base font-semibold text-sand-900 truncate">
+              {{ activity.name }}
+            </h4>
+            <div class="mt-1 flex flex-wrap items-center gap-2">
+              <span
+                class="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium"
+                :class="getBadgeClass(activity.type)"
+              >
+                {{ formatType(activity.type) }}
+              </span>
+              <span
+                v-if="activity.suggestedTime"
+                class="inline-flex items-center gap-1 rounded-full bg-terra-50 px-2.5 py-0.5 text-xs font-semibold text-terra-700"
+              >
+                <Icon name="lucide:clock" class="h-3 w-3" />
+                {{ formatTime12h(activity.suggestedTime) }}
+              </span>
+              <span v-if="activity.estimatedDurationMinutes" class="text-sm text-sand-500">
+                {{ formatDuration(activity.estimatedDurationMinutes) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="!readonly"
+          class="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100 transition"
+        >
+          <button
+            class="rounded-lg p-1.5 text-sand-400 hover:bg-terra-50 hover:text-terra-600"
+            title="Edit"
+            @click.stop="emit('edit', activity)"
+          >
+            <Icon name="lucide:edit" class="h-4 w-4" />
+          </button>
+          <button
+            class="rounded-lg p-1.5 text-sand-400 hover:bg-red-50 hover:text-red-600"
+            title="Delete"
+            @click.stop="emit('delete', activity)"
+          >
+            <Icon name="lucide:trash-2" class="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <!-- Mobile title row (<sm) -->
+      <div class="flex items-start justify-between gap-2 sm:hidden">
+        <h4 class="text-[17px] font-bold leading-tight text-sand-900">
+          {{ activity.name }}
+        </h4>
+        <div v-if="!readonly" class="-mr-1.5 -mt-1.5 flex shrink-0 gap-0.5">
+          <button
+            class="rounded-lg p-1.5 text-sand-400 active:bg-terra-50 active:text-terra-600"
+            title="Edit"
+            @click.stop="emit('edit', activity)"
+          >
+            <Icon name="lucide:edit" class="h-4 w-4" />
+          </button>
+          <button
+            class="rounded-lg p-1.5 text-sand-400 active:bg-red-50 active:text-red-600"
+            title="Delete"
+            @click.stop="emit('delete', activity)"
+          >
+            <Icon name="lucide:trash-2" class="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <p
+        v-if="activity.description"
+        class="mt-2 text-sm leading-relaxed text-sand-600 line-clamp-2"
+      >
+        {{ activity.description }}
+      </p>
+
+      <div v-if="activity.tags?.length" class="mt-2 flex flex-wrap gap-1">
+        <span
+          v-for="tag in activity.tags.slice(0, 4)"
+          :key="tag"
+          class="rounded-full bg-sand-100 px-2 py-0.5 text-[10px] text-sand-500"
+        >
+          {{ tag }}
+        </span>
+      </div>
+
+      <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-sand-500">
+        <a
+          :href="getGoogleMapsUrl(activity)"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex min-w-0 max-w-full items-center gap-1.5 text-ocean-600 transition hover:text-terra-600"
+          title="Open in Google Maps"
+          @click.stop
+        >
+          <Icon name="lucide:map-pin" class="h-3.5 w-3.5 shrink-0" />
+          <span
+            v-if="activity.address"
+            class="min-w-0 truncate underline decoration-ocean-300 underline-offset-2 hover:decoration-terra-400"
+            >{{ activity.address }}</span
+          >
+          <span
+            v-else
+            class="truncate underline decoration-ocean-300 underline-offset-2 hover:decoration-terra-400"
+            >View on map</span
+          >
+          <Icon name="lucide:external-link" class="h-3 w-3 shrink-0 opacity-50" />
+        </a>
       <span v-if="activity.costEstimate" class="flex items-center gap-1">
         <Icon name="lucide:dollar-sign" class="h-3.5 w-3.5" />
         {{ parseFloat(activity.costEstimate).toFixed(0) }}
@@ -443,6 +562,7 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
         <span v-if="commentCount">{{ commentCount }}</span>
         <span v-else>Comment</span>
       </button>
+    </div>
     </div>
   </div>
 </template>

@@ -1,7 +1,7 @@
 import { db } from "../../db"
 import { flights } from "../../db/schema"
 import { createFlightSchema } from "../../utils/schemas"
-import { lookupFlight } from "../../lib/flight-api"
+import { lookupFlight, FLIGHT_LOOKUP_SCHEMA_VERSION } from "../../lib/flight-api"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -32,6 +32,7 @@ export default defineEventHandler(async (event) => {
       status: flightData?.status ?? "scheduled",
       rawApiResponse: flightData?.rawApiResponse ?? null,
       apiLastFetchedAt: flightData ? new Date() : null,
+      lookupSchemaVersion: FLIGHT_LOOKUP_SCHEMA_VERSION,
     })
     .returning()
 

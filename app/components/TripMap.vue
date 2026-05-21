@@ -15,6 +15,14 @@ interface Accommodation {
   lng: number | null
 }
 
+interface AirportMarker {
+  code: string
+  name: string | null
+  lat: number
+  lng: number
+  variant: "arrival" | "departure"
+}
+
 const props = defineProps<{
   activities: Activity[]
   showRoute?: boolean
@@ -22,6 +30,8 @@ const props = defineProps<{
   startAccommodation?: Accommodation | null
   // Where the day ends — tonight's accommodation
   endAccommodation?: Accommodation | null
+  // Airport pins to render on the first/last day of the trip
+  airports?: AirportMarker[]
 }>()
 
 const emit = defineEmits<{
@@ -37,6 +47,7 @@ const mapMode = ref<MapMode>("light")
 let map: google.maps.Map | null = null
 let markers: google.maps.marker.AdvancedMarkerElement[] = []
 let accommodationMarkers: google.maps.marker.AdvancedMarkerElement[] = []
+let airportMarkers: google.maps.marker.AdvancedMarkerElement[] = []
 let polylines: google.maps.Polyline[] = []
 let MapClass: typeof google.maps.Map
 let MarkerClass: typeof google.maps.marker.AdvancedMarkerElement
@@ -187,6 +198,54 @@ function createAccommodationMarkerContent(variant: "previous" | "current"): HTML
   return div
 }
 
+function createAirportMarkerContent(airport: AirportMarker): HTMLElement {
+  const wrap = document.createElement("div")
+  const isArrival = airport.variant === "arrival"
+  // Arrival = teal (lands here), Departure = amber (leaves here)
+  const color = isArrival ? "#0EA5E9" : "#F59E0B"
+  // Rotate landing icon downward, takeoff icon upward
+  const rotation = isArrival ? "rotate(-45deg)" : "rotate(45deg)"
+  wrap.style.cssText = `
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    transform: translateY(-10px);
+  `
+  wrap.innerHTML = `
+    <div style="
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: ${color};
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    ">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+        stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+        style="transform: ${rotation};">
+        <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
+      </svg>
+    </div>
+    <span style="
+      font-size: 10px;
+      font-weight: 700;
+      color: ${color};
+      background: white;
+      padding: 1px 5px;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+      white-space: nowrap;
+    ">${airport.code}</span>
+  `
+  return wrap
+}
+
 function sameAccommodation(
   a: Accommodation | null | undefined,
   b: Accommodation | null | undefined,
@@ -209,6 +268,8 @@ function updateMarkers(AdvancedMarkerElement?: typeof google.maps.marker.Advance
   markers = []
   accommodationMarkers.forEach((m) => (m.map = null))
   accommodationMarkers = []
+  airportMarkers.forEach((m) => (m.map = null))
+  airportMarkers = []
 
   // props.activities is already sorted by sortOrder from the API
   // Use array index for marker numbering to match v-for index in DaySection
@@ -273,7 +334,24 @@ function updateMarkers(AdvancedMarkerElement?: typeof google.maps.marker.Advance
     )
   }
 
-  const totalPoints = geoActivities.length + accommodationMarkers.length
+  // Airport markers: arrival on first day, departure on last day.
+  for (const airport of props.airports ?? []) {
+    const pos = { lat: airport.lat, lng: airport.lng }
+    bounds.extend(pos)
+    const action = airport.variant === "arrival" ? "Arriving at" : "Departing from"
+    airportMarkers.push(
+      new MClass({
+        map,
+        position: pos,
+        content: createAirportMarkerContent(airport),
+        title: airport.name
+          ? `${action} ${airport.name} (${airport.code})`
+          : `${action} ${airport.code}`,
+      }),
+    )
+  }
+
+  const totalPoints = geoActivities.length + accommodationMarkers.length + airportMarkers.length
   if (totalPoints === 0) {
     map.setCenter({ lat: 0, lng: 0 })
     map.setZoom(2)
@@ -338,7 +416,12 @@ function centerOnActivity(activity: Activity) {
 }
 
 watch(
-  [() => props.activities, () => props.startAccommodation, () => props.endAccommodation],
+  [
+    () => props.activities,
+    () => props.startAccommodation,
+    () => props.endAccommodation,
+    () => props.airports,
+  ],
   () => {
     if (isLoaded.value && map) {
       updateMarkers()

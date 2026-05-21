@@ -435,6 +435,106 @@ const activeDayMapsUrl = computed(() =>
   ),
 )
 
+interface TripFlightRow {
+  flightNumber: string
+  flightDate: string
+  departureAirport: string | null
+  arrivalAirport: string | null
+  departureTime: string | null
+  arrivalTime: string | null
+  departureDate: string | null
+  arrivalDate: string | null
+  departureAirportLat: number | null
+  departureAirportLng: number | null
+  arrivalAirportLat: number | null
+  arrivalAirportLng: number | null
+  departureAirportName: string | null
+  arrivalAirportName: string | null
+}
+
+const activeDayArrivalFlight = computed(() => {
+  const day = activeDay.value
+  if (!day || sortedDays.value[0]?.id !== day.id) return null
+  const flights = sortedTripFlights.value as TripFlightRow[]
+  // Match by the day the flight LANDS (red-eye that departs the night before still
+  // arrives on the trip's first day). Fall back to flightDate for rows without raw data.
+  const match = flights.find((f) => (f.arrivalDate ?? f.flightDate) === day.date)
+  if (!match) return null
+  return {
+    flightNumber: match.flightNumber,
+    time: match.arrivalTime,
+    airport: match.arrivalAirport,
+  }
+})
+
+const activeDayDepartureFlight = computed(() => {
+  const day = activeDay.value
+  if (!day) return null
+  const lastDay = sortedDays.value[sortedDays.value.length - 1]
+  if (lastDay?.id !== day.id) return null
+  const flights = sortedTripFlights.value as TripFlightRow[]
+  const match = flights.find((f) => (f.departureDate ?? f.flightDate) === day.date)
+  if (!match) return null
+  return {
+    flightNumber: match.flightNumber,
+    time: match.departureTime,
+    airport: match.departureAirport,
+  }
+})
+
+interface AirportMarker {
+  code: string
+  name: string | null
+  lat: number
+  lng: number
+  variant: "arrival" | "departure"
+}
+
+const activeDayAirports = computed<AirportMarker[]>(() => {
+  const day = activeDay.value
+  if (!day) return []
+  const flights = sortedTripFlights.value as TripFlightRow[]
+  const markers: AirportMarker[] = []
+  const isFirstDay = sortedDays.value[0]?.id === day.id
+  const isLastDay = sortedDays.value[sortedDays.value.length - 1]?.id === day.id
+
+  if (isFirstDay) {
+    const arrival = flights.find((f) => (f.arrivalDate ?? f.flightDate) === day.date)
+    if (
+      arrival?.arrivalAirport &&
+      arrival.arrivalAirportLat != null &&
+      arrival.arrivalAirportLng != null
+    ) {
+      markers.push({
+        code: arrival.arrivalAirport,
+        name: arrival.arrivalAirportName,
+        lat: arrival.arrivalAirportLat,
+        lng: arrival.arrivalAirportLng,
+        variant: "arrival",
+      })
+    }
+  }
+
+  if (isLastDay) {
+    const departure = flights.find((f) => (f.departureDate ?? f.flightDate) === day.date)
+    if (
+      departure?.departureAirport &&
+      departure.departureAirportLat != null &&
+      departure.departureAirportLng != null
+    ) {
+      markers.push({
+        code: departure.departureAirport,
+        name: departure.departureAirportName,
+        lat: departure.departureAirportLat,
+        lng: departure.departureAirportLng,
+        variant: "departure",
+      })
+    }
+  }
+
+  return markers
+})
+
 async function handleTransportModeChange(mode: TransportMode) {
   if (mode === activeTransportMode.value || transportUpdating.value) return
   transportUpdating.value = true
@@ -1248,7 +1348,7 @@ async function recomputeSegments(dayId: string) {
           <div class="flex flex-col gap-6 lg:flex-row">
             <!-- Left: Ideas + Accommodation + Activities -->
             <div
-              class="flex-1 space-y-6 pb-24 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-4 lg:pb-6"
+              class="flex-1 space-y-4 pb-24 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-4 lg:pb-6"
             >
               <!-- Ideas bucket (hidden for viewers) -->
               <IdeasBucket
@@ -1271,6 +1371,9 @@ async function recomputeSegments(dayId: string) {
                 :accommodation-address="activeDay.accommodationAddress"
                 :accommodation-lat="activeDay.accommodationLat"
                 :accommodation-lng="activeDay.accommodationLng"
+                :previous-stay-name="activeDayStartLocation?.name ?? null"
+                :arrival-flight="activeDayArrivalFlight"
+                :departure-flight="activeDayDepartureFlight"
                 :days="
                   sortedDays.map((d) => ({
                     id: d.id,
@@ -1290,7 +1393,6 @@ async function recomputeSegments(dayId: string) {
                 :highlighted-activity-id="highlightedActivityId"
                 :travel-segments="activeDay.travelSegments"
                 :travel-mode="activeTransportMode"
-                :start-location="activeDayStartLocation"
                 :readonly="isViewer"
                 :participants-map="participantsMap ?? undefined"
                 :members="tripMembers?.filter((m) => m.status === 'active')"
@@ -1314,6 +1416,7 @@ async function recomputeSegments(dayId: string) {
                   :activities="activeDayActivities"
                   :start-accommodation="activeDayStartLocation"
                   :end-accommodation="activeDayEndAccommodation"
+                  :airports="activeDayAirports"
                   @marker-click="handleMarkerClick"
                 />
               </div>

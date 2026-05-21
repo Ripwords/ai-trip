@@ -44,23 +44,29 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex items-end gap-x-4 gap-y-1 border-b border-sand-200 sm:gap-x-6">
-    <button
-      v-for="tab in primaryTabs"
-      :key="tab.value"
-      type="button"
-      class="relative shrink-0 py-2.5 text-sm transition"
-      :class="
-        modelValue === tab.value ? 'font-medium text-sand-900' : 'text-sand-500 hover:text-sand-800'
-      "
-      @click="pick(tab.value)"
-    >
-      {{ tab.label }}
-      <span
-        v-if="modelValue === tab.value"
-        class="absolute -bottom-px left-0 right-0 h-0.5 rounded-full bg-terra-500"
-      />
-    </button>
+  <div class="flex items-end gap-x-4 border-b border-sand-200 sm:gap-x-6">
+    <div class="min-w-0 flex-1 overflow-x-auto scrollbar-hide">
+      <div class="flex items-end gap-x-4 pb-px sm:gap-x-6">
+        <button
+          v-for="tab in primaryTabs"
+          :key="tab.value"
+          type="button"
+          class="relative shrink-0 py-2.5 text-sm transition"
+          :class="
+            modelValue === tab.value
+              ? 'font-medium text-sand-900'
+              : 'text-sand-500 hover:text-sand-800'
+          "
+          @click="pick(tab.value)"
+        >
+          {{ tab.label }}
+          <span
+            v-if="modelValue === tab.value"
+            class="absolute -bottom-px left-0 right-0 h-0.5 rounded-full bg-terra-500"
+          />
+        </button>
+      </div>
+    </div>
 
     <div data-tabs-more class="relative shrink-0">
       <button

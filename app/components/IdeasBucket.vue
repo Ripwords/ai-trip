@@ -26,8 +26,6 @@ const emit = defineEmits<{
   refresh: []
 }>()
 
-const expanded = ref(true)
-
 async function handlePlaceSelect(place: {
   name: string
   placeId: string
@@ -118,43 +116,25 @@ const activeDayLabel = computed(() => {
 </script>
 
 <template>
-  <div class="rounded-2xl border border-sand-200 bg-sand-50">
-    <button
-      class="flex w-full items-center justify-between px-4 py-3"
-      @click="expanded = !expanded"
-    >
-      <div class="flex items-center gap-2">
-        <Icon name="lucide:search" class="h-4 w-4 text-terra-500" />
-        <span class="text-sm font-semibold text-sand-900">Add Places</span>
-      </div>
-      <Icon
-        name="lucide:chevron-down"
-        class="h-4 w-4 text-sand-400 transition-transform duration-200"
-        :class="{ 'rotate-180': expanded }"
-      />
-    </button>
+  <div class="space-y-3">
+    <PlaceSearchInput
+      :placeholder="`Search to add to ${activeDayLabel}...`"
+      @select="handlePlaceSelect"
+    />
 
-    <div v-if="expanded" class="border-t border-sand-200 px-4 py-3 space-y-3">
-      <PlaceSearchInput
-        :placeholder="`Search to add to ${activeDayLabel}...`"
-        @select="handlePlaceSelect"
-      />
-
-      <!-- Ideas section -->
-      <div v-if="ideas.length" class="space-y-2">
-        <div class="flex items-center gap-2 pt-1">
-          <Icon name="lucide:lightbulb" class="h-3.5 w-3.5 text-terra-400" />
-          <span class="text-xs font-medium text-sand-500"> Saved ideas ({{ ideas.length }}) </span>
-        </div>
-        <IdeaCard
-          v-for="idea in ideas"
-          :key="idea.id"
-          :idea="idea"
-          :days="days"
-          @delete="handleDelete"
-          @promote="handlePromote"
-        />
+    <div v-if="ideas.length" class="space-y-2">
+      <div class="flex items-center gap-1.5 px-1">
+        <Icon name="lucide:lightbulb" class="h-3.5 w-3.5 text-terra-400" />
+        <span class="text-xs font-medium text-sand-500">Saved ideas ({{ ideas.length }})</span>
       </div>
+      <IdeaCard
+        v-for="idea in ideas"
+        :key="idea.id"
+        :idea="idea"
+        :days="days"
+        @delete="handleDelete"
+        @promote="handlePromote"
+      />
     </div>
   </div>
 </template>

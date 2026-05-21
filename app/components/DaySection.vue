@@ -30,13 +30,6 @@ interface TravelSegment {
   mode?: "driving" | "walking" | "transit" | "bicycling" | null
 }
 
-interface StartLocation {
-  name: string
-  address: string | null
-  lat: number | null
-  lng: number | null
-}
-
 interface Day {
   id: string
   dayNumber: number
@@ -62,7 +55,6 @@ const props = defineProps<{
   highlightedActivityId?: string | null
   travelSegments?: TravelSegment[]
   travelMode?: "driving" | "walking" | "transit" | "bicycling"
-  startLocation?: StartLocation | null
   readonly?: boolean
   participantsMap?: Record<string, Participant[]>
   members?: Member[]
@@ -151,20 +143,6 @@ function timeToMinutes(time: string): number | null {
 
 <template>
   <div>
-    <div
-      v-if="startLocation"
-      class="mb-3 flex items-start gap-2 rounded-xl border border-ocean-100 bg-ocean-50 px-3 py-2 text-sm text-sand-600"
-    >
-      <Icon name="lucide:bed-double" class="mt-0.5 h-4 w-4 shrink-0 text-ocean-600" />
-      <div class="min-w-0">
-        <span class="font-medium text-sand-800">Starts from previous stay:</span>
-        <span class="ml-1">{{ startLocation.name }}</span>
-        <p v-if="startLocation.address" class="truncate text-xs text-sand-500">
-          {{ startLocation.address }}
-        </p>
-      </div>
-    </div>
-
     <div v-if="!readonly" class="mb-3">
       <textarea
         :value="day.notes ?? ''"
@@ -178,7 +156,7 @@ function timeToMinutes(time: string): number | null {
       {{ day.notes }}
     </p>
 
-    <div v-if="day.activities.length" class="pl-5 border-l-2 border-terra-200">
+    <div v-if="day.activities.length" class="pl-3 sm:pl-5 border-l-2 border-terra-200">
       <draggable
         v-model="localActivities"
         item-key="id"
@@ -189,6 +167,9 @@ function timeToMinutes(time: string): number | null {
         :force-fallback="true"
         :scroll-sensitivity="200"
         :scroll-speed="15"
+        :delay="200"
+        :delay-on-touch-only="true"
+        :touch-start-threshold="5"
         class="space-y-3"
         @start="isDragging = true"
         @end="handleDragEnd"
@@ -205,10 +186,10 @@ function timeToMinutes(time: string): number | null {
             </div>
 
             <div :id="`activity-${activity.id}`" class="flex gap-1">
-              <!-- Drag handle -->
+              <!-- Drag handle (desktop only; touch users reorder via long-press on card) -->
               <div
                 v-if="!readonly"
-                class="drag-handle flex shrink-0 cursor-grab items-center px-0.5 text-sand-300 active:cursor-grabbing"
+                class="drag-handle hidden sm:flex shrink-0 cursor-grab items-center px-0.5 text-sand-300 active:cursor-grabbing"
               >
                 <Icon name="lucide:grip-vertical" class="h-4 w-4" />
               </div>

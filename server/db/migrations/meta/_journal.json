@@ -183,6 +183,13 @@
       "when": 1776210019504,
       "tag": "0025_serious_kree",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1779323506911,
+      "tag": "0026_unknown_vampiro",
+      "breakpoints": true
     }
   ]
 }

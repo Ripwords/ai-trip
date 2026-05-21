@@ -7,6 +7,7 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  integer,
 } from "drizzle-orm/pg-core"
 import { relations } from "drizzle-orm"
 import { user } from "./auth-schema"
@@ -32,6 +33,10 @@ export const flights = pgTable(
     status: text("status").notNull().default("scheduled"),
     rawApiResponse: jsonb("raw_api_response"),
     apiLastFetchedAt: timestamp("api_last_fetched_at", { withTimezone: true }),
+    // Bumped whenever lookupFlight()'s query semantics change in a way that may yield
+    // a different response for the same (flightNumber, flightDate). Rows older than the
+    // current version are opportunistically re-fetched on next read.
+    lookupSchemaVersion: integer("lookup_schema_version").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

@@ -1,0 +1,1 @@
+ALTER TABLE "flights" ADD COLUMN "lookup_schema_version" integer DEFAULT 0 NOT NULL;

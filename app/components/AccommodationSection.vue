@@ -8,6 +8,12 @@ interface DaySummary {
   accommodationName: string | null
 }
 
+interface FlightInfo {
+  flightNumber: string
+  time: string | null
+  airport: string | null
+}
+
 const props = defineProps<{
   tripId: string
   dayId: string
@@ -16,6 +22,9 @@ const props = defineProps<{
   accommodationLat: number | null
   accommodationLng: number | null
   days: DaySummary[]
+  previousStayName?: string | null
+  arrivalFlight?: FlightInfo | null
+  departureFlight?: FlightInfo | null
 }>()
 
 const emit = defineEmits<{
@@ -170,6 +179,44 @@ defineExpose({
           Set accommodation
         </button>
       </div>
+      <p v-if="previousStayName" class="mt-2 pl-6 text-xs text-sand-400">
+        <Icon name="lucide:corner-down-right" class="mr-1 inline h-3 w-3 align-[-2px]" />
+        From last night: <span class="text-sand-500">{{ previousStayName }}</span>
+      </p>
+      <p v-if="arrivalFlight" class="mt-1.5 pl-6 text-xs text-sand-400">
+        <Icon name="lucide:plane-landing" class="mr-1 inline h-3 w-3 align-[-2px]" />
+        Arriving on
+        <span class="font-medium text-sand-600">{{ arrivalFlight.flightNumber }}</span>
+        <template v-if="arrivalFlight.time">
+          at
+          <NuxtTime
+            :datetime="arrivalFlight.time"
+            locale="en-US"
+            hour="2-digit"
+            minute="2-digit"
+            hour12="false"
+            class="tabular-nums"
+          />
+        </template>
+        <template v-if="arrivalFlight.airport"> · {{ arrivalFlight.airport }}</template>
+      </p>
+      <p v-if="departureFlight" class="mt-1.5 pl-6 text-xs text-sand-400">
+        <Icon name="lucide:plane-takeoff" class="mr-1 inline h-3 w-3 align-[-2px]" />
+        Departing on
+        <span class="font-medium text-sand-600">{{ departureFlight.flightNumber }}</span>
+        <template v-if="departureFlight.time">
+          at
+          <NuxtTime
+            :datetime="departureFlight.time"
+            locale="en-US"
+            hour="2-digit"
+            minute="2-digit"
+            hour12="false"
+            class="tabular-nums"
+          />
+        </template>
+        <template v-if="departureFlight.airport"> · {{ departureFlight.airport }}</template>
+      </p>
     </div>
 
     <!-- Inline search / nights selection -->
@@ -285,6 +332,47 @@ defineExpose({
           </button>
         </div>
       </div>
+      <p
+        v-if="previousStayName && previousStayName !== accommodationName"
+        class="mt-2 pl-11 text-xs text-sand-500"
+      >
+        <Icon name="lucide:corner-down-right" class="mr-1 inline h-3 w-3 align-[-2px]" />
+        From last night: <span class="text-sand-600">{{ previousStayName }}</span>
+      </p>
+      <p v-if="arrivalFlight" class="mt-1.5 pl-11 text-xs text-sand-500">
+        <Icon name="lucide:plane-landing" class="mr-1 inline h-3 w-3 align-[-2px]" />
+        Arriving on
+        <span class="font-medium text-sand-700">{{ arrivalFlight.flightNumber }}</span>
+        <template v-if="arrivalFlight.time">
+          at
+          <NuxtTime
+            :datetime="arrivalFlight.time"
+            locale="en-US"
+            hour="2-digit"
+            minute="2-digit"
+            hour12="false"
+            class="tabular-nums"
+          />
+        </template>
+        <template v-if="arrivalFlight.airport"> · {{ arrivalFlight.airport }}</template>
+      </p>
+      <p v-if="departureFlight" class="mt-1.5 pl-11 text-xs text-sand-500">
+        <Icon name="lucide:plane-takeoff" class="mr-1 inline h-3 w-3 align-[-2px]" />
+        Departing on
+        <span class="font-medium text-sand-700">{{ departureFlight.flightNumber }}</span>
+        <template v-if="departureFlight.time">
+          at
+          <NuxtTime
+            :datetime="departureFlight.time"
+            locale="en-US"
+            hour="2-digit"
+            minute="2-digit"
+            hour12="false"
+            class="tabular-nums"
+          />
+        </template>
+        <template v-if="departureFlight.airport"> · {{ departureFlight.airport }}</template>
+      </p>
     </div>
   </div>
 </template>
