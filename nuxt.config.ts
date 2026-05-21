@@ -268,6 +268,11 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    // Landing page is static marketing content — only changes on deploy.
+    // `isr: true` caches indefinitely at the edge and only revalidates when
+    // a new deploy ships. Authenticated visitors still get redirected to
+    // /dashboard by the client-side auth middleware after hydration.
+    "/": { isr: true },
     "/api/places/search": {
       security: {
         rateLimiter: { tokensPerInterval: 60, interval: 60000 },
