@@ -9,6 +9,7 @@ describe("createTripTools", () => {
       tripId: "55555555-5555-4555-8555-555555555555",
       dayId: "22222222-2222-4222-8222-222222222222",
       transportMode: "walking",
+      currencyCode: "USD",
     })
     const ids = Object.keys(tools).toSorted()
     assert.deepEqual(ids, [
@@ -30,6 +31,7 @@ describe("createDiscussTools", () => {
         tripId: "55555555-5555-4555-8555-555555555555",
         dayId: "22222222-2222-4222-8222-222222222222",
         transportMode: "walking",
+        currencyCode: "USD",
       },
       collector,
     )
@@ -56,6 +58,7 @@ describe("createDiscussTools", () => {
         tripId: "55555555-5555-4555-8555-555555555555",
         dayId: "22222222-2222-4222-8222-222222222222",
         transportMode: "walking",
+        currencyCode: "USD",
       },
       collector,
     )
@@ -86,6 +89,7 @@ describe("createDiscussTools", () => {
         tripId: "55555555-5555-4555-8555-555555555555",
         dayId: "22222222-2222-4222-8222-222222222222",
         transportMode: "walking",
+        currencyCode: "USD",
       },
       collector,
     )

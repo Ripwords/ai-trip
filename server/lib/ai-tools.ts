@@ -14,6 +14,7 @@ export interface TripToolsContext {
   tripId: string
   dayId: string
   transportMode: TransportMode
+  currencyCode: string
 }
 
 export function createTripTools(ctx: TripToolsContext) {
@@ -186,8 +187,7 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
 
   const proposeAddActivities = createTool({
     id: "proposeAddActivities",
-    description:
-      "Suggest adding one or more specific activities to a day. ONLY use when you have verified the place via search_places. Always include a clear summary and the day to add to.",
+    description: `Suggest adding one or more specific activities to a day. ONLY use when you have verified the place via search_places. Always include a clear summary and the day to add to. All costEstimate values MUST be expressed in the trip currency (${ctx.currencyCode}) — do NOT convert to USD.`,
     inputSchema: z.object({
       dayId: z.string().describe("Day uuid"),
       summary: z.string().min(1),
@@ -214,7 +214,12 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
             .int()
             .positive()
             .describe("Time spent AT the venue only; never includes travel time."),
-          costEstimate: z.number().min(0),
+          costEstimate: z
+            .number()
+            .min(0)
+            .describe(
+              `Cost per visit in ${ctx.currencyCode}. Use whole units for zero-decimal currencies (JPY/KRW/VND/IDR/TWD).`,
+            ),
           tags: z.array(z.string()),
           placeId: z.string().nullable().optional(),
           lat: z.number().nullable().optional(),

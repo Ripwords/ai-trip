@@ -119,6 +119,7 @@ export default defineEventHandler(async (event) => {
       transportMode,
       date: day.date,
       dayNumber: day.dayNumber,
+      currencyCode: trip.currencyCode || "USD",
       existingActivities: day.activities.map((a) => ({
         id: a.id,
         name: a.name,

@@ -196,13 +196,10 @@ async function deleteExpense(expenseId: string) {
   }
 }
 
+const { format: formatCurrencyRaw } = useCurrencyFormat(() => props.currencyCode)
+
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: props.currencyCode || "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount)
+  return formatCurrencyRaw(amount)
 }
 
 function getMemberName(userId: string | null): string {

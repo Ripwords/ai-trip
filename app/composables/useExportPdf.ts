@@ -71,13 +71,9 @@ export function useExportPdf() {
       })
     }
 
+    const { format: formatCurrencyRaw } = useCurrencyFormat(trip.currencyCode)
     function formatCurrency(amount: string): string {
-      return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: trip.currencyCode || "USD",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
-      }).format(parseFloat(amount))
+      return formatCurrencyRaw(amount)
     }
 
     function formatType(type: string): string {

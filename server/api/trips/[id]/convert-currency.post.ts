@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm"
+import { and, eq, inArray, isNotNull, sql } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../../../db"
-import { trips, activities, expenses } from "../../../db/schema"
+import { trips, activities, expenses, itineraryDays } from "../../../db/schema"
 import { uuidParamsSchema } from "../../../utils/schemas"
 
 const bodySchema = z.object({
@@ -20,70 +20,87 @@ export default defineEventHandler(async (event) => {
     return { converted: false, rate: 1 }
   }
 
-  // Fetch exchange rate
-  const rateResponse = await $fetch<{ rate: number }>(
-    `https://api.frankfurter.dev/v2/rate/${body.from}/${body.to}`,
-  )
-  const rate = rateResponse.rate
-
-  // Get all activities for this trip
-  const tripDays = await db.query.itineraryDays.findMany({
-    where: (d, { eq: e }) => e(d.tripId, id),
-    with: { activities: true },
-  })
-
-  // Convert activity costs
-  const activityUpdates: Promise<unknown>[] = []
-  for (const day of tripDays) {
-    for (const activity of day.activities) {
-      const updates: Record<string, string | null> = {}
-
-      if (activity.costEstimate) {
-        const converted = parseFloat(activity.costEstimate) * rate
-        updates.costEstimate = converted.toFixed(2)
-      }
-      if (activity.actualCost) {
-        const converted = parseFloat(activity.actualCost) * rate
-        updates.actualCost = converted.toFixed(2)
-      }
-
-      if (Object.keys(updates).length > 0) {
-        activityUpdates.push(
-          db.update(activities).set(updates).where(eq(activities.id, activity.id)),
-        )
-      }
+  // Fetch exchange rate BEFORE opening the transaction so a slow/failing
+  // upstream call doesn't hold a DB transaction open.
+  let rate: number
+  try {
+    const rateResponse = await $fetch<{ rate: number }>(
+      `https://api.frankfurter.dev/v2/rate/${body.from}/${body.to}`,
+    )
+    rate = rateResponse.rate
+    if (!Number.isFinite(rate) || rate <= 0) {
+      throw new Error(`Invalid exchange rate: ${rate}`)
     }
+  } catch (e) {
+    throw createError({
+      statusCode: 502,
+      message: "Could not fetch exchange rate. Please try again.",
+      cause: e,
+    })
   }
-  await Promise.all(activityUpdates)
 
-  // Convert expenses
-  const tripExpenses = await db.query.expenses.findMany({
-    where: (e, { eq: eqFn }) => eqFn(e.tripId, id),
-  })
+  // All mutations run in a single transaction so a mid-flight failure can't
+  // leave the trip in a half-converted state.
+  await db.transaction(async (tx) => {
+    // Lock the trip row and verify the client's `from` matches what's actually
+    // stored. Protects against concurrent conversions (collaborator A converts
+    // USD→EUR while B's stale client still thinks the trip is USD and submits
+    // USD→JPY — without this check, B would corrupt every cost on the trip).
+    const [current] = await tx
+      .select({ currencyCode: trips.currencyCode })
+      .from(trips)
+      .where(eq(trips.id, id))
+      .for("update")
+    if (!current) {
+      throw createError({ statusCode: 404, message: "Trip not found" })
+    }
+    if (current.currencyCode !== body.from) {
+      throw createError({
+        statusCode: 409,
+        message: `Trip currency is already ${current.currencyCode}, not ${body.from}. Refresh and try again.`,
+      })
+    }
 
-  const expenseUpdates = tripExpenses.map((expense) => {
-    const converted = parseFloat(expense.amount) * rate
-    return db
+    // Fetch day IDs once, reuse for both activity-column updates.
+    const dayRows = await tx
+      .select({ id: itineraryDays.id })
+      .from(itineraryDays)
+      .where(eq(itineraryDays.tripId, id))
+    const dayIds = dayRows.map((d) => d.id)
+
+    if (dayIds.length > 0) {
+      await tx
+        .update(activities)
+        .set({
+          costEstimate: sql`ROUND(${activities.costEstimate}::numeric * ${rate}::numeric, 2)`,
+        })
+        .where(
+          and(inArray(activities.itineraryDayId, dayIds), isNotNull(activities.costEstimate)),
+        )
+
+      await tx
+        .update(activities)
+        .set({
+          actualCost: sql`ROUND(${activities.actualCost}::numeric * ${rate}::numeric, 2)`,
+        })
+        .where(and(inArray(activities.itineraryDayId, dayIds), isNotNull(activities.actualCost)))
+    }
+
+    await tx
       .update(expenses)
-      .set({ amount: converted.toFixed(2) })
-      .where(eq(expenses.id, expense.id))
-  })
-  await Promise.all(expenseUpdates)
+      .set({
+        amount: sql`ROUND(${expenses.amount}::numeric * ${rate}::numeric, 2)`,
+      })
+      .where(eq(expenses.tripId, id))
 
-  // Convert budget
-  const trip = await db.query.trips.findFirst({ where: eq(trips.id, id) })
-  if (trip?.budget) {
-    const convertedBudget = parseFloat(trip.budget) * rate
-    await db
+    await tx
       .update(trips)
       .set({
-        budget: convertedBudget.toFixed(2),
+        budget: sql`CASE WHEN ${trips.budget} IS NULL THEN NULL ELSE ROUND(${trips.budget}::numeric * ${rate}::numeric, 2) END`,
         currencyCode: body.to,
       })
       .where(eq(trips.id, id))
-  } else {
-    await db.update(trips).set({ currencyCode: body.to }).where(eq(trips.id, id))
-  }
+  })
 
   return { converted: true, rate }
 })

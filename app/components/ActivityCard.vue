@@ -60,6 +60,7 @@ interface Member {
 const props = defineProps<{
   activity: Activity
   index: number
+  currencyCode?: string
   highlighted?: boolean
   readonly?: boolean
   isCollaborative?: boolean
@@ -68,6 +69,8 @@ const props = defineProps<{
   participants?: Participant[]
   members?: Member[]
 }>()
+
+const { format: formatCurrency } = useCurrencyFormat(() => props.currencyCode)
 
 const emit = defineEmits<{
   edit: [activity: Activity]
@@ -453,8 +456,8 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
           <Icon name="lucide:external-link" class="h-3 w-3 shrink-0 opacity-50" />
         </a>
         <span v-if="activity.costEstimate" class="flex items-center gap-1">
-          <Icon name="lucide:dollar-sign" class="h-3.5 w-3.5" />
-          {{ parseFloat(activity.costEstimate).toFixed(0) }}
+          <Icon name="lucide:wallet" class="h-3.5 w-3.5" />
+          {{ formatCurrency(activity.costEstimate, { compact: true }) }}
         </span>
         <span
           v-if="activity.priceLevel != null && activity.priceLevel > 0"
@@ -466,7 +469,7 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
           v-if="activity.actualCost"
           class="flex items-center gap-1 text-forest-600 font-medium"
         >
-          Paid: ${{ parseFloat(activity.actualCost).toFixed(0) }}
+          Paid: {{ formatCurrency(activity.actualCost, { compact: true }) }}
         </span>
         <span v-if="activity.notes" class="flex items-center gap-1" title="Has notes">
           <Icon name="lucide:sticky-note" class="h-3.5 w-3.5" />

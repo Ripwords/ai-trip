@@ -34,7 +34,9 @@ async function buildTripContext(tripId: string, focusDayId: string | null): Prom
   if (!trip) return ""
 
   const lines: string[] = []
-  lines.push(`Destination: ${trip.destination}. Dates: ${trip.startDate} → ${trip.endDate}.`)
+  lines.push(
+    `Destination: ${trip.destination}. Dates: ${trip.startDate} → ${trip.endDate}. Trip currency: ${trip.currencyCode || "USD"} (all cost estimates must be in this currency — do NOT convert to USD).`,
+  )
 
   const prefs = trip.preferences
   if (prefs) {
@@ -167,6 +169,7 @@ export default defineEventHandler(async (event) => {
       tripId: id,
       dayId: dayId ?? "",
       transportMode,
+      currencyCode: trip.currencyCode || "USD",
     },
     proposalCollector,
   )

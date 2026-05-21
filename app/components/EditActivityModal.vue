@@ -30,7 +30,13 @@ function formatPriceLevel(level: number): string {
 const props = defineProps<{
   activity: Activity | null
   open: boolean
+  currencyCode?: string
 }>()
+
+const { symbol: currencySymbol, code: currencyCodeResolved } = useCurrencyFormat(
+  () => props.currencyCode,
+)
+const symbolText = computed(() => currencySymbol())
 
 // Lazy-load place details when modal opens
 const placeDetails = ref<PlaceDetails | null>(null)
@@ -209,22 +215,42 @@ function handleSave() {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-sand-700">Cost Estimate</label>
-              <input
-                v-model="costEstimate"
-                type="text"
-                placeholder="e.g. 25.00"
-                class="mt-1 block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
-              />
+              <label class="block text-sm font-medium text-sand-700"
+                >Cost Estimate ({{ currencyCodeResolved }})</label
+              >
+              <div class="relative mt-1">
+                <span
+                  class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-sand-400"
+                >
+                  {{ symbolText }}
+                </span>
+                <input
+                  v-model="costEstimate"
+                  type="text"
+                  inputmode="decimal"
+                  placeholder="0"
+                  class="block w-full rounded-lg border border-sand-300 py-2 pl-8 pr-3 text-sm input-focus"
+                />
+              </div>
             </div>
             <div>
-              <label class="block text-sm font-medium text-sand-700">Actual Cost</label>
-              <input
-                v-model="actualCost"
-                type="text"
-                placeholder="e.g. 30.00"
-                class="mt-1 block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
-              />
+              <label class="block text-sm font-medium text-sand-700"
+                >Actual Cost ({{ currencyCodeResolved }})</label
+              >
+              <div class="relative mt-1">
+                <span
+                  class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-sand-400"
+                >
+                  {{ symbolText }}
+                </span>
+                <input
+                  v-model="actualCost"
+                  type="text"
+                  inputmode="decimal"
+                  placeholder="0"
+                  class="block w-full rounded-lg border border-sand-300 py-2 pl-8 pr-3 text-sm input-focus"
+                />
+              </div>
             </div>
           </div>
 

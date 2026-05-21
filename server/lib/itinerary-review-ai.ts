@@ -107,7 +107,7 @@ function groupBySeverity(
 export async function reviewItineraryWithJudgment(
   trip: ReviewableTrip,
   options: ItineraryReviewOptions,
-  ctx: { tripId: string; dayId: string; transportMode: TransportMode },
+  ctx: { tripId: string; dayId: string; transportMode: TransportMode; currencyCode: string },
 ): Promise<ItineraryReviewResult> {
   const deterministic = reviewItinerary(trip, options)
   const deterministicFlat: ItineraryReviewFinding[] = [

@@ -144,13 +144,10 @@ async function deleteReservation(id: string) {
   }
 }
 
+const { format: formatCurrencyRaw } = useCurrencyFormat(() => props.currencyCode)
+
 function formatCurrency(amount: string): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: props.currencyCode || "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(parseFloat(amount))
+  return formatCurrencyRaw(amount)
 }
 
 const showEndDate = computed(

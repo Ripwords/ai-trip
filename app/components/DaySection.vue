@@ -52,6 +52,7 @@ interface Member {
 const props = defineProps<{
   day: Day
   tripId: string
+  currencyCode?: string
   highlightedActivityId?: string | null
   travelSegments?: TravelSegment[]
   travelMode?: "driving" | "walking" | "transit" | "bicycling"
@@ -197,6 +198,7 @@ function timeToMinutes(time: string): number | null {
                 <ActivityCard
                   :activity="activity"
                   :index="index"
+                  :currency-code="currencyCode"
                   :highlighted="activity.id === highlightedActivityId"
                   :readonly="readonly"
                   :participants="participantsMap?.[activity.id]"

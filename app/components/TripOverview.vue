@@ -254,13 +254,10 @@ const budgetPercent = computed(() => {
   return Math.min((props.totalExpenses / budgetNum.value) * 100, 100)
 })
 
+const { format: formatCurrencyRaw } = useCurrencyFormat(() => props.currencyCode)
+
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: props.currencyCode || "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
+  return formatCurrencyRaw(amount, { compact: true })
 }
 
 function formatDayRange(dayNumbers: number[]): string {

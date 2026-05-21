@@ -1442,6 +1442,7 @@ async function recomputeSegments(dayId: string) {
                 v-show="!aiLoading"
                 :day="activeDay"
                 :trip-id="tripId"
+                :currency-code="trip?.currencyCode ?? 'USD'"
                 :highlighted-activity-id="highlightedActivityId"
                 :travel-segments="activeDay.travelSegments"
                 :travel-mode="activeTransportMode"
@@ -1620,6 +1621,7 @@ async function recomputeSegments(dayId: string) {
     <LazyEditActivityModal
       :activity="editingActivity"
       :open="editModalOpen"
+      :currency-code="trip?.currencyCode ?? 'USD'"
       @save="handleSaveActivity"
       @close="editModalOpen = false"
     />
