@@ -51,10 +51,7 @@ async function maybeMigrateRow(row: FlightRow): Promise<FlightRow> {
         lookupSchemaVersion: FLIGHT_LOOKUP_SCHEMA_VERSION,
       })
       .where(
-        and(
-          eq(flights.id, row.id),
-          lt(flights.lookupSchemaVersion, FLIGHT_LOOKUP_SCHEMA_VERSION),
-        ),
+        and(eq(flights.id, row.id), lt(flights.lookupSchemaVersion, FLIGHT_LOOKUP_SCHEMA_VERSION)),
       )
   } else {
     await db.update(flights).set({ apiLastFetchedAt: now }).where(eq(flights.id, row.id))

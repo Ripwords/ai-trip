@@ -447,122 +447,128 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
           >
           <Icon name="lucide:external-link" class="h-3 w-3 shrink-0 opacity-50" />
         </a>
-      <span v-if="activity.costEstimate" class="flex items-center gap-1">
-        <Icon name="lucide:dollar-sign" class="h-3.5 w-3.5" />
-        {{ parseFloat(activity.costEstimate).toFixed(0) }}
-      </span>
-      <span
-        v-if="activity.priceLevel != null && activity.priceLevel > 0"
-        class="text-xs font-medium text-forest-600"
-      >
-        {{ formatPriceLevel(activity.priceLevel) }}
-      </span>
-      <span v-if="activity.actualCost" class="flex items-center gap-1 text-forest-600 font-medium">
-        Paid: ${{ parseFloat(activity.actualCost).toFixed(0) }}
-      </span>
-      <span v-if="activity.notes" class="flex items-center gap-1" title="Has notes">
-        <Icon name="lucide:sticky-note" class="h-3.5 w-3.5" />
-      </span>
-      <span v-if="activity.rating" class="flex items-center gap-0.5">
-        <template v-for="i in 5" :key="i">
-          <span v-if="starFill(activity.rating, i) === 'half'" class="relative h-3.5 w-3.5">
-            <Icon name="lucide:star" class="absolute inset-0 h-3.5 w-3.5 text-sand-300" />
-            <span class="absolute inset-0 overflow-hidden" style="width: 50%">
-              <Icon name="mdi:star" class="h-3.5 w-3.5 text-terra-400" />
-            </span>
-          </span>
-          <Icon
-            v-else
-            :name="starFill(activity.rating, i) === 'full' ? 'mdi:star' : 'lucide:star'"
-            class="h-3.5 w-3.5"
-            :class="starFill(activity.rating, i) === 'full' ? 'text-terra-400' : 'text-sand-300'"
-          />
-        </template>
-        <span class="ml-1">{{ activity.rating }}</span>
-      </span>
-    </div>
-
-    <!-- Participants -->
-    <div v-if="members && members.length > 1" class="mt-2 flex items-center gap-1.5">
-      <div class="flex -space-x-1.5">
+        <span v-if="activity.costEstimate" class="flex items-center gap-1">
+          <Icon name="lucide:dollar-sign" class="h-3.5 w-3.5" />
+          {{ parseFloat(activity.costEstimate).toFixed(0) }}
+        </span>
         <span
-          v-for="p in (participants ?? []).slice(0, 5)"
-          :key="p.userId"
-          class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white text-[8px] font-bold text-white"
-          :style="{ background: '#E85D3A' }"
-          :title="p.name"
+          v-if="activity.priceLevel != null && activity.priceLevel > 0"
+          class="text-xs font-medium text-forest-600"
         >
-          {{ getInitials(p.name) }}
+          {{ formatPriceLevel(activity.priceLevel) }}
+        </span>
+        <span
+          v-if="activity.actualCost"
+          class="flex items-center gap-1 text-forest-600 font-medium"
+        >
+          Paid: ${{ parseFloat(activity.actualCost).toFixed(0) }}
+        </span>
+        <span v-if="activity.notes" class="flex items-center gap-1" title="Has notes">
+          <Icon name="lucide:sticky-note" class="h-3.5 w-3.5" />
+        </span>
+        <span v-if="activity.rating" class="flex items-center gap-0.5">
+          <template v-for="i in 5" :key="i">
+            <span v-if="starFill(activity.rating, i) === 'half'" class="relative h-3.5 w-3.5">
+              <Icon name="lucide:star" class="absolute inset-0 h-3.5 w-3.5 text-sand-300" />
+              <span class="absolute inset-0 overflow-hidden" style="width: 50%">
+                <Icon name="mdi:star" class="h-3.5 w-3.5 text-terra-400" />
+              </span>
+            </span>
+            <Icon
+              v-else
+              :name="starFill(activity.rating, i) === 'full' ? 'mdi:star' : 'lucide:star'"
+              class="h-3.5 w-3.5"
+              :class="starFill(activity.rating, i) === 'full' ? 'text-terra-400' : 'text-sand-300'"
+            />
+          </template>
+          <span class="ml-1">{{ activity.rating }}</span>
         </span>
       </div>
-      <button
-        v-if="!readonly"
-        class="relative inline-flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-sand-300 text-sand-400 transition hover:border-terra-400 hover:text-terra-500"
-        title="Assign members"
-        @click.stop="showParticipantPicker = !showParticipantPicker"
-      >
-        <Icon name="lucide:user-plus" class="h-3 w-3" />
-      </button>
 
-      <!-- Participant picker dropdown -->
+      <!-- Participants -->
+      <div v-if="members && members.length > 1" class="mt-2 flex items-center gap-1.5">
+        <div class="flex -space-x-1.5">
+          <span
+            v-for="p in (participants ?? []).slice(0, 5)"
+            :key="p.userId"
+            class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white text-[8px] font-bold text-white"
+            :style="{ background: '#E85D3A' }"
+            :title="p.name"
+          >
+            {{ getInitials(p.name) }}
+          </span>
+        </div>
+        <button
+          v-if="!readonly"
+          class="relative inline-flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-sand-300 text-sand-400 transition hover:border-terra-400 hover:text-terra-500"
+          title="Assign members"
+          @click.stop="showParticipantPicker = !showParticipantPicker"
+        >
+          <Icon name="lucide:user-plus" class="h-3 w-3" />
+        </button>
+
+        <!-- Participant picker dropdown -->
+        <div
+          v-if="showParticipantPicker"
+          class="absolute z-20 mt-1 w-48 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
+          style="top: 100%"
+        >
+          <button
+            v-for="m in members"
+            :key="m.userId"
+            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition hover:bg-sand-50"
+            @click.stop="
+              () => {
+                emit('toggleParticipant', activity.id, m.userId)
+                showParticipantPicker = false
+              }
+            "
+          >
+            <span
+              class="inline-flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white"
+              :style="{ background: isParticipant(m.userId) ? '#E85D3A' : '#a8a29e' }"
+            >
+              {{ getInitials(m.user.name) }}
+            </span>
+            <span class="text-sand-700">{{ m.user.name }}</span>
+            <Icon
+              v-if="isParticipant(m.userId)"
+              name="lucide:check"
+              class="ml-auto h-3.5 w-3.5 text-forest-600"
+            />
+          </button>
+        </div>
+      </div>
+
+      <!-- Collaboration: vote + comment (only for group trips) -->
       <div
-        v-if="showParticipantPicker"
-        class="absolute z-20 mt-1 w-48 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
-        style="top: 100%"
+        v-if="isCollaborative"
+        class="mt-3 flex items-center gap-3 border-t border-sand-100 pt-2"
       >
         <button
-          v-for="m in members"
-          :key="m.userId"
-          class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition hover:bg-sand-50"
-          @click.stop="
-            () => {
-              emit('toggleParticipant', activity.id, m.userId)
-              showParticipantPicker = false
-            }
-          "
+          class="inline-flex items-center gap-1 text-xs text-sand-400 transition hover:text-forest-600"
+          title="Upvote"
+          @click.stop="emit('vote', activity.id, 'up')"
         >
-          <span
-            class="inline-flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white"
-            :style="{ background: isParticipant(m.userId) ? '#E85D3A' : '#a8a29e' }"
-          >
-            {{ getInitials(m.user.name) }}
-          </span>
-          <span class="text-sand-700">{{ m.user.name }}</span>
-          <Icon
-            v-if="isParticipant(m.userId)"
-            name="lucide:check"
-            class="ml-auto h-3.5 w-3.5 text-forest-600"
-          />
+          <Icon name="lucide:thumbs-up" class="h-3.5 w-3.5" />
+          <span v-if="voteCount">{{ voteCount }}</span>
+        </button>
+        <button
+          class="inline-flex items-center gap-1 text-xs text-sand-400 transition hover:text-terra-600"
+          title="Downvote"
+          @click.stop="emit('vote', activity.id, 'down')"
+        >
+          <Icon name="lucide:thumbs-down" class="h-3.5 w-3.5" />
+        </button>
+        <button
+          class="ml-auto inline-flex items-center gap-1 text-xs text-sand-400 transition hover:text-ocean-600"
+          @click.stop="emit('showComments', activity.id)"
+        >
+          <Icon name="lucide:message-circle" class="h-3.5 w-3.5" />
+          <span v-if="commentCount">{{ commentCount }}</span>
+          <span v-else>Comment</span>
         </button>
       </div>
-    </div>
-
-    <!-- Collaboration: vote + comment (only for group trips) -->
-    <div v-if="isCollaborative" class="mt-3 flex items-center gap-3 border-t border-sand-100 pt-2">
-      <button
-        class="inline-flex items-center gap-1 text-xs text-sand-400 transition hover:text-forest-600"
-        title="Upvote"
-        @click.stop="emit('vote', activity.id, 'up')"
-      >
-        <Icon name="lucide:thumbs-up" class="h-3.5 w-3.5" />
-        <span v-if="voteCount">{{ voteCount }}</span>
-      </button>
-      <button
-        class="inline-flex items-center gap-1 text-xs text-sand-400 transition hover:text-terra-600"
-        title="Downvote"
-        @click.stop="emit('vote', activity.id, 'down')"
-      >
-        <Icon name="lucide:thumbs-down" class="h-3.5 w-3.5" />
-      </button>
-      <button
-        class="ml-auto inline-flex items-center gap-1 text-xs text-sand-400 transition hover:text-ocean-600"
-        @click.stop="emit('showComments', activity.id)"
-      >
-        <Icon name="lucide:message-circle" class="h-3.5 w-3.5" />
-        <span v-if="commentCount">{{ commentCount }}</span>
-        <span v-else>Comment</span>
-      </button>
-    </div>
     </div>
   </div>
 </template>
