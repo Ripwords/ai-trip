@@ -131,6 +131,7 @@ export const addActivitySchema = z.object({
   rating: z.number().optional(),
   photos: z.array(z.string()).optional(),
   notes: z.string().optional(),
+  costEstimate: z.string().nullish(),
 })
 
 // Checklists

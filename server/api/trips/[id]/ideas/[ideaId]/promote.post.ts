@@ -1,8 +1,9 @@
 import { and, eq, desc } from "drizzle-orm"
 import { db } from "../../../../../db"
-import { tripIdeas, itineraryDays, activities } from "../../../../../db/schema"
+import { tripIdeas, itineraryDays, activities, trips } from "../../../../../db/schema"
 import { ideaIdParamsSchema, promoteIdeaSchema } from "../../../../../utils/schemas"
 import { computeAndSaveSegments } from "../../../../../lib/segments"
+import { deriveCostFromPlace } from "../../../../../lib/cost-from-place"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -39,6 +40,17 @@ export default defineEventHandler(async (event) => {
     sortOrder = (lastActivity?.sortOrder ?? -1) + 1
   }
 
+  // Auto-derive a default cost from Google's priceRange when the idea has
+  // a placeId. Mirrors the manual-add endpoint so promoted ideas don't
+  // silently end up with null costEstimate either.
+  let costEstimate: string | null = null
+  if (idea.placeId) {
+    const trip = await db.query.trips.findFirst({ where: eq(trips.id, id) })
+    if (trip) {
+      costEstimate = await deriveCostFromPlace(idea.placeId, trip.currencyCode || "USD")
+    }
+  }
+
   // Insert into activities copying fields from the idea
   const [activity] = await db
     .insert(activities)
@@ -54,6 +66,7 @@ export default defineEventHandler(async (event) => {
       rating: idea.rating,
       photos: idea.photos,
       notes: idea.notes,
+      costEstimate,
       sortOrder,
     })
     .returning()

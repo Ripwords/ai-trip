@@ -2,6 +2,7 @@
 interface Activity {
   type: string
   costEstimate: string | null
+  placeId?: string | null
 }
 
 interface Day {
@@ -13,6 +14,11 @@ const props = defineProps<{
   budget?: string | null
   currencyCode?: string
   totalExpenses?: number
+  tripId?: string
+}>()
+
+const emit = defineEmits<{
+  refreshed: []
 }>()
 
 const totalActivities = computed(() =>
@@ -70,6 +76,42 @@ const { format: formatCurrencyRaw } = useCurrencyFormat(() => props.currencyCode
 function formatCurrency(amount: number): string {
   return formatCurrencyRaw(amount, { compact: true })
 }
+
+// "Refresh from Google Maps" — recomputes costEstimate for any activity
+// on the trip that has a placeId but no cost yet, using Google's
+// priceRange. Only relevant when there are activities with placeIds.
+const refreshing = ref(false)
+const refreshMessage = ref<string | null>(null)
+const hasPlaceIdActivities = computed(() =>
+  props.days.some((d) => d.activities.some((a) => !!a.placeId)),
+)
+
+async function refreshFromGoogle() {
+  if (!props.tripId || refreshing.value) return
+  refreshing.value = true
+  refreshMessage.value = null
+  try {
+    const result = await $fetch<{ updated: number; candidates: number }>(
+      `/api/trips/${props.tripId}/refresh-cost-estimates`,
+      { method: "POST" },
+    )
+    refreshMessage.value =
+      result.updated === 0
+        ? result.candidates === 0
+          ? "Nothing to refresh — costs are already set."
+          : "Google doesn't have price data for any of these places."
+        : `Updated ${result.updated} of ${result.candidates} from Google Maps.`
+    emit("refreshed")
+  } catch (e: unknown) {
+    console.error("Failed to refresh cost estimates:", e)
+    refreshMessage.value = "Couldn't refresh — try again in a moment."
+  } finally {
+    refreshing.value = false
+    setTimeout(() => {
+      refreshMessage.value = null
+    }, 5000)
+  }
+}
 </script>
 
 <template>
@@ -89,9 +131,29 @@ function formatCurrency(amount: number): string {
         <p class="text-2xl font-display text-sand-900">
           {{ formatCurrency(totalCost) }}
         </p>
-        <p class="text-xs text-sand-500">Est. Cost</p>
+        <p class="flex items-center justify-center gap-1 text-xs text-sand-500">
+          Est. Cost
+          <button
+            v-if="tripId && hasPlaceIdActivities"
+            type="button"
+            :disabled="refreshing"
+            :title="'Refresh missing cost estimates from Google Maps'"
+            class="rounded p-0.5 text-sand-400 transition hover:text-terra-500 disabled:opacity-50"
+            @click="refreshFromGoogle"
+          >
+            <Icon
+              :name="refreshing ? 'lucide:loader' : 'lucide:refresh-cw'"
+              class="h-3 w-3"
+              :class="{ 'animate-spin': refreshing }"
+            />
+          </button>
+        </p>
       </div>
     </div>
+
+    <p v-if="refreshMessage" class="mt-2 text-center text-[11px] text-sand-500">
+      {{ refreshMessage }}
+    </p>
 
     <!-- Budget & Spend -->
     <div v-if="budgetNum || totalExpenses" class="mt-4 space-y-2 border-t border-sand-200 pt-4">

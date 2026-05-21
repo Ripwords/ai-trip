@@ -28,6 +28,16 @@ interface PlaceDetails {
   photos?: string[]
   openingHours?: string[]
   priceLevel?: number | null
+  /**
+   * Google-provided per-person price range (shown in Google Maps as
+   * "Around $10–20"). Available for restaurants/cafes/bars; null for
+   * places Google doesn't track this for (temples, transit, etc).
+   */
+  priceRange?: {
+    startAmount: number
+    endAmount: number
+    currencyCode: string
+  } | null
   editorialSummary?: string
 }
 
@@ -191,7 +201,7 @@ const _getPlaceDetails = defineCachedFunction(
         headers: {
           "X-Goog-Api-Key": getServerMapsApiKey(),
           "X-Goog-FieldMask":
-            "displayName,id,location,rating,formattedAddress,types,photos,regularOpeningHours,priceLevel,editorialSummary",
+            "displayName,id,location,rating,formattedAddress,types,photos,regularOpeningHours,priceLevel,priceRange,editorialSummary",
         },
       },
     )
@@ -216,6 +226,33 @@ const _getPlaceDetails = defineCachedFunction(
       PRICE_LEVEL_VERY_EXPENSIVE: 4,
     }
 
+    // Parse Google's priceRange (Money object: { units: string, nanos?: number, currencyCode })
+    // into a flat { startAmount, endAmount, currencyCode } shape.
+    const priceRangeRaw = response.priceRange as
+      | {
+          startPrice?: { units?: string; nanos?: number; currencyCode?: string }
+          endPrice?: { units?: string; nanos?: number; currencyCode?: string }
+        }
+      | undefined
+    const parseMoney = (m?: {
+      units?: string
+      nanos?: number
+    }): number | null => {
+      if (!m) return null
+      const units = m.units ? Number(m.units) : 0
+      const nanos = m.nanos ?? 0
+      const value = units + nanos / 1e9
+      return Number.isFinite(value) ? value : null
+    }
+    const startAmount = parseMoney(priceRangeRaw?.startPrice)
+    const endAmount = parseMoney(priceRangeRaw?.endPrice)
+    const currencyCode =
+      priceRangeRaw?.endPrice?.currencyCode ?? priceRangeRaw?.startPrice?.currencyCode ?? null
+    const priceRange =
+      startAmount != null && endAmount != null && currencyCode
+        ? { startAmount, endAmount, currencyCode }
+        : null
+
     return {
       name: displayName?.text ?? "",
       placeId: (response.id as string) ?? "",
@@ -228,6 +265,7 @@ const _getPlaceDetails = defineCachedFunction(
       openingHours: openingHours?.weekdayDescriptions,
       priceLevel:
         response.priceLevel != null ? (priceLevelMap[response.priceLevel as string] ?? null) : null,
+      priceRange,
       editorialSummary: editorialSummary?.text,
     }
   },

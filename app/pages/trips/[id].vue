@@ -1309,12 +1309,14 @@ async function recomputeSegments(dayId: string) {
       <div v-if="activeTab === 'overview'" class="mt-6">
         <TripOverview
           :trip="trip"
+          :trip-id="tripId"
           :sorted-days="sortedDays"
           :expenses-list="expensesList ?? []"
           :total-expenses="totalExpenses"
           :currency-code="trip.currencyCode ?? 'USD'"
           :airports="tripAirports"
           @navigate-to-day="handleNavigateToDay"
+          @refreshed="refresh"
         />
       </div>
 

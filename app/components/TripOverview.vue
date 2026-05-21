@@ -64,6 +64,7 @@ interface AirportMarker {
 
 const props = defineProps<{
   trip: TripData
+  tripId?: string
   sortedDays: TripDay[]
   expensesList: ExpenseRecord[]
   totalExpenses: number
@@ -73,6 +74,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   "navigate-to-day": [dayId: string]
+  refreshed: []
 }>()
 
 const expandedTypes = ref<Set<string>>(new Set())
@@ -615,6 +617,8 @@ function formatDayRange(dayNumbers: number[]): string {
         :budget="trip.budget"
         :currency-code="currencyCode"
         :total-expenses="totalExpenses"
+        :trip-id="tripId"
+        @refreshed="emit('refreshed')"
       />
     </div>
   </div>

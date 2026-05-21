@@ -1,8 +1,9 @@
 import { and, eq, desc, sql } from "drizzle-orm"
 import { db } from "../../../../db"
-import { itineraryDays, activities, travelSegments } from "../../../../db/schema"
+import { itineraryDays, activities, travelSegments, trips } from "../../../../db/schema"
 import { uuidParamsSchema, addActivitySchema } from "../../../../utils/schemas"
 import { computeAndSaveSegments } from "../../../../lib/segments"
+import { deriveCostFromPlace } from "../../../../lib/cost-from-place"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -39,7 +40,19 @@ export default defineEventHandler(async (event) => {
   })
   const sortOrder = (lastActivity?.sortOrder ?? -1) + 1
 
-  const { itineraryDayId, rating, ...rest } = body
+  const { itineraryDayId, rating, costEstimate: clientCostEstimate, ...rest } = body
+
+  // Auto-derive a default cost from Google's priceRange when the client
+  // didn't provide one and we have a placeId to look up. This is what
+  // surfaces in Google Maps as "Around $X" and gives manually-added
+  // activities a real starting estimate instead of a silent null.
+  let costEstimate: string | null = clientCostEstimate ?? null
+  if (!costEstimate && body.placeId) {
+    const trip = await db.query.trips.findFirst({ where: eq(trips.id, id) })
+    if (trip) {
+      costEstimate = await deriveCostFromPlace(body.placeId, trip.currencyCode || "USD")
+    }
+  }
 
   const [activity] = await db
     .insert(activities)
@@ -48,6 +61,7 @@ export default defineEventHandler(async (event) => {
       itineraryDayId,
       sortOrder,
       rating: rating != null ? String(rating) : undefined,
+      costEstimate,
     })
     .returning()
 
