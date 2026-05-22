@@ -213,36 +213,39 @@ function createAirportMarkerContent(airport: AirportMarker): HTMLElement {
     cursor: pointer;
     transform: translateY(-10px);
   `
-  wrap.innerHTML = `
-    <div style="
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      background: ${color};
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 2px solid white;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    ">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-        stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
-        style="transform: ${rotation};">
-        <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
-      </svg>
-    </div>
-    <span style="
-      font-size: 10px;
-      font-weight: 700;
-      color: ${color};
-      background: white;
-      padding: 1px 5px;
-      border-radius: 4px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.25);
-      white-space: nowrap;
-    ">${airport.code}</span>
+
+  const icon = document.createElement("div")
+  icon.style.cssText = `
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: ${color};
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
   `
+  // Static SVG with a controlled rotation constant — no user data.
+  icon.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform: ${rotation};"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>`
+
+  // airport.code originates from third-party flight data — assign via
+  // textContent so it can never inject HTML.
+  const label = document.createElement("span")
+  label.style.cssText = `
+    font-size: 10px;
+    font-weight: 700;
+    color: ${color};
+    background: white;
+    padding: 1px 5px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    white-space: nowrap;
+  `
+  label.textContent = airport.code
+
+  wrap.append(icon, label)
   return wrap
 }
 
