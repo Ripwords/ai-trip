@@ -5,7 +5,7 @@ import { tripMembers } from "../../../../db/schema"
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
-  memberId: z.string(),
+  memberId: z.string().uuid(),
 })
 
 export default defineEventHandler(async (event) => {
