@@ -22,10 +22,17 @@ const error = ref("")
 function signInWithGoogle() {
   loading.value = true
   error.value = ""
-  // Check for pending invite redirect
-  const pendingInvite = import.meta.client ? sessionStorage.getItem("pending-invite") : null
-  if (pendingInvite) {
+  // Check for pending invite redirect. Validate on read too — the stored value
+  // could be stale from before validation existed, or tampered via devtools.
+  // Only accept /invite/<token> shapes; anything else falls back to /dashboard
+  // to block open-redirect to arbitrary paths or external URLs.
+  let pendingInvite: string | null = null
+  if (import.meta.client) {
+    const stored = sessionStorage.getItem("pending-invite")
     sessionStorage.removeItem("pending-invite")
+    if (stored && /^\/invite\/[A-Za-z0-9_-]{1,128}$/.test(stored)) {
+      pendingInvite = stored
+    }
   }
 
   authClient.signIn.social({

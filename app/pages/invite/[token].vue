@@ -24,7 +24,13 @@ const success = ref(false)
 
 if (!isAuthenticated) {
   if (import.meta.client) {
-    sessionStorage.setItem("pending-invite", `/invite/${token}`)
+    // Only persist the redirect when the token matches our expected shape — the
+    // value is used as the post-login navigation target, so an unconstrained
+    // value would allow an open redirect via /invite/<arbitrary-path>.
+    const safeToken = /^[A-Za-z0-9_-]{1,128}$/.test(token) ? token : ""
+    if (safeToken) {
+      sessionStorage.setItem("pending-invite", `/invite/${safeToken}`)
+    }
   }
   await navigateTo("/login")
 }
