@@ -1,7 +1,7 @@
-import { eq, asc } from "drizzle-orm"
+import { and, eq, asc } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../../../../../db"
-import { activities } from "../../../../../db/schema"
+import { activities, itineraryDays } from "../../../../../db/schema"
 import { dayIdParamsSchema } from "../../../../../utils/schemas"
 import { computeAndSaveSegments } from "../../../../../lib/segments"
 import { getDistanceMatrix } from "../../../../../lib/google-maps"
@@ -32,19 +32,26 @@ export default defineEventHandler(async (event) => {
   }
 
   // Update sort orders based on new array position
-  await Promise.all(
-    body.activityIds.map((activityId, index) =>
-      db.update(activities).set({ sortOrder: index }).where(eq(activities.id, activityId)),
-    ),
-  )
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < body.activityIds.length; i++) {
+      await tx
+        .update(activities)
+        .set({ sortOrder: i })
+        .where(and(eq(activities.id, body.activityIds[i]!), eq(activities.itineraryDayId, dayId)))
+    }
+  })
 
   // Recompute schedule times based on new order
+  const day = await db.query.itineraryDays.findFirst({
+    where: and(eq(itineraryDays.id, dayId), eq(itineraryDays.tripId, id)),
+    columns: { date: true },
+  })
   const allDayActivities = await db.query.activities.findMany({
     where: eq(activities.itineraryDayId, dayId),
     orderBy: [asc(activities.sortOrder)],
   })
 
-  if (allDayActivities.length >= 2) {
+  if (day && allDayActivities.length >= 2) {
     // Get travel times for new order
     const geoActivities = allDayActivities.filter((a) => a.lat != null && a.lng != null)
     const travelTimes: { fromId: string; toId: string; durationMinutes: number }[] = []
@@ -93,7 +100,7 @@ export default defineEventHandler(async (event) => {
         estimatedDurationMinutes: a.estimatedDurationMinutes,
         lat: a.lat,
         lng: a.lng,
-        openingMinutes: parseOpeningTime(a.openingHours, ""),
+        openingMinutes: parseOpeningTime(a.openingHours, day.date),
       })),
       travelTimes,
       startHour,
@@ -102,14 +109,14 @@ export default defineEventHandler(async (event) => {
     })
 
     // Apply computed times
-    await Promise.all(
-      schedule.map((s) =>
-        db
+    await db.transaction(async (tx) => {
+      for (const s of schedule) {
+        await tx
           .update(activities)
           .set({ sortOrder: s.sortOrder, suggestedTime: s.suggestedTime })
-          .where(eq(activities.id, s.id)),
-      ),
-    )
+          .where(and(eq(activities.id, s.id), eq(activities.itineraryDayId, dayId)))
+      }
+    })
   }
 
   // Recompute travel segments
