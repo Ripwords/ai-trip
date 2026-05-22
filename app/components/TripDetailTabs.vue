@@ -17,7 +17,6 @@ const primaryTabs = [
 
 const overflowTabs = [
   { value: "notes", label: "Notes" },
-  { value: "documents", label: "Documents" },
   { value: "team", label: "Team" },
   { value: "flights", label: "Flights" },
 ] as const

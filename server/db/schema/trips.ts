@@ -18,7 +18,6 @@ import { expenses } from "./expenses"
 import { tripMembers } from "./trip-members"
 import { activityLog } from "./activity-log"
 import { reservations } from "./reservations"
-import { documents } from "./documents"
 
 export const trips = pgTable(
   "trips",
@@ -59,7 +58,6 @@ export const tripsRelations = relations(trips, ({ one, many }) => ({
   members: many(tripMembers),
   logs: many(activityLog),
   reservations: many(reservations),
-  documents: many(documents),
 }))
 
 export interface TripPreferences {

@@ -3,7 +3,6 @@ import { relations } from "drizzle-orm"
 import { encryptedText } from "../custom-types"
 import { trips } from "./trips"
 import { user } from "./auth-schema"
-import { documents } from "./documents"
 
 export const reservations = pgTable(
   "reservations",
@@ -36,8 +35,7 @@ export const reservations = pgTable(
   ],
 )
 
-export const reservationsRelations = relations(reservations, ({ one, many }) => ({
+export const reservationsRelations = relations(reservations, ({ one }) => ({
   trip: one(trips, { fields: [reservations.tripId], references: [trips.id] }),
   createdBy: one(user, { fields: [reservations.createdById], references: [user.id] }),
-  documents: many(documents),
 }))

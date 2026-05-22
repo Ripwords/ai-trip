@@ -155,7 +155,6 @@ type TabValue =
   | "notes"
   | "expenses"
   | "reservations"
-  | "documents"
   | "team"
   | "flights"
 const validTabs: TabValue[] = [
@@ -165,7 +164,6 @@ const validTabs: TabValue[] = [
   "notes",
   "expenses",
   "reservations",
-  "documents",
   "team",
   "flights",
 ]
@@ -1519,11 +1517,6 @@ async function recomputeSegments(dayId: string) {
       <!-- Bookings tab -->
       <div v-else-if="activeTab === 'reservations'" class="mt-8 max-w-3xl">
         <ReservationTracker :trip-id="tripId" :currency-code="trip.currencyCode ?? 'USD'" />
-      </div>
-
-      <!-- Documents tab -->
-      <div v-else-if="activeTab === 'documents'" class="mt-8 max-w-3xl">
-        <DocumentPanel :trip-id="tripId" />
       </div>
 
       <!-- Team tab -->

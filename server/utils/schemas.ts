@@ -276,12 +276,6 @@ export const removeParticipantParamsSchema = z.object({
   userId: z.string().min(1),
 })
 
-// Documents
-export const documentIdParamsSchema = z.object({
-  id: z.string().uuid(),
-  documentId: z.string().uuid(),
-})
-
 // Passports
 export const createPassportSchema = z.object({
   countryCode: z.string().length(2).toUpperCase(),
