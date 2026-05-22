@@ -102,7 +102,10 @@ async function submitReservation() {
       notes: formNotes.value || undefined,
       startDate: formStartDate.value ? new Date(formStartDate.value).toISOString() : undefined,
       endDate: formEndDate.value ? new Date(formEndDate.value).toISOString() : undefined,
-      amount: formAmount.value || undefined,
+      amount:
+        formAmount.value === "" || formAmount.value == null
+          ? undefined
+          : String(formAmount.value),
     }
 
     if (editingId.value) {
@@ -209,7 +212,7 @@ const showEndDate = computed(
           <input
             v-model="formConfirmation"
             type="text"
-            placeholder="Confirmation #"
+            placeholder="Confirmation # (optional)"
             class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
           />
           <input
