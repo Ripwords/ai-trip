@@ -299,6 +299,20 @@ export default defineNuxtConfig({
         rateLimiter: { tokensPerInterval: 10, interval: 60000 },
       },
     },
+    // Per-route burst limit on the expensive Gemini-backed endpoints. The
+    // monthly application-level credit (tryConsumeAiCredit) caps total usage,
+    // but it can't stop a malicious user from firing 100 parallel requests
+    // inside one second and bypassing the global 300/min — this does.
+    "/api/trips/*/discuss": {
+      security: {
+        rateLimiter: { tokensPerInterval: 5, interval: 60000 },
+      },
+    },
+    "/api/trips/*/days/*/ai": {
+      security: {
+        rateLimiter: { tokensPerInterval: 5, interval: 60000 },
+      },
+    },
     "/api/trips/*/members/invite": {
       security: {
         rateLimiter: { tokensPerInterval: 10, interval: 60000 },

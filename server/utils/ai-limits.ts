@@ -1,4 +1,4 @@
-import { eq, and, sql, lt } from "drizzle-orm"
+import { eq, and, sql } from "drizzle-orm"
 import { db } from "../db"
 import { aiUsage } from "../db/schema"
 
@@ -34,43 +34,35 @@ export async function getAiUsage(
 /**
  * Atomically consume one AI credit. Returns true if successful.
  * Throws 429 if the monthly limit has been reached.
- * Handles the case where no record exists yet for the current month.
+ *
+ * Single upsert keyed on the (userId, month) unique index. The WHERE clause on
+ * the conflict branch prevents incrementing past the limit, and the lack of any
+ * separate INSERT path eliminates a check-then-insert race that previously let
+ * two concurrent first-of-month calls each grant themselves a credit.
  */
 export async function tryConsumeAiCredit(userId: string): Promise<boolean> {
   const currentMonthYear = getCurrentMonth()
 
-  // Attempt atomic increment: only succeeds if promptCount < MONTHLY_LIMIT
   const result = await db
-    .update(aiUsage)
-    .set({ promptCount: sql`${aiUsage.promptCount} + 1`, updatedAt: new Date() })
-    .where(
-      and(
-        eq(aiUsage.userId, userId),
-        eq(aiUsage.month, currentMonthYear),
-        lt(aiUsage.promptCount, MONTHLY_LIMIT),
-      ),
-    )
+    .insert(aiUsage)
+    .values({ userId, month: currentMonthYear, promptCount: 1 })
+    .onConflictDoUpdate({
+      target: [aiUsage.userId, aiUsage.month],
+      set: { promptCount: sql`${aiUsage.promptCount} + 1`, updatedAt: new Date() },
+      setWhere: sql`${aiUsage.promptCount} < ${MONTHLY_LIMIT}`,
+    })
     .returning()
 
-  if (result.length > 0) {
-    return true
-  }
+  if (result.length > 0) return true
 
-  // No rows updated — either no record exists for this month, or limit was reached.
+  // Conflict matched but setWhere rejected the update → limit hit. Read the
+  // current count to build a helpful error message.
   const existing = await db.query.aiUsage.findFirst({
     where: and(eq(aiUsage.userId, userId), eq(aiUsage.month, currentMonthYear)),
   })
-
-  if (!existing) {
-    // First usage this month — insert with count = 1
-    await db.insert(aiUsage).values({ userId, month: currentMonthYear, promptCount: 1 })
-    return true
-  }
-
-  // Record exists but update didn't match — limit reached
   throw createError({
     statusCode: 429,
-    message: `You've used ${existing.promptCount}/${MONTHLY_LIMIT} AI prompts this month. Your limit resets on ${getResetDate()}.`,
+    message: `You've used ${existing?.promptCount ?? MONTHLY_LIMIT}/${MONTHLY_LIMIT} AI prompts this month. Your limit resets on ${getResetDate()}.`,
   })
 }
 
