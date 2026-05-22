@@ -109,26 +109,45 @@ function timeToMinutes(time: string | null | undefined): number | null {
   return parseInt(m[1]!, 10) * 60 + parseInt(m[2]!, 10)
 }
 
-async function sortDayBySuggestedTime(
+/**
+ * Slot newly-inserted activities into the day's existing sequence by their
+ * suggestedTime, without disturbing the relative order of existing activities.
+ * Each new row is placed before the first existing row with a later time
+ * (or at the end if no time / no later existing time).
+ */
+async function slotNewActivitiesIntoSequence(
   dayId: string,
-  rows: { id: string; suggestedTime: string | null; sortOrder: number }[],
+  existing: { id: string; suggestedTime: string | null; sortOrder: number }[],
+  inserted: { id: string; suggestedTime: string | null }[],
 ): Promise<void> {
-  const sorted = rows.toSorted((a, b) => {
-    const ta = timeToMinutes(a.suggestedTime)
-    const tb = timeToMinutes(b.suggestedTime)
-    if (ta == null && tb == null) return a.sortOrder - b.sortOrder
-    if (ta == null) return 1
-    if (tb == null) return -1
-    return ta - tb || a.sortOrder - b.sortOrder
-  })
-  await Promise.all(
-    sorted.map((row, i) =>
-      db
+  const existingSorted = existing.toSorted((a, b) => a.sortOrder - b.sortOrder)
+  const merged: { id: string }[] = existingSorted.map((e) => ({ id: e.id }))
+  const existingTimes = existingSorted.map((e) => timeToMinutes(e.suggestedTime))
+
+  for (const newRow of inserted) {
+    const newMin = timeToMinutes(newRow.suggestedTime)
+    let insertAt = merged.length
+    if (newMin != null) {
+      const idx = existingTimes.findIndex((t) => t != null && t > newMin)
+      if (idx >= 0) {
+        // Find the corresponding position in the merged array (may have shifted
+        // as earlier new rows were inserted).
+        const anchorId = existingSorted[idx]!.id
+        insertAt = merged.findIndex((m) => m.id === anchorId)
+        if (insertAt === -1) insertAt = merged.length
+      }
+    }
+    merged.splice(insertAt, 0, { id: newRow.id })
+  }
+
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < merged.length; i++) {
+      await tx
         .update(activities)
         .set({ sortOrder: i })
-        .where(and(eq(activities.id, row.id), eq(activities.itineraryDayId, dayId))),
-    ),
-  )
+        .where(and(eq(activities.id, merged[i]!.id), eq(activities.itineraryDayId, dayId)))
+    }
+  })
 }
 
 function describeActivities(activities: { name: string; suggestedTime?: string }[]): string {
@@ -191,7 +210,7 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
     }
 
     case "reschedule": {
-      await Promise.all(
+      const results = await Promise.all(
         proposal.payload.updates.map((u) =>
           db
             .update(activities)
@@ -199,10 +218,11 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
               suggestedTime: u.suggestedTime,
               estimatedDurationMinutes: u.estimatedDurationMinutes,
             })
-            .where(and(eq(activities.id, u.activityId), eq(activities.itineraryDayId, ctx.dayId))),
+            .where(and(eq(activities.id, u.activityId), eq(activities.itineraryDayId, ctx.dayId)))
+            .returning({ id: activities.id }),
         ),
       )
-      updated = proposal.payload.updates.length
+      updated = results.reduce((sum, r) => sum + r.length, 0)
       message = `Rescheduled ${updated} activit${updated === 1 ? "y" : "ies"}`
       break
     }
@@ -255,18 +275,28 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
           added = inserted.length
 
           // Slot new activities into the day's sequence by suggestedTime.
-          // Activities without a time fall to the end, preserving their relative order.
-          await sortDayBySuggestedTime(ctx.dayId, [
-            ...current.map((a) => ({
+          // Preserves existing relative order (so manual reorders aren't stomped).
+          await slotNewActivitiesIntoSequence(
+            ctx.dayId,
+            current.map((a) => ({
               id: a.id,
               suggestedTime: a.suggestedTime,
               sortOrder: a.sortOrder,
             })),
-            ...inserted,
-          ])
+            inserted,
+          )
         }
       } catch (e) {
         console.error("[applyProposal] enrichment failed:", e)
+        // Re-throw so the apply endpoint surfaces an error to the client
+        // instead of silently flipping the proposal card to "Applied" with
+        // 0 activities added.
+        if (added === 0) {
+          throw createError({
+            statusCode: 502,
+            message: "Couldn't enrich the activity with Google Maps data. Please try again.",
+          })
+        }
       }
       message = `Added ${added} activit${added === 1 ? "y" : "ies"}`
       break
@@ -282,11 +312,14 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
       const remaining = dayActivities.filter((a) => !orderedIds.includes(a.id))
       const finalOrder = [...orderedIds, ...remaining.map((a) => a.id)]
 
-      await Promise.all(
-        finalOrder.map((activityId, i) =>
-          db.update(activities).set({ sortOrder: i }).where(eq(activities.id, activityId)),
-        ),
-      )
+      await db.transaction(async (tx) => {
+        for (let i = 0; i < finalOrder.length; i++) {
+          await tx
+            .update(activities)
+            .set({ sortOrder: i })
+            .where(and(eq(activities.id, finalOrder[i]!), eq(activities.itineraryDayId, ctx.dayId)))
+        }
+      })
       updated = orderedIds.length
       message = `Reordered ${updated} activit${updated === 1 ? "y" : "ies"}`
       break
@@ -299,11 +332,15 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
       })
       if (dayActivities.length >= 2) {
         if (proposal.payload.orderedActivityIds?.length) {
-          await Promise.all(
-            proposal.payload.orderedActivityIds.map((id, i) =>
-              db.update(activities).set({ sortOrder: i }).where(eq(activities.id, id)),
-            ),
-          )
+          const ids = proposal.payload.orderedActivityIds
+          await db.transaction(async (tx) => {
+            for (let i = 0; i < ids.length; i++) {
+              await tx
+                .update(activities)
+                .set({ sortOrder: i })
+                .where(and(eq(activities.id, ids[i]!), eq(activities.itineraryDayId, ctx.dayId)))
+            }
+          })
           optimized = true
         } else {
           const day = await db.query.itineraryDays.findFirst({
@@ -348,14 +385,14 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
             startTravelTimeMinutes: 0,
             bufferMinutes: 15,
           })
-          await Promise.all(
-            schedule.map((s) =>
-              db
+          await db.transaction(async (tx) => {
+            for (const s of schedule) {
+              await tx
                 .update(activities)
                 .set({ sortOrder: s.sortOrder, suggestedTime: s.suggestedTime })
-                .where(eq(activities.id, s.id)),
-            ),
-          )
+                .where(and(eq(activities.id, s.id), eq(activities.itineraryDayId, ctx.dayId)))
+            }
+          })
           optimized = true
         }
       }
@@ -377,6 +414,20 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
       message = `Set accommodation to ${proposal.payload.name}`
       break
     }
+  }
+
+  // If the proposal targets activities but matched nothing, surface that
+  // instead of silently flipping the UI to "Applied".
+  if (
+    (proposal.kind === "remove-activities" && removed === 0) ||
+    (proposal.kind === "reschedule" && updated === 0) ||
+    (proposal.kind === "reorder-activities" && updated === 0)
+  ) {
+    throw createError({
+      statusCode: 409,
+      message:
+        "This proposal references activities that no longer exist on the day. The schedule may have changed since it was suggested — refresh and try again.",
+    })
   }
 
   // Recompute segments after any mutation that changed activities or accommodation.
