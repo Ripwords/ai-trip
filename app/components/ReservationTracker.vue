@@ -103,9 +103,7 @@ async function submitReservation() {
       startDate: formStartDate.value ? new Date(formStartDate.value).toISOString() : undefined,
       endDate: formEndDate.value ? new Date(formEndDate.value).toISOString() : undefined,
       amount:
-        formAmount.value === "" || formAmount.value == null
-          ? undefined
-          : String(formAmount.value),
+        formAmount.value === "" || formAmount.value == null ? undefined : String(formAmount.value),
     }
 
     if (editingId.value) {
