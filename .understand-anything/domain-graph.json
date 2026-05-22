@@ -1,0 +1,2305 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "ai-trip",
+    "languages": ["TypeScript", "Vue"],
+    "frameworks": [
+      "Nuxt",
+      "Vue",
+      "Drizzle ORM",
+      "BetterAuth",
+      "Vercel AI SDK",
+      "Google Maps Platform"
+    ],
+    "description": "AI-powered travel itinerary planner that generates JSON-driven, editable itineraries with every location validated against Google Places. Supports collaborative trip planning, expense tracking, visa requirements, packing checklists, and reservation management.",
+    "analyzedAt": "2026-05-22T00:00:00.000Z",
+    "gitCommitHash": "3bb7b57ee6e4ae8829029223de86f98a1727dcba"
+  },
+  "nodes": [
+    {
+      "id": "domain:trip-planning",
+      "type": "domain",
+      "name": "Trip Planning & Itinerary",
+      "summary": "Core business domain for creating, editing, and managing travel itineraries. Manages trips, day-by-day plans, activities, accommodations, travel segments, and ideas buckets. The structured JSON itinerary is the heart of the product.",
+      "tags": ["core", "itinerary", "trips", "activities"],
+      "complexity": "complex",
+      "domainMeta": {
+        "entities": [
+          "Trip",
+          "ItineraryDay",
+          "Activity",
+          "TripIdea",
+          "TravelSegment",
+          "Accommodation"
+        ],
+        "businessRules": [
+          "Every activity must have a Google Places-validated location (or null if enrichment failed)",
+          "Itinerary is JSON-driven and editable, never free-form chat",
+          "Trip access is role-based (owner, editor, viewer)",
+          "Drag-and-drop reordering triggers automatic travel segment recomputation",
+          "Activities can be promoted from the ideas bucket into the itinerary"
+        ],
+        "crossDomainInteractions": [
+          "Uses AI Generation domain to produce activity suggestions",
+          "Uses Places & Maps domain to enrich activity locations",
+          "Emits Activity Log events for Collaboration domain audit trail",
+          "Cost data flows into Expenses & Budget domain"
+        ]
+      }
+    },
+    {
+      "id": "domain:ai-generation",
+      "type": "domain",
+      "name": "AI Generation & Enrichment",
+      "summary": "Handles intent-based AI itinerary generation using Google Gemini via the Vercel AI SDK. Translates natural-language prompts into structured itinerary actions (add, remove, optimize, reschedule, fill gaps, accommodation) and pairs every AI suggestion with Google Places verification.",
+      "tags": ["ai", "gemini", "structured-output", "agents"],
+      "complexity": "complex",
+      "domainMeta": {
+        "entities": ["AIUsage", "AIProcessResult", "DiscussAgent", "ItineraryReview", "Proposal"],
+        "businessRules": [
+          "AI must never invent places \u2014 every suggestion is validated against Google Places",
+          "AI usage is rate-limited and metered per user",
+          "Intent-based pipeline: add | remove | modify | optimize | reschedule | fill_gaps | accommodation",
+          "Discuss agent powers conversational refinement separately from itinerary edits",
+          "Prompts must be sanitized to prevent injection"
+        ],
+        "crossDomainInteractions": [
+          "Produces activity drafts for the Trip Planning domain",
+          "Calls Places & Maps domain to resolve and enrich place names",
+          "Generates proposals and reviews that mutate trip state"
+        ]
+      }
+    },
+    {
+      "id": "domain:places-maps",
+      "type": "domain",
+      "name": "Places & Maps Integration",
+      "summary": "Wraps Google Maps Platform APIs (Places, Distance Matrix, Geocoding) to provide place search, place details, photo proxying, and travel-time computation. Every activity location in the system is grounded here.",
+      "tags": ["google-maps", "places", "geocoding", "distance-matrix"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entities": ["EnrichedLocation", "PlaceDetails", "TravelSegment", "DistanceMatrixResult"],
+        "businessRules": [
+          "All AI-suggested places must be resolved to a Google place_id before persisting",
+          "Photo URLs are proxied through the backend (never expose API key to client)",
+          "Travel segments are recomputed when activities change order, time, or transport mode",
+          "Enrichment has a 1-hour cooldown per activity"
+        ],
+        "crossDomainInteractions": [
+          "Consumed by Trip Planning to anchor activities to real locations",
+          "Consumed by AI Generation to validate every candidate place",
+          "Powers cost derivation via place price_level for Expenses & Budget"
+        ]
+      }
+    },
+    {
+      "id": "domain:collaboration",
+      "type": "domain",
+      "name": "Collaboration & Sharing",
+      "summary": "Multi-user collaboration for trips including member roles, invite tokens, public share links, activity comments, voting, participant tracking, and audit logging. Enables teams to co-plan a trip.",
+      "tags": ["collaboration", "members", "invites", "sharing", "voting"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entities": [
+          "TripMember",
+          "Invite",
+          "ActivityVote",
+          "ActivityComment",
+          "ActivityParticipant",
+          "ActivityLog",
+          "ShareToken"
+        ],
+        "businessRules": [
+          "Roles are owner | editor | viewer with hierarchical permissions",
+          "Invite tokens are hashed before storage; raw token only sent in email",
+          "Public share links are read-only and revocable",
+          "Every mutating action is appended to the activity log audit trail",
+          "Each member may cast one up/down vote per activity"
+        ],
+        "crossDomainInteractions": [
+          "Gates all Trip Planning operations via requireTripAccess",
+          "Sends emails via the User & Auth domain's mail service for invites"
+        ]
+      }
+    },
+    {
+      "id": "domain:user-auth",
+      "type": "domain",
+      "name": "User & Authentication",
+      "summary": "User identity, authentication via BetterAuth, profile management, and user-scoped data such as passports, visited countries, and travel preferences. Provides the requireAuth middleware used across the API.",
+      "tags": ["auth", "users", "profile", "better-auth"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entities": ["User", "Session", "UserProfile", "UserPassport", "VisitedCountry"],
+        "businessRules": [
+          "Sensitive fields (passport numbers) are encrypted at rest",
+          "Passport expiry triggers proactive email notification",
+          "Auth required on every API route except public shared/auth endpoints",
+          "Passport nationality drives visa requirement lookups"
+        ],
+        "crossDomainInteractions": [
+          "Provides session.user.id to every other domain",
+          "Passport data feeds the Visa & Travel Documents domain",
+          "Profile preferences influence AI Generation prompts"
+        ]
+      }
+    },
+    {
+      "id": "domain:expenses-budget",
+      "type": "domain",
+      "name": "Expenses & Budget",
+      "summary": "Tracks per-trip expenses, currency conversion, exchange rate lookups, and cost estimates. Includes refresh-from-Google to auto-fill activity costs from place price_level data.",
+      "tags": ["expenses", "currency", "costs", "budget"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entities": ["Expense", "ExchangeRate", "CostEstimate"],
+        "businessRules": [
+          "Expenses are stored in their original currency with conversion at display time",
+          "Trip-wide currency conversion applies a single FX rate snapshot",
+          "Cost estimates can be derived from Google Places price_level",
+          "Refresh-from-Google updates stale cost estimates from current place data"
+        ],
+        "crossDomainInteractions": [
+          "Reads activity place data from Places & Maps for cost derivation",
+          "Linked to activities and reservations in Trip Planning"
+        ]
+      }
+    },
+    {
+      "id": "domain:travel-documents",
+      "type": "domain",
+      "name": "Travel Documents & Visa",
+      "summary": "Manages flights, reservations, packing checklists, trip documents, and visa requirement checks. Includes scheduled cron tasks for passport expiry alerts and visa data import.",
+      "tags": ["flights", "visa", "checklists", "documents", "reservations", "cron"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entities": [
+          "Flight",
+          "Reservation",
+          "Checklist",
+          "ChecklistItem",
+          "PackingTemplate",
+          "Document",
+          "VisaRequirement"
+        ],
+        "businessRules": [
+          "Flight data is auto-refreshed from external API every 2 hours while trip is active",
+          "Visa requirements are checked against user's passport nationality",
+          "Packing templates can be global or user-owned",
+          "Cron-secured endpoints require Bearer token matching CRON_SECRET",
+          "Passport expiry job notifies users with travel within validity-risk window"
+        ],
+        "crossDomainInteractions": [
+          "Reads passport data from User & Auth for visa checks",
+          "Attaches flights and reservations to trips in Trip Planning",
+          "Layover tips use AI Generation for personalized suggestions"
+        ]
+      }
+    },
+    {
+      "id": "flow:create-trip",
+      "type": "flow",
+      "name": "Create Trip",
+      "summary": "User creates a new trip with destination, dates, and currency; itinerary days are seeded automatically.",
+      "tags": ["trips", "create"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entryPoint": "POST /api/trips",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:add-activity-to-day",
+      "type": "flow",
+      "name": "Add Activity to Day",
+      "summary": "Add an activity (attraction/restaurant/etc.) to a specific itinerary day with cost derivation and travel segment recomputation.",
+      "tags": ["activities", "itinerary"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entryPoint": "POST /api/trips/[id]/activities",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:reorder-day-activities",
+      "type": "flow",
+      "name": "Reorder Day Activities",
+      "summary": "Persist a new ordering of activities within a day and recompute travel segments between them.",
+      "tags": ["activities", "drag-drop"],
+      "complexity": "simple",
+      "domainMeta": {
+        "entryPoint": "PUT /api/trips/[id]/days/[dayId]/reorder",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:promote-idea-to-itinerary",
+      "type": "flow",
+      "name": "Promote Idea to Itinerary",
+      "summary": "Convert a saved trip idea into a concrete activity on a specific day.",
+      "tags": ["ideas", "activities"],
+      "complexity": "simple",
+      "domainMeta": {
+        "entryPoint": "POST /api/trips/[id]/ideas/[ideaId]/promote",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:ai-generate-day-itinerary",
+      "type": "flow",
+      "name": "AI Generate Day Itinerary",
+      "summary": "Intent-based AI generation that drafts, resolves, enriches, and persists activities for a single day.",
+      "tags": ["ai", "gemini", "intent"],
+      "complexity": "complex",
+      "domainMeta": {
+        "entryPoint": "POST /api/trips/[id]/days/[dayId]/ai",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:apply-itinerary-proposal",
+      "type": "flow",
+      "name": "Apply Itinerary Proposal",
+      "summary": "Apply an AI-generated proposal (additions/removals/updates) to a trip atomically.",
+      "tags": ["ai", "proposals"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entryPoint": "POST /api/trips/[id]/proposals/apply",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:discuss-trip-with-ai",
+      "type": "flow",
+      "name": "Discuss Trip with AI",
+      "summary": "Conversational discuss-agent endpoint that answers questions about the current trip without mutating it.",
+      "tags": ["ai", "agent", "chat"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entryPoint": "POST /api/trips/[id]/discuss",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:review-itinerary",
+      "type": "flow",
+      "name": "Review Itinerary with AI",
+      "summary": "Run an AI review pass over the trip to flag pacing, timing, and consistency issues.",
+      "tags": ["ai", "review"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entryPoint": "POST /api/trips/[id]/review",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:search-place",
+      "type": "flow",
+      "name": "Search Place",
+      "summary": "Lookup candidate places by name via Google Places search.",
+      "tags": ["google-maps", "places"],
+      "complexity": "simple",
+      "domainMeta": {
+        "entryPoint": "GET /api/places/search",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:enrich-activity",
+      "type": "flow",
+      "name": "Enrich Activity with Google Data",
+      "summary": "Resolve and hydrate an activity with Google Places details (coordinates, rating, photos, opening hours).",
+      "tags": ["google-maps", "enrichment"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entryPoint": "POST /api/trips/[id]/activities/[activityId]/enrich",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:invite-member",
+      "type": "flow",
+      "name": "Invite Trip Member",
+      "summary": "Owner invites a teammate to a trip with a hashed token sent via email.",
+      "tags": ["collaboration", "invites", "email"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entryPoint": "POST /api/trips/[id]/members/invite",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:accept-invite",
+      "type": "flow",
+      "name": "Accept Trip Invite",
+      "summary": "Authenticated user redeems an invite token to join a trip with the assigned role.",
+      "tags": ["collaboration", "invites"],
+      "complexity": "simple",
+      "domainMeta": {
+        "entryPoint": "POST /api/invites/[token]",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:vote-on-activity",
+      "type": "flow",
+      "name": "Vote on Activity",
+      "summary": "Trip member casts an up or down vote on a suggested activity.",
+      "tags": ["collaboration", "voting"],
+      "complexity": "simple",
+      "domainMeta": {
+        "entryPoint": "POST /api/trips/[id]/activities/[activityId]/vote",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:share-trip-publicly",
+      "type": "flow",
+      "name": "Share Trip Publicly",
+      "summary": "Owner generates a share token that exposes a read-only public view of the trip.",
+      "tags": ["collaboration", "sharing"],
+      "complexity": "simple",
+      "domainMeta": {
+        "entryPoint": "POST /api/trips/[id]/share",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:add-user-passport",
+      "type": "flow",
+      "name": "Add User Passport",
+      "summary": "User stores a passport with nationality, number (encrypted), and expiry date.",
+      "tags": ["users", "passports", "encryption"],
+      "complexity": "simple",
+      "domainMeta": {
+        "entryPoint": "POST /api/user/passports",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:update-user-profile",
+      "type": "flow",
+      "name": "Update User Profile",
+      "summary": "Persist user profile preferences used to personalize AI generation.",
+      "tags": ["users", "profile"],
+      "complexity": "simple",
+      "domainMeta": {
+        "entryPoint": "PUT /api/user/profile",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:add-expense",
+      "type": "flow",
+      "name": "Add Expense",
+      "summary": "Record an expense against a trip in its original currency.",
+      "tags": ["expenses"],
+      "complexity": "simple",
+      "domainMeta": {
+        "entryPoint": "POST /api/trips/[id]/expenses",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:refresh-cost-estimates",
+      "type": "flow",
+      "name": "Refresh Cost Estimates from Google",
+      "summary": "Bulk re-derive activity cost estimates from current Google Places price_level data.",
+      "tags": ["expenses", "google-maps"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entryPoint": "POST /api/trips/[id]/refresh-cost-estimates",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:convert-trip-currency",
+      "type": "flow",
+      "name": "Convert Trip Currency",
+      "summary": "Snapshot an FX rate and convert all trip-scoped monetary values to a new base currency.",
+      "tags": ["expenses", "currency"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entryPoint": "POST /api/trips/[id]/convert-currency",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:add-flight",
+      "type": "flow",
+      "name": "Add Flight",
+      "summary": "User adds a flight, looking up real flight schedule data from an external API and optionally linking it to a trip.",
+      "tags": ["flights"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entryPoint": "POST /api/flights",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:check-visa-requirements",
+      "type": "flow",
+      "name": "Check Visa Requirements",
+      "summary": "Look up visa requirements for the user's passport nationality against a destination country.",
+      "tags": ["visa", "passports"],
+      "complexity": "simple",
+      "domainMeta": {
+        "entryPoint": "GET /api/visa/check",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:save-packing-template",
+      "type": "flow",
+      "name": "Save Checklist as Packing Template",
+      "summary": "Save the items of a trip checklist as a reusable packing template.",
+      "tags": ["checklists", "templates"],
+      "complexity": "simple",
+      "domainMeta": {
+        "entryPoint": "POST /api/trips/[id]/checklists/[checklistId]/save-as-template",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:passport-expiry-cron",
+      "type": "flow",
+      "name": "Passport Expiry Notification Cron",
+      "summary": "Scheduled job that scans for passports nearing expiry and emails owners.",
+      "tags": ["cron", "passports", "notifications"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entryPoint": "GET /api/cron/check-passport-expiry",
+        "entryType": "cron"
+      }
+    },
+    {
+      "id": "step:create-trip:authenticate-user",
+      "type": "step",
+      "name": "Authenticate user",
+      "summary": "Verify session via BetterAuth.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/index.post.ts"
+    },
+    {
+      "id": "step:create-trip:validate-trip-input",
+      "type": "step",
+      "name": "Validate trip input",
+      "summary": "Parse and validate the trip creation body with Zod.",
+      "tags": ["validation"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/index.post.ts"
+    },
+    {
+      "id": "step:create-trip:insert-trip-record",
+      "type": "step",
+      "name": "Insert trip record",
+      "summary": "Insert a new trip into the database.",
+      "tags": ["db", "trips"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/index.post.ts"
+    },
+    {
+      "id": "step:create-trip:seed-itinerary-days",
+      "type": "step",
+      "name": "Seed itinerary days",
+      "summary": "Generate one itineraryDays row per date in the trip range.",
+      "tags": ["db", "itinerary"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/index.post.ts"
+    },
+    {
+      "id": "step:create-trip:return-trip-payload",
+      "type": "step",
+      "name": "Return trip payload",
+      "summary": "Respond with the created trip.",
+      "tags": ["response"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/index.post.ts"
+    },
+    {
+      "id": "step:add-activity-to-day:require-editor-access",
+      "type": "step",
+      "name": "Require editor access",
+      "summary": "Check the caller has owner or editor role on the trip.",
+      "tags": ["auth", "access"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/activities/index.post.ts"
+    },
+    {
+      "id": "step:add-activity-to-day:validate-activity-body",
+      "type": "step",
+      "name": "Validate activity body",
+      "summary": "Validate name, type, time, duration, place_id with Zod.",
+      "tags": ["validation"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/activities/index.post.ts"
+    },
+    {
+      "id": "step:add-activity-to-day:derive-cost-from-place",
+      "type": "step",
+      "name": "Derive cost from place",
+      "summary": "Use Google Places price_level to estimate cost when not provided.",
+      "tags": ["cost", "google-maps"],
+      "complexity": "moderate",
+      "filePath": "server/lib/cost-from-place.ts"
+    },
+    {
+      "id": "step:add-activity-to-day:insert-activity",
+      "type": "step",
+      "name": "Insert activity row",
+      "summary": "Persist the new activity into the database.",
+      "tags": ["db", "activities"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/activities/index.post.ts"
+    },
+    {
+      "id": "step:add-activity-to-day:recompute-travel-segments",
+      "type": "step",
+      "name": "Recompute travel segments",
+      "summary": "Recompute travel time segments between activities on the day.",
+      "tags": ["segments", "google-maps"],
+      "complexity": "moderate",
+      "filePath": "server/lib/segments.ts"
+    },
+    {
+      "id": "step:add-activity-to-day:log-activity-event",
+      "type": "step",
+      "name": "Log activity event",
+      "summary": "Append an entry to the activity log for the audit trail.",
+      "tags": ["audit-log"],
+      "complexity": "simple",
+      "filePath": "server/db/schema/activity-log.ts"
+    },
+    {
+      "id": "step:reorder-day-activities:require-editor-access",
+      "type": "step",
+      "name": "Require editor access",
+      "summary": "Verify trip role.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/days/[dayId]/reorder.put.ts"
+    },
+    {
+      "id": "step:reorder-day-activities:validate-order-payload",
+      "type": "step",
+      "name": "Validate order payload",
+      "summary": "Validate the new ordering array.",
+      "tags": ["validation"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/days/[dayId]/reorder.put.ts"
+    },
+    {
+      "id": "step:reorder-day-activities:persist-new-order",
+      "type": "step",
+      "name": "Persist new order",
+      "summary": "Update sort indices on activities.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/days/[dayId]/reorder.put.ts"
+    },
+    {
+      "id": "step:reorder-day-activities:recompute-segments",
+      "type": "step",
+      "name": "Recompute travel segments",
+      "summary": "Recompute travel time segments after reorder.",
+      "tags": ["segments"],
+      "complexity": "moderate",
+      "filePath": "server/lib/segments.ts"
+    },
+    {
+      "id": "step:promote-idea-to-itinerary:fetch-idea",
+      "type": "step",
+      "name": "Fetch idea",
+      "summary": "Load the trip idea by id.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/ideas/[ideaId]/promote.post.ts"
+    },
+    {
+      "id": "step:promote-idea-to-itinerary:resolve-target-day",
+      "type": "step",
+      "name": "Resolve target day",
+      "summary": "Resolve the day to attach the new activity to.",
+      "tags": ["itinerary"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/ideas/[ideaId]/promote.post.ts"
+    },
+    {
+      "id": "step:promote-idea-to-itinerary:create-activity-from-idea",
+      "type": "step",
+      "name": "Create activity from idea",
+      "summary": "Insert an activity copying the idea's fields.",
+      "tags": ["activities"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/ideas/[ideaId]/promote.post.ts"
+    },
+    {
+      "id": "step:promote-idea-to-itinerary:remove-idea-record",
+      "type": "step",
+      "name": "Remove idea record",
+      "summary": "Delete the trip idea since it is now in the itinerary.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/ideas/[ideaId]/promote.post.ts"
+    },
+    {
+      "id": "step:ai-generate-day-itinerary:authenticate-and-rate-limit",
+      "type": "step",
+      "name": "Authenticate and rate-limit",
+      "summary": "Verify auth and consume AI usage quota.",
+      "tags": ["auth", "rate-limit"],
+      "complexity": "moderate",
+      "filePath": "server/utils/ai-limits.ts"
+    },
+    {
+      "id": "step:ai-generate-day-itinerary:sanitize-prompt",
+      "type": "step",
+      "name": "Sanitize prompt",
+      "summary": "Sanitize user prompt to mitigate prompt injection.",
+      "tags": ["security"],
+      "complexity": "simple",
+      "filePath": "server/utils/sanitize.ts"
+    },
+    {
+      "id": "step:ai-generate-day-itinerary:load-trip-context",
+      "type": "step",
+      "name": "Load trip context",
+      "summary": "Load trip, day, existing activities, accommodation, and preferences.",
+      "tags": ["context"],
+      "complexity": "moderate",
+      "filePath": "server/api/trips/[id]/days/[dayId]/ai.post.ts"
+    },
+    {
+      "id": "step:ai-generate-day-itinerary:dispatch-intent-handler",
+      "type": "step",
+      "name": "Dispatch intent handler",
+      "summary": "Route on intent: add | remove | modify | optimize | reschedule | fill_gaps | accommodation.",
+      "tags": ["ai", "intent"],
+      "complexity": "moderate",
+      "filePath": "server/lib/ai.ts"
+    },
+    {
+      "id": "step:ai-generate-day-itinerary:generate-structured-output",
+      "type": "step",
+      "name": "Generate structured output",
+      "summary": "Call Gemini with structured-output schema via Vercel AI SDK.",
+      "tags": ["ai", "gemini"],
+      "complexity": "complex",
+      "filePath": "server/lib/ai.ts"
+    },
+    {
+      "id": "step:ai-generate-day-itinerary:resolve-places-with-google",
+      "type": "step",
+      "name": "Resolve places with Google",
+      "summary": "For each suggestion, resolve to a real Google place via Places API.",
+      "tags": ["google-maps"],
+      "complexity": "moderate",
+      "filePath": "server/lib/google-maps.ts"
+    },
+    {
+      "id": "step:ai-generate-day-itinerary:enrich-activities",
+      "type": "step",
+      "name": "Enrich activities",
+      "summary": "Hydrate activities with coordinates, ratings, photos, hours.",
+      "tags": ["enrichment"],
+      "complexity": "moderate",
+      "filePath": "server/lib/enrich.ts"
+    },
+    {
+      "id": "step:ai-generate-day-itinerary:persist-activities",
+      "type": "step",
+      "name": "Persist activities",
+      "summary": "Insert resolved + enriched activities into the day.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/days/[dayId]/ai.post.ts"
+    },
+    {
+      "id": "step:ai-generate-day-itinerary:recompute-travel-segments",
+      "type": "step",
+      "name": "Recompute travel segments",
+      "summary": "Recompute travel times via Distance Matrix.",
+      "tags": ["segments", "google-maps"],
+      "complexity": "moderate",
+      "filePath": "server/lib/segments.ts"
+    },
+    {
+      "id": "step:ai-generate-day-itinerary:record-ai-usage",
+      "type": "step",
+      "name": "Record AI usage",
+      "summary": "Increment the user's AI usage counter.",
+      "tags": ["metering"],
+      "complexity": "simple",
+      "filePath": "server/db/schema/ai-usage.ts"
+    },
+    {
+      "id": "step:apply-itinerary-proposal:authenticate-editor",
+      "type": "step",
+      "name": "Authenticate editor",
+      "summary": "Require editor access on the trip.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/proposals/apply.post.ts"
+    },
+    {
+      "id": "step:apply-itinerary-proposal:validate-proposal-diff",
+      "type": "step",
+      "name": "Validate proposal diff",
+      "summary": "Validate the proposal payload schema.",
+      "tags": ["validation"],
+      "complexity": "simple",
+      "filePath": "server/lib/proposals.ts"
+    },
+    {
+      "id": "step:apply-itinerary-proposal:apply-additions-removals",
+      "type": "step",
+      "name": "Apply additions and removals",
+      "summary": "Insert new activities, delete removed ones, update modified ones.",
+      "tags": ["db"],
+      "complexity": "moderate",
+      "filePath": "server/lib/proposals.ts"
+    },
+    {
+      "id": "step:apply-itinerary-proposal:recompute-and-respond",
+      "type": "step",
+      "name": "Recompute and respond",
+      "summary": "Recompute segments and return the updated trip state.",
+      "tags": ["segments"],
+      "complexity": "moderate",
+      "filePath": "server/api/trips/[id]/proposals/apply.post.ts"
+    },
+    {
+      "id": "step:discuss-trip-with-ai:authenticate-and-meter",
+      "type": "step",
+      "name": "Authenticate and meter",
+      "summary": "Require auth and increment AI usage.",
+      "tags": ["auth", "metering"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/discuss.post.ts"
+    },
+    {
+      "id": "step:discuss-trip-with-ai:load-trip-snapshot",
+      "type": "step",
+      "name": "Load trip snapshot",
+      "summary": "Load trip + days + activities for context.",
+      "tags": ["context"],
+      "complexity": "moderate",
+      "filePath": "server/api/trips/[id]/discuss.post.ts"
+    },
+    {
+      "id": "step:discuss-trip-with-ai:run-discuss-agent",
+      "type": "step",
+      "name": "Run discuss agent",
+      "summary": "Run the Mastra-based discuss agent against Gemini.",
+      "tags": ["ai", "agent"],
+      "complexity": "complex",
+      "filePath": "server/lib/discuss-agent.ts"
+    },
+    {
+      "id": "step:discuss-trip-with-ai:return-response-and-starters",
+      "type": "step",
+      "name": "Return response and starters",
+      "summary": "Return the agent reply plus suggested follow-up starters.",
+      "tags": ["response"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/discuss.post.ts"
+    },
+    {
+      "id": "step:review-itinerary:fetch-trip-with-days",
+      "type": "step",
+      "name": "Fetch trip with days",
+      "summary": "Load full trip nested object including activities.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/review.post.ts"
+    },
+    {
+      "id": "step:review-itinerary:run-review-ai",
+      "type": "step",
+      "name": "Run review AI",
+      "summary": "Invoke the itinerary-review AI to identify issues.",
+      "tags": ["ai"],
+      "complexity": "complex",
+      "filePath": "server/lib/itinerary-review-ai.ts"
+    },
+    {
+      "id": "step:review-itinerary:summarize-warnings",
+      "type": "step",
+      "name": "Summarize warnings",
+      "summary": "Normalize warnings into a structured response.",
+      "tags": ["review"],
+      "complexity": "moderate",
+      "filePath": "server/lib/itinerary-review.ts"
+    },
+    {
+      "id": "step:review-itinerary:return-review-payload",
+      "type": "step",
+      "name": "Return review payload",
+      "summary": "Return the review object.",
+      "tags": ["response"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/review.post.ts"
+    },
+    {
+      "id": "step:search-place:authenticate-user",
+      "type": "step",
+      "name": "Authenticate user",
+      "summary": "Require an authenticated session.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/places/search.get.ts"
+    },
+    {
+      "id": "step:search-place:call-google-places-search",
+      "type": "step",
+      "name": "Call Google Places search",
+      "summary": "Invoke Google Places text search.",
+      "tags": ["google-maps"],
+      "complexity": "simple",
+      "filePath": "server/lib/google-maps.ts"
+    },
+    {
+      "id": "step:search-place:return-candidates",
+      "type": "step",
+      "name": "Return candidates",
+      "summary": "Return the candidate places.",
+      "tags": ["response"],
+      "complexity": "simple",
+      "filePath": "server/api/places/search.get.ts"
+    },
+    {
+      "id": "step:enrich-activity:check-cooldown",
+      "type": "step",
+      "name": "Check enrichment cooldown",
+      "summary": "Skip if activity was enriched within the last hour.",
+      "tags": ["cooldown"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/activities/[activityId]/enrich.post.ts"
+    },
+    {
+      "id": "step:enrich-activity:resolve-place-id",
+      "type": "step",
+      "name": "Resolve place id",
+      "summary": "Search Google Places for a matching place_id.",
+      "tags": ["google-maps"],
+      "complexity": "moderate",
+      "filePath": "server/lib/google-maps.ts"
+    },
+    {
+      "id": "step:enrich-activity:fetch-place-details",
+      "type": "step",
+      "name": "Fetch place details",
+      "summary": "Fetch coordinates, rating, hours, photos.",
+      "tags": ["google-maps"],
+      "complexity": "moderate",
+      "filePath": "server/lib/google-maps.ts"
+    },
+    {
+      "id": "step:enrich-activity:persist-enriched-fields",
+      "type": "step",
+      "name": "Persist enriched fields",
+      "summary": "Update activity row with enriched data.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/lib/enrich.ts"
+    },
+    {
+      "id": "step:invite-member:require-owner-access",
+      "type": "step",
+      "name": "Require owner access",
+      "summary": "Only owners can invite.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/members/invite.post.ts"
+    },
+    {
+      "id": "step:invite-member:generate-and-hash-token",
+      "type": "step",
+      "name": "Generate and hash token",
+      "summary": "Mint a raw token and store its SHA-256 hash.",
+      "tags": ["security"],
+      "complexity": "moderate",
+      "filePath": "server/api/trips/[id]/members/invite.post.ts"
+    },
+    {
+      "id": "step:invite-member:insert-pending-member",
+      "type": "step",
+      "name": "Insert pending member",
+      "summary": "Insert a tripMembers row in pending state.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/members/invite.post.ts"
+    },
+    {
+      "id": "step:invite-member:send-invite-email",
+      "type": "step",
+      "name": "Send invite email",
+      "summary": "Send the raw token via Resend to the invitee.",
+      "tags": ["email"],
+      "complexity": "simple",
+      "filePath": "server/lib/email.ts"
+    },
+    {
+      "id": "step:accept-invite:authenticate-user",
+      "type": "step",
+      "name": "Authenticate user",
+      "summary": "Require an authenticated session.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/invites/[token].post.ts"
+    },
+    {
+      "id": "step:accept-invite:hash-and-lookup-token",
+      "type": "step",
+      "name": "Hash and lookup token",
+      "summary": "Hash the incoming token and look up the pending member.",
+      "tags": ["security"],
+      "complexity": "simple",
+      "filePath": "server/api/invites/[token].post.ts"
+    },
+    {
+      "id": "step:accept-invite:activate-membership",
+      "type": "step",
+      "name": "Activate membership",
+      "summary": "Mark the member active and bind to the current user.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/invites/[token].post.ts"
+    },
+    {
+      "id": "step:accept-invite:redirect-to-trip",
+      "type": "step",
+      "name": "Redirect to trip",
+      "summary": "Return the trip id for client redirect.",
+      "tags": ["response"],
+      "complexity": "simple",
+      "filePath": "server/api/invites/[token].post.ts"
+    },
+    {
+      "id": "step:vote-on-activity:require-trip-access",
+      "type": "step",
+      "name": "Require trip access",
+      "summary": "Verify caller is a trip member.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/activities/[activityId]/vote.post.ts"
+    },
+    {
+      "id": "step:vote-on-activity:validate-vote",
+      "type": "step",
+      "name": "Validate vote",
+      "summary": "Validate up/down vote payload.",
+      "tags": ["validation"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/activities/[activityId]/vote.post.ts"
+    },
+    {
+      "id": "step:vote-on-activity:upsert-vote-row",
+      "type": "step",
+      "name": "Upsert vote row",
+      "summary": "Insert or update the activityVotes row.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/db/schema/activity-votes.ts"
+    },
+    {
+      "id": "step:vote-on-activity:return-tally",
+      "type": "step",
+      "name": "Return tally",
+      "summary": "Return the updated vote totals.",
+      "tags": ["response"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/activities/[activityId]/vote.post.ts"
+    },
+    {
+      "id": "step:share-trip-publicly:require-owner-access",
+      "type": "step",
+      "name": "Require owner access",
+      "summary": "Only owners can share.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/share.post.ts"
+    },
+    {
+      "id": "step:share-trip-publicly:generate-share-token",
+      "type": "step",
+      "name": "Generate share token",
+      "summary": "Mint a UUID share token.",
+      "tags": ["security"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/share.post.ts"
+    },
+    {
+      "id": "step:share-trip-publicly:persist-and-return-url",
+      "type": "step",
+      "name": "Persist and return URL",
+      "summary": "Save token on trip and return the share URL.",
+      "tags": ["response"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/share.post.ts"
+    },
+    {
+      "id": "step:add-user-passport:authenticate-user",
+      "type": "step",
+      "name": "Authenticate user",
+      "summary": "Require an authenticated session.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/user/passports/index.post.ts"
+    },
+    {
+      "id": "step:add-user-passport:validate-passport-input",
+      "type": "step",
+      "name": "Validate passport input",
+      "summary": "Validate nationality, number, expiry.",
+      "tags": ["validation"],
+      "complexity": "simple",
+      "filePath": "server/api/user/passports/index.post.ts"
+    },
+    {
+      "id": "step:add-user-passport:encrypt-passport-number",
+      "type": "step",
+      "name": "Encrypt passport number",
+      "summary": "Encrypt the sensitive passport number before persistence.",
+      "tags": ["encryption"],
+      "complexity": "moderate",
+      "filePath": "server/lib/encryption.ts"
+    },
+    {
+      "id": "step:add-user-passport:insert-passport-record",
+      "type": "step",
+      "name": "Insert passport record",
+      "summary": "Store the encrypted passport row.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/db/schema/user-passports.ts"
+    },
+    {
+      "id": "step:update-user-profile:authenticate-user",
+      "type": "step",
+      "name": "Authenticate user",
+      "summary": "Require an authenticated session.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/user/profile.put.ts"
+    },
+    {
+      "id": "step:update-user-profile:validate-profile-body",
+      "type": "step",
+      "name": "Validate profile body",
+      "summary": "Validate the profile fields.",
+      "tags": ["validation"],
+      "complexity": "simple",
+      "filePath": "server/api/user/profile.put.ts"
+    },
+    {
+      "id": "step:update-user-profile:upsert-profile",
+      "type": "step",
+      "name": "Upsert profile",
+      "summary": "Insert or update the user profile row.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/user/profile.put.ts"
+    },
+    {
+      "id": "step:add-expense:require-trip-access",
+      "type": "step",
+      "name": "Require trip access",
+      "summary": "Verify caller is a trip member.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/expenses/index.post.ts"
+    },
+    {
+      "id": "step:add-expense:validate-expense-body",
+      "type": "step",
+      "name": "Validate expense body",
+      "summary": "Validate amount, currency, category.",
+      "tags": ["validation"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/expenses/index.post.ts"
+    },
+    {
+      "id": "step:add-expense:insert-expense",
+      "type": "step",
+      "name": "Insert expense",
+      "summary": "Persist the expense row.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/expenses/index.post.ts"
+    },
+    {
+      "id": "step:add-expense:return-expense",
+      "type": "step",
+      "name": "Return expense",
+      "summary": "Return the saved expense.",
+      "tags": ["response"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/expenses/index.post.ts"
+    },
+    {
+      "id": "step:refresh-cost-estimates:require-editor-access",
+      "type": "step",
+      "name": "Require editor access",
+      "summary": "Verify trip role.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/refresh-cost-estimates.post.ts"
+    },
+    {
+      "id": "step:refresh-cost-estimates:load-activities-with-place-ids",
+      "type": "step",
+      "name": "Load activities with place IDs",
+      "summary": "Load all activities for the trip that have a place_id.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/refresh-cost-estimates.post.ts"
+    },
+    {
+      "id": "step:refresh-cost-estimates:derive-cost-from-place",
+      "type": "step",
+      "name": "Derive cost from place",
+      "summary": "For each, compute a cost from Google Places price_level.",
+      "tags": ["google-maps", "cost"],
+      "complexity": "moderate",
+      "filePath": "server/lib/cost-from-place.ts"
+    },
+    {
+      "id": "step:refresh-cost-estimates:bulk-update-costs",
+      "type": "step",
+      "name": "Bulk update costs",
+      "summary": "Apply derived cost estimates to all activities.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/refresh-cost-estimates.post.ts"
+    },
+    {
+      "id": "step:convert-trip-currency:require-owner-access",
+      "type": "step",
+      "name": "Require owner access",
+      "summary": "Only owners may convert currency.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/convert-currency.post.ts"
+    },
+    {
+      "id": "step:convert-trip-currency:fetch-exchange-rate",
+      "type": "step",
+      "name": "Fetch exchange rate",
+      "summary": "Snapshot a current FX rate for source -> target.",
+      "tags": ["currency"],
+      "complexity": "simple",
+      "filePath": "server/utils/exchange-rate.ts"
+    },
+    {
+      "id": "step:convert-trip-currency:apply-conversion",
+      "type": "step",
+      "name": "Apply conversion",
+      "summary": "Multiply all relevant monetary fields by the rate.",
+      "tags": ["currency"],
+      "complexity": "moderate",
+      "filePath": "server/api/trips/[id]/convert-currency.post.ts"
+    },
+    {
+      "id": "step:convert-trip-currency:persist-new-currency",
+      "type": "step",
+      "name": "Persist new currency",
+      "summary": "Update trip currencyCode and converted values.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/convert-currency.post.ts"
+    },
+    {
+      "id": "step:add-flight:authenticate-user",
+      "type": "step",
+      "name": "Authenticate user",
+      "summary": "Require an authenticated session.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/flights/index.post.ts"
+    },
+    {
+      "id": "step:add-flight:validate-flight-input",
+      "type": "step",
+      "name": "Validate flight input",
+      "summary": "Validate airline, flight number, date.",
+      "tags": ["validation"],
+      "complexity": "simple",
+      "filePath": "server/api/flights/index.post.ts"
+    },
+    {
+      "id": "step:add-flight:lookup-flight-api",
+      "type": "step",
+      "name": "Lookup flight via API",
+      "summary": "Query the external flight API for live schedule data.",
+      "tags": ["flights", "external-api"],
+      "complexity": "moderate",
+      "filePath": "server/lib/flight-api.ts"
+    },
+    {
+      "id": "step:add-flight:insert-flight-record",
+      "type": "step",
+      "name": "Insert flight record",
+      "summary": "Persist the flight row with apiLastFetchedAt.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/flights/index.post.ts"
+    },
+    {
+      "id": "step:add-flight:link-to-trip",
+      "type": "step",
+      "name": "Link to trip",
+      "summary": "If tripId provided, attach the flight to the trip.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/flights/index.post.ts"
+    },
+    {
+      "id": "step:check-visa-requirements:authenticate-user",
+      "type": "step",
+      "name": "Authenticate user",
+      "summary": "Require an authenticated session.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/visa/check.get.ts"
+    },
+    {
+      "id": "step:check-visa-requirements:resolve-passport-nationality",
+      "type": "step",
+      "name": "Resolve passport nationality",
+      "summary": "Read the user's primary passport nationality.",
+      "tags": ["passports"],
+      "complexity": "simple",
+      "filePath": "server/api/visa/check.get.ts"
+    },
+    {
+      "id": "step:check-visa-requirements:lookup-visa-requirement",
+      "type": "step",
+      "name": "Lookup visa requirement",
+      "summary": "Read visaRequirements row for nationality -> destination.",
+      "tags": ["visa"],
+      "complexity": "simple",
+      "filePath": "server/lib/visa-checker.ts"
+    },
+    {
+      "id": "step:check-visa-requirements:return-requirement-details",
+      "type": "step",
+      "name": "Return requirement details",
+      "summary": "Return visa status, max stay, and notes.",
+      "tags": ["response"],
+      "complexity": "simple",
+      "filePath": "server/api/visa/details.get.ts"
+    },
+    {
+      "id": "step:save-packing-template:require-editor-access",
+      "type": "step",
+      "name": "Require editor access",
+      "summary": "Verify trip role.",
+      "tags": ["auth"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/checklists/[checklistId]/save-as-template.post.ts"
+    },
+    {
+      "id": "step:save-packing-template:collect-checklist-items",
+      "type": "step",
+      "name": "Collect checklist items",
+      "summary": "Read all checklist items in order.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/checklists/[checklistId]/save-as-template.post.ts"
+    },
+    {
+      "id": "step:save-packing-template:insert-template",
+      "type": "step",
+      "name": "Insert template",
+      "summary": "Insert a new packingTemplates row owned by the user.",
+      "tags": ["db"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/checklists/[checklistId]/save-as-template.post.ts"
+    },
+    {
+      "id": "step:save-packing-template:return-template-id",
+      "type": "step",
+      "name": "Return template id",
+      "summary": "Return the saved template id.",
+      "tags": ["response"],
+      "complexity": "simple",
+      "filePath": "server/api/trips/[id]/checklists/[checklistId]/save-as-template.post.ts"
+    },
+    {
+      "id": "step:passport-expiry-cron:verify-cron-secret",
+      "type": "step",
+      "name": "Verify cron secret",
+      "summary": "Compare the Authorization Bearer header to CRON_SECRET.",
+      "tags": ["security", "cron"],
+      "complexity": "simple",
+      "filePath": "server/api/cron/check-passport-expiry.get.ts"
+    },
+    {
+      "id": "step:passport-expiry-cron:scan-passports-near-expiry",
+      "type": "step",
+      "name": "Scan passports near expiry",
+      "summary": "Query passports whose expiry is within the warning window.",
+      "tags": ["db"],
+      "complexity": "moderate",
+      "filePath": "server/tasks/check-passport-expiry.ts"
+    },
+    {
+      "id": "step:passport-expiry-cron:send-notification-emails",
+      "type": "step",
+      "name": "Send notification emails",
+      "summary": "Email impacted users about upcoming expiry.",
+      "tags": ["email"],
+      "complexity": "simple",
+      "filePath": "server/lib/email.ts"
+    },
+    {
+      "id": "step:passport-expiry-cron:return-task-result",
+      "type": "step",
+      "name": "Return task result",
+      "summary": "Return the count of processed passports.",
+      "tags": ["response"],
+      "complexity": "simple",
+      "filePath": "server/tasks/check-passport-expiry.ts"
+    }
+  ],
+  "edges": [
+    {
+      "source": "domain:trip-planning",
+      "target": "flow:create-trip",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:trip-planning",
+      "target": "flow:add-activity-to-day",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:trip-planning",
+      "target": "flow:reorder-day-activities",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:trip-planning",
+      "target": "flow:promote-idea-to-itinerary",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:ai-generation",
+      "target": "flow:ai-generate-day-itinerary",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:ai-generation",
+      "target": "flow:apply-itinerary-proposal",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:ai-generation",
+      "target": "flow:discuss-trip-with-ai",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:ai-generation",
+      "target": "flow:review-itinerary",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:places-maps",
+      "target": "flow:search-place",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:places-maps",
+      "target": "flow:enrich-activity",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:collaboration",
+      "target": "flow:invite-member",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:collaboration",
+      "target": "flow:accept-invite",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:collaboration",
+      "target": "flow:vote-on-activity",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:collaboration",
+      "target": "flow:share-trip-publicly",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:user-auth",
+      "target": "flow:add-user-passport",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:user-auth",
+      "target": "flow:update-user-profile",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:expenses-budget",
+      "target": "flow:add-expense",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:expenses-budget",
+      "target": "flow:refresh-cost-estimates",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:expenses-budget",
+      "target": "flow:convert-trip-currency",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:travel-documents",
+      "target": "flow:add-flight",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:travel-documents",
+      "target": "flow:check-visa-requirements",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:travel-documents",
+      "target": "flow:save-packing-template",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:travel-documents",
+      "target": "flow:passport-expiry-cron",
+      "type": "contains_flow",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:create-trip",
+      "target": "step:create-trip:authenticate-user",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.2
+    },
+    {
+      "source": "flow:create-trip",
+      "target": "step:create-trip:validate-trip-input",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.4
+    },
+    {
+      "source": "flow:create-trip",
+      "target": "step:create-trip:insert-trip-record",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "flow:create-trip",
+      "target": "step:create-trip:seed-itinerary-days",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "flow:create-trip",
+      "target": "step:create-trip:return-trip-payload",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:add-activity-to-day",
+      "target": "step:add-activity-to-day:require-editor-access",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.2
+    },
+    {
+      "source": "flow:add-activity-to-day",
+      "target": "step:add-activity-to-day:validate-activity-body",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.3
+    },
+    {
+      "source": "flow:add-activity-to-day",
+      "target": "step:add-activity-to-day:derive-cost-from-place",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:add-activity-to-day",
+      "target": "step:add-activity-to-day:insert-activity",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "flow:add-activity-to-day",
+      "target": "step:add-activity-to-day:recompute-travel-segments",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "flow:add-activity-to-day",
+      "target": "step:add-activity-to-day:log-activity-event",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:reorder-day-activities",
+      "target": "step:reorder-day-activities:require-editor-access",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:reorder-day-activities",
+      "target": "step:reorder-day-activities:validate-order-payload",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:reorder-day-activities",
+      "target": "step:reorder-day-activities:persist-new-order",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:reorder-day-activities",
+      "target": "step:reorder-day-activities:recompute-segments",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:promote-idea-to-itinerary",
+      "target": "step:promote-idea-to-itinerary:fetch-idea",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:promote-idea-to-itinerary",
+      "target": "step:promote-idea-to-itinerary:resolve-target-day",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:promote-idea-to-itinerary",
+      "target": "step:promote-idea-to-itinerary:create-activity-from-idea",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:promote-idea-to-itinerary",
+      "target": "step:promote-idea-to-itinerary:remove-idea-record",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:ai-generate-day-itinerary",
+      "target": "step:ai-generate-day-itinerary:authenticate-and-rate-limit",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.1
+    },
+    {
+      "source": "flow:ai-generate-day-itinerary",
+      "target": "step:ai-generate-day-itinerary:sanitize-prompt",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.2
+    },
+    {
+      "source": "flow:ai-generate-day-itinerary",
+      "target": "step:ai-generate-day-itinerary:load-trip-context",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.3
+    },
+    {
+      "source": "flow:ai-generate-day-itinerary",
+      "target": "step:ai-generate-day-itinerary:dispatch-intent-handler",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.4
+    },
+    {
+      "source": "flow:ai-generate-day-itinerary",
+      "target": "step:ai-generate-day-itinerary:generate-structured-output",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:ai-generate-day-itinerary",
+      "target": "step:ai-generate-day-itinerary:resolve-places-with-google",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "flow:ai-generate-day-itinerary",
+      "target": "step:ai-generate-day-itinerary:enrich-activities",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "flow:ai-generate-day-itinerary",
+      "target": "step:ai-generate-day-itinerary:persist-activities",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "flow:ai-generate-day-itinerary",
+      "target": "step:ai-generate-day-itinerary:recompute-travel-segments",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "flow:ai-generate-day-itinerary",
+      "target": "step:ai-generate-day-itinerary:record-ai-usage",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:apply-itinerary-proposal",
+      "target": "step:apply-itinerary-proposal:authenticate-editor",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:apply-itinerary-proposal",
+      "target": "step:apply-itinerary-proposal:validate-proposal-diff",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:apply-itinerary-proposal",
+      "target": "step:apply-itinerary-proposal:apply-additions-removals",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:apply-itinerary-proposal",
+      "target": "step:apply-itinerary-proposal:recompute-and-respond",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:discuss-trip-with-ai",
+      "target": "step:discuss-trip-with-ai:authenticate-and-meter",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:discuss-trip-with-ai",
+      "target": "step:discuss-trip-with-ai:load-trip-snapshot",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:discuss-trip-with-ai",
+      "target": "step:discuss-trip-with-ai:run-discuss-agent",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:discuss-trip-with-ai",
+      "target": "step:discuss-trip-with-ai:return-response-and-starters",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:review-itinerary",
+      "target": "step:review-itinerary:fetch-trip-with-days",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:review-itinerary",
+      "target": "step:review-itinerary:run-review-ai",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:review-itinerary",
+      "target": "step:review-itinerary:summarize-warnings",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:review-itinerary",
+      "target": "step:review-itinerary:return-review-payload",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:search-place",
+      "target": "step:search-place:authenticate-user",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.33
+    },
+    {
+      "source": "flow:search-place",
+      "target": "step:search-place:call-google-places-search",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.66
+    },
+    {
+      "source": "flow:search-place",
+      "target": "step:search-place:return-candidates",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:enrich-activity",
+      "target": "step:enrich-activity:check-cooldown",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:enrich-activity",
+      "target": "step:enrich-activity:resolve-place-id",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:enrich-activity",
+      "target": "step:enrich-activity:fetch-place-details",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:enrich-activity",
+      "target": "step:enrich-activity:persist-enriched-fields",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:invite-member",
+      "target": "step:invite-member:require-owner-access",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:invite-member",
+      "target": "step:invite-member:generate-and-hash-token",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:invite-member",
+      "target": "step:invite-member:insert-pending-member",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:invite-member",
+      "target": "step:invite-member:send-invite-email",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:accept-invite",
+      "target": "step:accept-invite:authenticate-user",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:accept-invite",
+      "target": "step:accept-invite:hash-and-lookup-token",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:accept-invite",
+      "target": "step:accept-invite:activate-membership",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:accept-invite",
+      "target": "step:accept-invite:redirect-to-trip",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:vote-on-activity",
+      "target": "step:vote-on-activity:require-trip-access",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:vote-on-activity",
+      "target": "step:vote-on-activity:validate-vote",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:vote-on-activity",
+      "target": "step:vote-on-activity:upsert-vote-row",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:vote-on-activity",
+      "target": "step:vote-on-activity:return-tally",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:share-trip-publicly",
+      "target": "step:share-trip-publicly:require-owner-access",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.33
+    },
+    {
+      "source": "flow:share-trip-publicly",
+      "target": "step:share-trip-publicly:generate-share-token",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.66
+    },
+    {
+      "source": "flow:share-trip-publicly",
+      "target": "step:share-trip-publicly:persist-and-return-url",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:add-user-passport",
+      "target": "step:add-user-passport:authenticate-user",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:add-user-passport",
+      "target": "step:add-user-passport:validate-passport-input",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:add-user-passport",
+      "target": "step:add-user-passport:encrypt-passport-number",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:add-user-passport",
+      "target": "step:add-user-passport:insert-passport-record",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:update-user-profile",
+      "target": "step:update-user-profile:authenticate-user",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.33
+    },
+    {
+      "source": "flow:update-user-profile",
+      "target": "step:update-user-profile:validate-profile-body",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.66
+    },
+    {
+      "source": "flow:update-user-profile",
+      "target": "step:update-user-profile:upsert-profile",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:add-expense",
+      "target": "step:add-expense:require-trip-access",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:add-expense",
+      "target": "step:add-expense:validate-expense-body",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:add-expense",
+      "target": "step:add-expense:insert-expense",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:add-expense",
+      "target": "step:add-expense:return-expense",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:refresh-cost-estimates",
+      "target": "step:refresh-cost-estimates:require-editor-access",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:refresh-cost-estimates",
+      "target": "step:refresh-cost-estimates:load-activities-with-place-ids",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:refresh-cost-estimates",
+      "target": "step:refresh-cost-estimates:derive-cost-from-place",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:refresh-cost-estimates",
+      "target": "step:refresh-cost-estimates:bulk-update-costs",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:convert-trip-currency",
+      "target": "step:convert-trip-currency:require-owner-access",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:convert-trip-currency",
+      "target": "step:convert-trip-currency:fetch-exchange-rate",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:convert-trip-currency",
+      "target": "step:convert-trip-currency:apply-conversion",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:convert-trip-currency",
+      "target": "step:convert-trip-currency:persist-new-currency",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:add-flight",
+      "target": "step:add-flight:authenticate-user",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.2
+    },
+    {
+      "source": "flow:add-flight",
+      "target": "step:add-flight:validate-flight-input",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.4
+    },
+    {
+      "source": "flow:add-flight",
+      "target": "step:add-flight:lookup-flight-api",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "flow:add-flight",
+      "target": "step:add-flight:insert-flight-record",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "flow:add-flight",
+      "target": "step:add-flight:link-to-trip",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:check-visa-requirements",
+      "target": "step:check-visa-requirements:authenticate-user",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:check-visa-requirements",
+      "target": "step:check-visa-requirements:resolve-passport-nationality",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:check-visa-requirements",
+      "target": "step:check-visa-requirements:lookup-visa-requirement",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:check-visa-requirements",
+      "target": "step:check-visa-requirements:return-requirement-details",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:save-packing-template",
+      "target": "step:save-packing-template:require-editor-access",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:save-packing-template",
+      "target": "step:save-packing-template:collect-checklist-items",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:save-packing-template",
+      "target": "step:save-packing-template:insert-template",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:save-packing-template",
+      "target": "step:save-packing-template:return-template-id",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "flow:passport-expiry-cron",
+      "target": "step:passport-expiry-cron:verify-cron-secret",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.25
+    },
+    {
+      "source": "flow:passport-expiry-cron",
+      "target": "step:passport-expiry-cron:scan-passports-near-expiry",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "flow:passport-expiry-cron",
+      "target": "step:passport-expiry-cron:send-notification-emails",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 0.75
+    },
+    {
+      "source": "flow:passport-expiry-cron",
+      "target": "step:passport-expiry-cron:return-task-result",
+      "type": "flow_step",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "domain:ai-generation",
+      "target": "domain:trip-planning",
+      "type": "cross_domain",
+      "direction": "forward",
+      "description": "AI generates structured activity drafts that are persisted into the itinerary",
+      "weight": 0.9
+    },
+    {
+      "source": "domain:ai-generation",
+      "target": "domain:places-maps",
+      "type": "cross_domain",
+      "direction": "forward",
+      "description": "Every AI-suggested place is resolved and enriched via Google Maps before persistence",
+      "weight": 0.9
+    },
+    {
+      "source": "domain:trip-planning",
+      "target": "domain:places-maps",
+      "type": "cross_domain",
+      "direction": "forward",
+      "description": "Activities reference Google place_ids; segments use Distance Matrix for travel times",
+      "weight": 0.8
+    },
+    {
+      "source": "domain:trip-planning",
+      "target": "domain:collaboration",
+      "type": "cross_domain",
+      "direction": "forward",
+      "description": "Trip-scoped access control, comments, votes, and audit logs gate every mutation",
+      "weight": 0.7
+    },
+    {
+      "source": "domain:collaboration",
+      "target": "domain:user-auth",
+      "type": "cross_domain",
+      "direction": "forward",
+      "description": "Member identity, invite emails, and role checks resolve through the auth domain",
+      "weight": 0.6
+    },
+    {
+      "source": "domain:trip-planning",
+      "target": "domain:expenses-budget",
+      "type": "cross_domain",
+      "direction": "forward",
+      "description": "Activity costs and reservations feed into trip expense totals",
+      "weight": 0.6
+    },
+    {
+      "source": "domain:expenses-budget",
+      "target": "domain:places-maps",
+      "type": "cross_domain",
+      "direction": "forward",
+      "description": "Cost estimates can be derived from Google Places price_level",
+      "weight": 0.4
+    },
+    {
+      "source": "domain:travel-documents",
+      "target": "domain:user-auth",
+      "type": "cross_domain",
+      "direction": "forward",
+      "description": "Visa checks read the user's passport and nationality",
+      "weight": 0.5
+    },
+    {
+      "source": "domain:travel-documents",
+      "target": "domain:trip-planning",
+      "type": "cross_domain",
+      "direction": "forward",
+      "description": "Flights and reservations attach to trips; layovers tie into the itinerary",
+      "weight": 0.5
+    },
+    {
+      "source": "domain:travel-documents",
+      "target": "domain:ai-generation",
+      "type": "cross_domain",
+      "direction": "forward",
+      "description": "Layover-tips endpoint uses Gemini for personalized airport recommendations",
+      "weight": 0.3
+    }
+  ],
+  "layers": [],
+  "tour": []
+}

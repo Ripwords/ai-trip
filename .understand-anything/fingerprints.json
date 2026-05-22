@@ -1,0 +1,6401 @@
+{
+  "version": "1.0.0",
+  "gitCommitHash": "3bb7b57ee6e4ae8829029223de86f98a1727dcba",
+  "generatedAt": "2026-05-22T02:25:53.914Z",
+  "files": {
+    ".understand-anything/tmp/ua-project-scan.cjs": {
+      "filePath": ".understand-anything/tmp/ua-project-scan.cjs",
+      "contentHash": "06f5c5f7c1ffec0023d0d90d782b9163159d723021a12c45d3e063b44fad7239",
+      "functions": [
+        {
+          "name": "detectLanguage",
+          "params": ["relPath"],
+          "exported": false,
+          "lineCount": 24
+        },
+        {
+          "name": "detectCategory",
+          "params": ["relPath"],
+          "exported": false,
+          "lineCount": 99
+        },
+        {
+          "name": "discoverFiles",
+          "params": [],
+          "exported": false,
+          "lineCount": 60
+        },
+        {
+          "name": "isHardcodedExcluded",
+          "params": ["relPath"],
+          "exported": false,
+          "lineCount": 33
+        },
+        {
+          "name": "loadUnderstandIgnore",
+          "params": [],
+          "exported": false,
+          "lineCount": 19
+        },
+        {
+          "name": "buildIgnoreFilter",
+          "params": [],
+          "exported": false,
+          "lineCount": 90
+        },
+        {
+          "name": "countLines",
+          "params": ["files"],
+          "exported": false,
+          "lineCount": 44
+        },
+        {
+          "name": "readJSONSafe",
+          "params": ["p"],
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "detectFrameworks",
+          "params": ["files"],
+          "exported": false,
+          "lineCount": 152
+        },
+        {
+          "name": "loadTsconfigPaths",
+          "params": [],
+          "exported": false,
+          "lineCount": 25
+        },
+        {
+          "name": "normalizeRel",
+          "params": ["p"],
+          "exported": false,
+          "lineCount": 15
+        },
+        {
+          "name": "tryResolve",
+          "params": ["candidate", "fileSet"],
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "extractJsImports",
+          "params": ["content"],
+          "exported": false,
+          "lineCount": 17
+        },
+        {
+          "name": "extractVueScriptImports",
+          "params": ["content"],
+          "exported": false,
+          "lineCount": 10
+        },
+        {
+          "name": "resolveJsImport",
+          "params": ["rawImport", "fromFile", "fileSet", "tsPaths"],
+          "exported": false,
+          "lineCount": 62
+        },
+        {
+          "name": "extractPyImports",
+          "params": ["content"],
+          "exported": false,
+          "lineCount": 40
+        },
+        {
+          "name": "resolvePyAbsolute",
+          "params": ["modDotted", "fileSet"],
+          "exported": false,
+          "lineCount": 8
+        },
+        {
+          "name": "extractGoImports",
+          "params": ["content"],
+          "exported": false,
+          "lineCount": 14
+        },
+        {
+          "name": "extractRustImports",
+          "params": ["content"],
+          "exported": false,
+          "lineCount": 9
+        },
+        {
+          "name": "extractRubyImports",
+          "params": ["content"],
+          "exported": false,
+          "lineCount": 9
+        },
+        {
+          "name": "extractJavaImports",
+          "params": ["content"],
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "extractKotlinImports",
+          "params": ["content"],
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "extractCImports",
+          "params": ["content"],
+          "exported": false,
+          "lineCount": 9
+        },
+        {
+          "name": "extractPhpImports",
+          "params": ["content"],
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "buildImportMap",
+          "params": ["files", "fileEntries"],
+          "exported": false,
+          "lineCount": 218
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1370,
+      "hasStructuralAnalysis": true
+    },
+    "app/app.vue": {
+      "filePath": "app/app.vue",
+      "contentHash": "0bbb0cfc981c8202dcb1c545bdaa611d6ac058b1e7b82715de0f9721f87922e9",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 50,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/AccommodationSection.vue": {
+      "filePath": "app/components/AccommodationSection.vue",
+      "contentHash": "36e0a82993bb413eed48f12b3df990cd8b7674e7e481980e282f6e40a7b378ee",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 429,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/ActivityCard.vue": {
+      "filePath": "app/components/ActivityCard.vue",
+      "contentHash": "97ce751404a8c184afda3253c98273bb505b2817a649a1875cb8b1b407ff4dea",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 583,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/AddActivityModal.vue": {
+      "filePath": "app/components/AddActivityModal.vue",
+      "contentHash": "b08f7518082aac341f31cd478f89642be573d9ab0889730b2ca5b4737fb95956",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 218,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/AiDock.vue": {
+      "filePath": "app/components/AiDock.vue",
+      "contentHash": "c66d59603eb50e92cd5ab809f5ddcdfc6cc6a8c403e44b642721bcc18ae9dc6c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 886,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/ChecklistPanel.vue": {
+      "filePath": "app/components/ChecklistPanel.vue",
+      "contentHash": "d341f3ce6abcfb0987b74516ba8fa6652b224e683e29886466bbf806842f32cd",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 561,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/ConfirmDialog.vue": {
+      "filePath": "app/components/ConfirmDialog.vue",
+      "contentHash": "434cc28472994fbafc9c4b0fd0f16286d6e33a6d59ccb3c0f06f321dd29eff15",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 48,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/CountryDetailPanel.vue": {
+      "filePath": "app/components/CountryDetailPanel.vue",
+      "contentHash": "0a48a56764ae278e1c8c6918314c43883f25cacab1da277654d26247c0db89df",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 304,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/DaySection.vue": {
+      "filePath": "app/components/DaySection.vue",
+      "contentHash": "1ac7e5f67b8430f80fd9c9f52469fa8c5affe722ce256ffe9dfc50d7efb8e8b4",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 246,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/DocumentPanel.vue": {
+      "filePath": "app/components/DocumentPanel.vue",
+      "contentHash": "7dd629f0ca420ff728dc3a4e028a0ee1ab6ec4ac5f7c0b9a6f8111a5b172be04",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 157,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/EditActivityModal.vue": {
+      "filePath": "app/components/EditActivityModal.vue",
+      "contentHash": "65faf9463413e2adde160dd91460acd08cafbeb8e41608b1575155298e60b4e8",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 310,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/EditTripModal.vue": {
+      "filePath": "app/components/EditTripModal.vue",
+      "contentHash": "d26d4bdb392a9ebce98986d37e57ff1a5b6500b988854f423c329bd2a76f1588",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 243,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/ExpenseTracker.vue": {
+      "filePath": "app/components/ExpenseTracker.vue",
+      "contentHash": "b5dabf0eaeb4763d0e7fdee9df2bf9c5ce1d4785eeda3fe1e48361074bf44204",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 442,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/FlightCard.vue": {
+      "filePath": "app/components/FlightCard.vue",
+      "contentHash": "796f52071a59ffe478a22cd39b190c823cb22b2dd82d9ef1a32e9fd1c8a56bd9",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 230,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/FlightGlobe.vue": {
+      "filePath": "app/components/FlightGlobe.vue",
+      "contentHash": "d5d19c6d383e61e7d62106b97cadbbf0fcf085305abb0d119d7e6f930fff945c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 241,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/GlobeScratchMap.vue": {
+      "filePath": "app/components/GlobeScratchMap.vue",
+      "contentHash": "22806a5f937938dacdecef1bbce3f62a27534ca0e80a47699027ffadf009e19b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 754,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/IdeaCard.vue": {
+      "filePath": "app/components/IdeaCard.vue",
+      "contentHash": "32d484425dd73b7b69574c2aaed1b395aef2317d30b28bf2cf3e6c0873dcae9d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 117,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/IdeasBucket.vue": {
+      "filePath": "app/components/IdeasBucket.vue",
+      "contentHash": "744bc846d38b970d08f9168a54749779b94feba00ef98f13d79e230538f07abd",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 141,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/ItineraryReviewPanel.vue": {
+      "filePath": "app/components/ItineraryReviewPanel.vue",
+      "contentHash": "4270452c4fd52450e60899805cb8def0a636106d80e16e77cdf9d221468afbf4",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 347,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/LayoverCard.vue": {
+      "filePath": "app/components/LayoverCard.vue",
+      "contentHash": "5a44e0f308525d82bc3699c68f05405a8ee8332796efca63375b63174a55e804",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 153,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/NationalitySelector.vue": {
+      "filePath": "app/components/NationalitySelector.vue",
+      "contentHash": "420699475d5e4e44c40a0776d1acf374c9b0dce7383e666e1240d9385b95d827",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 101,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/Nav/Mobile.vue": {
+      "filePath": "app/components/Nav/Mobile.vue",
+      "contentHash": "621813e528b0b1566a45131db6faa63c7d7f0fd927cdd93a9ba301faf6dc0ead",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 35,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/PassportManager.vue": {
+      "filePath": "app/components/PassportManager.vue",
+      "contentHash": "83b9f4673091da6bdf5b45dc86a3e6c7da53e92195502178def54c28ed1b0f76",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 306,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/PlaceSearchInput.vue": {
+      "filePath": "app/components/PlaceSearchInput.vue",
+      "contentHash": "d8a69a6a20e3fabf125b0cc902fd5319af6e5de58ab9bdcdc8a5a2df240dd686",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 89,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/ReservationTracker.vue": {
+      "filePath": "app/components/ReservationTracker.vue",
+      "contentHash": "7f187388dc6cf0a60ef8a9c1267ab919a4f8c5b1fe208412b1e70dd4555e9c13",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 361,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/ScratchMap.vue": {
+      "filePath": "app/components/ScratchMap.vue",
+      "contentHash": "7421070dac9bb962c26104d7bfee5974e163939a4effc7e3f582b39c8ab175fe",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 660,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/Skeleton.vue": {
+      "filePath": "app/components/Skeleton.vue",
+      "contentHash": "858f07799f23bf946c40823902aa2e9cf43833fcfea575151d9433043cb441c3",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 52,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/SkeletonDashboard.vue": {
+      "filePath": "app/components/SkeletonDashboard.vue",
+      "contentHash": "87ae5c5b8cc4eb2ab398f370f771a43ef40e946d687a8f1f0fa3752c0cbd11af",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 44,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/SkeletonFlights.vue": {
+      "filePath": "app/components/SkeletonFlights.vue",
+      "contentHash": "691da6340d21acdd0dcce94e7b0ba9b1bfc36377ed4d2486a42c1546e09bb491",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 48,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/SkeletonMap.vue": {
+      "filePath": "app/components/SkeletonMap.vue",
+      "contentHash": "67733264fc8eae009f283703e8cd2095c1510bc48c30a6541486355c5da6743e",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 125,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/SkeletonTripDetail.vue": {
+      "filePath": "app/components/SkeletonTripDetail.vue",
+      "contentHash": "c06093cd824fd367d4cf0e5a47b6477a5a2bf96656ea02c32f4c81c9a1d01d4f",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 72,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/TravelSegmentDivider.vue": {
+      "filePath": "app/components/TravelSegmentDivider.vue",
+      "contentHash": "97c03ea85ed39639b1c206965d74126768e203c922e839d29841d792453dfb6e",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 68,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/TripActivityLog.vue": {
+      "filePath": "app/components/TripActivityLog.vue",
+      "contentHash": "235463605d7601272208a94c80a0be526e9e31afbad58d42862d0ce947a659f3",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 147,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/TripDetailTabs.vue": {
+      "filePath": "app/components/TripDetailTabs.vue",
+      "contentHash": "4928ccc39d98eec57ad06984d4bf7f2f5272600cf496550b7ce940f101d1ef60",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 121,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/TripMap.vue": {
+      "filePath": "app/components/TripMap.vue",
+      "contentHash": "3658a14c2e863eb49b55c21b25984cc97b80e348c0d6f76ccdeaf4bf1733a2f0",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 539,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/TripMembers.vue": {
+      "filePath": "app/components/TripMembers.vue",
+      "contentHash": "33c0a2831c59b5d0a1c9d9e8aa2cc158d7a301bc8e4c6ceca28d03f76249a66e",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 276,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/TripNotesPanel.vue": {
+      "filePath": "app/components/TripNotesPanel.vue",
+      "contentHash": "7cb062e29594ba4af57a272bb1b8c37fbe58d096b06bc80a4006f776e940f508",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 48,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/TripOverview.vue": {
+      "filePath": "app/components/TripOverview.vue",
+      "contentHash": "17a9641172c84ff7c08082a91e8afa16e4fbbef18d7def7315f63a7f6a98b044",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 858,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/TripOverviewMap.vue": {
+      "filePath": "app/components/TripOverviewMap.vue",
+      "contentHash": "156adea15b2f15b913726c288fc5952bbd055ecce05b759357013d9bfcd09060",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 524,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/TripPickerModal.vue": {
+      "filePath": "app/components/TripPickerModal.vue",
+      "contentHash": "55390abe550cb8655b5f0d183dae2b1b8afa6e005831019156be3b2c4882958f",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 125,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/TripPreferencesSheet.vue": {
+      "filePath": "app/components/TripPreferencesSheet.vue",
+      "contentHash": "e9976a303d78bb6c989758e4bb42f3a65d73832d5e68258dc14962eacc9d9e34",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 175,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/TripStats.vue": {
+      "filePath": "app/components/TripStats.vue",
+      "contentHash": "ffe9f5a1ac988a7421aac5e049c4d89a576c332762de77dc641f90c9ec3fbdea",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 195,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/VisaBadge.vue": {
+      "filePath": "app/components/VisaBadge.vue",
+      "contentHash": "59d83f29d601e66566c57d60a0ef3ec101c97df4dc16d75b6c031d153ac8602a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 61,
+      "hasStructuralAnalysis": false
+    },
+    "app/components/VisaChecker.vue": {
+      "filePath": "app/components/VisaChecker.vue",
+      "contentHash": "f4945fa27f00eb495bfdca3c362cd8f3f4af628ab212840573261f5bb1b6c496",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 323,
+      "hasStructuralAnalysis": false
+    },
+    "app/composables/useAiPromptSuggestions.ts": {
+      "filePath": "app/composables/useAiPromptSuggestions.ts",
+      "contentHash": "4b4a45569627b2bf975915142bd01cf3d5e803434160f7468a11c4400946e9c3",
+      "functions": [
+        {
+          "name": "useAiPromptSuggestions",
+          "params": ["destination", "hasActivities"],
+          "exported": true,
+          "lineCount": 25
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vue",
+          "specifiers": ["computed", "Ref"]
+        }
+      ],
+      "exports": ["useAiPromptSuggestions"],
+      "totalLines": 28,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/useConfirm.ts": {
+      "filePath": "app/composables/useConfirm.ts",
+      "contentHash": "2b63470140443add26a247680b31c8cc2f63f384a9544852af0778dbb56731cd",
+      "functions": [
+        {
+          "name": "useConfirm",
+          "params": [],
+          "exported": true,
+          "lineCount": 29
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["useConfirm"],
+      "totalLines": 45,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/useCurrencyFormat.ts": {
+      "filePath": "app/composables/useCurrencyFormat.ts",
+      "contentHash": "22cc551d6ff0c60929346cdd19299822a8d03546fc7594571f851fdd1fdbc339",
+      "functions": [
+        {
+          "name": "useCurrencyFormat",
+          "params": ["currencyCode"],
+          "exported": true,
+          "lineCount": 38
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vue",
+          "specifiers": ["MaybeRefOrGetter"]
+        }
+      ],
+      "exports": ["useCurrencyFormat"],
+      "totalLines": 49,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/useDarkMode.ts": {
+      "filePath": "app/composables/useDarkMode.ts",
+      "contentHash": "fe9ba58b4f6c955356130df5a0d2430546328fe63d8228461eae68cba80cdc03",
+      "functions": [
+        {
+          "name": "useDarkMode",
+          "params": [],
+          "exported": true,
+          "lineCount": 84
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["useDarkMode"],
+      "totalLines": 91,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/useDiscussionStarters.ts": {
+      "filePath": "app/composables/useDiscussionStarters.ts",
+      "contentHash": "7c1f449f0713667ba12f2c2113796f1bbae06ca44df067fc1634dde1761c8809",
+      "functions": [
+        {
+          "name": "useDiscussionStarters",
+          "params": ["trip", "activeDay"],
+          "exported": true,
+          "lineCount": 29
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vue",
+          "specifiers": ["computed", "unref", "Ref"]
+        }
+      ],
+      "exports": ["useDiscussionStarters"],
+      "totalLines": 51,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/useExportExpenses.ts": {
+      "filePath": "app/composables/useExportExpenses.ts",
+      "contentHash": "410fd09a1b81d8f8b221976c1fb1d3895e247a62f8ef8711b3ca05b8984badd2",
+      "functions": [
+        {
+          "name": "escapeCsvField",
+          "params": ["value"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "useExportExpenses",
+          "params": [],
+          "exported": true,
+          "lineCount": 21
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["useExportExpenses"],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/useExportMaps.ts": {
+      "filePath": "app/composables/useExportMaps.ts",
+      "contentHash": "689eb13972a5f443fed7f587f0ab552921e2e7948fa4b133f9494ab667c28caa",
+      "functions": [
+        {
+          "name": "getGoogleMapsDirectionsUrl",
+          "params": ["activities", "travelMode", "originOverride"],
+          "returnType": "string | null",
+          "exported": true,
+          "lineCount": 28
+        },
+        {
+          "name": "generateKml",
+          "params": ["tripName", "days"],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 25
+        },
+        {
+          "name": "downloadKml",
+          "params": ["tripName", "days"],
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "escapeXml",
+          "params": ["str"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 8
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["getGoogleMapsDirectionsUrl", "generateKml", "downloadKml"],
+      "totalLines": 104,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/useExportPdf.ts": {
+      "filePath": "app/composables/useExportPdf.ts",
+      "contentHash": "b23a0e08f53a3c8d0ec5f1baaee3204b03e8680a8b0005a9d668c24a8ef5f9b4",
+      "functions": [
+        {
+          "name": "esc",
+          "params": ["str"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "useExportPdf",
+          "params": [],
+          "exported": true,
+          "lineCount": 349
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["useExportPdf"],
+      "totalLines": 405,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/useFormatType.ts": {
+      "filePath": "app/composables/useFormatType.ts",
+      "contentHash": "b93bfe692a5e6013ac345dae66c56d263185f188cb2ebd2774a2d95475c1ace1",
+      "functions": [
+        {
+          "name": "formatType",
+          "params": ["type"],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 6
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["formatType"],
+      "totalLines": 13,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/useGenerateFullItinerary.ts": {
+      "filePath": "app/composables/useGenerateFullItinerary.ts",
+      "contentHash": "dbc2e8f797e09747e9a2d72e5f98422a8754fcd7d2d3cea8a5ee95db8ef3c3ed",
+      "functions": [
+        {
+          "name": "useGenerateFullItinerary",
+          "params": ["tripId"],
+          "exported": true,
+          "lineCount": 54
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vue",
+          "specifiers": ["ref"]
+        }
+      ],
+      "exports": ["useGenerateFullItinerary"],
+      "totalLines": 63,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/useGoogleMaps.ts": {
+      "filePath": "app/composables/useGoogleMaps.ts",
+      "contentHash": "3e3fb03306b106cd7e6ee417f55ffb2372d7cffd98ab69e413398194f0201ac0",
+      "functions": [
+        {
+          "name": "useGoogleMaps",
+          "params": [],
+          "exported": true,
+          "lineCount": 25
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@googlemaps/js-api-loader",
+          "specifiers": ["setOptions", "importLibrary"]
+        }
+      ],
+      "exports": ["useGoogleMaps"],
+      "totalLines": 30,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/useKeyboardOpen.ts": {
+      "filePath": "app/composables/useKeyboardOpen.ts",
+      "contentHash": "386cb962aa0f9a61dc5bb4dbeac5f8602eefe142659b167ee640392ee541ce81",
+      "functions": [
+        {
+          "name": "useKeyboardOpen",
+          "params": [],
+          "exported": true,
+          "lineCount": 40
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vue",
+          "specifiers": ["onMounted", "onUnmounted", "ref"]
+        }
+      ],
+      "exports": ["useKeyboardOpen"],
+      "totalLines": 61,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/useLayoverDetection.ts": {
+      "filePath": "app/composables/useLayoverDetection.ts",
+      "contentHash": "d715e0ff3eb6d37958817629a22b369a3611b1696b272bea91c39916ae525263",
+      "functions": [
+        {
+          "name": "getRecommendation",
+          "params": ["durationMinutes"],
+          "returnType": "Pick<LayoverInfo, \"recommendation\" | \"recommendationLabel\">",
+          "exported": false,
+          "lineCount": 14
+        },
+        {
+          "name": "areDatesClose",
+          "params": ["dateA", "dateB"],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "computeLayoverMinutes",
+          "params": ["arrivalTime", "departureTime"],
+          "returnType": "number | null",
+          "exported": false,
+          "lineCount": 17
+        },
+        {
+          "name": "useLayoverDetection",
+          "params": ["flights"],
+          "exported": true,
+          "lineCount": 46
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vue",
+          "specifiers": ["computed", "Ref"]
+        },
+        {
+          "source": "../utils/iata-to-country",
+          "specifiers": ["iataToCountry"]
+        }
+      ],
+      "exports": ["useLayoverDetection"],
+      "totalLines": 130,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/useNationality.ts": {
+      "filePath": "app/composables/useNationality.ts",
+      "contentHash": "ae3bd644247d06888593632f9016d7e8d9c2f6e1ea4d83ad2453e35eff6c0571",
+      "functions": [
+        {
+          "name": "useNationality",
+          "params": [],
+          "exported": true,
+          "lineCount": 26
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["useNationality"],
+      "totalLines": 31,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/usePlaceSearch.ts": {
+      "filePath": "app/composables/usePlaceSearch.ts",
+      "contentHash": "4d8ac2d095ad05fe7019c7f2b43f9524e7685148a5543a795e2591887b4294dc",
+      "functions": [
+        {
+          "name": "usePlaceSearch",
+          "params": [],
+          "exported": true,
+          "lineCount": 31
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["usePlaceSearch"],
+      "totalLines": 42,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/useTimeFormat.ts": {
+      "filePath": "app/composables/useTimeFormat.ts",
+      "contentHash": "47d276d6231e21efe57c6af92f2ab56cda35e33e956d50e1421068a5bb5a2247",
+      "functions": [
+        {
+          "name": "formatTime12h",
+          "params": ["time"],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 7
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["formatTime12h"],
+      "totalLines": 12,
+      "hasStructuralAnalysis": true
+    },
+    "app/composables/useTripStatus.ts": {
+      "filePath": "app/composables/useTripStatus.ts",
+      "contentHash": "c923dc924450379183d6bd8be6951346417ec9e20ee494d283572e5006deb242",
+      "functions": [
+        {
+          "name": "getTripStatus",
+          "params": ["startDate", "endDate"],
+          "returnType": "TripStatusInfo",
+          "exported": true,
+          "lineCount": 30
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["getTripStatus"],
+      "totalLines": 40,
+      "hasStructuralAnalysis": true
+    },
+    "app/data/countries.ts": {
+      "filePath": "app/data/countries.ts",
+      "contentHash": "b4016b15d037704c5b65a557a011102d23c484e6d978eb8ce4151e64f4d79627",
+      "functions": [
+        {
+          "name": "countryFlag",
+          "params": ["alpha2"],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 5
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [
+        "countries",
+        "countryFlag",
+        "countryByNumeric",
+        "countryByAlpha2",
+        "TOTAL_COUNTRIES",
+        "regions"
+      ],
+      "totalLines": 277,
+      "hasStructuralAnalysis": true
+    },
+    "app/layouts/app.vue": {
+      "filePath": "app/layouts/app.vue",
+      "contentHash": "d06baa36ce621ae77feeb6f68f94b221cd471313c8d75dca49d70c8831a696c3",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 176,
+      "hasStructuralAnalysis": false
+    },
+    "app/layouts/default.vue": {
+      "filePath": "app/layouts/default.vue",
+      "contentHash": "daa8878e4c7b406c609f929cd3eb3ffd016cb74552a2e985b1a3bf4fae925530",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 57,
+      "hasStructuralAnalysis": false
+    },
+    "app/lib/auth-client.ts": {
+      "filePath": "app/lib/auth-client.ts",
+      "contentHash": "13b1189870dd2b189fa7abb75776a2466990a52395b170ab11e69d452b25d793",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "better-auth/vue",
+          "specifiers": ["createAuthClient"]
+        },
+        {
+          "source": "@better-auth/infra/client",
+          "specifiers": ["dashClient"]
+        },
+        {
+          "source": "better-auth/client/plugins",
+          "specifiers": ["adminClient"]
+        }
+      ],
+      "exports": ["authClient"],
+      "totalLines": 8,
+      "hasStructuralAnalysis": true
+    },
+    "app/middleware/auth.global.ts": {
+      "filePath": "app/middleware/auth.global.ts",
+      "contentHash": "bbdd51487d05596b240c47f3d7f3eda8c791dbed947d03209cdb75775ed9d3a1",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 30,
+      "hasStructuralAnalysis": true
+    },
+    "app/pages/dashboard.vue": {
+      "filePath": "app/pages/dashboard.vue",
+      "contentHash": "919ccdeb1ba11240c1cb0599222151c3b60806e479dce81660a2d35863d66a34",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 380,
+      "hasStructuralAnalysis": false
+    },
+    "app/pages/explore.vue": {
+      "filePath": "app/pages/explore.vue",
+      "contentHash": "775667dacf721aaeb6e732383f2ae3ff6dc893c7e517677b2cfeeca4f1396ee9",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 169,
+      "hasStructuralAnalysis": false
+    },
+    "app/pages/flights.vue": {
+      "filePath": "app/pages/flights.vue",
+      "contentHash": "46a9cdc8f1f6237c4ecbc2eaaaff6af7073237a7decbd5a11d7ed3defd072fd4",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 241,
+      "hasStructuralAnalysis": false
+    },
+    "app/pages/index.vue": {
+      "filePath": "app/pages/index.vue",
+      "contentHash": "59ededc449407985255741bb8e3798b60a8e06c249ad51e630eec5245ca0c65b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1343,
+      "hasStructuralAnalysis": false
+    },
+    "app/pages/invite/[token].vue": {
+      "filePath": "app/pages/invite/[token].vue",
+      "contentHash": "28dad7c14c1f86bbb07dd99d57acce0ae101c37f5f4a2060d0b90a0a904c8e20",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 85,
+      "hasStructuralAnalysis": false
+    },
+    "app/pages/login.vue": {
+      "filePath": "app/pages/login.vue",
+      "contentHash": "6293a3678db566a970e3e6dc075f39978d9d2b76b1e5c5508979a62fabe860cd",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 93,
+      "hasStructuralAnalysis": false
+    },
+    "app/pages/settings.vue": {
+      "filePath": "app/pages/settings.vue",
+      "contentHash": "6f326b95298402b297e291138fcadf4ccb6d3afa006e4dc2057a7f359eae37fa",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 112,
+      "hasStructuralAnalysis": false
+    },
+    "app/pages/shared/[token].vue": {
+      "filePath": "app/pages/shared/[token].vue",
+      "contentHash": "f17f4442df242c9ffa1804683d00de05c20605266141c11ae745171674ae657b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 320,
+      "hasStructuralAnalysis": false
+    },
+    "app/pages/trips/[id].vue": {
+      "filePath": "app/pages/trips/[id].vue",
+      "contentHash": "051750cb2f27a535cf9dbe54cb9615be6d0c3f4fa5f529c9cf144fa037d50fe6",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1660,
+      "hasStructuralAnalysis": false
+    },
+    "app/pages/trips/new.vue": {
+      "filePath": "app/pages/trips/new.vue",
+      "contentHash": "1393a5365970c26d2345e0165dc31458bf9628416a937f168122357367d145e7",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 221,
+      "hasStructuralAnalysis": false
+    },
+    "app/plugins/dark-mode.ts": {
+      "filePath": "app/plugins/dark-mode.ts",
+      "contentHash": "34f9377c0303f7b2cd078c2a2da8f44502d60973e394df1187efb3fe727cbb50",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 38,
+      "hasStructuralAnalysis": true
+    },
+    "app/types/proposal.ts": {
+      "filePath": "app/types/proposal.ts",
+      "contentHash": "e744fed2d75a643893afc4febe8d40a12ac6d37591406bf039f7067f3a02eb10",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 46,
+      "hasStructuralAnalysis": true
+    },
+    "app/types/review.ts": {
+      "filePath": "app/types/review.ts",
+      "contentHash": "10e9a9062fa4e92d76f64cc96138ac3c2b054cb86216e11a822825c5312f3ce3",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "./proposal",
+          "specifiers": ["Proposal"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 15,
+      "hasStructuralAnalysis": true
+    },
+    "app/types/trip.ts": {
+      "filePath": "app/types/trip.ts",
+      "contentHash": "6c53771b653ddf02d964691643d435545aab8e0f186b1673fbcd8b9e50897a1f",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 66,
+      "hasStructuralAnalysis": true
+    },
+    "app/utils/airport-coordinates.ts": {
+      "filePath": "app/utils/airport-coordinates.ts",
+      "contentHash": "5de09195777b10fc4d05a5c22df1bb962ba858c77a7bf7ba5cbd77947525b940",
+      "functions": [
+        {
+          "name": "getAirportCoordinates",
+          "params": ["iata"],
+          "returnType": "{ lat: number; lng: number } | undefined",
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["airportCoordinates", "getAirportCoordinates"],
+      "totalLines": 238,
+      "hasStructuralAnalysis": true
+    },
+    "app/utils/globe-countries.ts": {
+      "filePath": "app/utils/globe-countries.ts",
+      "contentHash": "3aa34d2dda508c6a128d2fbecc2d2216ed292a9873a3581afb2ce3c8a9656760",
+      "functions": [
+        {
+          "name": "latLngToVector3",
+          "params": ["lat", "lng", "radius"],
+          "returnType": "Vector3",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "getCountryFeatures",
+          "params": [],
+          "returnType": "CountryGeoFeature[]",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "getCountryCentroid",
+          "params": ["feat"],
+          "returnType": "{ lat: number; lng: number }",
+          "exported": true,
+          "lineCount": 22
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "three",
+          "specifiers": ["Vector3"]
+        },
+        {
+          "source": "topojson-client",
+          "specifiers": ["feature"]
+        },
+        {
+          "source": "topojson-specification",
+          "specifiers": ["Topology", "GeometryCollection"]
+        },
+        {
+          "source": "../data/countries-50m.json",
+          "specifiers": ["worldTopoJson"]
+        },
+        {
+          "source": "../data/countries",
+          "specifiers": ["countryByNumeric", "CountryInfo"]
+        }
+      ],
+      "exports": ["GLOBE_RADIUS", "latLngToVector3", "getCountryFeatures", "getCountryCentroid"],
+      "totalLines": 66,
+      "hasStructuralAnalysis": true
+    },
+    "app/utils/iata-to-country.ts": {
+      "filePath": "app/utils/iata-to-country.ts",
+      "contentHash": "e4a3641d5929451cb690b5768e482749e59e8e8a0b7b0de120cf2dec7922b16e",
+      "functions": [
+        {
+          "name": "getCountryForAirport",
+          "params": ["iataCode"],
+          "returnType": "string | undefined",
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["iataToCountry", "getCountryForAirport"],
+      "totalLines": 243,
+      "hasStructuralAnalysis": true
+    },
+    "app/utils/normalizeType.ts": {
+      "filePath": "app/utils/normalizeType.ts",
+      "contentHash": "77a27213d5009690e05109680b1f90b9152c46ef3d888b1ff2890ab708d84cfb",
+      "functions": [
+        {
+          "name": "normalizeGooglePlaceType",
+          "params": ["googleType"],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 4
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["normalizeGooglePlaceType"],
+      "totalLines": 48,
+      "hasStructuralAnalysis": true
+    },
+    "app/utils/weatherCodes.ts": {
+      "filePath": "app/utils/weatherCodes.ts",
+      "contentHash": "8f10032309916c8cc17bd3b242f94b93249a6aa6e9dc07837ea7a6e9520751f2",
+      "functions": [
+        {
+          "name": "getWeatherInfo",
+          "params": ["code"],
+          "returnType": "WeatherInfo",
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["getWeatherInfo"],
+      "totalLines": 33,
+      "hasStructuralAnalysis": true
+    },
+    "drizzle.config.ts": {
+      "filePath": "drizzle.config.ts",
+      "contentHash": "7d3c6e6ece05bdbdceb4ef68868f6ee3a257d74780e2be0c52aba1f09c407201",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-kit",
+          "specifiers": ["defineConfig"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 13,
+      "hasStructuralAnalysis": true
+    },
+    "nuxt.config.ts": {
+      "filePath": "nuxt.config.ts",
+      "contentHash": "35205c0371ea26c367bfd0a778de6bb31db7d171f131f3ad6ca23c8afbc64058",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@tailwindcss/vite",
+          "specifiers": ["tailwindcss"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 324,
+      "hasStructuralAnalysis": true
+    },
+    "pwa-assets.config.ts": {
+      "filePath": "pwa-assets.config.ts",
+      "contentHash": "145b13e0c80a429fe5587367457fc910b520637aedc6ab52a313342ca357b1e4",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@vite-pwa/assets-generator/config",
+          "specifiers": ["combinePresetAndAppleSplashScreens", "defineConfig", "minimal2023Preset"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 23,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/ai/layover-tips.post.ts": {
+      "filePath": "server/api/ai/layover-tips.post.ts",
+      "contentHash": "0dba4011a4280e89683bd1674683cbdcd1d73d60296530c71f39ef9500aba88d",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "ai",
+          "specifiers": ["generateText", "Output", "stepCountIs"]
+        },
+        {
+          "source": "@ai-sdk/google",
+          "specifiers": ["google"]
+        },
+        {
+          "source": "../../utils/sanitize",
+          "specifiers": ["sanitizePromptInput"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 97,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/ai/usage.get.ts": {
+      "filePath": "server/api/ai/usage.get.ts",
+      "contentHash": "ea6078bbad3d6837f657945740666099cf23ba2ac0aeb9e153d31be97f4bcb22",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 5,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/auth/[...all].ts": {
+      "filePath": "server/api/auth/[...all].ts",
+      "contentHash": "0b674ee2b96402b2921af732646bc1389e2849a2d68671c30abdebbe9714e025",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../../lib/auth",
+          "specifiers": ["auth"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/cron/check-passport-expiry.get.ts": {
+      "filePath": "server/api/cron/check-passport-expiry.get.ts",
+      "contentHash": "365b63cc17c2aac42b1006f81de9b3f6bbd207ed849e3708848bf265156765b3",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 12,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/cron/import-visa-data.get.ts": {
+      "filePath": "server/api/cron/import-visa-data.get.ts",
+      "contentHash": "28d44ba0968a909cf35705fc460d51cd73832b6d17222909dbab97d8f7f719db",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 12,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/exchange-rate.get.ts": {
+      "filePath": "server/api/exchange-rate.get.ts",
+      "contentHash": "eb22b69e6803908fa80234c399de4f3ae2e888d8fdaff9eb5c967e18766db7b3",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 31,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/flights/[id].delete.ts": {
+      "filePath": "server/api/flights/[id].delete.ts",
+      "contentHash": "f35e82cfec50f478d37243f3367b5c2c0acacadccbac74609d307c13a72e50ea",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["flights"]
+        },
+        {
+          "source": "../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 21,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/flights/[id].get.ts": {
+      "filePath": "server/api/flights/[id].get.ts",
+      "contentHash": "d251490594c249339431b19d646cc479423929a1b51ac50783eba51242c6c476",
+      "functions": [
+        {
+          "name": "shouldRefresh",
+          "params": ["flight"],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 16
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["flights"]
+        },
+        {
+          "source": "../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        },
+        {
+          "source": "../../lib/flight-api",
+          "specifiers": ["lookupFlight"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 66,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/flights/[id].patch.ts": {
+      "filePath": "server/api/flights/[id].patch.ts",
+      "contentHash": "9de43649e87b4ee09355ec9b84b8e358414a0feaa26e315a7baf8afde42b1d57",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["flights"]
+        },
+        {
+          "source": "../../utils/schemas",
+          "specifiers": ["uuidParamsSchema", "updateFlightSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 27,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/flights/index.get.ts": {
+      "filePath": "server/api/flights/index.get.ts",
+      "contentHash": "c2252d975bd8e982e8d6193825c2e7bf0b7bec2ccd700183d9f48f1090519a2e",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "and", "SQL"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["flights"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 26,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/flights/index.post.ts": {
+      "filePath": "server/api/flights/index.post.ts",
+      "contentHash": "5c1d6e467fa93eae69ee2cb591b4fef439d882dfc1348835ee266c7515dad6db",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["flights"]
+        },
+        {
+          "source": "../../utils/schemas",
+          "specifiers": ["createFlightSchema"]
+        },
+        {
+          "source": "../../lib/flight-api",
+          "specifiers": ["lookupFlight", "FLIGHT_LOOKUP_SCHEMA_VERSION"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 41,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/invites/[token].post.ts": {
+      "filePath": "server/api/invites/[token].post.ts",
+      "contentHash": "abde59d70b5ce58b79b769a4dad81a9c9ba9025a2171b0db8ffc8b1afd8d6fb3",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "crypto",
+          "specifiers": ["createHash"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "desc", "eq", "sql"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["tripMembers"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 82,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/packing-templates/[templateId].delete.ts": {
+      "filePath": "server/api/packing-templates/[templateId].delete.ts",
+      "contentHash": "4dcf2c7de65fd09d56e2548fba3c97912943a8c4f967b353e086141a7d3ff335",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["packingTemplates"]
+        },
+        {
+          "source": "../../utils/schemas",
+          "specifiers": ["packingTemplateIdParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 23,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/packing-templates/index.get.ts": {
+      "filePath": "server/api/packing-templates/index.get.ts",
+      "contentHash": "7c431a82007e3fb1b3d01412a16ddae8ef8aec94c10a1603681bc384c20953da",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "or"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["packingTemplates"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 13,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/packing-templates/index.post.ts": {
+      "filePath": "server/api/packing-templates/index.post.ts",
+      "contentHash": "2e5bab6fda2609d504b031e4e4be1e5527ddf188812e2691f52219fb42449f5e",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["packingTemplates"]
+        },
+        {
+          "source": "../../utils/schemas",
+          "specifiers": ["createPackingTemplateSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 22,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/places/[placeId]/details.get.ts": {
+      "filePath": "server/api/places/[placeId]/details.get.ts",
+      "contentHash": "2f08f34b19189ca9ecdbd9d432a32ab69c7b2cb0b47faf2c9109a188c445dfe0",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../lib/google-maps",
+          "specifiers": ["getPlaceDetails"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 19,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/places/[placeId]/photo.get.ts": {
+      "filePath": "server/api/places/[placeId]/photo.get.ts",
+      "contentHash": "96db4d2e0ed1d4d0572bc215dcd2969d76d77fd53b03f5acb2ea709314f4a1ac",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../lib/google-maps",
+          "specifiers": ["getPlacePhoto"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 39,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/places/search.get.ts": {
+      "filePath": "server/api/places/search.get.ts",
+      "contentHash": "9f5746c913129ee90f3d943ef5834d9685f10a01d9615bd68e2dbbc2ed3573e4",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../../utils/schemas",
+          "specifiers": ["placeSearchSchema"]
+        },
+        {
+          "source": "../../lib/google-maps",
+          "specifiers": ["searchPlace"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/shared/[token].get.ts": {
+      "filePath": "server/api/shared/[token].get.ts",
+      "contentHash": "7e47cbf8201eb8f1ce95060e89004feed9d7ab7095b682f433c78224b7f70cea",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["trips"]
+        },
+        {
+          "source": "../../lib/google-maps",
+          "specifiers": ["getPlaceDetails"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 93,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/shared/[token]/photo.get.ts": {
+      "filePath": "server/api/shared/[token]/photo.get.ts",
+      "contentHash": "c37338582c09b8b645d10daabea74408d738fc6f88ee0236b707d8b8538eb060",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../db/schema",
+          "specifiers": ["trips"]
+        },
+        {
+          "source": "../../../lib/google-maps",
+          "specifiers": ["getPlacePhoto"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 67,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/stats.get.ts": {
+      "filePath": "server/api/stats.get.ts",
+      "contentHash": "c690075ddcf041ce2bf44647ee65fd92bde19451f18674c6bdef1136799224b1",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "sql", "and", "inArray"]
+        },
+        {
+          "source": "../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../db/schema",
+          "specifiers": [
+            "trips",
+            "activities",
+            "itineraryDays",
+            "travelSegments",
+            "visitedCountries",
+            "flights",
+            "tripMembers"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 101,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id].delete.ts": {
+      "filePath": "server/api/trips/[id].delete.ts",
+      "contentHash": "204b2f0bf15a033ba86fd0c5c7bc765fa62c799ceb8cc34e8b12c31f462dc4ed",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["trips"]
+        },
+        {
+          "source": "../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 17,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id].get.ts": {
+      "filePath": "server/api/trips/[id].get.ts",
+      "contentHash": "1aecac75854c8e6c4c7c30747df2781e259e960210e97cfedd9e05c59930a360",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        },
+        {
+          "source": "../../lib/trips",
+          "specifiers": ["getTripWithRelations"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 17,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id].put.ts": {
+      "filePath": "server/api/trips/[id].put.ts",
+      "contentHash": "a4c640b9e8f05b116f10a11068a41693176b582ec19992547d0d3d0facaef792",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "asc", "eq", "gt", "lt", "or"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["trips", "itineraryDays"]
+        },
+        {
+          "source": "../../utils/schemas",
+          "specifiers": ["uuidParamsSchema", "updateTripSchema"]
+        },
+        {
+          "source": "../../lib/dates",
+          "specifiers": ["enumerateDates"]
+        },
+        {
+          "source": "../../lib/trips",
+          "specifiers": ["getTripWithRelations"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 134,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/accommodation/range.put.ts": {
+      "filePath": "server/api/trips/[id]/accommodation/range.put.ts",
+      "contentHash": "a850af68af0af9a982c8bbdd61854a713daf7494b4101ca8a904690efe491154",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq", "inArray"]
+        },
+        {
+          "source": "~~/server/db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "~~/server/db/schema",
+          "specifiers": ["itineraryDays"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 31,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/activities/[activityId].delete.ts": {
+      "filePath": "server/api/trips/[id]/activities/[activityId].delete.ts",
+      "contentHash": "bb213332ad37351cd0776c19e81d084063f13a9ecd94e33055f2236eb52b64d0",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "~~/server/db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "~~/server/db/schema",
+          "specifiers": ["activities"]
+        },
+        {
+          "source": "~~/server/utils/schemas",
+          "specifiers": ["activityIdParamsSchema"]
+        },
+        {
+          "source": "~~/server/lib/segments",
+          "specifiers": ["computeAndSaveSegments"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 42,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/activities/[activityId].put.ts": {
+      "filePath": "server/api/trips/[id]/activities/[activityId].put.ts",
+      "contentHash": "684d2315c7dfaf0538993e7ffe13de5fb40f48404b8ab9765be859448bf3af27",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["activities"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["activityIdParamsSchema", "updateActivitySchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 33,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/activities/[activityId]/comments.get.ts": {
+      "filePath": "server/api/trips/[id]/activities/[activityId]/comments.get.ts",
+      "contentHash": "9f460e87be22cf120b51924f9ae06587ea9df3612ab3c965f16c3ec8d837d58d",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["activities", "activityComments"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["activityIdParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 28,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/activities/[activityId]/comments.post.ts": {
+      "filePath": "server/api/trips/[id]/activities/[activityId]/comments.post.ts",
+      "contentHash": "108305635298048d838fbed5941fd2ea1818500514610160027ca668dabd9c14",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["activities", "activityComments"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["activityIdParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/activities/[activityId]/enrich.post.ts": {
+      "filePath": "server/api/trips/[id]/activities/[activityId]/enrich.post.ts",
+      "contentHash": "85dbb67cb0b41d366500a438b0722b556d655b03f1ec8866fc8f85c5f4040128",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["trips", "activities"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["activityIdParamsSchema"]
+        },
+        {
+          "source": "../../../../../lib/enrich",
+          "specifiers": ["enrichSingleActivity"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 71,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/activities/[activityId]/participants.post.ts": {
+      "filePath": "server/api/trips/[id]/activities/[activityId]/participants.post.ts",
+      "contentHash": "324b88d8582f154f3c9065256771a5843b69a9bc264f285bebf4d8f34bc02583",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "and"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["activities", "activityParticipants", "tripMembers", "trips"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["activityIdParamsSchema", "addParticipantSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 52,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/activities/[activityId]/participants/[userId].delete.ts": {
+      "filePath": "server/api/trips/[id]/activities/[activityId]/participants/[userId].delete.ts",
+      "contentHash": "c19338cff70ca177cbb29407872bcac1c4d8460a34c18e540d5a1037b5876fd1",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../../db/schema",
+          "specifiers": ["activities", "activityParticipants"]
+        },
+        {
+          "source": "../../../../../../utils/schemas",
+          "specifiers": ["removeParticipantParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 33,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/activities/[activityId]/vote.post.ts": {
+      "filePath": "server/api/trips/[id]/activities/[activityId]/vote.post.ts",
+      "contentHash": "d18d5f30a86d345badc81e0e08c3bd2daa3b174cb0a5c6f7e7ca45dfe5e1109d",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["activities", "activityVotes"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["activityIdParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 51,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/activities/[activityId]/votes.get.ts": {
+      "filePath": "server/api/trips/[id]/activities/[activityId]/votes.get.ts",
+      "contentHash": "7c493e13efabe2ee27b8d059dfbdda6334a52d8e73ca76d1f7694721d42bce6d",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["activities", "activityVotes"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["activityIdParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 32,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/activities/index.post.ts": {
+      "filePath": "server/api/trips/[id]/activities/index.post.ts",
+      "contentHash": "bca8518e6ba6d86140ea93e0f69057b35dfa9dc6e9d23fa25a837aac6a4b3e82",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq", "desc", "sql"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["itineraryDays", "activities", "travelSegments", "trips"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema", "addActivitySchema"]
+        },
+        {
+          "source": "../../../../lib/segments",
+          "specifiers": ["computeAndSaveSegments"]
+        },
+        {
+          "source": "../../../../lib/cost-from-place",
+          "specifiers": ["deriveCostFromPlace"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 85,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/checklists/[checklistId].delete.ts": {
+      "filePath": "server/api/trips/[id]/checklists/[checklistId].delete.ts",
+      "contentHash": "7dcd60d38665255f3416aeb909e07eee3af0f8f1ad9471c34c5a4dc4d68f24d7",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["checklists"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["checklistIdParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 25,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/checklists/[checklistId].put.ts": {
+      "filePath": "server/api/trips/[id]/checklists/[checklistId].put.ts",
+      "contentHash": "48a869a19e6f7ce00cbf590e52ece31b27ed97af73ac8dd20bc5950d1d0e594c",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["checklists"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["checklistIdParamsSchema", "updateChecklistSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 30,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/checklists/[checklistId]/items/[itemId].delete.ts": {
+      "filePath": "server/api/trips/[id]/checklists/[checklistId]/items/[itemId].delete.ts",
+      "contentHash": "6471daca51c5fcfb5594dfb36d7a65280bf403f98d3bda939465b24c4fac9d34",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../../db/schema",
+          "specifiers": ["checklists", "checklistItems"]
+        },
+        {
+          "source": "../../../../../../utils/schemas",
+          "specifiers": ["checklistItemIdParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/checklists/[checklistId]/items/[itemId].put.ts": {
+      "filePath": "server/api/trips/[id]/checklists/[checklistId]/items/[itemId].put.ts",
+      "contentHash": "46abe9e768f0154590c9312c57891e2919217c44d45fa3626caa745ac9f47134",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../../db/schema",
+          "specifiers": ["checklists", "checklistItems"]
+        },
+        {
+          "source": "../../../../../../utils/schemas",
+          "specifiers": ["checklistItemIdParamsSchema", "updateChecklistItemSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 45,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/checklists/[checklistId]/items/index.post.ts": {
+      "filePath": "server/api/trips/[id]/checklists/[checklistId]/items/index.post.ts",
+      "contentHash": "55d450eacf0cfd33e1af027d7f1fe1cbfed03e1296e58cef0ede89351462bfa0",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq", "desc"]
+        },
+        {
+          "source": "../../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../../db/schema",
+          "specifiers": ["checklists", "checklistItems"]
+        },
+        {
+          "source": "../../../../../../utils/schemas",
+          "specifiers": ["checklistIdParamsSchema", "createChecklistItemSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 44,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/checklists/[checklistId]/load-template.post.ts": {
+      "filePath": "server/api/trips/[id]/checklists/[checklistId]/load-template.post.ts",
+      "contentHash": "929a2820b0351616cad9cdda3bea54781d7cd05c68b85f81e23ad1a25feb6d85",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq", "or", "desc"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["checklists", "checklistItems", "packingTemplates"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["checklistIdParamsSchema", "loadTemplateSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 55,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/checklists/[checklistId]/save-as-template.post.ts": {
+      "filePath": "server/api/trips/[id]/checklists/[checklistId]/save-as-template.post.ts",
+      "contentHash": "d6b8b93add6476bbeff46400f525a3b9493743fbfacbcb895c55d65b61c93398",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq", "asc"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["checklists", "checklistItems", "packingTemplates"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["checklistIdParamsSchema", "saveAsTemplateSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 44,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/checklists/index.get.ts": {
+      "filePath": "server/api/trips/[id]/checklists/index.get.ts",
+      "contentHash": "2e5cb3963d99e7f3b8a8451d1b0f647ab9e49d0bcb21391062c93cbf2ca553b7",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "asc"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["checklists", "checklistItems"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 21,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/checklists/index.post.ts": {
+      "filePath": "server/api/trips/[id]/checklists/index.post.ts",
+      "contentHash": "d97570f86fa93b62b394f93e64233d2b1f092ace6fa24b14d76910fd142609b0",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["checklists"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema", "createChecklistSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 19,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/convert-currency.post.ts": {
+      "filePath": "server/api/trips/[id]/convert-currency.post.ts",
+      "contentHash": "58b16cf7417a16e76b4a48092b24a66359db338a7a3d9f0e8769f9dd8f72cc6d",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq", "inArray", "isNotNull", "sql"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../db/schema",
+          "specifiers": ["trips", "activities", "expenses", "itineraryDays"]
+        },
+        {
+          "source": "../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 105,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/date-change-preview.get.ts": {
+      "filePath": "server/api/trips/[id]/date-change-preview.get.ts",
+      "contentHash": "bde371d47f353ec0d1887edb9ef7f4aeb7f17fec32fc8901320cc69f283ae330",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../db/schema",
+          "specifiers": ["itineraryDays"]
+        },
+        {
+          "source": "../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema", "dateRangeQuerySchema"]
+        },
+        {
+          "source": "../../../lib/dates",
+          "specifiers": ["enumerateDates"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 40,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/days/[dayId]/accommodation.put.ts": {
+      "filePath": "server/api/trips/[id]/days/[dayId]/accommodation.put.ts",
+      "contentHash": "0eb71dd50b991c62ea650be1054a011ba7c51d3ee7c8fc5df0312c0f9bfce3f1",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["itineraryDays"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["dayIdParamsSchema", "updateAccommodationSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 30,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/days/[dayId]/ai.post.ts": {
+      "filePath": "server/api/trips/[id]/days/[dayId]/ai.post.ts",
+      "contentHash": "e7d8db76a9dd3ae6468d5face27821ff04cc267cfa0b732e4580bcfc52af7b81",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq", "asc"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["trips", "itineraryDays", "activities", "tripIdeas"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["dayIdParamsSchema"]
+        },
+        {
+          "source": "../../../../../lib/ai",
+          "specifiers": ["processUserRequest"]
+        },
+        {
+          "source": "../../../../../lib/enrich",
+          "specifiers": ["enrichItinerary"]
+        },
+        {
+          "source": "../../../../../lib/segments",
+          "specifiers": ["computeAndSaveSegments"]
+        },
+        {
+          "source": "../../../../../lib/google-maps",
+          "specifiers": ["getDistanceMatrix"]
+        },
+        {
+          "source": "../../../../../utils/sanitize",
+          "specifiers": ["sanitizePromptInput"]
+        },
+        {
+          "source": "../../../../../utils/transport",
+          "specifiers": ["normalizeTransportMode"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 470,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/days/[dayId]/enrich.post.ts": {
+      "filePath": "server/api/trips/[id]/days/[dayId]/enrich.post.ts",
+      "contentHash": "c1b8168f295284bd3e3ab9a4ca611ff202f07733e5d88ff57975e33fdf8e4e79",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq", "isNull", "isNotNull", "or", "lt", "sql"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["trips", "itineraryDays", "activities"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["dayIdParamsSchema"]
+        },
+        {
+          "source": "../../../../../lib/enrich",
+          "specifiers": ["enrichSingleActivity"]
+        },
+        {
+          "source": "../../../../../lib/segments",
+          "specifiers": ["computeAndSaveSegments"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 123,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/days/[dayId]/notes.put.ts": {
+      "filePath": "server/api/trips/[id]/days/[dayId]/notes.put.ts",
+      "contentHash": "0d7ab71292ae56263f6e275d777c7be5c0e7db4946167f3e7bef802d039b2c56",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["itineraryDays"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["dayIdParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 34,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/days/[dayId]/reorder.put.ts": {
+      "filePath": "server/api/trips/[id]/days/[dayId]/reorder.put.ts",
+      "contentHash": "df291e9136abdafacd1fa93b17d1038ef9cecb8615f90fc122a5188082317756",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "asc"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["activities"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["dayIdParamsSchema"]
+        },
+        {
+          "source": "../../../../../lib/segments",
+          "specifiers": ["computeAndSaveSegments"]
+        },
+        {
+          "source": "../../../../../lib/google-maps",
+          "specifiers": ["getDistanceMatrix"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 128,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/days/[dayId]/restore.post.ts": {
+      "filePath": "server/api/trips/[id]/days/[dayId]/restore.post.ts",
+      "contentHash": "7e657c1f49e90ccad32108971c5f70657acd500d3c2a20673bf814b72eb0245d",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["activities", "itineraryDays"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["dayIdParamsSchema"]
+        },
+        {
+          "source": "../../../../../lib/segments",
+          "specifiers": ["computeAndSaveSegments"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 104,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/days/[dayId]/segments.get.ts": {
+      "filePath": "server/api/trips/[id]/days/[dayId]/segments.get.ts",
+      "contentHash": "d597a2f6c3f669ecf3666e39354d3207247cca1e39ff83ce5a37f640dd994c31",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["itineraryDays", "travelSegments"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["dayIdParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 25,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/days/[dayId]/segments.post.ts": {
+      "filePath": "server/api/trips/[id]/days/[dayId]/segments.post.ts",
+      "contentHash": "c1c674d5eb76d68a0777ddad67e03f83a32ae78fbd45fd52fc14e33ce4b10be5",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["itineraryDays", "travelSegments"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["dayIdParamsSchema"]
+        },
+        {
+          "source": "../../../../../lib/segments",
+          "specifiers": ["computeAndSaveSegments"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 28,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/discuss.post.ts": {
+      "filePath": "server/api/trips/[id]/discuss.post.ts",
+      "contentHash": "4e89f6c527b48c70f865a9e6b5aad2a2006ec0167bd8eb9c557149787e18ddc5",
+      "functions": [
+        {
+          "name": "buildTripContext",
+          "params": ["tripId", "focusDayId"],
+          "returnType": "Promise<string>",
+          "exported": false,
+          "lineCount": 62
+        },
+        {
+          "name": "describeToolCall",
+          "params": ["entry"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 21
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../db/schema",
+          "specifiers": ["trips"]
+        },
+        {
+          "source": "../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        },
+        {
+          "source": "../../../utils/transport",
+          "specifiers": ["normalizeTransportMode"]
+        },
+        {
+          "source": "../../../utils/sanitize",
+          "specifiers": ["sanitizePromptInput"]
+        },
+        {
+          "source": "../../../lib/ai-tools",
+          "specifiers": ["createDiscussTools"]
+        },
+        {
+          "source": "../../../lib/discuss-agent",
+          "specifiers": ["discussAgent"]
+        },
+        {
+          "source": "../../../utils/ai-limits",
+          "specifiers": ["refundAiCredit"]
+        },
+        {
+          "source": "../../../lib/trips",
+          "specifiers": ["getTripWithRelations"]
+        },
+        {
+          "source": "../../../lib/proposals",
+          "specifiers": ["Proposal"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 225,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/documents/[documentId].delete.ts": {
+      "filePath": "server/api/trips/[id]/documents/[documentId].delete.ts",
+      "contentHash": "4a56dd4505ec43bfed70327ed7d966dea77bd6206d24f7f1a32846174cf0c873",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "@vercel/blob",
+          "specifiers": ["del"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["documents"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["documentIdParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 33,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/documents/index.get.ts": {
+      "filePath": "server/api/trips/[id]/documents/index.get.ts",
+      "contentHash": "ffe0350e266134871729ca1e761e6a34a55e9ceee8a2f309c9805136f3863769",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["documents"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 22,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/documents/index.post.ts": {
+      "filePath": "server/api/trips/[id]/documents/index.post.ts",
+      "contentHash": "156cfaad67b2dbf2752c5e2c56dfd76821b0c923f64f2910d870817586443efb",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@vercel/blob",
+          "specifiers": ["put"]
+        },
+        {
+          "source": "file-type",
+          "specifiers": ["fileTypeFromBuffer"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["documents", "reservations"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 120,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/expenses/[expenseId].delete.ts": {
+      "filePath": "server/api/trips/[id]/expenses/[expenseId].delete.ts",
+      "contentHash": "3630fe49b5298b0e3ab1d67897ad9a3bd065379f8a112c6cfa45168da97cc701",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["expenses"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["expenseIdParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 25,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/expenses/[expenseId].put.ts": {
+      "filePath": "server/api/trips/[id]/expenses/[expenseId].put.ts",
+      "contentHash": "72c9a01d43938c6ecb6371d6d5b95c7a70c4f397555c15dcaad263337e46b71f",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["expenses"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["expenseIdParamsSchema", "updateExpenseSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 34,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/expenses/index.get.ts": {
+      "filePath": "server/api/trips/[id]/expenses/index.get.ts",
+      "contentHash": "521d141f1deed7a260292ff0409b1f651cc277c2ae29fe130c6e4433d856c6a9",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "desc"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["expenses"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 17,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/expenses/index.post.ts": {
+      "filePath": "server/api/trips/[id]/expenses/index.post.ts",
+      "contentHash": "6eef4eee1fa27059db9bf23fd70519e2c212ce4b940799fd764b8c4992926048",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "sql"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["activities", "expenses", "tripMembers", "trips"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema", "createExpenseSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 79,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/flights.get.ts": {
+      "filePath": "server/api/trips/[id]/flights.get.ts",
+      "contentHash": "70d0f6653ad51329abe880b21c29fe87f93d15c39794305d032f07ec1c187985",
+      "functions": [
+        {
+          "name": "maybeMigrateRow",
+          "params": ["row"],
+          "returnType": "Promise<FlightRow>",
+          "exported": false,
+          "lineCount": 37
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq", "lt"]
+        },
+        {
+          "source": "../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../db/schema",
+          "specifiers": ["flights", "trips", "tripMembers"]
+        },
+        {
+          "source": "../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        },
+        {
+          "source": "../../../lib/flight-api",
+          "specifiers": ["deriveFlightFields", "lookupFlight", "FLIGHT_LOOKUP_SCHEMA_VERSION"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 107,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/ideas/[ideaId].delete.ts": {
+      "filePath": "server/api/trips/[id]/ideas/[ideaId].delete.ts",
+      "contentHash": "83edd999742eab7a39fb4b51ca2a9d2d826ca2b66ee9b021d22dcac734040ef7",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["tripIdeas"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["ideaIdParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 25,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/ideas/[ideaId]/promote.post.ts": {
+      "filePath": "server/api/trips/[id]/ideas/[ideaId]/promote.post.ts",
+      "contentHash": "cd8677804d238700024397dc75346694680b6a16f811df8bf17c3e7cc7cd11bd",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq", "desc"]
+        },
+        {
+          "source": "../../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../../db/schema",
+          "specifiers": ["tripIdeas", "itineraryDays", "activities", "trips"]
+        },
+        {
+          "source": "../../../../../utils/schemas",
+          "specifiers": ["ideaIdParamsSchema", "promoteIdeaSchema"]
+        },
+        {
+          "source": "../../../../../lib/segments",
+          "specifiers": ["computeAndSaveSegments"]
+        },
+        {
+          "source": "../../../../../lib/cost-from-place",
+          "specifiers": ["deriveCostFromPlace"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 82,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/ideas/index.get.ts": {
+      "filePath": "server/api/trips/[id]/ideas/index.get.ts",
+      "contentHash": "b27dc3feacd8353c50b442a8f97ac7995ac015e1181aa7d0be436d7d48247cfa",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "asc"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["tripIdeas"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 17,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/ideas/index.post.ts": {
+      "filePath": "server/api/trips/[id]/ideas/index.post.ts",
+      "contentHash": "eb19b0de1a1a1be6ac6c58fa3ff3f4c79ccfe913a78def3356bfb987d0d20b3d",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "sql"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["tripIdeas"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema", "createIdeaSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/logs.get.ts": {
+      "filePath": "server/api/trips/[id]/logs.get.ts",
+      "contentHash": "176dc2ac892db9ff5a44c5b37f003782d6a9ad824597ca59e2518e891f8b47e8",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "desc", "count"]
+        },
+        {
+          "source": "../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../db/schema",
+          "specifiers": ["activityLog"]
+        },
+        {
+          "source": "../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema", "paginationSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 36,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/members/[memberId].delete.ts": {
+      "filePath": "server/api/trips/[id]/members/[memberId].delete.ts",
+      "contentHash": "62a92e0a7de3bc858bb9d3689d3c0d1e64e982f380314599d8aede0fef94dfa8",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "and"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["tripMembers"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 39,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/members/[memberId].put.ts": {
+      "filePath": "server/api/trips/[id]/members/[memberId].put.ts",
+      "contentHash": "a76c5db125a395814a1aba1cba6b2327d7e3e2bfa4627a242730c9189fdccc81",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["tripMembers"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 55,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/members/index.get.ts": {
+      "filePath": "server/api/trips/[id]/members/index.get.ts",
+      "contentHash": "7ac1213e2da216851c5a2b09f893276094c976af5faeaef47fb3c40e8febd5d8",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["tripMembers", "trips"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 53,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/members/invite.post.ts": {
+      "filePath": "server/api/trips/[id]/members/invite.post.ts",
+      "contentHash": "3437cf4aa8fa5113b8364d8786c8849feed20e02e8250ae4e73071b88f1c7830",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "crypto",
+          "specifiers": ["createHash"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "and"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["tripMembers", "trips", "userTable"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        },
+        {
+          "source": "../../../../lib/email",
+          "specifiers": ["sendTripInviteEmail"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 126,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/members/leave.post.ts": {
+      "filePath": "server/api/trips/[id]/members/leave.post.ts",
+      "contentHash": "3f9bd60eda431d2a7c7f441ac4398a6797dcc3bd0af8f53c94309ad32c0535e3",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "and"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["trips", "tripMembers"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 46,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/participants.get.ts": {
+      "filePath": "server/api/trips/[id]/participants.get.ts",
+      "contentHash": "9e2f83c32526cc7c33e3b2658d365eb8b5ade57fc3f7cf94bb13cee058c1c83d",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "inArray"]
+        },
+        {
+          "source": "../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../db/schema",
+          "specifiers": ["activities", "activityParticipants", "itineraryDays"]
+        },
+        {
+          "source": "../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 51,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/proposals/apply.post.ts": {
+      "filePath": "server/api/trips/[id]/proposals/apply.post.ts",
+      "contentHash": "fa7f172ca08f302cb95e022961e778f59b94a98c830ac29499a432011d9f9ef0",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["itineraryDays", "trips"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        },
+        {
+          "source": "../../../../utils/transport",
+          "specifiers": ["normalizeTransportMode"]
+        },
+        {
+          "source": "../../../../lib/proposals",
+          "specifiers": ["applyProposal", "proposalSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 52,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/refresh-cost-estimates.post.ts": {
+      "filePath": "server/api/trips/[id]/refresh-cost-estimates.post.ts",
+      "contentHash": "e698dbaacd26c7f1bbe88b4a54ed41e787f538baa765165c38590f6a9d71aba6",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq", "inArray", "isNull", "isNotNull"]
+        },
+        {
+          "source": "../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../db/schema",
+          "specifiers": ["trips", "activities", "itineraryDays"]
+        },
+        {
+          "source": "../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        },
+        {
+          "source": "../../../lib/cost-from-place",
+          "specifiers": ["deriveCostFromPlace"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 76,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/reservations/[reservationId].delete.ts": {
+      "filePath": "server/api/trips/[id]/reservations/[reservationId].delete.ts",
+      "contentHash": "e076aeb3f1acd14da07a6003baa50c9983e89277a375745ff36fe9f91ab27b11",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["reservations"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["reservationIdParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 27,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/reservations/[reservationId].put.ts": {
+      "filePath": "server/api/trips/[id]/reservations/[reservationId].put.ts",
+      "contentHash": "bc3fed16dbe706d05015c3fbddb1565670f0ce1185005f5ed162a86d632dea0a",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["reservations"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["reservationIdParamsSchema", "updateReservationSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/reservations/index.get.ts": {
+      "filePath": "server/api/trips/[id]/reservations/index.get.ts",
+      "contentHash": "705805d38725003a73bac2c1fe240cb26644584d191040d8dea244786e0193bb",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "asc"]
+        },
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["reservations"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 17,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/reservations/index.post.ts": {
+      "filePath": "server/api/trips/[id]/reservations/index.post.ts",
+      "contentHash": "9b5e8e4724c4e7a1adbc04382b22032b227007dd6b15154d62227e6e918a7800",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../../db/schema",
+          "specifiers": ["reservations"]
+        },
+        {
+          "source": "../../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema", "createReservationSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 33,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/review.post.ts": {
+      "filePath": "server/api/trips/[id]/review.post.ts",
+      "contentHash": "067e6a79e0109f95198daa0a3b25102dcd7009d5f9ae38ed528f74968c590dc3",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../../lib/itinerary-review",
+          "specifiers": ["reviewItinerary"]
+        },
+        {
+          "source": "../../../lib/trips",
+          "specifiers": ["getTripWithRelations"]
+        },
+        {
+          "source": "../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/[id]/share.post.ts": {
+      "filePath": "server/api/trips/[id]/share.post.ts",
+      "contentHash": "448c0d188fb988585176517e0d080b894a7d23221ada71c46bf49b5374137e7a",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../db/schema",
+          "specifiers": ["trips"]
+        },
+        {
+          "source": "../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        },
+        {
+          "source": "crypto",
+          "specifiers": ["crypto"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 28,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/index.get.ts": {
+      "filePath": "server/api/trips/index.get.ts",
+      "contentHash": "1deef034d362360e87bc6f44f72bfb7ea50737b15338113a366c4431715dcbe9",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "or", "inArray", "and"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["trips", "tripMembers"]
+        },
+        {
+          "source": "../../utils/schemas",
+          "specifiers": ["paginationSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 50,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/trips/index.post.ts": {
+      "filePath": "server/api/trips/index.post.ts",
+      "contentHash": "813d94e31a20d32de81a38f2557683117ccd4735701df71007d0f89c322a6188",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "sql"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["trips", "itineraryDays"]
+        },
+        {
+          "source": "../../utils/schemas",
+          "specifiers": ["createTripSchema"]
+        },
+        {
+          "source": "../../lib/dates",
+          "specifiers": ["enumerateDates"]
+        },
+        {
+          "source": "../../lib/trips",
+          "specifiers": ["getTripWithRelations"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 44,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/user/passports/[id].delete.ts": {
+      "filePath": "server/api/user/passports/[id].delete.ts",
+      "contentHash": "c1a9fe5f6cbe8f6868d5f4e589c5724780795e9114cabfe134848100e28a8556",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../db/schema",
+          "specifiers": ["userPassports"]
+        },
+        {
+          "source": "../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 33,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/user/passports/[id].patch.ts": {
+      "filePath": "server/api/user/passports/[id].patch.ts",
+      "contentHash": "e353f7c191a34f15c9cf9672938c79ceaeca4360f93752fecc3c0295217a57f1",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq"]
+        },
+        {
+          "source": "../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../db/schema",
+          "specifiers": ["userPassports"]
+        },
+        {
+          "source": "../../../utils/schemas",
+          "specifiers": ["uuidParamsSchema", "updatePassportSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 41,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/user/passports/index.get.ts": {
+      "filePath": "server/api/user/passports/index.get.ts",
+      "contentHash": "f858874d366311de7857ad16ea1b2d84cffb5933d3b29c8bcc5f4d2f84d22c43",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../db/schema",
+          "specifiers": ["userPassports"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 13,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/user/passports/index.post.ts": {
+      "filePath": "server/api/user/passports/index.post.ts",
+      "contentHash": "064c926362a8ad042c21817ca7c703ebe22d1d21c83ef6eedef651edec9e4b76",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "../../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../../db/schema",
+          "specifiers": ["userPassports"]
+        },
+        {
+          "source": "../../../utils/schemas",
+          "specifiers": ["createPassportSchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 38,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/user/profile.get.ts": {
+      "filePath": "server/api/user/profile.get.ts",
+      "contentHash": "ae898b0501dc10952b746857559693a60756d34bd5d476ca60c6ddcc82ce250d",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["userProfiles"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 14,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/user/profile.put.ts": {
+      "filePath": "server/api/user/profile.put.ts",
+      "contentHash": "5de35c22f46b614254213a99a9a10efd496bbdd0b607474bb58cef553416bb1a",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["userProfiles"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 27,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/visa/check-all.get.ts": {
+      "filePath": "server/api/visa/check-all.get.ts",
+      "contentHash": "b1cb2890b8539add905b261fd76a3772f4d9205b1269aec79ea48091a99cb7ae",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["visaRequirements"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 50,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/visa/check.get.ts": {
+      "filePath": "server/api/visa/check.get.ts",
+      "contentHash": "97f3e458a45a1b2cdb2ec79690309a69f8f92650c77d2a90bd91c7c76895e5aa",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "eq", "inArray"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["visaRequirements", "userPassports"]
+        },
+        {
+          "source": "../../utils/schemas",
+          "specifiers": ["visaCheckQuerySchema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 79,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/visa/details.get.ts": {
+      "filePath": "server/api/visa/details.get.ts",
+      "contentHash": "411d3b665039d930b9538439528e6cda9b42be1b550b84fc039b08f07ca1addc",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../lib/visa-checker",
+          "specifiers": ["checkVisaRequirements"]
+        },
+        {
+          "source": "../../../app/data/countries",
+          "specifiers": ["countryByAlpha2"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 26,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/visited-countries/[countryCode].delete.ts": {
+      "filePath": "server/api/visited-countries/[countryCode].delete.ts",
+      "contentHash": "34f36cc0fa24ea1fb290bef48c6d56a04ffd9a0031e4961ee8d06482ff24b352",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "and"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["visitedCountries"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 29,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/visited-countries/index.get.ts": {
+      "filePath": "server/api/visited-countries/index.get.ts",
+      "contentHash": "5faff8c08ed8e61f75ab521063669a79741fcd12956f43c2e5a47f988a21ac3d",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["visitedCountries"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 15,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/visited-countries/index.post.ts": {
+      "filePath": "server/api/visited-countries/index.post.ts",
+      "contentHash": "dd24aee8bc850f7bfd4ac8ebb589b3d040df516719f03a80610d1cdf95a01ecd",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "and"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../../db/schema",
+          "specifiers": ["visitedCountries"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 45,
+      "hasStructuralAnalysis": true
+    },
+    "server/api/weather.get.ts": {
+      "filePath": "server/api/weather.get.ts",
+      "contentHash": "5a0281752700d27a03b1b147a4cbd7392714485de3f615e89300c624db4a7656",
+      "functions": [
+        {
+          "name": "shiftDateByYear",
+          "params": ["dateStr", "years"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 5
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 124,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/custom-types.ts": {
+      "filePath": "server/db/custom-types.ts",
+      "contentHash": "fbd68418d5097179fb7b92682a7f9de606152b468d60be35b10f4f392b2e9494",
+      "functions": [
+        {
+          "name": "encryptedText",
+          "params": ["name"],
+          "exported": true,
+          "lineCount": 24
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["customType"]
+        },
+        {
+          "source": "../lib/encryption",
+          "specifiers": ["encrypt", "decrypt"]
+        }
+      ],
+      "exports": ["encryptedText"],
+      "totalLines": 33,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/index.ts": {
+      "filePath": "server/db/index.ts",
+      "contentHash": "fcd9b1b395a8154575fc3b3c6f3fee3d7721454981e7ce9e431fb2bf76f89009",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@neondatabase/serverless",
+          "specifiers": ["neonConfig", "Pool"]
+        },
+        {
+          "source": "drizzle-orm/neon-serverless",
+          "specifiers": ["drizzle"]
+        },
+        {
+          "source": "ws",
+          "specifiers": ["WebSocket"]
+        },
+        {
+          "source": "./schema",
+          "specifiers": ["* as schema"]
+        }
+      ],
+      "exports": ["db"],
+      "totalLines": 26,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/re-encrypt-data.ts": {
+      "filePath": "server/db/re-encrypt-data.ts",
+      "contentHash": "f0a1e78fda1b0e0b51fb4ec72906bfadadaa80beebcf3a6e6be0cfa3458e802c",
+      "functions": [
+        {
+          "name": "deriveKeyOld",
+          "params": ["secret"],
+          "returnType": "Buffer",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "deriveKeyNew",
+          "params": ["secret"],
+          "returnType": "Buffer",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "decryptWithKey",
+          "params": ["payload", "key"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 12
+        },
+        {
+          "name": "encryptWithKey",
+          "params": ["value", "key"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 9
+        },
+        {
+          "name": "reEncryptTable",
+          "params": ["client", "{ table, column, idColumn }", "oldKey", "newKey"],
+          "returnType": "Promise<number>",
+          "exported": false,
+          "lineCount": 43
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": false,
+          "lineCount": 27
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "dotenv/config",
+          "specifiers": []
+        },
+        {
+          "source": "crypto",
+          "specifiers": [
+            "createCipheriv",
+            "createDecipheriv",
+            "createHash",
+            "hkdfSync",
+            "randomBytes"
+          ]
+        },
+        {
+          "source": "pg",
+          "specifiers": ["Pool", "PoolClient"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 151,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/activities.ts": {
+      "filePath": "server/db/schema/activities.ts",
+      "contentHash": "1c9174d46a47bc7d8886835776c2a775a5f6a3238289d1fa96522f230d096d09",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": [
+            "pgTable",
+            "text",
+            "integer",
+            "numeric",
+            "uuid",
+            "jsonb",
+            "index",
+            "doublePrecision",
+            "timestamp"
+          ]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./itineraries",
+          "specifiers": ["itineraryDays"]
+        },
+        {
+          "source": "./travel-segments",
+          "specifiers": ["travelSegments"]
+        },
+        {
+          "source": "./expenses",
+          "specifiers": ["expenses"]
+        }
+      ],
+      "exports": ["activities", "activitiesRelations"],
+      "totalLines": 65,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/activity-comments.ts": {
+      "filePath": "server/db/schema/activity-comments.ts",
+      "contentHash": "5ba0e34a874647dfbfc53183ccb8556d89ac9f27b1775c0593f687d9d3395b37",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "uuid", "text", "timestamp", "index"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./activities",
+          "specifiers": ["activities"]
+        },
+        {
+          "source": "./auth-schema",
+          "specifiers": ["user"]
+        }
+      ],
+      "exports": ["activityComments", "activityCommentsRelations"],
+      "totalLines": 29,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/activity-log.ts": {
+      "filePath": "server/db/schema/activity-log.ts",
+      "contentHash": "197d6812506716abb4d115fc50f9e8b18f2be808649bbb223b7f8b029528706d",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "text", "uuid", "timestamp", "jsonb", "index"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./trips",
+          "specifiers": ["trips"]
+        },
+        {
+          "source": "./auth-schema",
+          "specifiers": ["user"]
+        }
+      ],
+      "exports": ["activityLog", "activityLogRelations"],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/activity-participants.ts": {
+      "filePath": "server/db/schema/activity-participants.ts",
+      "contentHash": "73c1992a2b3d1d315c3ba236ab500605043337daf7ee42c0276093921deab855",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "uuid", "text", "timestamp", "uniqueIndex", "index"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./activities",
+          "specifiers": ["activities"]
+        },
+        {
+          "source": "./auth-schema",
+          "specifiers": ["user"]
+        }
+      ],
+      "exports": ["activityParticipants", "activityParticipantsRelations"],
+      "totalLines": 31,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/activity-votes.ts": {
+      "filePath": "server/db/schema/activity-votes.ts",
+      "contentHash": "a806abd562ef8d5b4c5dccc8a8c25a2484b7fefec03ccfcdaecb9563fc95f630",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "uuid", "text", "timestamp", "uniqueIndex"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./activities",
+          "specifiers": ["activities"]
+        },
+        {
+          "source": "./auth-schema",
+          "specifiers": ["user"]
+        }
+      ],
+      "exports": ["activityVotes", "activityVotesRelations"],
+      "totalLines": 26,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/ai-usage.ts": {
+      "filePath": "server/db/schema/ai-usage.ts",
+      "contentHash": "affe683a1b16ec7de2226cbb458906b1955e6ec1ea3b43c110827866a149ad9b",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "text", "integer", "timestamp", "index", "uniqueIndex"]
+        },
+        {
+          "source": "./auth-schema",
+          "specifiers": ["user"]
+        }
+      ],
+      "exports": ["aiUsage"],
+      "totalLines": 26,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/auth-schema.ts": {
+      "filePath": "server/db/schema/auth-schema.ts",
+      "contentHash": "3bedabc24b109ca53b656b3f594a481d26857a887109b5f80ee1a6efdcfd996f",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "text", "timestamp", "boolean", "index"]
+        }
+      ],
+      "exports": [
+        "user",
+        "session",
+        "account",
+        "verification",
+        "userRelations",
+        "sessionRelations",
+        "accountRelations"
+      ],
+      "totalLines": 100,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/checklists.ts": {
+      "filePath": "server/db/schema/checklists.ts",
+      "contentHash": "e44fa6af7dffc87d0033edb0098fd912cdc19d8b3476d99861cd264f9a7c24fd",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "uuid", "text", "boolean", "integer", "timestamp", "index"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./trips",
+          "specifiers": ["trips"]
+        }
+      ],
+      "exports": ["checklists", "checklistItems", "checklistsRelations", "checklistItemsRelations"],
+      "totalLines": 49,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/documents.ts": {
+      "filePath": "server/db/schema/documents.ts",
+      "contentHash": "2712d992c9a23cf9867667e00c0b07eae86b4a13d44b8a9e89908877ce48b508",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "uuid", "text", "integer", "timestamp", "index"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./trips",
+          "specifiers": ["trips"]
+        },
+        {
+          "source": "./reservations",
+          "specifiers": ["reservations"]
+        },
+        {
+          "source": "./auth-schema",
+          "specifiers": ["user"]
+        }
+      ],
+      "exports": ["documents", "documentsRelations"],
+      "totalLines": 41,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/expenses.ts": {
+      "filePath": "server/db/schema/expenses.ts",
+      "contentHash": "7cdee6b6e928efda7518935e8bf817ae109a4c43137a88aa1791cfd077d81951",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "uuid", "text", "numeric", "timestamp", "jsonb", "index"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./trips",
+          "specifiers": ["trips"]
+        },
+        {
+          "source": "./activities",
+          "specifiers": ["activities"]
+        },
+        {
+          "source": "./auth-schema",
+          "specifiers": ["user"]
+        }
+      ],
+      "exports": ["expenses", "expensesRelations"],
+      "totalLines": 43,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/flights.ts": {
+      "filePath": "server/db/schema/flights.ts",
+      "contentHash": "b432bd7dc918deace7d290511bcfd1c2308171ab64a14257b824f4fafa5c568d",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": [
+            "pgTable",
+            "text",
+            "timestamp",
+            "date",
+            "uuid",
+            "jsonb",
+            "uniqueIndex",
+            "index",
+            "integer"
+          ]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./auth-schema",
+          "specifiers": ["user"]
+        },
+        {
+          "source": "./trips",
+          "specifiers": ["trips"]
+        }
+      ],
+      "exports": ["flights", "flightsRelations"],
+      "totalLines": 61,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/index.ts": {
+      "filePath": "server/db/schema/index.ts",
+      "contentHash": "73d6b3110b8b98845885d2732c45384068c6a7eb3ea0419e7f28038a745e05a7",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 23,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/itineraries.ts": {
+      "filePath": "server/db/schema/itineraries.ts",
+      "contentHash": "fc8a9c619a3b780f34723a780a4a05db1d37a9133fef035b6df8752df308f43a",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "text", "integer", "date", "uuid", "index", "doublePrecision"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./trips",
+          "specifiers": ["trips"]
+        },
+        {
+          "source": "./activities",
+          "specifiers": ["activities"]
+        },
+        {
+          "source": "./travel-segments",
+          "specifiers": ["travelSegments"]
+        }
+      ],
+      "exports": ["itineraryDays", "itineraryDaysRelations"],
+      "totalLines": 31,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/packing-templates.ts": {
+      "filePath": "server/db/schema/packing-templates.ts",
+      "contentHash": "97bf25ce9d5ff352038412941cbbb95238566378bb958ea2f6f42331979a9317",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "uuid", "text", "boolean", "timestamp", "jsonb", "index"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./auth-schema",
+          "specifiers": ["user"]
+        }
+      ],
+      "exports": ["packingTemplates", "packingTemplatesRelations"],
+      "totalLines": 30,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/reservations.ts": {
+      "filePath": "server/db/schema/reservations.ts",
+      "contentHash": "b1311da6751e62b8d69901c544e9adadf31fd04c35a5112ac5214f6bfc4e693f",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "uuid", "text", "numeric", "timestamp", "index"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "../custom-types",
+          "specifiers": ["encryptedText"]
+        },
+        {
+          "source": "./trips",
+          "specifiers": ["trips"]
+        },
+        {
+          "source": "./auth-schema",
+          "specifiers": ["user"]
+        },
+        {
+          "source": "./documents",
+          "specifiers": ["documents"]
+        }
+      ],
+      "exports": ["reservations", "reservationsRelations"],
+      "totalLines": 44,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/travel-segments.ts": {
+      "filePath": "server/db/schema/travel-segments.ts",
+      "contentHash": "445b6ef3e3919d98d9bc125c3f97447839ec25ee3e912af0c5895daa8b082add",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "uuid", "integer", "text", "index"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./activities",
+          "specifiers": ["activities"]
+        },
+        {
+          "source": "./itineraries",
+          "specifiers": ["itineraryDays"]
+        }
+      ],
+      "exports": ["travelSegments", "travelSegmentsRelations"],
+      "totalLines": 48,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/trip-ideas.ts": {
+      "filePath": "server/db/schema/trip-ideas.ts",
+      "contentHash": "91c3ec1d21b4f9e45aca22c00555c3117e5557b9b51db2b906de326c80a44d30",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": [
+            "pgTable",
+            "uuid",
+            "text",
+            "integer",
+            "numeric",
+            "doublePrecision",
+            "jsonb",
+            "timestamp",
+            "index"
+          ]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./trips",
+          "specifiers": ["trips"]
+        }
+      ],
+      "exports": ["tripIdeas", "tripIdeasRelations"],
+      "totalLines": 42,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/trip-members.ts": {
+      "filePath": "server/db/schema/trip-members.ts",
+      "contentHash": "355f04fd0d076ee4fe6de3f931f37b5cc68a03ece3d6ca3c16fdb17d543ce8dc",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "text", "uuid", "timestamp", "index", "uniqueIndex"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./trips",
+          "specifiers": ["trips"]
+        },
+        {
+          "source": "./auth-schema",
+          "specifiers": ["user"]
+        }
+      ],
+      "exports": ["tripMembers", "tripMembersRelations"],
+      "totalLines": 36,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/trips.ts": {
+      "filePath": "server/db/schema/trips.ts",
+      "contentHash": "4c91353957accef2368ed6002140b5563eff696a7016e29d2cea4f5e9a2eb018",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": [
+            "pgTable",
+            "text",
+            "timestamp",
+            "date",
+            "jsonb",
+            "uuid",
+            "index",
+            "uniqueIndex",
+            "numeric"
+          ]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./auth-schema",
+          "specifiers": ["user"]
+        },
+        {
+          "source": "./itineraries",
+          "specifiers": ["itineraryDays"]
+        },
+        {
+          "source": "./trip-ideas",
+          "specifiers": ["tripIdeas"]
+        },
+        {
+          "source": "./checklists",
+          "specifiers": ["checklists"]
+        },
+        {
+          "source": "./expenses",
+          "specifiers": ["expenses"]
+        },
+        {
+          "source": "./trip-members",
+          "specifiers": ["tripMembers"]
+        },
+        {
+          "source": "./activity-log",
+          "specifiers": ["activityLog"]
+        },
+        {
+          "source": "./reservations",
+          "specifiers": ["reservations"]
+        },
+        {
+          "source": "./documents",
+          "specifiers": ["documents"]
+        }
+      ],
+      "exports": ["trips", "tripsRelations"],
+      "totalLines": 72,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/user-passports.ts": {
+      "filePath": "server/db/schema/user-passports.ts",
+      "contentHash": "e5cf13204cc894f02533c77d949f92b389f1b343f704097412249b28a1114a62",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "text", "timestamp", "uuid", "boolean", "uniqueIndex", "date"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./auth-schema",
+          "specifiers": ["user"]
+        },
+        {
+          "source": "../custom-types",
+          "specifiers": ["encryptedText"]
+        }
+      ],
+      "exports": ["userPassports", "userPassportsRelations"],
+      "totalLines": 27,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/user-profiles.ts": {
+      "filePath": "server/db/schema/user-profiles.ts",
+      "contentHash": "2c6ab6c180d65e194be3fa66e0d00f79e967b4cac419ee341243456fc4560733",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "text", "timestamp", "uuid", "uniqueIndex"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./auth-schema",
+          "specifiers": ["user"]
+        }
+      ],
+      "exports": ["userProfiles", "userProfilesRelations"],
+      "totalLines": 24,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/visa-requirements.ts": {
+      "filePath": "server/db/schema/visa-requirements.ts",
+      "contentHash": "37dec7ca51315b622527c8cd6f12cf949bcdad2ca471911786008df4cb9c8d8a",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "text", "timestamp", "uuid", "integer", "uniqueIndex"]
+        }
+      ],
+      "exports": ["visaRequirements"],
+      "totalLines": 17,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/schema/visited-countries.ts": {
+      "filePath": "server/db/schema/visited-countries.ts",
+      "contentHash": "81d99d2b92d2ba2eb176ae673bd6e377f7312ad86ffd6bdb6c40d6ac74e04755",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm/pg-core",
+          "specifiers": ["pgTable", "text", "timestamp", "uuid", "date", "index", "uniqueIndex"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["relations"]
+        },
+        {
+          "source": "./auth-schema",
+          "specifiers": ["user"]
+        }
+      ],
+      "exports": ["visitedCountries", "visitedCountriesRelations"],
+      "totalLines": 28,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/seed-templates.ts": {
+      "filePath": "server/db/seed-templates.ts",
+      "contentHash": "9567a389f6f3cb7095df319d2a7e8c9aa55d09ee5d0476ba8f28a22fdbe51efa",
+      "functions": [
+        {
+          "name": "seed",
+          "params": [],
+          "exported": false,
+          "lineCount": 9
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "./index",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "./schema",
+          "specifiers": ["packingTemplates"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 134,
+      "hasStructuralAnalysis": true
+    },
+    "server/db/seed-test-data.ts": {
+      "filePath": "server/db/seed-test-data.ts",
+      "contentHash": "e372d1780a007534e09cf2d7c765176dac609a8aad4835384888b95a34bde2f9",
+      "functions": [
+        {
+          "name": "seed",
+          "params": [],
+          "exported": false,
+          "lineCount": 108
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "dotenv/config",
+          "specifiers": []
+        },
+        {
+          "source": "drizzle-orm/node-postgres",
+          "specifiers": ["drizzle"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "./schema",
+          "specifiers": ["* as schema"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 280,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/ai-config.ts": {
+      "filePath": "server/lib/ai-config.ts",
+      "contentHash": "5089344df283bd2c7c82d0c1989ae2dcaf29a8744e480b2cc8765abf5b473e92",
+      "functions": [
+        {
+          "name": "getModel",
+          "params": ["key"],
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@ai-sdk/google",
+          "specifiers": ["google"]
+        }
+      ],
+      "exports": ["AI_MODELS", "getModel"],
+      "totalLines": 19,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/ai-tools.ts": {
+      "filePath": "server/lib/ai-tools.ts",
+      "contentHash": "9f98db0e5f31f10a9159624634429556d805abce9ad3c1dead6670884bb85a9a",
+      "functions": [
+        {
+          "name": "createTripTools",
+          "params": ["ctx"],
+          "exported": true,
+          "lineCount": 136
+        },
+        {
+          "name": "createDiscussTools",
+          "params": ["ctx", "collector"],
+          "exported": true,
+          "lineCount": 183
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:crypto",
+          "specifiers": ["randomUUID"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "@mastra/core/tools",
+          "specifiers": ["createTool"]
+        },
+        {
+          "source": "../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../db/schema",
+          "specifiers": ["itineraryDays"]
+        },
+        {
+          "source": "./google-maps",
+          "specifiers": ["searchPlace", "getPlaceDetails", "getDistanceMatrix"]
+        },
+        {
+          "source": "./itinerary-review",
+          "specifiers": ["reviewItinerary"]
+        },
+        {
+          "source": "./trips",
+          "specifiers": ["getTripWithRelations"]
+        },
+        {
+          "source": "./proposals",
+          "specifiers": ["proposalSchema", "Proposal"]
+        },
+        {
+          "source": "../utils/transport",
+          "specifiers": ["TransportMode"]
+        }
+      ],
+      "exports": ["createTripTools", "createDiscussTools"],
+      "totalLines": 342,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/ai.ts": {
+      "filePath": "server/lib/ai.ts",
+      "contentHash": "94a423031fac1490700493807f2e0a213daabedd63cb447ea5f7c29eca73a014",
+      "functions": [
+        {
+          "name": "buildCurrencyCtx",
+          "params": ["currencyCode"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 8
+        },
+        {
+          "name": "formatPreferences",
+          "params": ["prefs"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 47
+        },
+        {
+          "name": "buildTripNotesCtx",
+          "params": ["notes"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "buildSavedIdeasCtx",
+          "params": ["ideas"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 13
+        },
+        {
+          "name": "getDayOfWeek",
+          "params": ["date"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "doResearch",
+          "params": ["destination", "userContext"],
+          "returnType": "Promise<string>",
+          "exported": false,
+          "lineCount": 15
+        },
+        {
+          "name": "handleAdd",
+          "params": ["params"],
+          "returnType": "Promise<{ activities: AIActivity[] }>",
+          "exported": false,
+          "lineCount": 81
+        },
+        {
+          "name": "handleRemove",
+          "params": ["params"],
+          "returnType": "Promise<{ removals: { name: string; reason: string }[] }>",
+          "exported": false,
+          "lineCount": 22
+        },
+        {
+          "name": "handleFillGaps",
+          "params": ["params"],
+          "returnType": "Promise<{\n  activities: AIActivity[]\n  timeUpdates: { name: string; suggestedTime: string; estimatedDurationMinutes: number }[]\n}>",
+          "exported": false,
+          "lineCount": 95
+        },
+        {
+          "name": "handleOptimize",
+          "params": ["params"],
+          "returnType": "Promise<{ orderedActivities: { name: string; suggestedTime: string }[] }>",
+          "exported": false,
+          "lineCount": 44
+        },
+        {
+          "name": "handleReschedule",
+          "params": ["params"],
+          "returnType": "Promise<{\n  timeUpdates: { name: string; suggestedTime: string; estimatedDurationMinutes: number }[]\n}>",
+          "exported": false,
+          "lineCount": 42
+        },
+        {
+          "name": "handleAccommodation",
+          "params": ["params"],
+          "returnType": "Promise<{\n  name: string\n  address: string | null\n  lat: number | null\n  lng: number | null\n  placeId: string | null\n}>",
+          "exported": false,
+          "lineCount": 68
+        },
+        {
+          "name": "processUserRequest",
+          "params": ["params"],
+          "returnType": "Promise<AIProcessResult>",
+          "exported": true,
+          "lineCount": 200
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@mastra/core/agent",
+          "specifiers": ["Agent"]
+        },
+        {
+          "source": "@mastra/core/tools",
+          "specifiers": ["createTool"]
+        },
+        {
+          "source": "@mastra/core/mastra",
+          "specifiers": ["Mastra"]
+        },
+        {
+          "source": "@mastra/loggers",
+          "specifiers": ["PinoLogger"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../db/schema/trips",
+          "specifiers": ["TripPreferences"]
+        },
+        {
+          "source": "../utils/transport",
+          "specifiers": ["TransportMode"]
+        },
+        {
+          "source": "../utils/sanitize",
+          "specifiers": ["sanitizePromptInput"]
+        },
+        {
+          "source": "./ai-config",
+          "specifiers": ["getModel"]
+        }
+      ],
+      "exports": ["processUserRequest"],
+      "totalLines": 825,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/auth.ts": {
+      "filePath": "server/lib/auth.ts",
+      "contentHash": "6d45a8fb70b28a9a9e9830c935b77ad27ecb676b19bb33960dc8cb858fc5149d",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "better-auth",
+          "specifiers": ["betterAuth"]
+        },
+        {
+          "source": "better-auth/adapters/drizzle",
+          "specifiers": ["drizzleAdapter"]
+        },
+        {
+          "source": "@better-auth/infra",
+          "specifiers": ["dash"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "and"]
+        },
+        {
+          "source": "../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "better-auth/plugins",
+          "specifiers": ["admin"]
+        },
+        {
+          "source": "../db/schema",
+          "specifiers": ["activityLog", "tripMembers", "userTable"]
+        }
+      ],
+      "exports": ["auth"],
+      "totalLines": 156,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/cost-from-place.ts": {
+      "filePath": "server/lib/cost-from-place.ts",
+      "contentHash": "e8b490e751db78ffd6b9b8d417161763e6fb5c531aab3c7ee5dea6b900a5ddab",
+      "functions": [
+        {
+          "name": "formatAmount",
+          "params": ["amount", "currencyCode"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "deriveCostFromPlace",
+          "params": ["placeId", "tripCurrency"],
+          "returnType": "Promise<string | null>",
+          "exported": true,
+          "lineCount": 13
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "./google-maps",
+          "specifiers": ["getPlaceDetails"]
+        },
+        {
+          "source": "../utils/exchange-rate",
+          "specifiers": ["convertCurrency"]
+        }
+      ],
+      "exports": ["deriveCostFromPlace"],
+      "totalLines": 33,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/dates.ts": {
+      "filePath": "server/lib/dates.ts",
+      "contentHash": "761c4c55cab7607fe799d5fa633aac263f309e4030e0ffa5318b840cd3167583",
+      "functions": [
+        {
+          "name": "enumerateDates",
+          "params": ["start", "end"],
+          "returnType": "string[]",
+          "exported": true,
+          "lineCount": 11
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["enumerateDates"],
+      "totalLines": 16,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/discuss-agent.ts": {
+      "filePath": "server/lib/discuss-agent.ts",
+      "contentHash": "9438f5bc42b9122c87d32d988f89c3ec7c4ccf33e8ba81e33ae805c9ac85cd95",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@mastra/core/agent",
+          "specifiers": ["Agent"]
+        },
+        {
+          "source": "./ai-config",
+          "specifiers": ["getModel"]
+        }
+      ],
+      "exports": ["DISCUSS_SYSTEM_PROMPT", "discussAgent"],
+      "totalLines": 42,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/email.ts": {
+      "filePath": "server/lib/email.ts",
+      "contentHash": "4fcde0237d3a12fef9b024c075d7f3bfce55f77e86b08657cc1ba89a33ef9bb4",
+      "functions": [
+        {
+          "name": "escapeHtml",
+          "params": ["s"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 8
+        },
+        {
+          "name": "getResend",
+          "params": [],
+          "returnType": "Resend",
+          "exported": false,
+          "lineCount": 8
+        },
+        {
+          "name": "formatTimeUntil",
+          "params": ["expiryDate"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 15
+        },
+        {
+          "name": "sendPassportExpiryEmail",
+          "params": ["params"],
+          "exported": true,
+          "lineCount": 41
+        },
+        {
+          "name": "sendTripInviteEmail",
+          "params": ["params"],
+          "exported": true,
+          "lineCount": 42
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "resend",
+          "specifiers": ["Resend"]
+        }
+      ],
+      "exports": ["sendPassportExpiryEmail", "sendTripInviteEmail"],
+      "totalLines": 125,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/encryption.ts": {
+      "filePath": "server/lib/encryption.ts",
+      "contentHash": "e8ff41df8cb1e02f61e05d6d82d8db42c75af85124469aa6ecc308f7d37c8aa9",
+      "functions": [
+        {
+          "name": "deriveKey",
+          "params": ["secret"],
+          "returnType": "Buffer",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "encrypt",
+          "params": ["value", "secret"],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "decrypt",
+          "params": ["payload", "secret"],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 14
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "crypto",
+          "specifiers": ["createCipheriv", "createDecipheriv", "hkdfSync", "randomBytes"]
+        }
+      ],
+      "exports": ["encrypt", "decrypt"],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/enrich.ts": {
+      "filePath": "server/lib/enrich.ts",
+      "contentHash": "9673fc970d5bd24416affe6962f76628d3bd40f00b14d442b2e4cde6011f0683",
+      "functions": [
+        {
+          "name": "enrichActivity",
+          "params": ["activity", "destination", "destinationCoords"],
+          "returnType": "Promise<EnrichedActivity>",
+          "exported": false,
+          "lineCount": 43
+        },
+        {
+          "name": "enrichItinerary",
+          "params": ["aiOutput", "destination", "destinationCoords"],
+          "returnType": "Promise<EnrichedItinerary>",
+          "exported": true,
+          "lineCount": 35
+        },
+        {
+          "name": "enrichSingleActivity",
+          "params": ["activityName", "destination", "destinationCoords"],
+          "returnType": "Promise<{\n  placeId: string\n  lat: number\n  lng: number\n  rating: number | null\n  address: string | null\n} | null>",
+          "exported": true,
+          "lineCount": 35
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "./ai",
+          "specifiers": ["AIItineraryOutput", "AIActivity"]
+        },
+        {
+          "source": "./google-maps",
+          "specifiers": ["searchPlace"]
+        }
+      ],
+      "exports": ["enrichItinerary", "enrichSingleActivity"],
+      "totalLines": 155,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/flight-api.ts": {
+      "filePath": "server/lib/flight-api.ts",
+      "contentHash": "824052e21fe46f9d92adeac84d8530aa694baa1efe8e8558d2d31c927583464b",
+      "functions": [
+        {
+          "name": "deriveFlightFields",
+          "params": ["raw"],
+          "returnType": "DerivedFlightFields",
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "lookupFlight",
+          "params": ["flightNumber", "flightDate"],
+          "returnType": "Promise<FlightLookupResult | null>",
+          "exported": true,
+          "lineCount": 51
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["FLIGHT_LOOKUP_SCHEMA_VERSION", "deriveFlightFields", "lookupFlight"],
+      "totalLines": 137,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/google-maps.ts": {
+      "filePath": "server/lib/google-maps.ts",
+      "contentHash": "a9f1887db4814b5e27a6734559f4082e34b2cfdafc325c9743da0a6467b27ae5",
+      "functions": [
+        {
+          "name": "getServerMapsApiKey",
+          "params": [],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "searchPlace",
+          "params": ["query", "locationBias"],
+          "returnType": "Promise<PlaceCandidate[]>",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "getDistanceMatrix",
+          "params": ["origins", "destinations", "mode", "departureTime"],
+          "returnType": "Promise<DistanceMatrixEntry[][]>",
+          "exported": true,
+          "lineCount": 19
+        },
+        {
+          "name": "getPlaceDetails",
+          "params": ["placeId"],
+          "returnType": "Promise<PlaceDetails | null>",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "getTimezone",
+          "params": ["lat", "lng"],
+          "returnType": "Promise<string | null>",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "geocode",
+          "params": ["address"],
+          "returnType": "Promise<{ lat: number; lng: number; formattedAddress: string } | null>",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "getPlacePhoto",
+          "params": ["photo", "maxWidthPx"],
+          "returnType": "Promise<CachedPhoto | null>",
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "crypto",
+          "specifiers": ["createHash"]
+        },
+        {
+          "source": "../utils/transport",
+          "specifiers": ["normalizeTransportMode", "TransportMode"]
+        }
+      ],
+      "exports": [
+        "searchPlace",
+        "getDistanceMatrix",
+        "getPlaceDetails",
+        "getTimezone",
+        "geocode",
+        "getPlacePhoto"
+      ],
+      "totalLines": 414,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/itinerary-review-ai.ts": {
+      "filePath": "server/lib/itinerary-review-ai.ts",
+      "contentHash": "bb80b7e90917601923edb0bf618b38ca502a6df361a9bbb45bf3cf511cd7f304",
+      "functions": [
+        {
+          "name": "mergeFindings",
+          "params": ["deterministic", "judgment"],
+          "returnType": "ItineraryReviewFinding[]",
+          "exported": true,
+          "lineCount": 24
+        },
+        {
+          "name": "groupBySeverity",
+          "params": ["findings"],
+          "returnType": "Record<ItineraryReviewSeverity, ItineraryReviewFinding[]>",
+          "exported": false,
+          "lineCount": 11
+        },
+        {
+          "name": "reviewItineraryWithJudgment",
+          "params": ["trip", "options", "ctx"],
+          "returnType": "Promise<ItineraryReviewResult>",
+          "exported": true,
+          "lineCount": 131
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "./itinerary-review",
+          "specifiers": [
+            "reviewItinerary",
+            "ItineraryReviewFinding",
+            "ItineraryReviewOptions",
+            "ItineraryReviewResult",
+            "ItineraryReviewSeverity",
+            "ReviewableTrip"
+          ]
+        },
+        {
+          "source": "./proposals",
+          "specifiers": ["proposalSchema"]
+        },
+        {
+          "source": "./ai-tools",
+          "specifiers": ["createTripTools"]
+        },
+        {
+          "source": "./ai-config",
+          "specifiers": ["getModel"]
+        },
+        {
+          "source": "../utils/transport",
+          "specifiers": ["TransportMode"]
+        }
+      ],
+      "exports": ["mergeFindings", "reviewItineraryWithJudgment"],
+      "totalLines": 238,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/itinerary-review.ts": {
+      "filePath": "server/lib/itinerary-review.ts",
+      "contentHash": "86efd042b213e4c65ba191683df0d69f11a92841a48b66b2f416eeae4d6ee1f9",
+      "functions": [
+        {
+          "name": "formatItineraryReviewMessage",
+          "params": ["result"],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 39
+        },
+        {
+          "name": "reviewItinerary",
+          "params": ["trip", "options"],
+          "returnType": "ItineraryReviewResult",
+          "exported": true,
+          "lineCount": 32
+        },
+        {
+          "name": "selectDays",
+          "params": ["days", "options"],
+          "returnType": "ReviewableDay[]",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "reviewDay",
+          "params": ["day", "findings", "previousDay"],
+          "exported": false,
+          "lineCount": 68
+        },
+        {
+          "name": "addDayLevelFindings",
+          "params": ["day", "findings", "previousDay"],
+          "exported": false,
+          "lineCount": 40
+        },
+        {
+          "name": "addOverlapFindings",
+          "params": ["day", "timedActivities", "findings"],
+          "exported": false,
+          "lineCount": 26
+        },
+        {
+          "name": "addTravelFindings",
+          "params": ["day", "findings"],
+          "exported": false,
+          "lineCount": 28
+        },
+        {
+          "name": "addMealFindings",
+          "params": ["day", "activities", "timedActivities", "findings"],
+          "exported": false,
+          "lineCount": 35
+        },
+        {
+          "name": "addLateEndingFinding",
+          "params": ["day", "timedActivities", "findings"],
+          "exported": false,
+          "lineCount": 25
+        },
+        {
+          "name": "addFinding",
+          "params": ["findings", "finding"],
+          "exported": false,
+          "lineCount": 9
+        },
+        {
+          "name": "hasCoordinates",
+          "params": ["lat", "lng"],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "parseClockTime",
+          "params": ["value"],
+          "returnType": "number | null",
+          "exported": false,
+          "lineCount": 10
+        },
+        {
+          "name": "parseDurationText",
+          "params": ["value"],
+          "returnType": "number | null",
+          "exported": false,
+          "lineCount": 9
+        },
+        {
+          "name": "hasMeal",
+          "params": ["activities", "meal"],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 9
+        },
+        {
+          "name": "minutes",
+          "params": ["hour", "minute"],
+          "returnType": "number",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "formatClockTime",
+          "params": ["totalMinutes"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "formatDuration",
+          "params": ["totalSeconds"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 8
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "./proposals",
+          "specifiers": ["Proposal"]
+        }
+      ],
+      "exports": ["formatItineraryReviewMessage", "reviewItinerary"],
+      "totalLines": 473,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/proposals.ts": {
+      "filePath": "server/lib/proposals.ts",
+      "contentHash": "21c91b0ff6ecdd76e431d1a963115885e75874b4a062f91e529daa0fffd19429",
+      "functions": [
+        {
+          "name": "findActivityIdByName",
+          "params": ["day", "name"],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "describeActivities",
+          "params": ["activities"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 8
+        },
+        {
+          "name": "applyProposal",
+          "params": ["proposal", "ctx"],
+          "returnType": "Promise<ApplyResult>",
+          "exported": true,
+          "lineCount": 198
+        },
+        {
+          "name": "resultToProposals",
+          "params": ["result", "day"],
+          "returnType": "Proposal[]",
+          "exported": true,
+          "lineCount": 79
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:crypto",
+          "specifiers": ["randomUUID"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "asc", "eq", "inArray"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../db/schema",
+          "specifiers": ["activities", "itineraryDays"]
+        },
+        {
+          "source": "./enrich",
+          "specifiers": ["enrichItinerary"]
+        },
+        {
+          "source": "./segments",
+          "specifiers": ["computeAndSaveSegments"]
+        },
+        {
+          "source": "./google-maps",
+          "specifiers": ["getDistanceMatrix"]
+        },
+        {
+          "source": "../utils/schedule",
+          "specifiers": ["computeSchedule", "parseOpeningTime"]
+        },
+        {
+          "source": "../utils/trip-access",
+          "specifiers": ["logTripAction"]
+        },
+        {
+          "source": "../utils/transport",
+          "specifiers": ["TransportMode"]
+        },
+        {
+          "source": "./ai",
+          "specifiers": ["AIProcessResult"]
+        }
+      ],
+      "exports": ["proposalSchema", "applyProposal", "resultToProposals"],
+      "totalLines": 408,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/segment-utils.ts": {
+      "filePath": "server/lib/segment-utils.ts",
+      "contentHash": "efb96457a5d4a7202f4f9645a54cdabb6e89d643865fbfee5c445dcb3c892e9c",
+      "functions": [
+        {
+          "name": "pickSegmentData",
+          "params": ["primary", "fallback", "primaryMode", "fallbackMode"],
+          "returnType": "SegmentData",
+          "exported": true,
+          "lineCount": 27
+        },
+        {
+          "name": "findMissingMatrixIndices",
+          "params": ["matrix", "pairCount"],
+          "returnType": "number[]",
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "zonedTimeToUtcSeconds",
+          "params": ["dayDate", "time", "timeZoneId"],
+          "returnType": "number",
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "getZoneOffsetMs",
+          "params": ["atMs", "timeZoneId"],
+          "returnType": "number",
+          "exported": false,
+          "lineCount": 27
+        },
+        {
+          "name": "computeTransitDepartureTimestamp",
+          "params": ["dayDate", "firstActivityTime", "now", "timeZoneId"],
+          "returnType": "number",
+          "exported": true,
+          "lineCount": 20
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../utils/transport",
+          "specifiers": ["TransportMode"]
+        }
+      ],
+      "exports": [
+        "pickSegmentData",
+        "findMissingMatrixIndices",
+        "zonedTimeToUtcSeconds",
+        "computeTransitDepartureTimestamp"
+      ],
+      "totalLines": 135,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/segments.ts": {
+      "filePath": "server/lib/segments.ts",
+      "contentHash": "320db220d2cc291d0137ebd6f67108a42599ce45a031511fa2252d7d6e9fb992",
+      "functions": [
+        {
+          "name": "computeAndSaveSegments",
+          "params": ["dayId", "mode"],
+          "returnType": "Promise<void>",
+          "exported": true,
+          "lineCount": 54
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "asc"]
+        },
+        {
+          "source": "../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../db/schema",
+          "specifiers": ["activities", "itineraryDays", "travelSegments"]
+        },
+        {
+          "source": "../utils/transport",
+          "specifiers": ["normalizeTransportMode", "TransportMode"]
+        },
+        {
+          "source": "./google-maps",
+          "specifiers": ["getDistanceMatrix"]
+        },
+        {
+          "source": "./segment-utils",
+          "specifiers": ["pickSegmentData", "MatrixEntry"]
+        }
+      ],
+      "exports": ["computeAndSaveSegments"],
+      "totalLines": 62,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/trips.ts": {
+      "filePath": "server/lib/trips.ts",
+      "contentHash": "dc5df1fb47ed9e3beb8d34f74b26f36da3e2977ad69db49d4ebfde4e76de2ba5",
+      "functions": [
+        {
+          "name": "getTripWithRelations",
+          "params": ["tripId"],
+          "exported": true,
+          "lineCount": 16
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq"]
+        },
+        {
+          "source": "../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../db/schema",
+          "specifiers": ["trips"]
+        }
+      ],
+      "exports": ["getTripWithRelations"],
+      "totalLines": 26,
+      "hasStructuralAnalysis": true
+    },
+    "server/lib/visa-checker.ts": {
+      "filePath": "server/lib/visa-checker.ts",
+      "contentHash": "5e267c904a36b69df2c1f72a563c2dd641a3665d9932ca45018d43d1de3c11da",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "ai",
+          "specifiers": ["generateText", "Output", "stepCountIs"]
+        },
+        {
+          "source": "@ai-sdk/google",
+          "specifiers": ["google"]
+        },
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        }
+      ],
+      "exports": ["checkVisaRequirements"],
+      "totalLines": 55,
+      "hasStructuralAnalysis": true
+    },
+    "server/plugins/assert-env.ts": {
+      "filePath": "server/plugins/assert-env.ts",
+      "contentHash": "129a0e49b04897ff140adcbb84361fa3ac72f5d83e11d3f5fd639a7de7dff529",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 12,
+      "hasStructuralAnalysis": true
+    },
+    "server/plugins/dark-mode.ts": {
+      "filePath": "server/plugins/dark-mode.ts",
+      "contentHash": "819e6a6befdaf4fcc6b0d191df736d106c5778171cc33b60402f407b33662953",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 16,
+      "hasStructuralAnalysis": true
+    },
+    "server/plugins/seed-visa-data.ts": {
+      "filePath": "server/plugins/seed-visa-data.ts",
+      "contentHash": "e448920770176d6f3f9dffc40af7750429a034deadb666d4e3a932ec41b8f385",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../db",
+          "specifiers": ["db"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 21,
+      "hasStructuralAnalysis": true
+    },
+    "server/tasks/check-passport-expiry.ts": {
+      "filePath": "server/tasks/check-passport-expiry.ts",
+      "contentHash": "427cb5dda67ac99c6b32a851b4c8639279c22ce2e8928e9305902eaa719ee31b",
+      "functions": [
+        {
+          "name": "addMonths",
+          "params": ["date", "months"],
+          "returnType": "Date",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "countryName",
+          "params": ["code"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../db/schema",
+          "specifiers": ["userPassports", "user"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["and", "isNotNull", "eq", "lte", "gt"]
+        },
+        {
+          "source": "../lib/email",
+          "specifiers": ["sendPassportExpiryEmail"]
+        },
+        {
+          "source": "../../app/data/countries",
+          "specifiers": ["countries"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 108,
+      "hasStructuralAnalysis": true
+    },
+    "server/tasks/import-visa-data.ts": {
+      "filePath": "server/tasks/import-visa-data.ts",
+      "contentHash": "ff23a79bf5f0f359edf21d985cfe6fed70d8a5a6e007a43d91f618506098a5fc",
+      "functions": [
+        {
+          "name": "normalizeStatus",
+          "params": ["raw"],
+          "returnType": "{ visaStatus: string; maxStayDays: number | null }",
+          "exported": false,
+          "lineCount": 28
+        },
+        {
+          "name": "parseCsv",
+          "params": ["text"],
+          "returnType": "VisaRow[]",
+          "exported": false,
+          "lineCount": 50
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../db/schema",
+          "specifiers": ["visaRequirements"]
+        },
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["sql"]
+        },
+        {
+          "source": "../utils/country-name-map",
+          "specifiers": ["countryNameToAlpha2"]
+        }
+      ],
+      "exports": [],
+      "totalLines": 144,
+      "hasStructuralAnalysis": true
+    },
+    "server/test-setup.ts": {
+      "filePath": "server/test-setup.ts",
+      "contentHash": "f6d7ede5d7e4bb5d6d72615ffe2ae8732c2de15f28080a8e53bab383d2f8ee5f",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 26,
+      "hasStructuralAnalysis": true
+    },
+    "server/utils/ai-limits.ts": {
+      "filePath": "server/utils/ai-limits.ts",
+      "contentHash": "0f8084b9a015395334a40268c5027c50fb868c2bc80cc9cab9c1009452753268",
+      "functions": [
+        {
+          "name": "getCurrentMonth",
+          "params": [],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "getResetDate",
+          "params": [],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "getAiUsage",
+          "params": ["userId"],
+          "returnType": "Promise<{ used: number; limit: number; remaining: number }>",
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "tryConsumeAiCredit",
+          "params": ["userId"],
+          "returnType": "Promise<boolean>",
+          "exported": true,
+          "lineCount": 37
+        },
+        {
+          "name": "refundAiCredit",
+          "params": ["userId"],
+          "returnType": "Promise<void>",
+          "exported": true,
+          "lineCount": 7
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "and", "sql", "lt"]
+        },
+        {
+          "source": "../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../db/schema",
+          "specifiers": ["aiUsage"]
+        }
+      ],
+      "exports": ["getAiUsage", "tryConsumeAiCredit", "refundAiCredit"],
+      "totalLines": 88,
+      "hasStructuralAnalysis": true
+    },
+    "server/utils/auth.ts": {
+      "filePath": "server/utils/auth.ts",
+      "contentHash": "2228f6ee6f13f92884ec9ae3953e163ecd60ef0da463fddc00fb5e37f3566cd9",
+      "functions": [
+        {
+          "name": "requireAuth",
+          "params": ["event"],
+          "exported": true,
+          "lineCount": 13
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "h3",
+          "specifiers": ["H3Event"]
+        },
+        {
+          "source": "../lib/auth",
+          "specifiers": ["auth"]
+        }
+      ],
+      "exports": ["requireAuth"],
+      "totalLines": 17,
+      "hasStructuralAnalysis": true
+    },
+    "server/utils/country-name-map.ts": {
+      "filePath": "server/utils/country-name-map.ts",
+      "contentHash": "9acae1969c3c07bc607ed32f1f9f18d8d66792eca9df962fc03a15c0e461bfa5",
+      "functions": [
+        {
+          "name": "countryNameToAlpha2",
+          "params": ["name"],
+          "returnType": "string | undefined",
+          "exported": true,
+          "lineCount": 8
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../../app/data/countries",
+          "specifiers": ["countries"]
+        }
+      ],
+      "exports": ["countryNameToAlpha2"],
+      "totalLines": 49,
+      "hasStructuralAnalysis": true
+    },
+    "server/utils/exchange-rate.ts": {
+      "filePath": "server/utils/exchange-rate.ts",
+      "contentHash": "81c822971f44526001faa759c081d1ea851c43bb3f64540f2caf2d18737dfdaf",
+      "functions": [
+        {
+          "name": "getExchangeRate",
+          "params": ["from", "to"],
+          "returnType": "Promise<number | null>",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "convertCurrency",
+          "params": ["amount", "from", "to"],
+          "returnType": "Promise<number | null>",
+          "exported": true,
+          "lineCount": 10
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["getExchangeRate", "convertCurrency"],
+      "totalLines": 48,
+      "hasStructuralAnalysis": true
+    },
+    "server/utils/iata-country-map.ts": {
+      "filePath": "server/utils/iata-country-map.ts",
+      "contentHash": "5ce70fca00606407ab8afb58ec8d5046192080f41dded8918a77e01b9064b2fe",
+      "functions": [
+        {
+          "name": "getCountryForAirport",
+          "params": ["iataCode"],
+          "returnType": "string | undefined",
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["iataToCountry", "getCountryForAirport"],
+      "totalLines": 242,
+      "hasStructuralAnalysis": true
+    },
+    "server/utils/sanitize.ts": {
+      "filePath": "server/utils/sanitize.ts",
+      "contentHash": "adb83649637607146c1bf0d696c6ab901795a4d87c0b15a98804ceecffd6b54a",
+      "functions": [
+        {
+          "name": "sanitizePromptInput",
+          "params": ["input"],
+          "returnType": "string | null",
+          "exported": true,
+          "lineCount": 35
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["sanitizePromptInput"],
+      "totalLines": 60,
+      "hasStructuralAnalysis": true
+    },
+    "server/utils/schedule.ts": {
+      "filePath": "server/utils/schedule.ts",
+      "contentHash": "809fcc7f3ea7b2f91c1b11a2cd7b4c5d5191aa2aef7aa27900eaf1120ebdc31b",
+      "functions": [
+        {
+          "name": "computeSchedule",
+          "params": ["params"],
+          "returnType": "ScheduledActivity[]",
+          "exported": true,
+          "lineCount": 51
+        },
+        {
+          "name": "parseOpeningTime",
+          "params": ["openingHours", "date"],
+          "returnType": "number | null",
+          "exported": true,
+          "lineCount": 35
+        },
+        {
+          "name": "minutesToTime",
+          "params": ["totalMinutes"],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 5
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["computeSchedule", "parseOpeningTime"],
+      "totalLines": 136,
+      "hasStructuralAnalysis": true
+    },
+    "server/utils/schemas.ts": {
+      "filePath": "server/utils/schemas.ts",
+      "contentHash": "b82b85b24def974b85799b054d14249c7fd8505135598405e881c4a3ebe0e2c0",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "zod",
+          "specifiers": ["z"]
+        },
+        {
+          "source": "./transport",
+          "specifiers": ["transportModes"]
+        }
+      ],
+      "exports": [
+        "uuidParamsSchema",
+        "paginationSchema",
+        "tripStatusEnum",
+        "activityTypeEnum",
+        "budgetEnum",
+        "paceEnum",
+        "transportModeEnum",
+        "tripPreferencesSchema",
+        "createTripSchema",
+        "updateTripSchema",
+        "dateRangeQuerySchema",
+        "updateActivitySchema",
+        "activityIdParamsSchema",
+        "reorderActivitiesSchema",
+        "dayIdParamsSchema",
+        "placeSearchSchema",
+        "createIdeaSchema",
+        "ideaIdParamsSchema",
+        "promoteIdeaSchema",
+        "addActivitySchema",
+        "createChecklistSchema",
+        "updateChecklistSchema",
+        "checklistIdParamsSchema",
+        "createChecklistItemSchema",
+        "updateChecklistItemSchema",
+        "checklistItemIdParamsSchema",
+        "updateAccommodationSchema",
+        "updateAccommodationRangeSchema",
+        "expenseCategoryEnum",
+        "createExpenseSchema",
+        "updateExpenseSchema",
+        "expenseIdParamsSchema",
+        "reservationTypeEnum",
+        "reservationStatusEnum",
+        "createReservationSchema",
+        "updateReservationSchema",
+        "reservationIdParamsSchema",
+        "createPackingTemplateSchema",
+        "packingTemplateIdParamsSchema",
+        "loadTemplateSchema",
+        "saveAsTemplateSchema",
+        "addParticipantSchema",
+        "removeParticipantParamsSchema",
+        "documentIdParamsSchema",
+        "createPassportSchema",
+        "updatePassportSchema",
+        "createFlightSchema",
+        "updateFlightSchema",
+        "visaCheckQuerySchema"
+      ],
+      "totalLines": 321,
+      "hasStructuralAnalysis": true
+    },
+    "server/utils/transport.ts": {
+      "filePath": "server/utils/transport.ts",
+      "contentHash": "bb7bcfad4bbd76069d84bd5fbd96b46ddeb104295ebe5029078a8eb06c6f9a2f",
+      "functions": [
+        {
+          "name": "normalizeTransportMode",
+          "params": ["value"],
+          "returnType": "TransportMode",
+          "exported": true,
+          "lineCount": 5
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": ["transportModes", "transportModeLabels", "normalizeTransportMode"],
+      "totalLines": 17,
+      "hasStructuralAnalysis": true
+    },
+    "server/utils/trip-access.ts": {
+      "filePath": "server/utils/trip-access.ts",
+      "contentHash": "c18a7e41e325a50b6a75d99ebacb1539e27980e6ee3676c701d810c3b4e24251",
+      "functions": [
+        {
+          "name": "requireTripAccess",
+          "params": ["tripId", "userId", "requiredRole"],
+          "returnType": "Promise<TripAccess>",
+          "exported": true,
+          "lineCount": 63
+        },
+        {
+          "name": "logTripAction",
+          "params": ["params"],
+          "returnType": "Promise<void>",
+          "exported": true,
+          "lineCount": 15
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "drizzle-orm",
+          "specifiers": ["eq", "and"]
+        },
+        {
+          "source": "../db",
+          "specifiers": ["db"]
+        },
+        {
+          "source": "../db/schema",
+          "specifiers": ["trips", "tripMembers", "activityLog"]
+        }
+      ],
+      "exports": ["requireTripAccess", "logTripAction"],
+      "totalLines": 100,
+      "hasStructuralAnalysis": true
+    }
+  }
+}
