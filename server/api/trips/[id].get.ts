@@ -12,5 +12,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Trip not found" })
   }
 
-  return { ...trip, _role: access.role }
+  // shareToken is owner-only — anyone else holding it can mint /shared/<token>.
+  return {
+    ...trip,
+    _role: access.role,
+    shareToken: access.role === "owner" ? trip.shareToken : null,
+  }
 })

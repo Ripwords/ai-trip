@@ -35,15 +35,18 @@ export default defineEventHandler(async (event) => {
     offset: (query.page - 1) * query.limit,
   })
 
-  // Tag each trip with the user's role
-  return result.map((trip) =>
-    Object.assign({}, trip, {
-      _role:
-        trip.userId === session.user.id
-          ? "owner"
-          : memberships.find((m) => m.tripId === trip.id)
-            ? "editor"
-            : "viewer",
-    }),
-  )
+  // Tag each trip with the user's role. shareToken is owner-only — a viewer or
+  // editor who learns the token can construct the public /shared/<token> URL.
+  return result.map((trip) => {
+    const isOwner = trip.userId === session.user.id
+    const role = isOwner
+      ? "owner"
+      : memberships.find((m) => m.tripId === trip.id)
+        ? "editor"
+        : "viewer"
+    return Object.assign({}, trip, {
+      _role: role,
+      shareToken: isOwner ? trip.shareToken : null,
+    })
+  })
 })

@@ -9,17 +9,22 @@ export default defineEventHandler(async (event) => {
 
   const access = await requireTripAccess(id, session.user.id)
 
-  // Get all members with user info
+  // Get all members with a tight projection of the user join — never spread the
+  // full `user` row (banned, role, emailVerified, lastActiveAt, etc).
   const members = await db.query.tripMembers.findMany({
     where: eq(tripMembers.tripId, id),
-    with: { user: true },
+    with: { user: { columns: { id: true, name: true, image: true } } },
   })
 
-  // Also include the owner
+  // Also include the owner (same projection)
   const trip = await db.query.trips.findFirst({
     where: eq(trips.id, id),
-    with: { user: true },
+    with: { user: { columns: { id: true, name: true, image: true } } },
   })
+
+  // Only owners see invitee emails and pending invites — for everyone else,
+  // those fields would leak who-was-invited / contact info beyond what's needed.
+  const isOwner = access.role === "owner"
 
   const ownerEntry = {
     id: "owner",
@@ -32,17 +37,14 @@ export default defineEventHandler(async (event) => {
     createdAt: trip!.createdAt,
   }
 
-  // Only owners can see pending invites
-  const showPending = access.role === "owner"
-
   const memberEntries = members
-    .filter((m) => m.status === "active" || (showPending && m.status === "pending"))
+    .filter((m) => m.status === "active" || (isOwner && m.status === "pending"))
     .map((m) => ({
       id: m.id,
       userId: m.userId,
       role: m.role,
       status: m.status,
-      invitedEmail: m.invitedEmail,
+      invitedEmail: isOwner ? m.invitedEmail : null,
       expiresAt: m.expiresAt?.toISOString() ?? null,
       user: m.user,
       createdAt: m.createdAt,

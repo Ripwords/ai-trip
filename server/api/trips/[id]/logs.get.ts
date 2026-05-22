@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   const { id } = await getValidatedRouterParams(event, uuidParamsSchema.parse)
   const query = await getValidatedQuery(event, paginationSchema.parse)
 
-  await requireTripAccess(id, session.user.id)
+  const access = await requireTripAccess(id, session.user.id)
 
   const [totalResult] = await db
     .select({ count: count() })
@@ -24,6 +24,14 @@ export default defineEventHandler(async (event) => {
     limit: query.limit,
     offset: (query.page - 1) * query.limit,
   })
+
+  // metadata may contain invitee emails, role assignments, email-delivery error
+  // strings — only the owner needs to see them. Strip for editors/viewers.
+  if (access.role !== "owner") {
+    for (const l of logs) {
+      l.metadata = null
+    }
+  }
 
   return {
     logs,
