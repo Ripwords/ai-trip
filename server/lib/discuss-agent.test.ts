@@ -49,6 +49,7 @@ describe("discussAgent", () => {
       "getDistance",
       "runReview",
       "proposeAddActivities",
+      "proposeReorder",
       "proposeSetAccommodation",
     ]
     for (const name of camelTools) {

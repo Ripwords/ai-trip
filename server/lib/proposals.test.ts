@@ -37,6 +37,33 @@ describe("proposalSchema", () => {
     assert.equal(result.success, false)
   })
 
+  it("accepts a reorder-activities proposal with a non-empty id list", () => {
+    const result = proposalSchema.safeParse({
+      id: "11111111-1111-4111-8111-111111111111",
+      kind: "reorder-activities",
+      dayId: "22222222-2222-4222-8222-222222222222",
+      summary: "Move museum before castle",
+      payload: {
+        orderedActivityIds: [
+          "33333333-3333-4333-8333-333333333333",
+          "44444444-4444-4444-8444-444444444444",
+        ],
+      },
+    })
+    assert.equal(result.success, true)
+  })
+
+  it("rejects a reorder-activities proposal with an empty id list", () => {
+    const result = proposalSchema.safeParse({
+      id: "11111111-1111-4111-8111-111111111111",
+      kind: "reorder-activities",
+      dayId: "22222222-2222-4222-8222-222222222222",
+      summary: "Reorder",
+      payload: { orderedActivityIds: [] },
+    })
+    assert.equal(result.success, false)
+  })
+
   it("accepts a reschedule proposal with multiple updates", () => {
     const result = proposalSchema.safeParse({
       id: "11111111-1111-4111-8111-111111111111",

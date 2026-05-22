@@ -213,6 +213,7 @@ const proposalKindMeta: Record<
   "remove-activities": { label: "Removal", symbol: "−", tone: "sand" },
   reschedule: { label: "Reschedule", symbol: "↻", tone: "ocean" },
   "optimize-route": { label: "Route", symbol: "↗", tone: "ocean" },
+  "reorder-activities": { label: "Reorder", symbol: "⇅", tone: "ocean" },
   "set-accommodation": { label: "Accommodation", symbol: "✦", tone: "forest" },
 }
 </script>

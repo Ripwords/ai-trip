@@ -72,6 +72,12 @@ export const proposalSchema = z.discriminatedUnion("kind", [
     payload: z.object({ orderedActivityIds: z.array(z.string().uuid()).optional() }),
   }),
   baseProposal.extend({
+    kind: z.literal("reorder-activities"),
+    payload: z.object({
+      orderedActivityIds: z.array(z.string().uuid()).min(1),
+    }),
+  }),
+  baseProposal.extend({
     kind: z.literal("set-accommodation"),
     payload: z.object({
       name: z.string(),
@@ -94,6 +100,35 @@ export interface DayForProposals {
 function findActivityIdByName(day: DayForProposals, name: string): string | undefined {
   const normalized = name.toLowerCase().trim()
   return day.activities.find((a) => a.name.toLowerCase().trim() === normalized)?.id
+}
+
+function timeToMinutes(time: string | null | undefined): number | null {
+  if (!time) return null
+  const m = time.match(/^(\d{1,2}):(\d{2})/)
+  if (!m) return null
+  return parseInt(m[1]!, 10) * 60 + parseInt(m[2]!, 10)
+}
+
+async function sortDayBySuggestedTime(
+  dayId: string,
+  rows: { id: string; suggestedTime: string | null; sortOrder: number }[],
+): Promise<void> {
+  const sorted = rows.toSorted((a, b) => {
+    const ta = timeToMinutes(a.suggestedTime)
+    const tb = timeToMinutes(b.suggestedTime)
+    if (ta == null && tb == null) return a.sortOrder - b.sortOrder
+    if (ta == null) return 1
+    if (tb == null) return -1
+    return ta - tb || a.sortOrder - b.sortOrder
+  })
+  await Promise.all(
+    sorted.map((row, i) =>
+      db
+        .update(activities)
+        .set({ sortOrder: i })
+        .where(and(eq(activities.id, row.id), eq(activities.itineraryDayId, dayId))),
+    ),
+  )
 }
 
 function describeActivities(activities: { name: string; suggestedTime?: string }[]): string {
@@ -189,33 +224,71 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
             orderBy: [asc(activities.sortOrder)],
           })
           const maxSort = current.length > 0 ? Math.max(...current.map((a) => a.sortOrder)) : -1
-          await db.insert(activities).values(
-            enrichedActivities.map((a, i) => ({
-              itineraryDayId: ctx.dayId,
-              name: a.name,
-              placeId: a.placeId,
-              type: a.type,
-              description: a.description,
-              lat: a.lat,
-              lng: a.lng,
-              address: a.address,
-              rating: a.rating?.toString() ?? null,
-              priceLevel: a.priceLevel,
-              openingHours: a.openingHours,
-              photos: a.photos,
+          const inserted = await db
+            .insert(activities)
+            .values(
+              enrichedActivities.map((a, i) => ({
+                itineraryDayId: ctx.dayId,
+                name: a.name,
+                placeId: a.placeId,
+                type: a.type,
+                description: a.description,
+                lat: a.lat,
+                lng: a.lng,
+                address: a.address,
+                rating: a.rating?.toString() ?? null,
+                priceLevel: a.priceLevel,
+                openingHours: a.openingHours,
+                photos: a.photos,
+                suggestedTime: a.suggestedTime,
+                estimatedDurationMinutes: a.estimatedDurationMinutes,
+                costEstimate: a.costEstimate.toString(),
+                tags: a.tags,
+                sortOrder: maxSort + 1 + i,
+              })),
+            )
+            .returning({
+              id: activities.id,
+              suggestedTime: activities.suggestedTime,
+              sortOrder: activities.sortOrder,
+            })
+          added = inserted.length
+
+          // Slot new activities into the day's sequence by suggestedTime.
+          // Activities without a time fall to the end, preserving their relative order.
+          await sortDayBySuggestedTime(ctx.dayId, [
+            ...current.map((a) => ({
+              id: a.id,
               suggestedTime: a.suggestedTime,
-              estimatedDurationMinutes: a.estimatedDurationMinutes,
-              costEstimate: a.costEstimate.toString(),
-              tags: a.tags,
-              sortOrder: maxSort + 1 + i,
+              sortOrder: a.sortOrder,
             })),
-          )
-          added = enrichedActivities.length
+            ...inserted,
+          ])
         }
       } catch (e) {
         console.error("[applyProposal] enrichment failed:", e)
       }
       message = `Added ${added} activit${added === 1 ? "y" : "ies"}`
+      break
+    }
+
+    case "reorder-activities": {
+      const dayActivities = await db.query.activities.findMany({
+        where: eq(activities.itineraryDayId, ctx.dayId),
+        orderBy: [asc(activities.sortOrder)],
+      })
+      const knownIds = new Set(dayActivities.map((a) => a.id))
+      const orderedIds = proposal.payload.orderedActivityIds.filter((id) => knownIds.has(id))
+      const remaining = dayActivities.filter((a) => !orderedIds.includes(a.id))
+      const finalOrder = [...orderedIds, ...remaining.map((a) => a.id)]
+
+      await Promise.all(
+        finalOrder.map((activityId, i) =>
+          db.update(activities).set({ sortOrder: i }).where(eq(activities.id, activityId)),
+        ),
+      )
+      updated = orderedIds.length
+      message = `Reordered ${updated} activit${updated === 1 ? "y" : "ies"}`
       break
     }
 

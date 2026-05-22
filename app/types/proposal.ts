@@ -32,6 +32,13 @@ export type Proposal =
     }
   | {
       id: string
+      kind: "reorder-activities"
+      dayId: string
+      summary: string
+      payload: { orderedActivityIds: string[] }
+    }
+  | {
+      id: string
       kind: "set-accommodation"
       dayId: string
       summary: string

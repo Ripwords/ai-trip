@@ -296,6 +296,33 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
     },
   })
 
+  const proposeReorder = createTool({
+    id: "proposeReorder",
+    description:
+      "Reorder existing activities within a day. Provide orderedActivityIds — the activity ids listed in the new sequence. You can list a partial subset (those move to the front in the given order; any activities not listed keep their relative order behind them). Use this when the user wants to rearrange the sequence WITHOUT changing times (or in combination with proposeReschedule when both are needed).",
+    inputSchema: z.object({
+      dayId: z.string(),
+      summary: z.string().min(1),
+      orderedActivityIds: z
+        .array(z.string())
+        .min(1)
+        .describe("Activity ids in the new sequence (top of the day first)."),
+    }),
+    execute: async (input) => {
+      const proposal: Proposal = {
+        id: randomUUID(),
+        kind: "reorder-activities",
+        dayId: input.dayId,
+        summary: input.summary,
+        payload: { orderedActivityIds: input.orderedActivityIds },
+      }
+      const validated = proposalSchema.safeParse(proposal)
+      if (!validated.success) return { ok: false, error: validated.error.message }
+      collector.push(validated.data)
+      return { ok: true }
+    },
+  })
+
   const proposeSetAccommodation = createTool({
     id: "proposeSetAccommodation",
     description:
@@ -336,6 +363,7 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
     proposeAddActivities,
     proposeRemoveActivities,
     proposeReschedule,
+    proposeReorder,
     proposeSetAccommodation,
   }
 }
