@@ -654,7 +654,7 @@ const proposalKindMeta: Record<
 
 .dock-proposal {
   border: 1px solid var(--color-sand-300);
-  background: white;
+  background: var(--color-sand-50);
   border-radius: 14px;
   overflow: hidden;
   box-shadow:
