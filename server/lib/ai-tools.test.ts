@@ -52,7 +52,7 @@ describe("createDiscussTools", () => {
     ])
   })
 
-  it("propose_add_activities pushes a valid proposal to the collector", async () => {
+  it("proposeAddActivities pushes a valid proposal using the active day id", async () => {
     const collector: Proposal[] = []
     const tools = createDiscussTools(
       {
@@ -64,7 +64,6 @@ describe("createDiscussTools", () => {
       collector,
     )
     const result = await tools.proposeAddActivities.execute({
-      dayId: "22222222-2222-4222-8222-222222222222",
       summary: "Add Afuri Ramen at 12:30",
       activities: [
         {
@@ -81,33 +80,58 @@ describe("createDiscussTools", () => {
     assert.equal(result.ok, true)
     assert.equal(collector.length, 1)
     assert.equal(collector[0]?.kind, "add-activities")
+    assert.equal(collector[0]?.dayId, "22222222-2222-4222-8222-222222222222")
   })
 
-  it("propose_reorder pushes a reorder proposal to the collector", async () => {
+  it("proposeAddActivities refuses when no active day is set in ctx", async () => {
     const collector: Proposal[] = []
     const tools = createDiscussTools(
       {
         tripId: "55555555-5555-4555-8555-555555555555",
-        dayId: "22222222-2222-4222-8222-222222222222",
+        dayId: "",
+        transportMode: "walking",
+        currencyCode: "USD",
+      },
+      collector,
+    )
+    const result = await tools.proposeAddActivities.execute({
+      summary: "Add something",
+      activities: [
+        {
+          name: "Cafe",
+          type: "cafe",
+          description: "",
+          suggestedTime: "10:00",
+          estimatedDurationMinutes: 30,
+          costEstimate: 5,
+          tags: [],
+        },
+      ],
+    })
+    assert.equal(result.ok, false)
+    assert.equal(collector.length, 0)
+  })
+
+  it("proposeReorder refuses when no active day is set in ctx", async () => {
+    const collector: Proposal[] = []
+    const tools = createDiscussTools(
+      {
+        tripId: "55555555-5555-4555-8555-555555555555",
+        dayId: "",
         transportMode: "walking",
         currencyCode: "USD",
       },
       collector,
     )
     const result = await tools.proposeReorder.execute({
-      dayId: "22222222-2222-4222-8222-222222222222",
-      summary: "Put the museum before the castle",
-      orderedActivityIds: [
-        "33333333-3333-4333-8333-333333333333",
-        "44444444-4444-4444-8444-444444444444",
-      ],
+      summary: "Reorder",
+      orderedActivityIds: ["33333333-3333-4333-8333-333333333333"],
     })
-    assert.equal(result.ok, true)
-    assert.equal(collector.length, 1)
-    assert.equal(collector[0]?.kind, "reorder-activities")
+    assert.equal(result.ok, false)
+    assert.equal(collector.length, 0)
   })
 
-  it("propose_reschedule rejects an invalid time format", async () => {
+  it("proposeReschedule rejects an invalid time format", async () => {
     const collector: Proposal[] = []
     const tools = createDiscussTools(
       {
@@ -118,8 +142,9 @@ describe("createDiscussTools", () => {
       },
       collector,
     )
+    // Activity-id validation will fail first (no db row) — this is the right
+    // behaviour: hallucinated ids must not produce a no-op proposal.
     const result = await tools.proposeReschedule.execute({
-      dayId: "22222222-2222-4222-8222-222222222222",
       summary: "Reschedule",
       updates: [
         {
