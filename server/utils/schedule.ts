@@ -57,12 +57,14 @@ export function computeSchedule(params: {
   for (let i = 0; i < activities.length; i++) {
     const activity = activities[i]!
 
-    // Add travel time from previous activity
+    // Add travel time from previous activity, then snap to the next 5-minute slot
+    // so transitions don't leave odd start times like 09:48 or 10:33.
     if (i > 0) {
       const prevId = activities[i - 1]!.id
       const travel = travelTimes.find((t) => t.fromId === prevId && t.toId === activity.id)
       const travelMinutes = travel ? Math.ceil(travel.durationMinutes) : 0
       currentMinutes += travelMinutes + bufferMinutes
+      currentMinutes = Math.ceil(currentMinutes / 5) * 5
     }
 
     // If activity has opening hours, don't schedule before it opens
