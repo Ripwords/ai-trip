@@ -1,6 +1,52 @@
 <script setup lang="ts">
 import { BorderBeam } from "vue-border-beam"
+import { marked } from "marked"
+import DOMPurify from "dompurify"
 import type { Proposal } from "~/types/proposal"
+
+marked.setOptions({ gfm: true, breaks: true })
+
+let domPurifyHookRegistered = false
+function ensureDomPurifyHook() {
+  if (domPurifyHookRegistered) return
+  // Force all rendered links to open in a new tab without leaking opener.
+  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    if (node.tagName === "A") {
+      node.setAttribute("target", "_blank")
+      node.setAttribute("rel", "noopener noreferrer")
+    }
+  })
+  domPurifyHookRegistered = true
+}
+
+function renderMarkdown(content: string): string {
+  ensureDomPurifyHook()
+  const html = marked.parse(content, { async: false }) as string
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      "p",
+      "br",
+      "strong",
+      "em",
+      "del",
+      "code",
+      "pre",
+      "blockquote",
+      "ul",
+      "ol",
+      "li",
+      "a",
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "hr",
+    ],
+    ALLOWED_ATTR: ["href", "title", "target", "rel"],
+  })
+}
 
 export type ChatRole = "user" | "assistant" | "system"
 
@@ -301,7 +347,7 @@ const proposalKindMeta: Record<
                   {{ line }}
                 </p>
               </div>
-              <p class="dock-assistant-body">{{ msg.content }}</p>
+              <div class="dock-assistant-body" v-html="renderMarkdown(msg.content)" />
 
               <!-- Inline proposal cards -->
               <ul v-if="msg.proposals?.length" class="mt-1 flex list-none flex-col gap-2 p-0">
@@ -504,7 +550,85 @@ const proposalKindMeta: Record<
   font-size: 14.5px;
   line-height: 1.55;
   color: var(--color-sand-900);
-  white-space: pre-wrap;
+}
+
+.dock-assistant-body :where(p) {
+  margin: 0 0 8px;
+}
+.dock-assistant-body :where(p:last-child) {
+  margin-bottom: 0;
+}
+.dock-assistant-body :where(strong) {
+  font-weight: 600;
+  color: var(--color-sand-900);
+}
+.dock-assistant-body :where(em) {
+  font-style: italic;
+}
+.dock-assistant-body :where(del) {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+.dock-assistant-body :where(a) {
+  color: var(--color-terra-600, var(--color-sand-900));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.dock-assistant-body :where(ul, ol) {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+.dock-assistant-body :where(li) {
+  margin: 2px 0;
+}
+.dock-assistant-body :where(li > p) {
+  margin: 0;
+}
+.dock-assistant-body :where(code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  background: var(--color-sand-100);
+  border: 1px solid var(--color-sand-200);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+.dock-assistant-body :where(pre) {
+  margin: 6px 0 8px;
+  padding: 8px 10px;
+  background: var(--color-sand-100);
+  border: 1px solid var(--color-sand-200);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+.dock-assistant-body :where(pre code) {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.dock-assistant-body :where(blockquote) {
+  margin: 6px 0 8px;
+  padding: 2px 10px;
+  border-left: 3px solid var(--color-sand-300);
+  color: var(--color-sand-700);
+}
+.dock-assistant-body :where(h1, h2, h3, h4, h5, h6) {
+  margin: 8px 0 4px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.dock-assistant-body :where(h1) {
+  font-size: 1.15em;
+}
+.dock-assistant-body :where(h2) {
+  font-size: 1.08em;
+}
+.dock-assistant-body :where(h3, h4, h5, h6) {
+  font-size: 1em;
+}
+.dock-assistant-body :where(hr) {
+  margin: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--color-sand-200);
 }
 
 .dock-system-line {

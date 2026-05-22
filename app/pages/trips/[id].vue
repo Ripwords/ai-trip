@@ -131,7 +131,14 @@ async function handleToggleParticipant(activityId: string, userId: string) {
   }
 }
 
-const aiLoading = ref(false)
+// Two separate AI loading signals so the chat doesn't hide the activity list.
+// - aiChatLoading: discuss endpoint is replying (chat-only; does not mutate the day)
+// - aiMutating: a flow that rewrites activities is in flight (fill-gaps / optimize / generate-full)
+// The day's Ideas + DaySection v-show on `aiMutating`, while the AiDock's typing
+// indicator binds to a computed OR of both so it lights up for any AI work.
+const aiChatLoading = ref(false)
+const aiMutating = ref(false)
+const aiLoading = computed(() => aiChatLoading.value || aiMutating.value)
 const editingActivity = ref<TripActivity | null>(null)
 const editModalOpen = ref(false)
 const highlightedActivityId = ref<string | null>(null)
@@ -700,7 +707,7 @@ async function handleAiSubmit(text: string) {
   }
   aiMessages.value = [...aiMessages.value, userMsg]
   aiInput.value = ""
-  aiLoading.value = true
+  aiChatLoading.value = true
   try {
     const body = {
       messages: aiMessages.value
@@ -732,7 +739,7 @@ async function handleAiSubmit(text: string) {
     }
     aiMessages.value = [...aiMessages.value, err]
   } finally {
-    aiLoading.value = false
+    aiChatLoading.value = false
     await refreshAiUsage()
   }
 }
@@ -778,7 +785,7 @@ function handleAiDismissProposal(messageId: string, proposalId: string) {
 
 async function handleQuickFillGaps() {
   if (!activeDay.value) return
-  aiLoading.value = true
+  aiMutating.value = true
   try {
     const data = await $fetch<{ message: string }>(
       `/api/trips/${tripId}/days/${activeDay.value.id}/ai`,
@@ -808,14 +815,14 @@ async function handleQuickFillGaps() {
       },
     ]
   } finally {
-    aiLoading.value = false
+    aiMutating.value = false
     await refreshAiUsage()
   }
 }
 
 async function handleQuickOptimizeRoute() {
   if (!activeDay.value) return
-  aiLoading.value = true
+  aiMutating.value = true
   try {
     const data = await $fetch<{ message: string }>(
       `/api/trips/${tripId}/days/${activeDay.value.id}/ai`,
@@ -845,13 +852,13 @@ async function handleQuickOptimizeRoute() {
       },
     ]
   } finally {
-    aiLoading.value = false
+    aiMutating.value = false
     await refreshAiUsage()
   }
 }
 
 async function handleGenerateFullItinerary() {
-  aiLoading.value = true
+  aiMutating.value = true
   try {
     const { run } = useGenerateFullItinerary(tripId)
     await run(sortedDays.value, aiUsage.value?.remaining ?? undefined)
@@ -876,7 +883,7 @@ async function handleGenerateFullItinerary() {
       },
     ]
   } finally {
-    aiLoading.value = false
+    aiMutating.value = false
     await refreshAiUsage()
   }
 }
@@ -1405,7 +1412,7 @@ async function recomputeSegments(dayId: string) {
               <!-- Ideas bucket (hidden for viewers) -->
               <IdeasBucket
                 v-if="!isViewer"
-                v-show="!aiLoading"
+                v-show="!aiMutating"
                 :trip-id="tripId"
                 :ideas="ideas ?? []"
                 :days="sortedDays.map((d) => ({ id: d.id, dayNumber: d.dayNumber, date: d.date }))"
@@ -1441,7 +1448,7 @@ async function recomputeSegments(dayId: string) {
 
               <!-- Activities for this day -->
               <DaySection
-                v-show="!aiLoading"
+                v-show="!aiMutating"
                 :day="activeDay"
                 :trip-id="tripId"
                 :currency-code="trip?.currencyCode ?? 'USD'"
