@@ -1,5 +1,5 @@
 import { createHash } from "crypto"
-import { and, desc, eq, sql } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../../db"
 import { tripMembers } from "../../db/schema"
@@ -22,20 +22,15 @@ export default defineEventHandler(async (event) => {
 
   if (!invite) {
     // The session-create auto-accept hook may have already activated this invite
-    // and cleared the token. Fall back to the user's most recent email-matched
-    // active membership so they still get redirected to the trip.
-    const already = await db.query.tripMembers.findFirst({
-      where: and(
-        eq(tripMembers.userId, session.user.id),
-        sql`lower(${tripMembers.invitedEmail}) = ${session.user.email.toLowerCase()}`,
-        eq(tripMembers.status, "active"),
-      ),
-      orderBy: [desc(tripMembers.createdAt)],
+    // and cleared the token. The previous fallback queried "most recent active
+    // membership for this email" with no trip scoping, so it returned the wrong
+    // tripId for users who were members of multiple trips. The auto-accept hook
+    // already redirects on first sign-in; if the user revisits a stale invite
+    // URL later, return 410 Gone rather than guess.
+    throw createError({
+      statusCode: 410,
+      message: "This invite has already been used. You'll find the trip on your dashboard.",
     })
-    if (already) {
-      return { success: true, tripId: already.tripId, message: "Already accepted" }
-    }
-    throw createError({ statusCode: 404, message: "Invite not found" })
   }
 
   if (invite.status === "active") {

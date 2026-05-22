@@ -19,7 +19,16 @@ export function encryptedText(name: string) {
       if (!process.env.ENCRYPTION_KEY) {
         throw new Error("ENCRYPTION_KEY environment variable is not set")
       }
-      return decrypt(value, process.env.ENCRYPTION_KEY)
+      try {
+        return decrypt(value, process.env.ENCRYPTION_KEY)
+      } catch (e) {
+        // Sanitized re-throw: raw OpenSSL messages distinguish auth-tag
+        // mismatch from ciphertext malformation (a minor decryption oracle).
+        // Log the original server-side only; do NOT attach `cause` here.
+        console.error("[encryptedText] decryption failed", e)
+        // eslint-disable-next-line preserve-caught-error -- intentional: cause leaks oracle detail
+        throw new Error("Decryption failed")
+      }
     },
     toDriver(value: string): string {
       if (!value) return value
