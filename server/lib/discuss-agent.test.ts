@@ -8,7 +8,7 @@ describe("discussAgent", () => {
   })
 
   it("system prompt requires place verification only for proposals", () => {
-    assert.match(DISCUSS_SYSTEM_PROMPT, /verify the place exists via search_places/i)
+    assert.match(DISCUSS_SYSTEM_PROMPT, /verify the place exists via searchPlaces/i)
   })
 
   it("system prompt allows free discussion of named places using general knowledge", () => {
@@ -31,5 +31,31 @@ describe("discussAgent", () => {
 
   it("system prompt tells the agent to use injected trip context as default", () => {
     assert.match(DISCUSS_SYSTEM_PROMPT, /trip context is.*injected/i)
+  })
+
+  it("system prompt treats trip preferences as soft signals, not hard constraints", () => {
+    assert.match(DISCUSS_SYSTEM_PROMPT, /SOFT signal/i)
+    assert.match(DISCUSS_SYSTEM_PROMPT, /form defaults/i)
+  })
+
+  it("system prompt references tools by their actual camelCase ids", () => {
+    // Guard against drift back to snake_case names that don't match createDiscussTools.
+    const camelTools = [
+      "readDay",
+      "readTripSummary",
+      "webSearch",
+      "searchPlaces",
+      "getPlaceDetails",
+      "getDistance",
+      "runReview",
+      "proposeAddActivities",
+      "proposeSetAccommodation",
+    ]
+    for (const name of camelTools) {
+      assert.ok(DISCUSS_SYSTEM_PROMPT.includes(name), `prompt should mention ${name}`)
+    }
+    assert.doesNotMatch(DISCUSS_SYSTEM_PROMPT, /\bsearch_places\b/)
+    assert.doesNotMatch(DISCUSS_SYSTEM_PROMPT, /\bread_day\b/)
+    assert.doesNotMatch(DISCUSS_SYSTEM_PROMPT, /\bweb_search\b/)
   })
 })

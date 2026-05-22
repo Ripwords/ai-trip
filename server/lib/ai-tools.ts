@@ -62,7 +62,7 @@ export function createTripTools(ctx: TripToolsContext) {
   const getDistance = createTool({
     id: "getDistance",
     description:
-      "Get travel time and distance between two coordinates using the configured transport mode.",
+      "Get travel time and distance between two coordinates using the configured transport mode. Returns duration in seconds and distance in meters (plus human-readable text fields).",
     inputSchema: z.object({
       from: z.object({ lat: z.number(), lng: z.number() }),
       to: z.object({ lat: z.number(), lng: z.number() }),
@@ -130,7 +130,7 @@ export function createTripTools(ctx: TripToolsContext) {
   const runReview = createTool({
     id: "runReview",
     description:
-      "Run the deterministic itinerary review for the current trip (returns critical/warning/suggestion findings). Use this BEFORE forming AI judgment findings.",
+      "Run the deterministic itinerary review for the current trip. Returns critical/warning/suggestion findings (missing data, overlaps, travel-time blowouts, etc.). For the discuss agent: call this when the user explicitly asks 'what's wrong with my day/trip?'. For the reviewer agent: do NOT call — the deterministic findings are already injected into your prompt.",
     inputSchema: z.object({
       scope: z.enum(["day", "trip"]),
     }),

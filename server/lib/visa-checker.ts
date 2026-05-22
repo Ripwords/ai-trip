@@ -30,9 +30,9 @@ export const checkVisaRequirements = defineCachedFunction(
       tools: { google_search: google.tools.googleSearch({ searchTypes: { webSearch: {} } }) },
       output: Output.object({ schema: visaResultSchema }),
       stopWhen: stepCountIs(5),
-      prompt: `You are a travel visa expert. Search the web for the CURRENT visa requirements for a traveler holding a ${passportCountryName} (${passportCountry}) passport who wants to visit ${destinationCountryName} (${destinationCountry}).
+      prompt: `You are a travel visa expert. Search the web for the latest official visa requirements for a traveler holding a ${passportCountryName} (${passportCountry}) passport who wants to visit ${destinationCountryName} (${destinationCountry}). Prefer the destination's official immigration/foreign-ministry source over third-party summaries.
 
-Search for the latest official visa policy. Provide accurate, up-to-date information about:
+Provide accurate information about:
 1. Whether a visa is required (visa_free, visa_on_arrival, e_visa, or visa_required)
 2. Maximum allowed stay in days (for visa-free or visa on arrival)
 3. What documents/requirements are needed
@@ -40,13 +40,13 @@ Search for the latest official visa policy. Provide accurate, up-to-date informa
 5. Cost of the visa if applicable
 6. Any additional notes (special conditions, transit visa needs, etc.)
 
-Be specific and factual. If unsure about exact details, say so in the notes.`,
+Be specific and factual. If you cannot find a confident answer, say so in the notes — do not guess. Visa policies change; always anchor on what you can find in the search results rather than what you remember.`,
     })
 
     return result.output!
   },
   {
-    maxAge: 60 * 60 * 24 * 30, // 30 days
+    maxAge: 60 * 60 * 24 * 7, // 7 days — visa policy can shift; keep results reasonably fresh.
     name: "visa-ai-details",
     getKey: (passportCountry: string, destinationCountry: string) =>
       `${passportCountry}:${destinationCountry}`,

@@ -25,6 +25,8 @@ const generateLayoverTips = defineCachedFunction(
   async (airport: string, durationHours: number, visaStatus: string, timeOfDay: string) => {
     const model = google("gemini-3.1-flash-lite-preview")
 
+    const requiresAirportOnly = visaStatus === "visa_required" || visaStatus === "visa-required"
+
     const result = await generateText({
       model,
       tools: {
@@ -32,7 +34,7 @@ const generateLayoverTips = defineCachedFunction(
       },
       output: Output.object({ schema: layoverTipsSchema }),
       stopWhen: stepCountIs(5),
-      prompt: `You are a travel expert helping a traveler with a ${durationHours}-hour layover at ${airport} airport.
+      prompt: `You are a travel expert helping a traveler with a ${durationHours}-hour layover at ${airport} (IATA airport code).
 
 Time of arrival: ${timeOfDay || "unknown"}
 Visa status: ${visaStatus || "unknown"}
@@ -44,7 +46,7 @@ Provide practical, specific advice:
 - When they should head back to the airport (accounting for security lines and immigration)
 
 Be concise and practical. If the layover is short (under 3 hours), focus on in-airport options.
-If visa status is "visa-required", focus only on airport transit zone options.`,
+${requiresAirportOnly ? "VISA RESTRICTION: the traveler needs a visa for this country and likely cannot exit immigration. Focus ONLY on airside / transit-zone options." : ""}`,
     })
 
     return result.output!
