@@ -252,7 +252,14 @@ async function doResearch(destination: string, userContext?: string): Promise<st
       `Search the web for local hidden gems, authentic restaurants, and traveler recommendations in ${destination}.${userContext ? ` Focus on: ${userContext}` : ""}`,
     )
     logger.info("[research] Done", { length: response.text.length })
-    const sanitizedResults = sanitizePromptInput(response.text) ?? response.text.slice(0, 5000)
+    // If sanitization rejects the result (injection pattern / over-length), drop
+    // the whole research block — falling back to raw text would forward a
+    // potentially-poisoned web payload straight into the next generateObject.
+    const sanitizedResults = sanitizePromptInput(response.text)
+    if (!sanitizedResults) {
+      logger.warn("[research] Sanitization dropped results, proceeding without research")
+      return ""
+    }
     return `<research_results source="web_search" destination="${destination}">\n${sanitizedResults}\n</research_results>`
   } catch (e) {
     logger.error("[research] Web search failed, proceeding without research", { error: String(e) })
@@ -653,6 +660,17 @@ export async function processUserRequest(params: {
   const intent = params.intent
 
   logger.info("=== PROCESSING ===", { intent, prompt: params.prompt })
+
+  // destination is derived from trip.destination + Google-Places addresses; both
+  // ultimately flow back from user input. Sanitize before it goes into any system
+  // prompt or grounding context — tripNotes/savedIdeas are already sanitized but
+  // destination was being interpolated raw. Fall back through tripDestination,
+  // then a neutral string, so an injection-shaped destination can't crash the AI.
+  const safeDestination =
+    sanitizePromptInput(params.destination) ??
+    sanitizePromptInput(params.tripDestination) ??
+    "the destination"
+  params = { ...params, destination: safeDestination }
 
   const result: AIProcessResult = {
     intent,

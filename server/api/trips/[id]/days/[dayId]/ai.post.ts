@@ -449,7 +449,7 @@ export default defineEventHandler(async (event) => {
     action: "ai_prompt",
     description: `AI ${result.intent}: ${result.message}`,
     metadata: {
-      prompt: rawPrompt,
+      prompt,
       intent: result.intent,
       added: addedCount,
       removed: removedCount,

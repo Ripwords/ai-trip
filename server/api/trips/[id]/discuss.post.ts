@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../../../db"
-import { trips } from "../../../db/schema"
+import { itineraryDays, trips } from "../../../db/schema"
 import { uuidParamsSchema } from "../../../utils/schemas"
 import { normalizeTransportMode } from "../../../utils/transport"
 import { sanitizePromptInput } from "../../../utils/sanitize"
@@ -145,7 +145,18 @@ export default defineEventHandler(async (event) => {
   }
 
   const transportMode = normalizeTransportMode(trip.preferences?.transportMode)
-  const dayId = body.dayId ?? null
+
+  // Defense-in-depth: validateActivityIds inside the AI tools already cross-checks
+  // dayId, but block a cross-trip dayId at the boundary so it never reaches the
+  // tool context or buildTripContext.
+  let dayId: string | null = body.dayId ?? null
+  if (dayId) {
+    const day = await db.query.itineraryDays.findFirst({
+      where: and(eq(itineraryDays.id, dayId), eq(itineraryDays.tripId, id)),
+      columns: { id: true },
+    })
+    if (!day) dayId = null
+  }
 
   // Inject trip context into the latest user message so the agent has it on every turn
   // without needing to call read_day / read_trip_summary.
