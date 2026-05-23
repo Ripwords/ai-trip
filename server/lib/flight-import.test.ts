@@ -36,22 +36,20 @@ function makeFakeDb(existing: FakeRow[] = []) {
 }
 
 describe("previewImport", () => {
-  it("counts importable, duplicate, and invalid rows (dedupe matches IATA-normalized form)", async () => {
+  it("counts importable, duplicate, and invalid rows", async () => {
     const csv = makeCsv([
       "2022-10-01,EVA,228,KUL,TPE,,,,,false,,,,,,,,,,,,,,,,,,,,,,,",
       "2022-10-02,EVA,227,TPE,KUL,,,,,false,,,,,,,,,,,,,,,,,,,,,,,",
       ",EVA,228,KUL,TPE,,,,,false,,,,,,,,,,,,,,,,,,,,,,,",
     ])
-    // Existing flight is stored as IATA (BR228); the ICAO EVA228 in the CSV
-    // normalizes to BR228 and dedupes against it.
-    const { db } = makeFakeDb([{ flightNumber: "BR228", flightDate: "2022-10-01" }])
+    const { db } = makeFakeDb([{ flightNumber: "EVA228", flightDate: "2022-10-01" }])
     const result = await previewImport(csv, "user-1", db as never, new Date("2026-05-23"))
     expect(result.totalRows).toBe(3)
     expect(result.importableCount).toBe(1)
     expect(result.duplicateCount).toBe(1)
     expect(result.invalidCount).toBe(1)
     expect(result.preview).toHaveLength(1)
-    expect(result.preview[0]!.flightNumber).toBe("BR227")
+    expect(result.preview[0]!.flightNumber).toBe("EVA227")
     expect(result.issues).toHaveLength(1)
   })
 })
@@ -71,30 +69,17 @@ describe("commitImport", () => {
       "2022-10-01,EVA,228,KUL,TPE,1,C34,,,false,,,,,,,,2022-10-01T20:25,2022-10-01T20:47,,,,,,,,,,,,,,",
       "2022-10-02,EVA,227,TPE,KUL,1,B9,,,false,,,,,,,,2022-10-02T14:25,2022-10-02T15:06,,,,,,,,,,,,,,",
     ])
-    // Pre-existing IATA-coded row dedupes the ICAO-coded CSV row after
-    // EVA → BR normalization.
-    const { db, inserted } = makeFakeDb([{ flightNumber: "BR228", flightDate: "2022-10-01" }])
+    const { db, inserted } = makeFakeDb([{ flightNumber: "EVA228", flightDate: "2022-10-01" }])
     const result = await commitImport(csv, "user-1", db as never, new Date("2026-05-23"))
     expect(result.imported).toBe(1)
     expect(result.skipped).toBe(1)
     expect(result.failed).toBe(0)
     expect(inserted).toHaveLength(1)
-    expect(inserted[0]!.flightNumber).toBe("BR227")
-    expect(inserted[0]!.airline).toBe("BR")
+    expect(inserted[0]!.flightNumber).toBe("EVA227")
     expect(inserted[0]!.userId).toBe("user-1")
     expect(inserted[0]!.status).toBe("landed")
     expect(inserted[0]!.terminal).toBe("1")
     expect(inserted[0]!.gate).toBe("B9")
-  })
-
-  it("preserves the flight number for unknown ICAO codes", async () => {
-    // ZZZ is not in the mapping table; passes through unchanged.
-    const csv = makeCsv(["2022-10-01,ZZZ,999,JFK,LAX,,,,,false,,,,,,,,,,,,,,,,,,,,,,,"])
-    const { db, inserted } = makeFakeDb()
-    const result = await commitImport(csv, "user-1", db as never, new Date("2026-05-23"))
-    expect(result.imported).toBe(1)
-    expect(inserted[0]!.flightNumber).toBe("ZZZ999")
-    expect(inserted[0]!.airline).toBe("ZZZ")
   })
 
   it("records parse errors as issues without affecting counts of valid rows", async () => {
@@ -118,7 +103,6 @@ describe("commitImport", () => {
     const { db, inserted } = makeFakeDb()
     const result = await commitImport(csv, "user-1", db as never, new Date("2026-05-23"))
     expect(result.imported).toBe(1)
-    expect(inserted[0]!.flightNumber).toBe("BR228")
     expect(inserted[0]!.status).toBe("scheduled")
     expect(inserted[0]!.departureAirport).toBe("KUL")
     expect(inserted[0]!.terminal).toBe("1")

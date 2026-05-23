@@ -3,20 +3,6 @@ import { db as defaultDb } from "../db"
 import { flights } from "../db/schema"
 import { lookupFlight, FLIGHT_LOOKUP_SCHEMA_VERSION, type FlightLookupResult } from "./flight-api"
 import { parseFlightyCsv, type ParsedFlightyRow } from "./flighty-import"
-import { toIata } from "../utils/icao-to-iata"
-
-// Flighty exports use ICAO airline designators (3 letters, e.g. EVA, UAE). The
-// rest of this app — manual flight entry, AeroDataBox lookups, airline logo
-// services — uses IATA (2 chars: BR, EK). Convert at the import boundary so
-// stored rows are canonical and dedupe against pre-existing IATA rows works.
-function normalizeAirlineCode(row: ParsedFlightyRow): ParsedFlightyRow {
-  const iata = toIata(row.airline)
-  if (iata === row.airline) return row
-  const flightNumber = row.flightNumber.startsWith(row.airline)
-    ? iata + row.flightNumber.slice(row.airline.length)
-    : row.flightNumber
-  return { ...row, airline: iata, flightNumber }
-}
 
 type DbHandle = typeof defaultDb
 
@@ -122,8 +108,7 @@ export async function previewImport(
 
   let duplicateCount = 0
   const importable: ParsedFlightyRow[] = []
-  for (const raw of parsed.rows) {
-    const row = normalizeAirlineCode(raw)
+  for (const row of parsed.rows) {
     if (existing.has(pairKey(row))) {
       duplicateCount++
       continue
@@ -172,8 +157,7 @@ export async function commitImport(
   let skipped = 0
   let failed = 0
 
-  for (const raw of parsed.rows) {
-    const row = normalizeAirlineCode(raw)
+  for (const row of parsed.rows) {
     if (existing.has(pairKey(row))) {
       skipped++
       continue

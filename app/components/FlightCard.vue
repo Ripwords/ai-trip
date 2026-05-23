@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { iataToCountry } from "../utils/iata-to-country"
-import { toIata } from "../utils/icao-to-iata"
 
 interface Flight {
   id: string
@@ -56,17 +55,11 @@ const statusBadge = computed(
     },
 )
 
-// Extract the airline designator from the flight number.
-// Matches: 3-letter ICAO (e.g. "UAE" in "UAE342"), 2-char IATA letter+digit /
-// digit+letter / 2-letter (e.g. "TR" in "TR638", "D7" in "D7523"). The 3-letter
-// branch is then converted to IATA via toIata() for the logo URL — most flights
-// imported from Flighty arrive as ICAO codes.
+// Extract IATA airline code from flight number (e.g. "TR" from "TR638", "D7" from "D7523")
+// IATA codes: 2 letters, letter+digit, or digit+letter
 const airlineCode = computed(() => {
-  const num = props.flight.flightNumber
-  const icao = num.match(/^([A-Z]{3})\d/i)
-  if (icao?.[1]) return toIata(icao[1].toUpperCase())
-  const iata = num.match(/^([A-Z\d]{2})\d/i)
-  return iata?.[1]?.toUpperCase() ?? null
+  const match = props.flight.flightNumber.match(/^([A-Z\d]{2})\d/i)
+  return match?.[1]?.toUpperCase() ?? null
 })
 
 // Try primary source first, fall back to secondary
