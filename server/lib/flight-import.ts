@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm"
 import { db as defaultDb } from "../db"
 import { flights } from "../db/schema"
-import { lookupFlight, FLIGHT_LOOKUP_SCHEMA_VERSION } from "./flight-api"
+import { lookupFlight, FLIGHT_LOOKUP_SCHEMA_VERSION, type FlightLookupResult } from "./flight-api"
 import { parseFlightyCsv, type ParsedFlightyRow } from "./flighty-import"
 
 type DbHandle = typeof defaultDb
@@ -44,6 +44,59 @@ function pairKey(row: { flightNumber: string; flightDate: string }): string {
   return `${row.flightNumber}|${row.flightDate}`
 }
 
+// Visible for tests. Pure: builds the row to insert by merging the parsed CSV
+// row with an optional lookup result. API fields win when non-null; CSV fills
+// nulls and unenriched fields.
+export function buildInsertRow(
+  row: ParsedFlightyRow,
+  looked: FlightLookupResult | null,
+  userId: string,
+) {
+  if (looked) {
+    return {
+      userId,
+      flightNumber: row.flightNumber,
+      flightDate: row.flightDate,
+      tripId: null as string | null,
+      airline: looked.airline ?? row.airline,
+      departureAirport: looked.departureAirport ?? row.departureAirport,
+      arrivalAirport: looked.arrivalAirport ?? row.arrivalAirport,
+      departureTime: looked.departureTime ?? row.departureTime,
+      arrivalTime: looked.arrivalTime ?? row.arrivalTime,
+      terminal: looked.terminal ?? row.terminal,
+      gate: looked.gate ?? row.gate,
+      status: looked.status ?? row.status,
+      rawApiResponse: looked.rawApiResponse,
+      apiLastFetchedAt: new Date(),
+      lookupSchemaVersion: FLIGHT_LOOKUP_SCHEMA_VERSION,
+    }
+  }
+  return {
+    userId,
+    flightNumber: row.flightNumber,
+    flightDate: row.flightDate,
+    tripId: null as string | null,
+    airline: row.airline,
+    departureAirport: row.departureAirport,
+    arrivalAirport: row.arrivalAirport,
+    departureTime: row.departureTime,
+    arrivalTime: row.arrivalTime,
+    terminal: row.terminal,
+    gate: row.gate,
+    status: row.status,
+    rawApiResponse: null as Record<string, unknown> | null,
+    apiLastFetchedAt: null as Date | null,
+    lookupSchemaVersion: FLIGHT_LOOKUP_SCHEMA_VERSION,
+  }
+}
+
+/**
+ * Previews importable rows from a Flighty CSV without writing to the database.
+ *
+ * Parses the CSV, deduplicates against existing flights for `userId`, and
+ * returns a summary with the first {@link PREVIEW_LIMIT} importable rows.
+ * Throws `FlightyImportError` if the CSV is structurally invalid.
+ */
 export async function previewImport(
   csv: string,
   userId: string,
@@ -80,6 +133,15 @@ export async function previewImport(
   }
 }
 
+/**
+ * Commits importable rows from a Flighty CSV.
+ *
+ * The `now` parameter classifies past vs. future rows for the hybrid sourcing
+ * rule: rows with `flightDate >= now.toISOString().slice(0,10)` attempt a
+ * `lookupFlight` enrichment. Callers should generally pass `new Date()` (the
+ * default). Note the UTC-date boundary: at hours surrounding midnight UTC,
+ * a row may be classified differently than the user's local "today".
+ */
 export async function commitImport(
   csv: string,
   userId: string,
@@ -100,55 +162,11 @@ export async function commitImport(
       skipped++
       continue
     }
-
-    let airline: string | null = row.airline || null
-    let departureAirport: string | null = row.departureAirport || null
-    let arrivalAirport: string | null = row.arrivalAirport || null
-    let departureTime: Date | null = row.departureTime
-    let arrivalTime: Date | null = row.arrivalTime
-    let terminal: string | null = row.terminal
-    let gate: string | null = row.gate
-    let status: string = row.status
-    let rawApiResponse: Record<string, unknown> | null = null
-    let apiLastFetchedAt: Date | null = null
-
-    if (row.flightDate >= todayIso) {
-      const looked = await lookupFlight(row.flightNumber, row.flightDate)
-      if (looked) {
-        airline = looked.airline ?? airline
-        departureAirport = looked.departureAirport ?? departureAirport
-        arrivalAirport = looked.arrivalAirport ?? arrivalAirport
-        departureTime = looked.departureTime ?? departureTime
-        arrivalTime = looked.arrivalTime ?? arrivalTime
-        terminal = looked.terminal ?? terminal
-        gate = looked.gate ?? gate
-        status = looked.status ?? status
-        rawApiResponse = looked.rawApiResponse
-        apiLastFetchedAt = new Date()
-      }
-    }
-
+    const looked =
+      row.flightDate >= todayIso ? await lookupFlight(row.flightNumber, row.flightDate) : null
+    const insertRow = buildInsertRow(row, looked, userId)
     try {
-      await db
-        .insert(flights)
-        .values({
-          userId,
-          flightNumber: row.flightNumber,
-          flightDate: row.flightDate,
-          tripId: null,
-          airline,
-          departureAirport,
-          arrivalAirport,
-          departureTime,
-          arrivalTime,
-          terminal,
-          gate,
-          status,
-          rawApiResponse,
-          apiLastFetchedAt,
-          lookupSchemaVersion: FLIGHT_LOOKUP_SCHEMA_VERSION,
-        })
-        .returning()
+      await db.insert(flights).values(insertRow).returning()
       imported++
       existing.add(pairKey(row))
     } catch (err: unknown) {

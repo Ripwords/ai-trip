@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test"
-import { previewImport, commitImport } from "./flight-import"
+import { previewImport, commitImport, buildInsertRow } from "./flight-import"
+import { FlightyImportError } from "./flighty-import"
 
 const HEADER =
   "Date,Airline,Flight,From,To,Dep Terminal,Dep Gate,Arr Terminal,Arr Gate,Canceled,Diverted To,Gate Departure (Scheduled),Gate Departure (Actual),Take off (Scheduled),Take off (Actual),Landing (Scheduled),Landing (Actual),Gate Arrival (Scheduled),Gate Arrival (Actual),Aircraft Type Name,Tail Number,PNR,Seat,Seat Type,Cabin Class,Flight Reason,Notes,Flight Flighty ID,Airline Flighty ID,Departure Airport Flighty ID,Arrival Airport Flighty ID,Diverted To Airport Flighty ID,Aircraft Type Flighty ID"
@@ -53,6 +54,15 @@ describe("previewImport", () => {
   })
 })
 
+describe("previewImport empty input", () => {
+  it("propagates FlightyImportError on empty CSV", async () => {
+    const { db } = makeFakeDb()
+    await expect(previewImport("", "user-1", db as never, new Date("2026-05-23"))).rejects.toThrow(
+      FlightyImportError,
+    )
+  })
+})
+
 describe("commitImport", () => {
   it("inserts importable past-dated rows and skips duplicates", async () => {
     const csv = makeCsv([
@@ -96,5 +106,71 @@ describe("commitImport", () => {
     expect(inserted[0]!.status).toBe("scheduled")
     expect(inserted[0]!.departureAirport).toBe("KUL")
     expect(inserted[0]!.terminal).toBe("1")
+  })
+})
+
+describe("buildInsertRow", () => {
+  const csvRow = {
+    line: 2,
+    flightNumber: "EVA228",
+    flightDate: "2030-10-01",
+    airline: "EVA",
+    departureAirport: "KUL",
+    arrivalAirport: "TPE",
+    departureTime: new Date("2030-10-01T15:30"),
+    arrivalTime: new Date("2030-10-01T20:25"),
+    terminal: "1",
+    gate: "C34",
+    status: "scheduled" as const,
+  }
+
+  it("uses CSV values when no lookup result is provided", () => {
+    const out = buildInsertRow(csvRow, null, "user-1")
+    expect(out.airline).toBe("EVA")
+    expect(out.terminal).toBe("1")
+    expect(out.status).toBe("scheduled")
+    expect(out.rawApiResponse).toBeNull()
+    expect(out.apiLastFetchedAt).toBeNull()
+  })
+
+  it("prefers lookup result over CSV when both are present", () => {
+    const looked = {
+      airline: "EVA Air",
+      departureAirport: "KUL",
+      arrivalAirport: "TPE",
+      departureTime: new Date("2030-10-01T15:45"),
+      arrivalTime: new Date("2030-10-01T20:30"),
+      terminal: "1M",
+      gate: "C36",
+      status: "scheduled",
+      rawApiResponse: { foo: "bar" } as Record<string, unknown>,
+    }
+    const out = buildInsertRow(csvRow, looked, "user-1")
+    expect(out.airline).toBe("EVA Air")
+    expect(out.terminal).toBe("1M")
+    expect(out.gate).toBe("C36")
+    expect(out.departureTime).toEqual(looked.departureTime)
+    expect(out.rawApiResponse).toEqual({ foo: "bar" })
+    expect(out.apiLastFetchedAt).toBeInstanceOf(Date)
+  })
+
+  it("falls back to CSV values for individual fields the lookup left null", () => {
+    const looked = {
+      airline: null,
+      departureAirport: null,
+      arrivalAirport: null,
+      departureTime: null,
+      arrivalTime: null,
+      terminal: null,
+      gate: null,
+      status: "scheduled",
+      rawApiResponse: {} as Record<string, unknown>,
+    }
+    const out = buildInsertRow(csvRow, looked, "user-1")
+    expect(out.airline).toBe("EVA")
+    expect(out.terminal).toBe("1")
+    expect(out.gate).toBe("C34")
+    expect(out.departureTime).toEqual(csvRow.departureTime)
+    expect(out.status).toBe("scheduled")
   })
 })
