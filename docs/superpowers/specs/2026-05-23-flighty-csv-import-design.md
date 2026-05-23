@@ -31,22 +31,22 @@ This is a one-direction importer. No live sync, no two-way binding, no re-export
 
 Flighty CSV column → `flights` column:
 
-| flights column         | Source                                                                 |
-|------------------------|------------------------------------------------------------------------|
-| `flightNumber`         | `Airline` + `Flight` concatenated (e.g., `EVA` + `228` → `EVA228`)     |
-| `flightDate`           | `Date` (already ISO `YYYY-MM-DD`)                                      |
-| `airline`              | `Airline` (ICAO code, stored as-is)                                    |
-| `departureAirport`     | `From` (IATA)                                                          |
-| `arrivalAirport`       | `To` (IATA)                                                            |
-| `departureTime`        | `Gate Departure (Actual)` ?? `Gate Departure (Scheduled)`              |
-| `arrivalTime`          | `Gate Arrival (Actual)` ?? `Gate Arrival (Scheduled)`                  |
-| `terminal`             | `Dep Terminal`                                                         |
-| `gate`                 | `Dep Gate`                                                             |
-| `status`               | `Canceled=true` → `"cancelled"`; else past → `"landed"`, future → `"scheduled"` |
-| `tripId`               | always `null` on import                                                |
-| `rawApiResponse`       | `null` (unless future-flight lookup succeeds — see below)              |
-| `apiLastFetchedAt`     | `null` (unless future-flight lookup succeeds)                          |
-| `lookupSchemaVersion`  | current `FLIGHT_LOOKUP_SCHEMA_VERSION`                                 |
+| flights column        | Source                                                                          |
+| --------------------- | ------------------------------------------------------------------------------- |
+| `flightNumber`        | `Airline` + `Flight` concatenated (e.g., `EVA` + `228` → `EVA228`)              |
+| `flightDate`          | `Date` (already ISO `YYYY-MM-DD`)                                               |
+| `airline`             | `Airline` (ICAO code, stored as-is)                                             |
+| `departureAirport`    | `From` (IATA)                                                                   |
+| `arrivalAirport`      | `To` (IATA)                                                                     |
+| `departureTime`       | `Gate Departure (Actual)` ?? `Gate Departure (Scheduled)`                       |
+| `arrivalTime`         | `Gate Arrival (Actual)` ?? `Gate Arrival (Scheduled)`                           |
+| `terminal`            | `Dep Terminal`                                                                  |
+| `gate`                | `Dep Gate`                                                                      |
+| `status`              | `Canceled=true` → `"cancelled"`; else past → `"landed"`, future → `"scheduled"` |
+| `tripId`              | always `null` on import                                                         |
+| `rawApiResponse`      | `null` (unless future-flight lookup succeeds — see below)                       |
+| `apiLastFetchedAt`    | `null` (unless future-flight lookup succeeds)                                   |
+| `lookupSchemaVersion` | current `FLIGHT_LOOKUP_SCHEMA_VERSION`                                          |
 
 All other Flighty columns (`Arr Terminal`, `Arr Gate`, `Diverted To`, `Aircraft Type Name`, `Tail Number`, `PNR`, `Seat`, `Seat Type`, `Cabin Class`, `Flight Reason`, `Notes`, and all `*Flighty ID` columns) are read but discarded — the existing schema has no place for them.
 
@@ -73,9 +73,9 @@ Pure CSV → typed rows utility. No DB, no HTTP. Easy to unit-test.
 
 ```ts
 export interface ParsedFlightyRow {
-  line: number               // 1-indexed, header is line 1
-  flightNumber: string       // `${Airline}${Flight}`
-  flightDate: string         // YYYY-MM-DD
+  line: number // 1-indexed, header is line 1
+  flightNumber: string // `${Airline}${Flight}`
+  flightDate: string // YYYY-MM-DD
   airline: string
   departureAirport: string
   arrivalAirport: string
@@ -95,6 +95,7 @@ export function parseFlightyCsv(input: string, today: Date): FlightyParseResult
 ```
 
 Responsibilities:
+
 - Validate header row matches Flighty's known shape (presence of required columns: `Date, Airline, Flight, From, To`). On mismatch, throw a `FlightyImportError("This doesn't look like a Flighty export.")`.
 - Per row: require non-empty `Date, Airline, Flight, From, To`. Reject malformed dates. Skip but record bad rows in `errors`.
 - Derive `status` per the table above (uses `today` for past/future split).
@@ -125,6 +126,7 @@ interface PreviewRow {
 ```
 
 Steps:
+
 1. `requireAuth(event)`.
 2. Read file (cap at e.g. 2 MB; reject larger with friendly message).
 3. `parseFlightyCsv(text, new Date())`.
@@ -140,15 +142,16 @@ Same multipart shape as `/preview`. Re-parses the file server-side — client ne
 
 ```ts
 // Response
-{
+interface ImportResponse {
   imported: number
-  skipped: number            // duplicates
-  failed: number             // rows that errored at insert/lookup time
-  issues: { line: number; reason: string }[]
+  skipped: number // duplicates
+  failed: number // rows that errored at insert/lookup time
+  issues: Array<{ line: number; reason: string }>
 }
 ```
 
 Steps:
+
 1. `requireAuth(event)`.
 2. Read file, re-parse.
 3. Fetch existing `(flightNumber, flightDate)` pairs for the user into a Set.
@@ -182,20 +185,21 @@ No other UI changes. Existing add / link-trip / delete / pagination logic untouc
 
 ## Error handling
 
-| Failure                                       | Behavior                                                                   |
-|----------------------------------------------- |---------------------------------------------------------------------------- |
-| File > size cap                                | Reject pre-parse: "File too large."                                        |
-| Header doesn't match Flighty's format          | Reject parse: "This doesn't look like a Flighty export."                   |
-| Per-row parse error (bad date, missing field)  | Skip row, surface in `issues`; other rows continue.                        |
-| AeroDataBox lookup returns null (future row)   | Silent fall-through to CSV data — same as today's manual add behavior.     |
-| Unique violation at insert (race)              | Count as `skipped`, no user-visible error.                                 |
-| Other DB error at insert                       | Count as `failed`, surface line + reason in `issues`.                      |
-| No CSV file in request                         | 400.                                                                       |
-| Unauthenticated                                | 401 from `requireAuth`.                                                    |
+| Failure                                       | Behavior                                                               |
+| --------------------------------------------- | ---------------------------------------------------------------------- |
+| File > size cap                               | Reject pre-parse: "File too large."                                    |
+| Header doesn't match Flighty's format         | Reject parse: "This doesn't look like a Flighty export."               |
+| Per-row parse error (bad date, missing field) | Skip row, surface in `issues`; other rows continue.                    |
+| AeroDataBox lookup returns null (future row)  | Silent fall-through to CSV data — same as today's manual add behavior. |
+| Unique violation at insert (race)             | Count as `skipped`, no user-visible error.                             |
+| Other DB error at insert                      | Count as `failed`, surface line + reason in `issues`.                  |
+| No CSV file in request                        | 400.                                                                   |
+| Unauthenticated                               | 401 from `requireAuth`.                                                |
 
 ## Testing (TDD)
 
 ### `server/lib/flighty-import.test.ts` (new)
+
 - Header validation: missing required column → throws `FlightyImportError`.
 - Happy path on `FlightyExport-2026-05-23.csv` fixture: returns expected row count, no errors.
 - `flightNumber` is `${Airline}${Flight}`.
@@ -204,11 +208,13 @@ No other UI changes. Existing add / link-trip / delete / pagination logic untouc
 - Empty/whitespace rows in the middle of the file are skipped, don't break parsing.
 
 ### `server/api/flights/import/preview.post.test.ts` (new) — integration
+
 - Returns counts matching the parser.
 - `duplicateCount` reflects flights already in DB for that user.
 - 401 when unauthenticated.
 
 ### `server/api/flights/import.post.test.ts` (new) — integration
+
 - Imports past-dated rows from CSV (no API call assertion needed — `AERODATABOX_API_KEY` unset in test env, so `lookupFlight` returns null and CSV path is exercised).
 - Does not import future-dated rows when lookup returns null but still falls back to CSV — verify row is inserted with CSV values.
 - Duplicates are skipped.
