@@ -112,7 +112,7 @@ const uniqueMapPoints = computed(() => {
         <p class="mt-1 text-sm text-sand-600">{{ periodLabel }}</p>
       </div>
 
-      <div class="flex flex-wrap gap-1.5">
+      <div v-if="passport.availableYears.length > 1" class="flex flex-wrap gap-1.5">
         <button
           type="button"
           class="rounded-full border border-sand-200 px-3 py-1 text-xs font-semibold transition"
