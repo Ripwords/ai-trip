@@ -389,10 +389,10 @@ function formatDayRange(dayNumbers: number[]): string {
                 <span>{{ formatCurrency(totalExpenses) }} spent</span>
                 <span>{{ formatCurrency(budgetNum) }} budget</span>
               </div>
-              <div class="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-white/20">
+              <div class="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-current/15">
                 <div
                   class="h-full rounded-full transition-all duration-500"
-                  :class="budgetPercent >= 90 ? 'bg-terra-400' : 'bg-white/70'"
+                  :class="budgetPercent >= 90 ? 'bg-terra-500' : 'bg-current/60'"
                   :style="{ width: `${budgetPercent}%` }"
                 />
               </div>
@@ -702,9 +702,9 @@ function formatDayRange(dayNumbers: number[]): string {
 }
 
 .ov-card-hero {
-  background: linear-gradient(135deg, #2a2520, #3d3328) !important;
-  color: #faf8f5;
-  border: none;
+  background: linear-gradient(135deg, #fef4f0, #fde6dc);
+  color: #3d3328;
+  border: 1px solid rgba(232, 93, 58, 0.18);
 }
 
 .ov-toggle {
@@ -763,11 +763,11 @@ function formatDayRange(dayNumbers: number[]): string {
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   }
   .ov-card-hero {
-    background: linear-gradient(135deg, rgba(42, 37, 32, 0.92), rgba(61, 51, 40, 0.88));
+    background: linear-gradient(135deg, rgba(254, 244, 240, 0.92), rgba(253, 230, 220, 0.88));
     backdrop-filter: blur(20px) saturate(1.2);
     -webkit-backdrop-filter: blur(20px) saturate(1.2);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(232, 93, 58, 0.18);
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
   }
   .ov-toggle {
     background: rgba(255, 255, 255, 0.85);

@@ -54,18 +54,6 @@ function iconClass(signal: BriefingSignal): string {
               </span>
             </h2>
             <p class="mt-2 flex flex-wrap items-center gap-x-1 text-sm text-sand-600">
-              <template v-if="briefing.departureDate !== briefing.startDate">
-                <span>Fly</span>
-                <NuxtTime
-                  :datetime="briefing.departureDate + 'T00:00:00'"
-                  locale="en-US"
-                  weekday="short"
-                  month="short"
-                  day="numeric"
-                />
-                <span class="mx-1 text-sand-300">·</span>
-                <span>Trip</span>
-              </template>
               <NuxtTime
                 :datetime="briefing.startDate + 'T00:00:00'"
                 locale="en-US"
