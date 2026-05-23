@@ -20,13 +20,10 @@ export interface PassportVisitedCountry {
   visitedAt?: string | null
 }
 
-export type CountrySource = "visited" | "layover"
-
 export interface PassportCountryEntry {
   code: string
   name: string
   flag: string
-  source: CountrySource
 }
 
 export interface PassportRouteSegment {
@@ -119,27 +116,20 @@ export function buildPassportHistory(input: BuildPassportHistoryInput): Passport
   }
 }
 
-const SOURCE_RANK: Record<CountrySource, number> = { visited: 0, layover: 1 }
-
 function buildVisitedCountries(visited: PassportVisitedCountry[]): PassportCountryEntry[] {
   const map = new Map<string, PassportCountryEntry>()
 
   for (const v of visited) {
+    if (v.visitType !== "visited") continue
     const code = v.countryCode.toUpperCase()
-    const source: CountrySource = v.visitType === "layover" ? "layover" : "visited"
     map.set(code, {
       code,
       name: countryByAlpha2.get(code)?.name ?? v.countryName,
       flag: countryFlag(code),
-      source,
     })
   }
 
-  return Array.from(map.values()).toSorted((a, b) => {
-    const r = SOURCE_RANK[a.source] - SOURCE_RANK[b.source]
-    if (r !== 0) return r
-    return a.name.localeCompare(b.name)
-  })
+  return Array.from(map.values()).toSorted((a, b) => a.name.localeCompare(b.name))
 }
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {

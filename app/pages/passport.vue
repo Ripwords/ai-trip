@@ -325,15 +325,10 @@ const uniqueMapPoints = computed(() => {
           <li
             v-for="country in passport.countries"
             :key="country.code"
-            class="flex items-center justify-between py-2 text-sm"
+            class="flex items-center gap-3 py-2 text-sm text-sand-800"
           >
-            <span class="flex items-center gap-3 text-sand-800">
-              <span class="text-lg leading-none" aria-hidden="true">{{ country.flag }}</span>
-              <span>{{ country.name }}</span>
-            </span>
-            <span class="text-[10px] font-semibold uppercase tracking-wide text-sand-400">
-              {{ country.source }}
-            </span>
+            <span class="text-lg leading-none" aria-hidden="true">{{ country.flag }}</span>
+            <span>{{ country.name }}</span>
           </li>
         </ul>
         <p v-else class="text-sm text-sand-500">No countries yet.</p>

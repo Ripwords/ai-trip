@@ -68,21 +68,11 @@ describe("passport history", () => {
     assert.equal(result.totalFlights, 2)
   })
 
-  it("builds country list from visited-countries only — ignores flight-derived countries", () => {
+  it("includes only visitType=visited entries — drops layover, want_to_visit, and flight-derived", () => {
     const result = buildPassportHistory({
       flights: [
         {
           id: "f1",
-          flightNumber: "JL5",
-          flightDate: "2025-03-10",
-          airline: "JL",
-          departureAirport: "JFK",
-          arrivalAirport: "NRT",
-          departureTime: null,
-          arrivalTime: null,
-        },
-        {
-          id: "f2",
           flightNumber: "BA1",
           flightDate: "2025-05-01",
           airline: "BA",
@@ -95,17 +85,26 @@ describe("passport history", () => {
       visitedCountries: [
         { countryCode: "JP", countryName: "Japan", visitType: "visited" },
         { countryCode: "TH", countryName: "Thailand", visitType: "layover" },
+        { countryCode: "IT", countryName: "Italy", visitType: "want_to_visit" },
+        { countryCode: "ES", countryName: "Spain", visitType: "visited" },
       ],
     })
 
-    const japan = result.countries.find((c) => c.code === "JP")
-    assert.ok(japan)
-    assert.equal(japan.source, "visited")
+    // Alphabetical by country name: Japan, Spain.
+    assert.deepEqual(
+      result.countries.map((c) => c.code),
+      ["JP", "ES"],
+    )
 
-    const thailand = result.countries.find((c) => c.code === "TH")
-    assert.equal(thailand?.source, "layover")
-
-    // France/UK/US should NOT appear — they are flight-derived only.
+    // Layover/want-to-visit/flight-derived must NOT appear.
+    assert.equal(
+      result.countries.find((c) => c.code === "TH"),
+      undefined,
+    )
+    assert.equal(
+      result.countries.find((c) => c.code === "IT"),
+      undefined,
+    )
     assert.equal(
       result.countries.find((c) => c.code === "FR"),
       undefined,
@@ -114,14 +113,6 @@ describe("passport history", () => {
       result.countries.find((c) => c.code === "GB"),
       undefined,
     )
-    assert.equal(
-      result.countries.find((c) => c.code === "US"),
-      undefined,
-    )
-
-    // Visited group ordered before layover group.
-    const order = result.countries.map((c) => c.code)
-    assert.deepEqual(order, ["JP", "TH"])
 
     assert.equal(result.countryFlags.length, result.countries.length)
   })
