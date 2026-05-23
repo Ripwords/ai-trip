@@ -35,4 +35,36 @@ describe("passport history", () => {
     assert.deepEqual(result.uniqueAirports.toSorted(), ["JFK", "NRT"])
     assert.deepEqual(result.uniqueAirlines, ["Japan Airlines"])
   })
+
+  it("sums distance only for flights with known coords and rounds to km", () => {
+    const result = buildPassportHistory({
+      flights: [
+        {
+          id: "f1",
+          flightNumber: "JL5",
+          flightDate: "2025-03-10",
+          airline: "JL",
+          departureAirport: "JFK",
+          arrivalAirport: "NRT",
+          departureTime: null,
+          arrivalTime: null,
+        },
+        {
+          id: "f2",
+          flightNumber: "XX1",
+          flightDate: "2025-04-01",
+          airline: "XX",
+          departureAirport: "JFK",
+          arrivalAirport: "ZZZ",
+          departureTime: null,
+          arrivalTime: null,
+        },
+      ],
+      visitedCountries: [],
+    })
+
+    assert.ok(result.totalDistanceKm > 10000 && result.totalDistanceKm < 11500)
+    assert.equal(Number.isInteger(result.totalDistanceKm), true)
+    assert.equal(result.totalFlights, 2)
+  })
 })

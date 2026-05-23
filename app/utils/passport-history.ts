@@ -68,24 +68,50 @@ export function buildPassportHistory(input: BuildPassportHistoryInput): Passport
   const allFlights = input.flights ?? []
   const year = input.year ?? null
 
-  const flights = year == null ? allFlights : allFlights.filter((f) => yearOf(f.flightDate) === year)
+  const flights =
+    year == null ? allFlights : allFlights.filter((f) => yearOf(f.flightDate) === year)
 
   const uniqueAirports = unique(
     flights.flatMap((f) => [f.departureAirport, f.arrivalAirport].filter(nonEmpty)),
   )
   const uniqueAirlines = unique(flights.map((f) => f.airline).filter(nonEmpty))
 
+  const routeSegments: PassportRouteSegment[] = []
+  let totalDistance = 0
+  for (const f of flights) {
+    const from = f.departureAirport ? airportCoordinates[f.departureAirport] : undefined
+    const to = f.arrivalAirport ? airportCoordinates[f.arrivalAirport] : undefined
+    if (!from || !to || !f.departureAirport || !f.arrivalAirport) continue
+    totalDistance += haversineKm(from, to)
+    routeSegments.push({
+      flightId: f.id,
+      from: { code: f.departureAirport, ...from },
+      to: { code: f.arrivalAirport, ...to },
+    })
+  }
+
   return {
     totalFlights: flights.length,
-    totalDistanceKm: 0,
+    totalDistanceKm: Math.round(totalDistance),
     uniqueAirports,
     uniqueAirlines,
     countries: [],
     countryFlags: [],
     recentFlights: [],
-    routeSegments: [],
+    routeSegments,
     availableYears: collectYears(allFlights),
   }
+}
+
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371
+  const toRad = (deg: number) => (deg * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLng = toRad(b.lng - a.lng)
+  const lat1 = toRad(a.lat)
+  const lat2 = toRad(b.lat)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)))
 }
 
 function yearOf(date: string): number {
@@ -94,9 +120,9 @@ function yearOf(date: string): number {
 }
 
 function collectYears(flights: PassportFlight[]): number[] {
-  return unique(flights.map((f) => yearOf(f.flightDate)).filter((y) => Number.isFinite(y))).toSorted(
-    (a, b) => b - a,
-  )
+  return unique(
+    flights.map((f) => yearOf(f.flightDate)).filter((y) => Number.isFinite(y)),
+  ).toSorted((a, b) => b - a)
 }
 
 function unique<T>(items: T[]): T[] {
