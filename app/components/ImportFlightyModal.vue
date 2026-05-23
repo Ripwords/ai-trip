@@ -118,7 +118,7 @@ function close() {
   <Teleport to="body">
     <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center">
       <div class="fixed inset-0 bg-black/40" @click="close" />
-      <div class="relative z-10 mx-4 w-full max-w-lg rounded-2xl bg-stone-50 p-6 shadow-2xl">
+      <div class="relative z-10 mx-4 w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
         <div class="flex items-center justify-between">
           <h2 class="font-display text-lg text-sand-900">Import from Flighty</h2>
           <button class="text-sand-400 hover:text-sand-700" @click="close">

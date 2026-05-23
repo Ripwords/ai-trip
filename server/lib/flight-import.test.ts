@@ -35,15 +35,23 @@ function makeFakeDb(existing: FakeRow[] = []) {
   return { db, inserted }
 }
 
+const NO_LOOKUP = new Map<string, string>()
+
 describe("previewImport", () => {
-  it("counts importable, duplicate, and invalid rows", async () => {
+  it("counts importable, duplicate, and invalid rows when no IATA conversion is available", async () => {
     const csv = makeCsv([
       "2022-10-01,EVA,228,KUL,TPE,,,,,false,,,,,,,,,,,,,,,,,,,,,,,",
       "2022-10-02,EVA,227,TPE,KUL,,,,,false,,,,,,,,,,,,,,,,,,,,,,,",
       ",EVA,228,KUL,TPE,,,,,false,,,,,,,,,,,,,,,,,,,,,,,",
     ])
     const { db } = makeFakeDb([{ flightNumber: "EVA228", flightDate: "2022-10-01" }])
-    const result = await previewImport(csv, "user-1", db as never, new Date("2026-05-23"))
+    const result = await previewImport(
+      csv,
+      "user-1",
+      db as never,
+      new Date("2026-05-23"),
+      NO_LOOKUP,
+    )
     expect(result.totalRows).toBe(3)
     expect(result.importableCount).toBe(1)
     expect(result.duplicateCount).toBe(1)
@@ -52,14 +60,47 @@ describe("previewImport", () => {
     expect(result.preview[0]!.flightNumber).toBe("EVA227")
     expect(result.issues).toHaveLength(1)
   })
+
+  it("normalizes ICAO to IATA via the injected map so dedupe matches across formats", async () => {
+    const csv = makeCsv(["2022-10-01,EVA,228,KUL,TPE,,,,,false,,,,,,,,,,,,,,,,,,,,,,,"])
+    // Pre-existing manually-added flight uses IATA (BR228); the Flighty ICAO
+    // EVA228 normalizes to BR228 and dedupes against it.
+    const { db } = makeFakeDb([{ flightNumber: "BR228", flightDate: "2022-10-01" }])
+    const result = await previewImport(
+      csv,
+      "user-1",
+      db as never,
+      new Date("2026-05-23"),
+      new Map([["EVA", "BR"]]),
+    )
+    expect(result.importableCount).toBe(0)
+    expect(result.duplicateCount).toBe(1)
+  })
 })
 
 describe("previewImport empty input", () => {
   it("propagates FlightyImportError on empty CSV", async () => {
     const { db } = makeFakeDb()
-    await expect(previewImport("", "user-1", db as never, new Date("2026-05-23"))).rejects.toThrow(
-      FlightyImportError,
+    await expect(
+      previewImport("", "user-1", db as never, new Date("2026-05-23"), NO_LOOKUP),
+    ).rejects.toThrow(FlightyImportError)
+  })
+})
+
+describe("commitImport with ICAO→IATA normalization", () => {
+  it("stores rows with IATA codes from the conversion map", async () => {
+    const csv = makeCsv(["2022-10-01,EVA,228,KUL,TPE,1,C34,,,false,,,,,,,,,,,,,,,,,,,,,,,"])
+    const { db, inserted } = makeFakeDb()
+    const result = await commitImport(
+      csv,
+      "user-1",
+      db as never,
+      new Date("2026-05-23"),
+      new Map([["EVA", "BR"]]),
     )
+    expect(result.imported).toBe(1)
+    expect(inserted[0]!.flightNumber).toBe("BR228")
+    expect(inserted[0]!.airline).toBe("BR")
   })
 })
 
@@ -70,7 +111,7 @@ describe("commitImport", () => {
       "2022-10-02,EVA,227,TPE,KUL,1,B9,,,false,,,,,,,,2022-10-02T14:25,2022-10-02T15:06,,,,,,,,,,,,,,",
     ])
     const { db, inserted } = makeFakeDb([{ flightNumber: "EVA228", flightDate: "2022-10-01" }])
-    const result = await commitImport(csv, "user-1", db as never, new Date("2026-05-23"))
+    const result = await commitImport(csv, "user-1", db as never, new Date("2026-05-23"), NO_LOOKUP)
     expect(result.imported).toBe(1)
     expect(result.skipped).toBe(1)
     expect(result.failed).toBe(0)
@@ -88,7 +129,7 @@ describe("commitImport", () => {
       "2022-10-02,EVA,227,TPE,KUL,,,,,false,,,,,,,,,,,,,,,,,,,,,,,",
     ])
     const { db, inserted } = makeFakeDb()
-    const result = await commitImport(csv, "user-1", db as never, new Date("2026-05-23"))
+    const result = await commitImport(csv, "user-1", db as never, new Date("2026-05-23"), NO_LOOKUP)
     expect(result.imported).toBe(1)
     expect(result.failed).toBe(0)
     expect(result.issues).toHaveLength(1)
@@ -101,7 +142,7 @@ describe("commitImport", () => {
       "2030-10-01,EVA,228,KUL,TPE,1,C34,,,false,,2030-10-01T15:30,,,,,,2030-10-01T20:25,,,,,,,,,,,,,,,,",
     ])
     const { db, inserted } = makeFakeDb()
-    const result = await commitImport(csv, "user-1", db as never, new Date("2026-05-23"))
+    const result = await commitImport(csv, "user-1", db as never, new Date("2026-05-23"), NO_LOOKUP)
     expect(result.imported).toBe(1)
     expect(inserted[0]!.status).toBe("scheduled")
     expect(inserted[0]!.departureAirport).toBe("KUL")

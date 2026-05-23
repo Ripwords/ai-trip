@@ -3,6 +3,28 @@ import { db as defaultDb } from "../db"
 import { flights } from "../db/schema"
 import { lookupFlight, FLIGHT_LOOKUP_SCHEMA_VERSION, type FlightLookupResult } from "./flight-api"
 import { parseFlightyCsv, type ParsedFlightyRow } from "./flighty-import"
+import { lookupIcaoToIata } from "./icao-to-iata-lookup"
+
+// Applies an ICAO→IATA map (from Wikidata) to a parsed row. The map is built
+// once per import — see callers below. Unknown / non-ICAO airline codes pass
+// through unchanged. Storing the IATA form means manual entries (which use
+// IATA) dedupe against Flighty imports (which use ICAO).
+function applyIataMap(row: ParsedFlightyRow, icaoToIata: Map<string, string>): ParsedFlightyRow {
+  const iata = icaoToIata.get(row.airline.toUpperCase())
+  if (!iata || iata === row.airline) return row
+  const flightNumber = row.flightNumber.startsWith(row.airline)
+    ? iata + row.flightNumber.slice(row.airline.length)
+    : row.flightNumber
+  return { ...row, airline: iata, flightNumber }
+}
+
+function uniqueIcaoCodes(rows: ParsedFlightyRow[]): string[] {
+  const out = new Set<string>()
+  for (const row of rows) {
+    if (/^[A-Z]{3}$/.test(row.airline)) out.add(row.airline)
+  }
+  return [...out]
+}
 
 type DbHandle = typeof defaultDb
 
@@ -102,13 +124,18 @@ export async function previewImport(
   userId: string,
   db: DbHandle = defaultDb,
   now: Date = new Date(),
+  icaoToIata?: Map<string, string>,
 ): Promise<PreviewResult> {
   const parsed = parseFlightyCsv(csv, now)
-  const existing = await loadExistingPairs(db, userId)
+  const [existing, conversions] = await Promise.all([
+    loadExistingPairs(db, userId),
+    icaoToIata ? Promise.resolve(icaoToIata) : lookupIcaoToIata(uniqueIcaoCodes(parsed.rows)),
+  ])
 
   let duplicateCount = 0
   const importable: ParsedFlightyRow[] = []
-  for (const row of parsed.rows) {
+  for (const raw of parsed.rows) {
+    const row = applyIataMap(raw, conversions)
     if (existing.has(pairKey(row))) {
       duplicateCount++
       continue
@@ -147,9 +174,13 @@ export async function commitImport(
   userId: string,
   db: DbHandle = defaultDb,
   now: Date = new Date(),
+  icaoToIata?: Map<string, string>,
 ): Promise<CommitResult> {
   const parsed = parseFlightyCsv(csv, now)
-  const existing = await loadExistingPairs(db, userId)
+  const [existing, conversions] = await Promise.all([
+    loadExistingPairs(db, userId),
+    icaoToIata ? Promise.resolve(icaoToIata) : lookupIcaoToIata(uniqueIcaoCodes(parsed.rows)),
+  ])
   const todayIso = now.toISOString().slice(0, 10)
   const issues: { line: number; reason: string }[] = [...parsed.errors]
 
@@ -157,7 +188,8 @@ export async function commitImport(
   let skipped = 0
   let failed = 0
 
-  for (const row of parsed.rows) {
+  for (const raw of parsed.rows) {
+    const row = applyIataMap(raw, conversions)
     if (existing.has(pairKey(row))) {
       skipped++
       continue

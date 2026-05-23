@@ -55,34 +55,35 @@ const statusBadge = computed(
     },
 )
 
-// Extract IATA airline code from flight number (e.g. "TR" from "TR638", "D7" from "D7523")
-// IATA codes: 2 letters, letter+digit, or digit+letter
+// Extract the airline designator from the flight number. Match either a
+// 3-letter ICAO prefix (e.g. "UAE" in "UAE342" — common for Flighty imports
+// that we couldn't resolve via Wikidata) or a 2-char IATA prefix
+// (e.g. "TR" in "TR638", "D7" in "D7523" — the canonical form for everything
+// else in the system).
 const airlineCode = computed(() => {
-  const match = props.flight.flightNumber.match(/^([A-Z\d]{2})\d/i)
-  return match?.[1]?.toUpperCase() ?? null
-})
-
-// Try primary source first, fall back to secondary
-const primaryLogoFailed = ref(false)
-const secondaryLogoFailed = ref(false)
-
-const airlineLogoUrl = computed(() => {
-  if (!airlineCode.value) return null
-  if (!primaryLogoFailed.value) {
-    return `https://airlabs.co/img/airline/m/${airlineCode.value}.png`
-  }
-  if (!secondaryLogoFailed.value) {
-    return `https://pics.avs.io/60/60/${airlineCode.value}.png`
-  }
+  const num = props.flight.flightNumber
+  const icao = num.match(/^([A-Z]{3})\d/i)
+  if (icao?.[1]) return { code: icao[1].toUpperCase(), kind: "icao" as const }
+  const iata = num.match(/^([A-Z\d]{2})\d/i)
+  if (iata?.[1]) return { code: iata[1].toUpperCase(), kind: "iata" as const }
   return null
 })
 
+// Logo sources, tried in order. ICAO codes route to a free jsDelivr-served
+// repo with 900+ ICAO-keyed PNGs; IATA codes use the two airlabs/avs.io CDNs.
+const logoSourceIdx = ref(0)
+const airlineLogoUrl = computed(() => {
+  if (!airlineCode.value) return null
+  const { code, kind } = airlineCode.value
+  const sources =
+    kind === "icao"
+      ? [`https://cdn.jsdelivr.net/gh/sexym0nk3y/airline-logos@main/logos/${code}.png`]
+      : [`https://airlabs.co/img/airline/m/${code}.png`, `https://pics.avs.io/60/60/${code}.png`]
+  return sources[logoSourceIdx.value] ?? null
+})
+
 function onLogoError() {
-  if (!primaryLogoFailed.value) {
-    primaryLogoFailed.value = true
-  } else {
-    secondaryLogoFailed.value = true
-  }
+  logoSourceIdx.value++
 }
 
 const arrivalCountry = computed(() => {
