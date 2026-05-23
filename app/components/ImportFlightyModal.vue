@@ -1,4 +1,16 @@
 <script setup lang="ts">
+import type { FetchError } from "ofetch"
+
+function extractErrorMessage(e: unknown, fallback: string): string {
+  if (e && typeof e === "object" && "data" in e) {
+    const data = (e as FetchError<{ statusMessage?: string; message?: string }>).data
+    const msg = data?.statusMessage ?? data?.message
+    if (msg) return msg
+  }
+  if (e instanceof Error && e.message) return e.message
+  return fallback
+}
+
 interface PreviewRow {
   line: number
   flightDate: string
@@ -71,8 +83,7 @@ async function onPick(e: Event) {
     })
     phase.value = "previewing"
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Failed to read CSV"
-    error.value = msg.replace(/^.*?:\s*/, "") || "Failed to read CSV"
+    error.value = extractErrorMessage(e, "Failed to read CSV")
   } finally {
     busy.value = false
   }
@@ -92,8 +103,7 @@ async function confirmImport() {
     phase.value = "result"
     if (result.value.imported > 0) emit("imported")
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Import failed"
-    error.value = msg.replace(/^.*?:\s*/, "") || "Import failed"
+    error.value = extractErrorMessage(e, "Import failed")
   } finally {
     busy.value = false
   }
