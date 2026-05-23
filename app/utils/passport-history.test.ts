@@ -147,6 +147,42 @@ describe("passport history", () => {
       ["f-newest", "f-newer", "f-new"],
     )
   })
+
+  it("filters flight-derived data by year and hides visited-only countries in year mode", () => {
+    const all = buildPassportHistory({
+      flights: [mkFlight("a", "2024-03-01", "JFK", "NRT"), mkFlight("b", "2025-05-01", "JFK", "CDG")],
+      visitedCountries: [{ countryCode: "TH", countryName: "Thailand", visitType: "visited" }],
+    })
+    assert.equal(all.totalFlights, 2)
+    assert.ok(all.countries.some((c) => c.code === "TH"))
+    assert.deepEqual(all.availableYears, [2025, 2024])
+
+    const y2025 = buildPassportHistory({
+      flights: [mkFlight("a", "2024-03-01", "JFK", "NRT"), mkFlight("b", "2025-05-01", "JFK", "CDG")],
+      visitedCountries: [{ countryCode: "TH", countryName: "Thailand", visitType: "visited" }],
+      year: 2025,
+    })
+    assert.equal(y2025.totalFlights, 1)
+    assert.equal(
+      y2025.countries.find((c) => c.code === "TH"),
+      undefined,
+    )
+    assert.ok(y2025.countries.some((c) => c.code === "FR"))
+    assert.deepEqual(y2025.availableYears, [2025, 2024])
+  })
+
+  it("returns zeroed values for empty / nullish input", () => {
+    const r = buildPassportHistory({ flights: null, visitedCountries: null })
+    assert.equal(r.totalFlights, 0)
+    assert.equal(r.totalDistanceKm, 0)
+    assert.deepEqual(r.uniqueAirports, [])
+    assert.deepEqual(r.uniqueAirlines, [])
+    assert.deepEqual(r.countries, [])
+    assert.deepEqual(r.countryFlags, [])
+    assert.deepEqual(r.recentFlights, [])
+    assert.deepEqual(r.routeSegments, [])
+    assert.deepEqual(r.availableYears, [])
+  })
 })
 
 function mkFlight(
