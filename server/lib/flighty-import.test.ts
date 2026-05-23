@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { parseFlightyCsv, FlightyImportError } from "./flighty-import"
 
-const FIXTURE_PATH = resolve(process.cwd(), "FlightyExport-2026-05-23.csv")
+const FIXTURE_PATH = resolve(import.meta.dir, "__fixtures__/flighty-sample.csv")
 
 describe("parseFlightyCsv", () => {
   it("rejects a CSV whose header is not Flighty's", () => {
@@ -105,5 +105,27 @@ describe("parseFlightyCsv", () => {
     expect(result.errors).toEqual([])
     expect(result.rows).toHaveLength(1)
     expect(result.rows[0]!.flightNumber).toBe("EVA228")
+  })
+
+  it("treats a bare double-quote inside an unquoted field as a literal character", () => {
+    const csv = [
+      "Date,Airline,Flight,From,To,Dep Terminal,Dep Gate,Arr Terminal,Arr Gate,Canceled,Diverted To,Gate Departure (Scheduled),Gate Departure (Actual),Take off (Scheduled),Take off (Actual),Landing (Scheduled),Landing (Actual),Gate Arrival (Scheduled),Gate Arrival (Actual),Aircraft Type Name,Tail Number,PNR,Seat,Seat Type,Cabin Class,Flight Reason,Notes,Flight Flighty ID,Airline Flighty ID,Departure Airport Flighty ID,Arrival Airport Flighty ID,Diverted To Airport Flighty ID,Aircraft Type Flighty ID",
+      `2022-10-01,EVA,228,KUL,TPE,,,,,false,,,,,,,,,,,,,,,,,5" legroom note,,,,,,`,
+      "2022-10-02,EVA,229,TPE,KUL,,,,,false,,,,,,,,,,,,,,,,,,,,,,,,",
+    ].join("\n")
+    const result = parseFlightyCsv(csv, new Date("2026-05-23"))
+    expect(result.errors).toEqual([])
+    expect(result.rows).toHaveLength(2)
+    expect(result.rows[0]!.flightNumber).toBe("EVA228")
+    expect(result.rows[1]!.flightNumber).toBe("EVA229")
+  })
+
+  it("classifies today's flights as scheduled, not landed", () => {
+    const csv = [
+      "Date,Airline,Flight,From,To,Dep Terminal,Dep Gate,Arr Terminal,Arr Gate,Canceled,Diverted To,Gate Departure (Scheduled),Gate Departure (Actual),Take off (Scheduled),Take off (Actual),Landing (Scheduled),Landing (Actual),Gate Arrival (Scheduled),Gate Arrival (Actual),Aircraft Type Name,Tail Number,PNR,Seat,Seat Type,Cabin Class,Flight Reason,Notes,Flight Flighty ID,Airline Flighty ID,Departure Airport Flighty ID,Arrival Airport Flighty ID,Diverted To Airport Flighty ID,Aircraft Type Flighty ID",
+      "2026-05-23,EVA,228,KUL,TPE,,,,,false,,,,,,,,,,,,,,,,,,,,,,,",
+    ].join("\n")
+    const result = parseFlightyCsv(csv, new Date("2026-05-23T00:00:00Z"))
+    expect(result.rows[0]!.status).toBe("scheduled")
   })
 })

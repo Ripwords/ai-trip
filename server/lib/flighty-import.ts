@@ -71,19 +71,41 @@ function splitCsvRows(input: string): string[] {
   const rows: string[] = []
   let cur = ""
   let inQuotes = false
+  let atFieldStart = true
   for (let i = 0; i < text.length; i++) {
     const ch = text[i]!
-    if (ch === '"') {
-      inQuotes = !inQuotes
+    if (inQuotes) {
       cur += ch
+      if (ch === '"') {
+        // Could be end-of-field or escaped ""
+        if (text[i + 1] === '"') {
+          cur += text[i + 1]
+          i++
+          continue
+        }
+        inQuotes = false
+      }
       continue
     }
-    if (ch === "\n" && !inQuotes) {
+    if (ch === '"' && atFieldStart) {
+      inQuotes = true
+      cur += ch
+      atFieldStart = false
+      continue
+    }
+    if (ch === ",") {
+      cur += ch
+      atFieldStart = true
+      continue
+    }
+    if (ch === "\n") {
       rows.push(cur)
       cur = ""
+      atFieldStart = true
       continue
     }
     cur += ch
+    atFieldStart = false
   }
   if (cur.length > 0) rows.push(cur)
   return rows
@@ -99,6 +121,17 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
 
+/**
+ * Parses a Flighty CSV export into typed rows + per-line errors.
+ *
+ * Times in Flighty exports have no UTC offset, so the resulting `Date` objects
+ * are constructed in the runtime's local timezone — they reflect the local
+ * clock at the departure/arrival airport rather than absolute UTC instants.
+ *
+ * The `today` parameter is used to classify flights as past (`landed`) vs
+ * future (`scheduled`); its UTC date (via `toISOString().slice(0, 10)`) is
+ * compared lexicographically against each row's `Date` column.
+ */
 export function parseFlightyCsv(input: string, today: Date): FlightyParseResult {
   const allLines = splitCsvRows(input)
   if (allLines.length === 0) {
