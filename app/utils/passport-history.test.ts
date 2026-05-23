@@ -150,7 +150,10 @@ describe("passport history", () => {
 
   it("filters flight-derived data by year and hides visited-only countries in year mode", () => {
     const all = buildPassportHistory({
-      flights: [mkFlight("a", "2024-03-01", "JFK", "NRT"), mkFlight("b", "2025-05-01", "JFK", "CDG")],
+      flights: [
+        mkFlight("a", "2024-03-01", "JFK", "NRT"),
+        mkFlight("b", "2025-05-01", "JFK", "CDG"),
+      ],
       visitedCountries: [{ countryCode: "TH", countryName: "Thailand", visitType: "visited" }],
     })
     assert.equal(all.totalFlights, 2)
@@ -158,7 +161,10 @@ describe("passport history", () => {
     assert.deepEqual(all.availableYears, [2025, 2024])
 
     const y2025 = buildPassportHistory({
-      flights: [mkFlight("a", "2024-03-01", "JFK", "NRT"), mkFlight("b", "2025-05-01", "JFK", "CDG")],
+      flights: [
+        mkFlight("a", "2024-03-01", "JFK", "NRT"),
+        mkFlight("b", "2025-05-01", "JFK", "CDG"),
+      ],
       visitedCountries: [{ countryCode: "TH", countryName: "Thailand", visitType: "visited" }],
       year: 2025,
     })
