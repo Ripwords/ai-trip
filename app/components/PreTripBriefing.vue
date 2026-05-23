@@ -113,44 +113,50 @@ function iconClass(signal: BriefingSignal): string {
       </div>
     </NuxtLink>
 
-    <div class="grid gap-3">
+    <div class="grid grid-cols-3 gap-1.5 sm:grid-cols-1 sm:gap-3">
       <template v-for="signal in briefing.signals" :key="signal.key">
         <NuxtLink
           v-if="signal.to"
           :to="signal.to"
-          class="group flex min-h-[72px] items-start gap-3 rounded-2xl p-4 shadow-sm shadow-sand-900/5 transition hover:shadow-md hover:shadow-sand-900/10"
+          class="group flex items-center justify-center gap-1.5 overflow-hidden rounded-full px-2 py-1.5 text-[11px] font-semibold text-sand-900 transition sm:min-h-[72px] sm:justify-start sm:items-start sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-4 sm:text-sm sm:shadow-sm sm:shadow-sand-900/5 sm:hover:shadow-md sm:hover:shadow-sand-900/10"
           :class="signalClass(signal)"
         >
           <span
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+            class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full sm:h-9 sm:w-9 sm:rounded-xl"
             :class="iconClass(signal)"
           >
-            <Icon :name="signal.icon" class="h-4 w-4" />
+            <Icon :name="signal.icon" class="h-2.5 w-2.5 sm:h-4 sm:w-4" />
           </span>
-          <span class="min-w-0">
-            <span class="block text-sm font-semibold text-sand-900">{{ signal.title }}</span>
-            <span class="mt-1 block text-xs leading-5 text-sand-600">{{ signal.detail }}</span>
+          <span class="min-w-0 truncate leading-none sm:flex-1 sm:overflow-visible sm:leading-normal">
+            <span class="sm:block">{{ signal.title }}</span>
+            <span class="mt-1 hidden text-xs font-normal leading-5 text-sand-600 sm:block">{{
+              signal.detail
+            }}</span>
           </span>
-          <Icon
-            name="lucide:chevron-right"
-            class="ml-auto mt-1 h-4 w-4 shrink-0 text-sand-400 transition group-hover:translate-x-0.5"
-          />
+          <span class="ml-auto mt-1 hidden h-4 w-4 shrink-0 sm:block">
+            <Icon
+              name="lucide:chevron-right"
+              class="h-4 w-4 text-sand-400 transition group-hover:translate-x-0.5"
+            />
+          </span>
         </NuxtLink>
 
         <div
           v-else
-          class="flex min-h-[72px] items-start gap-3 rounded-2xl p-4 shadow-sm shadow-sand-900/5"
+          class="flex items-center justify-center gap-1.5 overflow-hidden rounded-full px-2 py-1.5 text-[11px] font-semibold text-sand-900 sm:min-h-[72px] sm:justify-start sm:items-start sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-4 sm:text-sm sm:shadow-sm sm:shadow-sand-900/5"
           :class="signalClass(signal)"
         >
           <span
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+            class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full sm:h-9 sm:w-9 sm:rounded-xl"
             :class="iconClass(signal)"
           >
-            <Icon :name="signal.icon" class="h-4 w-4" />
+            <Icon :name="signal.icon" class="h-2.5 w-2.5 sm:h-4 sm:w-4" />
           </span>
-          <span class="min-w-0">
-            <span class="block text-sm font-semibold text-sand-900">{{ signal.title }}</span>
-            <span class="mt-1 block text-xs leading-5 text-sand-600">{{ signal.detail }}</span>
+          <span class="min-w-0 truncate leading-none sm:flex-1 sm:overflow-visible sm:leading-normal">
+            <span class="sm:block">{{ signal.title }}</span>
+            <span class="mt-1 hidden text-xs font-normal leading-5 text-sand-600 sm:block">{{
+              signal.detail
+            }}</span>
           </span>
         </div>
       </template>

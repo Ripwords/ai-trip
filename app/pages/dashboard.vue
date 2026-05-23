@@ -172,47 +172,64 @@ const dashboardBriefing = computed(() =>
 </script>
 
 <template>
-  <div class="space-y-6 sm:space-y-8">
+  <div class="flex flex-col gap-6 sm:gap-8">
     <!-- Stats strip -->
-    <div v-if="stats" class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
-      <div class="rounded-xl border border-sand-200 bg-white p-3 sm:rounded-2xl sm:p-4">
-        <p class="text-lg font-bold tabular-nums text-sand-900 sm:text-2xl">
+    <div
+      v-if="stats"
+      class="order-2 grid grid-cols-5 divide-x divide-sand-200 overflow-hidden rounded-xl border border-sand-200 sm:order-1 sm:grid-cols-3 sm:gap-3 sm:divide-x-0 sm:overflow-visible sm:rounded-none sm:border-0 lg:grid-cols-5"
+    >
+      <div
+        class="bg-white px-1.5 py-2 text-center sm:rounded-2xl sm:border sm:border-sand-200 sm:p-4 sm:text-left"
+      >
+        <p class="font-bold tabular-nums text-sand-900 sm:text-2xl">
           {{ stats.totalTrips }}
         </p>
-        <p class="mt-0.5 text-[11px] text-sand-500 sm:text-xs">Trips</p>
+        <p class="text-[10px] text-sand-500 sm:mt-0.5 sm:text-xs">Trips</p>
       </div>
-      <div class="rounded-xl border border-sand-200 bg-white p-3 sm:rounded-2xl sm:p-4">
-        <p class="text-lg font-bold tabular-nums text-terra-600 sm:text-2xl">
+      <div
+        class="bg-white px-1.5 py-2 text-center sm:rounded-2xl sm:border sm:border-sand-200 sm:p-4 sm:text-left"
+      >
+        <p class="font-bold tabular-nums text-terra-600 sm:text-2xl">
           {{ stats.completedTrips }}
         </p>
-        <p class="mt-0.5 text-[11px] text-sand-500 sm:text-xs">Completed</p>
+        <p class="text-[10px] text-sand-500 sm:mt-0.5 sm:text-xs">Completed</p>
       </div>
-      <div class="rounded-xl border border-sand-200 bg-white p-3 sm:rounded-2xl sm:p-4">
-        <p class="text-lg font-bold tabular-nums text-ocean-600 sm:text-2xl">
+      <div
+        class="bg-white px-1.5 py-2 text-center sm:rounded-2xl sm:border sm:border-sand-200 sm:p-4 sm:text-left"
+      >
+        <p class="font-bold tabular-nums text-ocean-600 sm:text-2xl">
           {{ stats.countriesVisited }}
         </p>
-        <p class="mt-0.5 text-[11px] text-sand-500 sm:text-xs">Countries</p>
+        <p class="text-[10px] text-sand-500 sm:mt-0.5 sm:text-xs">Countries</p>
       </div>
-      <div class="rounded-xl border border-sand-200 bg-white p-3 sm:rounded-2xl sm:p-4">
-        <p class="text-lg font-bold tabular-nums text-forest-600 sm:text-2xl">
+      <div
+        class="bg-white px-1.5 py-2 text-center sm:rounded-2xl sm:border sm:border-sand-200 sm:p-4 sm:text-left"
+      >
+        <p class="font-bold tabular-nums text-forest-600 sm:text-2xl">
           {{ stats.totalDays }}
         </p>
-        <p class="mt-0.5 text-[11px] text-sand-500 sm:text-xs">Days</p>
+        <p class="text-[10px] text-sand-500 sm:mt-0.5 sm:text-xs">Days</p>
       </div>
-      <div class="rounded-xl border border-sand-200 bg-white p-3 sm:rounded-2xl sm:p-4">
-        <p class="text-lg font-bold tabular-nums text-sand-900 sm:text-2xl">
+      <div
+        class="bg-white px-1.5 py-2 text-center sm:rounded-2xl sm:border sm:border-sand-200 sm:p-4 sm:text-left"
+      >
+        <p class="font-bold tabular-nums text-sand-900 sm:text-2xl">
           {{ stats.totalFlights }}
         </p>
-        <p class="mt-0.5 text-[11px] text-sand-500 sm:text-xs">Flights</p>
+        <p class="text-[10px] text-sand-500 sm:mt-0.5 sm:text-xs">Flights</p>
       </div>
     </div>
 
-    <PreTripBriefing v-if="dashboardBriefing" :briefing="dashboardBriefing" />
+    <PreTripBriefing
+      v-if="dashboardBriefing"
+      :briefing="dashboardBriefing"
+      class="order-1 sm:order-2"
+    />
 
     <!-- Next flight + Trip countdown row -->
     <div
       v-else-if="nextFlight || (nextTrip && countdown)"
-      class="grid grid-cols-1 gap-3 sm:grid-cols-2"
+      class="order-1 grid grid-cols-1 gap-3 sm:order-2 sm:grid-cols-2"
     >
       <!-- Next flight -->
       <NuxtLink
@@ -314,7 +331,7 @@ const dashboardBriefing = computed(() =>
     </div>
 
     <!-- Trips section -->
-    <div>
+    <div class="order-3">
       <div class="flex items-center justify-between">
         <h1 class="font-display text-xl text-sand-900 sm:text-2xl">My Trips</h1>
         <NuxtLink
