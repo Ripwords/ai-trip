@@ -1,3 +1,13 @@
+import {
+  dedupInFlight,
+  getCachedFlight,
+  isCacheFresh,
+  isRateLimited,
+  markRateLimited,
+  setCachedFlight,
+  type CacheStore,
+} from "./flight-api-cache"
+
 const AERODATABOX_HOST = "aerodatabox.p.rapidapi.com"
 
 /**
@@ -79,45 +89,7 @@ export interface FlightLookupResult {
   rawApiResponse: Record<string, unknown>
 }
 
-/**
- * Look up a flight by number and date from AeroDataBox.
- * Returns null if the flight is not found or the API key is not configured.
- */
-export async function lookupFlight(
-  flightNumber: string,
-  flightDate: string,
-): Promise<FlightLookupResult | null> {
-  const apiKey = process.env.AERODATABOX_API_KEY
-  if (!apiKey) {
-    console.warn("AERODATABOX_API_KEY not set — flight lookup skipped")
-    return null
-  }
-
-  const encoded = encodeURIComponent(flightNumber)
-  // dateLocalRole=Departure: interpret flightDate as the departure airport's
-  // local date. Without this, the API defaults to "Both" and may return the
-  // previous-day occurrence when the flight crosses midnight UTC.
-  const url = `https://${AERODATABOX_HOST}/flights/number/${encoded}/${flightDate}?dateLocalRole=Departure`
-
-  let data: AeroDataBoxFlight[]
-  try {
-    data = await $fetch<AeroDataBoxFlight[]>(url, {
-      headers: {
-        "x-rapidapi-host": AERODATABOX_HOST,
-        "x-rapidapi-key": apiKey,
-      },
-    })
-  } catch (error: unknown) {
-    const status = (error as { statusCode?: number }).statusCode
-    if (status === 404) return null
-    console.error("AeroDataBox API error:", error)
-    return null
-  }
-
-  // The API may return multiple legs; take the first one
-  const flight = data[0]
-  if (!flight) return null
-
+function parseFlightResponse(flight: AeroDataBoxFlight): FlightLookupResult {
   return {
     airline: flight.airline?.name ?? null,
     departureAirport: flight.departure?.airport?.iata ?? null,
@@ -133,4 +105,133 @@ export async function lookupFlight(
     status: flight.status ?? "scheduled",
     rawApiResponse: flight as unknown as Record<string, unknown>,
   }
+}
+
+export interface LookupOptions {
+  /** Override the cache store (test injection or memory-only mode). */
+  store?: CacheStore
+  /** Override the HTTP fetcher (test injection). Defaults to Nitro's $fetch. */
+  fetchImpl?: typeof $fetch
+  /** Override the clock — defaults to new Date(). */
+  now?: () => Date
+  /** Skip the cache and always hit the API. Result still writes through. */
+  bypassCache?: boolean
+}
+
+/**
+ * Look up a flight by number and date from AeroDataBox.
+ *
+ * Returns null when the flight is unknown, the API key is unset, or the API
+ * is unavailable. See ./flight-api-cache.ts for the caching strategy.
+ */
+export async function lookupFlight(
+  flightNumber: string,
+  flightDate: string,
+  opts: LookupOptions = {},
+): Promise<FlightLookupResult | null> {
+  const now = opts.now ?? (() => new Date())
+  const cacheKey = `${flightNumber}|${flightDate}`
+
+  // Cache I/O is fail-soft: a flight_api_cache outage degrades to "cache miss"
+  // rather than breaking lookups. The API still answers; we just don't dedupe.
+  const safeGetCache = async () => {
+    try {
+      return await getCachedFlight(flightNumber, flightDate, { store: opts.store })
+    } catch (err) {
+      console.warn("flight_api_cache read failed:", err)
+      return null
+    }
+  }
+  const safeSetCache = async (entry: Parameters<typeof setCachedFlight>[2]) => {
+    try {
+      await setCachedFlight(flightNumber, flightDate, entry, { store: opts.store })
+    } catch (err) {
+      console.warn("flight_api_cache write failed:", err)
+    }
+  }
+
+  return dedupInFlight(cacheKey, async () => {
+    // 1. Cache hit (positive or negative) within TTL — serve and skip API.
+    if (!opts.bypassCache) {
+      const cached = await safeGetCache()
+      if (cached && isCacheFresh(cached, flightDate, FLIGHT_LOOKUP_SCHEMA_VERSION, now())) {
+        return cached.notFound ? null : parseFlightResponse(cached.response as AeroDataBoxFlight)
+      }
+    }
+
+    // 2. Rate-limit cooldown — don't hammer AeroDataBox. Serve stale cache if any.
+    if (isRateLimited(now())) {
+      const cached = opts.bypassCache ? await safeGetCache() : null
+      if (cached?.response) return parseFlightResponse(cached.response as AeroDataBoxFlight)
+      console.warn(`AeroDataBox cooldown active; skipping lookup for ${flightNumber} ${flightDate}`)
+      return null
+    }
+
+    // 3. Live fetch.
+    const apiKey = process.env.AERODATABOX_API_KEY
+    if (!apiKey) {
+      console.warn("AERODATABOX_API_KEY not set — flight lookup skipped")
+      return null
+    }
+
+    const encoded = encodeURIComponent(flightNumber)
+    // dateLocalRole=Departure: interpret flightDate as the departure airport's
+    // local date. Without this, the API defaults to "Both" and may return the
+    // previous-day occurrence when the flight crosses midnight UTC.
+    const url = `https://${AERODATABOX_HOST}/flights/number/${encoded}/${flightDate}?dateLocalRole=Departure`
+    const fetchImpl = opts.fetchImpl ?? $fetch
+
+    let data: AeroDataBoxFlight[]
+    try {
+      data = await fetchImpl<AeroDataBoxFlight[]>(url, {
+        headers: {
+          "x-rapidapi-host": AERODATABOX_HOST,
+          "x-rapidapi-key": apiKey,
+        },
+      })
+    } catch (error: unknown) {
+      const status = (error as { statusCode?: number }).statusCode
+      if (status === 404) {
+        await safeSetCache({
+          response: null,
+          notFound: true,
+          fetchedAt: now(),
+          lookupSchemaVersion: FLIGHT_LOOKUP_SCHEMA_VERSION,
+        })
+        return null
+      }
+      if (status === 429) {
+        markRateLimited(now())
+        console.warn(`AeroDataBox 429 for ${flightNumber} ${flightDate}; cooling down 60s`)
+      } else {
+        console.error("AeroDataBox API error:", error)
+      }
+      // Best-effort: serve whatever we have, even if stale.
+      const stale = await safeGetCache()
+      if (stale?.response) return parseFlightResponse(stale.response as AeroDataBoxFlight)
+      return null
+    }
+
+    const flight = data[0]
+    if (!flight) {
+      // Empty array is the API saying "no occurrence for this date" — treat
+      // identically to a 404 so we don't ask again until the negative TTL.
+      await safeSetCache({
+        response: null,
+        notFound: true,
+        fetchedAt: now(),
+        lookupSchemaVersion: FLIGHT_LOOKUP_SCHEMA_VERSION,
+      })
+      return null
+    }
+
+    await safeSetCache({
+      response: flight as unknown as Record<string, unknown>,
+      notFound: false,
+      fetchedAt: now(),
+      lookupSchemaVersion: FLIGHT_LOOKUP_SCHEMA_VERSION,
+    })
+
+    return parseFlightResponse(flight)
+  })
 }

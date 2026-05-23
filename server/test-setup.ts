@@ -23,3 +23,13 @@ if (!g.createError) {
     return err
   }
 }
+
+if (!g.$fetch) {
+  // Default test stub: any call that wasn't intercepted via opts.fetchImpl
+  // throws a 503 — callers handle that as "API unavailable" and fall back.
+  g.$fetch = async () => {
+    const err = new Error("$fetch is not available in tests") as Error & { statusCode?: number }
+    err.statusCode = 503
+    throw err
+  }
+}
