@@ -16,7 +16,7 @@ export const tripMembers = pgTable(
     role: text("role").notNull().default("editor"), // "owner" | "editor" | "viewer"
     invitedBy: text("invited_by").references(() => user.id),
     invitedEmail: text("invited_email"), // email used for invite (before user joins)
-    status: text("status").notNull().default("pending"), // "pending" | "active" | "expired"
+    status: text("status").notNull().default("pending"), // "pending" | "active" | "expired" | "removed"
     inviteToken: text("invite_token"),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
