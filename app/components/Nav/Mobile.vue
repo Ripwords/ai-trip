@@ -3,6 +3,7 @@ const tabs = [
   { label: "Trips", icon: "lucide:map", to: "/dashboard" },
   { label: "Explore", icon: "lucide:globe", to: "/explore" },
   { label: "Flights", icon: "lucide:plane", to: "/flights" },
+  { label: "Passport", icon: "lucide:stamp", to: "/passport" },
 ]
 
 const { open: keyboardOpen } = useKeyboardOpen()
