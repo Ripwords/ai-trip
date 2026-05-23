@@ -207,12 +207,17 @@ const showEndDate = computed(
           class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
         />
         <div class="grid grid-cols-2 gap-3">
-          <input
-            v-model="formConfirmation"
-            type="text"
-            placeholder="Confirmation # (optional)"
-            class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
-          />
+          <div>
+            <input
+              v-model="formConfirmation"
+              type="text"
+              placeholder="Confirmation # (optional)"
+              class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+            />
+            <p class="mt-1 text-xs text-sand-500">
+              Visible to trip editors and the owner. Hidden from viewers.
+            </p>
+          </div>
           <input
             v-model="formProvider"
             type="text"
