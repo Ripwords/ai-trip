@@ -5,6 +5,7 @@ import type {
   DashboardVisaInfo,
 } from "../utils/dashboard-briefing"
 import { buildPreTripBriefing, getPreTripCandidate } from "../utils/dashboard-briefing"
+import type { PassportFlight, PassportVisitedCountry } from "../utils/passport-history"
 
 definePageMeta({ layout: "app" })
 useSeoMeta({
@@ -13,8 +14,8 @@ useSeoMeta({
 })
 
 const { data: trips, status, refresh } = useLazyFetch("/api/trips")
-const { data: stats } = useLazyFetch("/api/stats")
 const { data: upcomingFlights } = useLazyFetch("/api/flights")
+const { data: visitedCountries } = useLazyFetch<PassportVisitedCountry[]>("/api/visited-countries")
 const { data: passports } = useLazyFetch<DashboardPassport[]>("/api/user/passports/summary")
 
 const { confirm } = useConfirm()
@@ -42,9 +43,10 @@ function getDayCount(start: string, end: string): number {
   return Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1
 }
 
-// Pagination
+// Pagination + search
 const page = ref(1)
 const perPage = 6
+const searchQuery = ref("")
 
 const sortedTrips = computed(() => {
   if (!trips.value) return []
@@ -59,10 +61,22 @@ const sortedTrips = computed(() => {
   })
 })
 
-const totalPages = computed(() => Math.ceil(sortedTrips.value.length / perPage))
+const showControls = computed(() => sortedTrips.value.length > perPage)
+
+const filteredTrips = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return sortedTrips.value
+  return sortedTrips.value.filter((t) => t.destination.toLowerCase().includes(q))
+})
+
+const totalPages = computed(() => Math.ceil(filteredTrips.value.length / perPage))
 const paginatedTrips = computed(() => {
   const start = (page.value - 1) * perPage
-  return sortedTrips.value.slice(start, start + perPage)
+  return filteredTrips.value.slice(start, start + perPage)
+})
+
+watch(searchQuery, () => {
+  page.value = 1
 })
 
 // Next upcoming flight
@@ -173,63 +187,21 @@ const dashboardBriefing = computed(() =>
 
 <template>
   <div class="flex flex-col gap-6 sm:gap-8">
-    <!-- Stats strip -->
-    <div
-      v-if="stats"
-      class="order-2 grid grid-cols-5 divide-x divide-sand-200 overflow-hidden rounded-xl border border-sand-200 sm:order-1 sm:grid-cols-3 sm:gap-3 sm:divide-x-0 sm:overflow-visible sm:rounded-none sm:border-0 lg:grid-cols-5"
-    >
-      <div
-        class="bg-white px-1.5 py-2 text-center sm:rounded-2xl sm:border sm:border-sand-200 sm:p-4 sm:text-left"
-      >
-        <p class="font-bold tabular-nums text-sand-900 sm:text-2xl">
-          {{ stats.totalTrips }}
-        </p>
-        <p class="text-[10px] text-sand-500 sm:mt-0.5 sm:text-xs">Trips</p>
-      </div>
-      <div
-        class="bg-white px-1.5 py-2 text-center sm:rounded-2xl sm:border sm:border-sand-200 sm:p-4 sm:text-left"
-      >
-        <p class="font-bold tabular-nums text-terra-600 sm:text-2xl">
-          {{ stats.completedTrips }}
-        </p>
-        <p class="text-[10px] text-sand-500 sm:mt-0.5 sm:text-xs">Completed</p>
-      </div>
-      <div
-        class="bg-white px-1.5 py-2 text-center sm:rounded-2xl sm:border sm:border-sand-200 sm:p-4 sm:text-left"
-      >
-        <p class="font-bold tabular-nums text-ocean-600 sm:text-2xl">
-          {{ stats.countriesVisited }}
-        </p>
-        <p class="text-[10px] text-sand-500 sm:mt-0.5 sm:text-xs">Countries</p>
-      </div>
-      <div
-        class="bg-white px-1.5 py-2 text-center sm:rounded-2xl sm:border sm:border-sand-200 sm:p-4 sm:text-left"
-      >
-        <p class="font-bold tabular-nums text-forest-600 sm:text-2xl">
-          {{ stats.totalDays }}
-        </p>
-        <p class="text-[10px] text-sand-500 sm:mt-0.5 sm:text-xs">Days</p>
-      </div>
-      <div
-        class="bg-white px-1.5 py-2 text-center sm:rounded-2xl sm:border sm:border-sand-200 sm:p-4 sm:text-left"
-      >
-        <p class="font-bold tabular-nums text-sand-900 sm:text-2xl">
-          {{ stats.totalFlights }}
-        </p>
-        <p class="text-[10px] text-sand-500 sm:mt-0.5 sm:text-xs">Flights</p>
-      </div>
-    </div>
-
-    <PreTripBriefing
-      v-if="dashboardBriefing"
-      :briefing="dashboardBriefing"
-      class="order-1 sm:order-2"
+    <PassportHero
+      class="order-3"
+      :flights="(upcomingFlights as PassportFlight[] | null) ?? []"
+      :visited-countries="visitedCountries ?? []"
+      :variant="dashboardBriefing ? 'slim' : 'full'"
     />
+
+    <hr class="order-4 border-t border-sand-200/70 dark:border-white/5" />
+
+    <PreTripBriefing v-if="dashboardBriefing" :briefing="dashboardBriefing" class="order-1" />
 
     <!-- Next flight + Trip countdown row -->
     <div
       v-else-if="nextFlight || (nextTrip && countdown)"
-      class="order-1 grid grid-cols-1 gap-3 sm:order-2 sm:grid-cols-2"
+      class="order-1 grid grid-cols-1 gap-3 sm:grid-cols-2"
     >
       <!-- Next flight -->
       <NuxtLink
@@ -331,7 +303,7 @@ const dashboardBriefing = computed(() =>
     </div>
 
     <!-- Trips section -->
-    <div class="order-3">
+    <div class="order-5">
       <div class="flex items-center justify-between">
         <h1 class="font-display text-xl text-sand-900 sm:text-2xl">My Trips</h1>
         <NuxtLink
@@ -367,7 +339,42 @@ const dashboardBriefing = computed(() =>
       </div>
 
       <template v-else>
-        <div class="mt-5 grid gap-4 sm:mt-6 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div v-if="showControls" class="mt-5 sm:mt-6">
+          <div class="relative max-w-sm">
+            <Icon
+              name="lucide:search"
+              class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-400"
+            />
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search by destination..."
+              class="w-full rounded-xl border border-sand-200 bg-sand-50 py-2 pl-9 pr-9 text-sm text-sand-900 placeholder:text-sand-400 focus:border-terra-300 focus:outline-none focus:ring-2 focus:ring-terra-200"
+            />
+            <button
+              v-if="searchQuery"
+              class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-sand-400 transition hover:bg-sand-100 hover:text-sand-600"
+              title="Clear search"
+              @click="searchQuery = ''"
+            >
+              <Icon name="lucide:x" class="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        <div
+          v-if="!filteredTrips.length"
+          class="mt-8 flex flex-col items-center justify-center text-center"
+        >
+          <Icon name="lucide:search-x" class="h-8 w-8 text-sand-300" />
+          <p class="mt-3 text-sm text-sand-600">No trips match &ldquo;{{ searchQuery }}&rdquo;.</p>
+        </div>
+
+        <div
+          v-else
+          class="grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3"
+          :class="showControls ? 'mt-4 sm:mt-5' : 'mt-5 sm:mt-6'"
+        >
           <div
             v-for="trip in paginatedTrips"
             :key="trip.id"
