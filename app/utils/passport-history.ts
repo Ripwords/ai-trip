@@ -58,6 +58,7 @@ export interface BuildPassportHistoryInput {
   visitedCountries: PassportVisitedCountry[] | null | undefined
   year?: number | null
   recentFlightLimit?: number
+  now?: Date
 }
 
 export function buildPassportHistory(input: BuildPassportHistoryInput): PassportHistory {
@@ -65,9 +66,17 @@ export function buildPassportHistory(input: BuildPassportHistoryInput): Passport
   const visited = input.visitedCountries ?? []
   const year = input.year ?? null
   const recentLimit = Math.max(1, Math.min(5, input.recentFlightLimit ?? 4))
+  const todayIso = (input.now ?? new Date()).toISOString().slice(0, 10)
 
+  // Match Flighty Passport semantics: only flights actually taken count.
+  // Cancelled rows never count. Future rows are excluded from the unscoped
+  // "all time" view, but kept when the user explicitly scopes to a year so
+  // upcoming-year selections in the picker are still meaningful.
+  const flown = allFlights.filter((f) => f.status !== "cancelled")
   const flights =
-    year == null ? allFlights : allFlights.filter((f) => yearOf(f.flightDate) === year)
+    year == null
+      ? flown.filter((f) => f.flightDate <= todayIso)
+      : flown.filter((f) => yearOf(f.flightDate) === year)
 
   const uniqueAirports = unique(
     flights.flatMap((f) => [f.departureAirport, f.arrivalAirport].filter(nonEmpty)),

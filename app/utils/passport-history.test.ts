@@ -174,6 +174,69 @@ describe("passport history", () => {
     assert.deepEqual(y2025.availableYears, [2025, 2024])
   })
 
+  it("excludes future flights from totals so it mirrors Flighty Passport", () => {
+    const result = buildPassportHistory({
+      flights: [
+        mkFlight("past", "2025-01-01", "JFK", "NRT"),
+        mkFlight("future", "2027-01-01", "JFK", "LHR"),
+      ],
+      visitedCountries: [],
+      now: new Date("2026-05-24T00:00:00Z"),
+    })
+
+    assert.equal(result.totalFlights, 1)
+    assert.deepEqual(result.uniqueAirports.toSorted(), ["JFK", "NRT"])
+    assert.equal(result.routeSegments.length, 1)
+    assert.equal(result.recentFlights.length, 1)
+    assert.equal(result.recentFlights[0]?.id, "past")
+  })
+
+  it("excludes cancelled flights from totals so it mirrors Flighty Passport", () => {
+    const result = buildPassportHistory({
+      flights: [
+        mkFlight("ok", "2025-01-01", "JFK", "NRT"),
+        { ...mkFlight("cxl", "2025-06-01", "JFK", "LHR"), status: "cancelled" },
+      ],
+      visitedCountries: [],
+      now: new Date("2026-05-24T00:00:00Z"),
+    })
+
+    assert.equal(result.totalFlights, 1)
+    assert.equal(result.routeSegments.length, 1)
+    assert.equal(result.recentFlights[0]?.id, "ok")
+  })
+
+  it("keeps future years in availableYears so the year picker can scope to them", () => {
+    const result = buildPassportHistory({
+      flights: [
+        mkFlight("past", "2025-01-01", "JFK", "NRT"),
+        mkFlight("future", "2027-01-01", "JFK", "LHR"),
+      ],
+      visitedCountries: [],
+      now: new Date("2026-05-24T00:00:00Z"),
+    })
+
+    assert.deepEqual(result.availableYears, [2027, 2025])
+  })
+
+  it("shows future flights when the user explicitly scopes to a future year", () => {
+    // Year picker is the user saying "show me this year" — including upcoming
+    // years. Cancellation filter still applies, but date filter is bypassed.
+    const result = buildPassportHistory({
+      flights: [
+        mkFlight("past", "2025-01-01", "JFK", "NRT"),
+        mkFlight("future", "2027-03-01", "JFK", "LHR"),
+        { ...mkFlight("cxl", "2027-04-01", "JFK", "CDG"), status: "cancelled" },
+      ],
+      visitedCountries: [],
+      year: 2027,
+      now: new Date("2026-05-24T00:00:00Z"),
+    })
+
+    assert.equal(result.totalFlights, 1)
+    assert.equal(result.recentFlights[0]?.id, "future")
+  })
+
   it("returns zeroed values for empty / nullish input", () => {
     const r = buildPassportHistory({ flights: null, visitedCountries: null })
     assert.equal(r.totalFlights, 0)
