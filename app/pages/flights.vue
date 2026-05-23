@@ -100,6 +100,14 @@ const pastFlights = computed(() =>
 
 const showPast = ref(false)
 
+const showImportModal = ref(false)
+function openImportModal() {
+  showImportModal.value = true
+}
+async function onImported() {
+  await refresh()
+}
+
 // Pagination for upcoming
 const upcomingPage = ref(1)
 const perPage = 5
@@ -152,6 +160,17 @@ const paginatedPast = computed(() => {
         {{ adding ? "Adding..." : "Add Flight" }}
       </button>
     </form>
+
+    <div class="flex justify-end">
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-xl border border-sand-200 bg-stone-50 px-3 py-1.5 text-xs font-medium text-sand-700 transition hover:bg-sand-100"
+        @click="openImportModal"
+      >
+        <Icon name="lucide:upload" class="h-3.5 w-3.5" />
+        Import from Flighty
+      </button>
+    </div>
 
     <!-- Loading skeleton -->
     <SkeletonFlights v-if="status === 'pending'" />
@@ -236,5 +255,11 @@ const paginatedPast = computed(() => {
         </div>
       </div>
     </section>
+
+    <ImportFlightyModal
+      :open="showImportModal"
+      @close="showImportModal = false"
+      @imported="onImported"
+    />
   </div>
 </template>
