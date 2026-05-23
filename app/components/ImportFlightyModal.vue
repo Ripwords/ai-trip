@@ -170,7 +170,7 @@ function close() {
 
           <div
             v-if="preview.preview.length > 0"
-            class="max-h-60 overflow-y-auto rounded-xl border border-sand-200"
+            class="max-h-60 overflow-y-auto rounded-xl border border-sand-200 scrollbar-thin"
           >
             <table class="w-full text-left text-xs">
               <thead class="bg-sand-100 text-sand-600">
