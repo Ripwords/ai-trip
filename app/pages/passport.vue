@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import { geoNaturalEarth1, geoPath } from "d3-geo"
+import { feature } from "topojson-client"
+import type { Topology, GeometryCollection } from "topojson-specification"
 import { buildPassportHistory } from "../utils/passport-history"
 import type {
   PassportFlight,
   PassportRouteSegment,
   PassportVisitedCountry,
 } from "../utils/passport-history"
+import worldTopoJson from "../data/countries-50m.json"
 
 definePageMeta({ layout: "app" })
 useSeoMeta({
@@ -51,27 +55,48 @@ const periodLabel = computed(() =>
   selectedYear.value == null ? "All time" : String(selectedYear.value),
 )
 
-function project(lat: number, lng: number): { x: number; y: number } {
-  const x = ((lng + 180) / 360) * 1000
-  const y = ((90 - lat) / 180) * 500
-  return { x, y }
+const MAP_WIDTH = 1000
+const MAP_HEIGHT = 500
+const projection = geoNaturalEarth1()
+  .scale(180)
+  .translate([MAP_WIDTH / 2, MAP_HEIGHT / 2 + 10])
+const pathGenerator = geoPath().projection(projection)
+
+const worldData = worldTopoJson as unknown as Topology
+const countriesGeo = feature(worldData, worldData.objects.countries as GeometryCollection)
+const worldPaths = countriesGeo.features
+  .map((f) => pathGenerator(f) ?? "")
+  .filter((d) => d.length > 0)
+
+function project(lat: number, lng: number): { x: number; y: number } | null {
+  const result = projection([lng, lat])
+  if (!result) return null
+  return { x: result[0], y: result[1] }
 }
 
-function segmentPath(seg: PassportRouteSegment): string {
+function segmentPath(seg: PassportRouteSegment): string | null {
   const a = project(seg.from.lat, seg.from.lng)
   const b = project(seg.to.lat, seg.to.lng)
+  if (!a || !b) return null
   const mx = (a.x + b.x) / 2
-  const my = (a.y + b.y) / 2 - Math.abs(b.x - a.x) * 0.12
+  const my = (a.y + b.y) / 2 - Math.abs(b.x - a.x) * 0.18
   return `M${a.x.toFixed(1)},${a.y.toFixed(1)} Q${mx.toFixed(1)},${my.toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}`
 }
+
+const projectedSegments = computed(() =>
+  passport.value.routeSegments
+    .map((seg) => ({ key: seg.flightId, d: segmentPath(seg) }))
+    .filter((s): s is { key: string; d: string } => s.d !== null),
+)
 
 const uniqueMapPoints = computed(() => {
   const map = new Map<string, { code: string; x: number; y: number }>()
   for (const seg of passport.value.routeSegments) {
     for (const p of [seg.from, seg.to]) {
       if (map.has(p.code)) continue
-      const { x, y } = project(p.lat, p.lng)
-      map.set(p.code, { code: p.code, x, y })
+      const projected = project(p.lat, p.lng)
+      if (!projected) continue
+      map.set(p.code, { code: p.code, x: projected.x, y: projected.y })
     }
   }
   return Array.from(map.values())
@@ -171,28 +196,45 @@ const uniqueMapPoints = computed(() => {
                   <path
                     d="M50 0H0V50"
                     fill="none"
-                    stroke="rgba(214,193,168,0.08)"
+                    stroke="rgba(214,193,168,0.05)"
                     stroke-width="0.5"
                   />
                 </pattern>
               </defs>
               <rect width="1000" height="500" fill="url(#passport-grid)" />
+              <g class="passport-world">
+                <path
+                  v-for="(d, i) in worldPaths"
+                  :key="i"
+                  :d="d"
+                  fill="rgba(245,233,215,0.05)"
+                  stroke="rgba(213,143,93,0.18)"
+                  stroke-width="0.4"
+                />
+              </g>
               <path
-                v-for="seg in passport.routeSegments"
-                :key="seg.flightId"
-                :d="segmentPath(seg)"
+                v-for="seg in projectedSegments"
+                :key="seg.key"
+                :d="seg.d"
                 fill="none"
-                stroke="rgba(213,143,93,0.85)"
-                stroke-width="1.4"
+                stroke="rgba(232,170,110,0.95)"
+                stroke-width="1.6"
                 stroke-linecap="round"
               />
               <g v-for="point in uniqueMapPoints" :key="point.code">
-                <circle :cx="point.x" :cy="point.y" r="3" fill="#f0c896" />
+                <circle
+                  :cx="point.x"
+                  :cy="point.y"
+                  r="3.5"
+                  fill="#f5d3a4"
+                  stroke="rgba(33,21,17,0.6)"
+                  stroke-width="0.8"
+                />
                 <text
                   :x="point.x + 6"
-                  :y="point.y - 4"
+                  :y="point.y - 5"
                   font-size="10"
-                  fill="rgba(240,200,150,0.85)"
+                  fill="rgba(245,211,164,0.95)"
                   font-family="ui-monospace, SFMono-Regular, monospace"
                 >
                   {{ point.code }}
@@ -201,7 +243,7 @@ const uniqueMapPoints = computed(() => {
             </svg>
             <p
               v-if="passport.routeSegments.length === 0"
-              class="absolute inset-0 flex items-center justify-center text-xs text-sand-300"
+              class="absolute inset-x-0 bottom-3 text-center text-xs text-sand-300"
             >
               No mappable routes yet
             </p>
@@ -271,12 +313,15 @@ const uniqueMapPoints = computed(() => {
     </section>
 
     <section v-if="hasAnyData" class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <div class="rounded-2xl border border-sand-200 bg-white/70 p-5">
-        <div class="mb-3 flex items-baseline justify-between">
+      <div class="flex max-h-[420px] flex-col rounded-2xl border border-sand-200 bg-white/70 p-5">
+        <div class="mb-3 flex shrink-0 items-baseline justify-between">
           <h2 class="font-display text-lg text-sand-900">Country history</h2>
           <p class="text-xs text-sand-500">{{ passport.countries.length }} total</p>
         </div>
-        <ul v-if="passport.countries.length" class="divide-y divide-sand-100">
+        <ul
+          v-if="passport.countries.length"
+          class="passport-scroll min-h-0 flex-1 divide-y divide-sand-100 overflow-y-auto pr-2"
+        >
           <li
             v-for="country in passport.countries"
             :key="country.code"
@@ -375,5 +420,19 @@ const uniqueMapPoints = computed(() => {
   font-size: 0.8rem;
   color: rgba(245, 233, 215, 0.6);
   font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.passport-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(118, 95, 71, 0.35) transparent;
+}
+
+.passport-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.passport-scroll::-webkit-scrollbar-thumb {
+  background: rgba(118, 95, 71, 0.3);
+  border-radius: 999px;
 }
 </style>

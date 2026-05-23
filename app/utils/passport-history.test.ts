@@ -68,7 +68,7 @@ describe("passport history", () => {
     assert.equal(result.totalFlights, 2)
   })
 
-  it("merges visited countries with flight-derived countries, visited wins", () => {
+  it("builds country list from visited-countries only — ignores flight-derived countries", () => {
     const result = buildPassportHistory({
       flights: [
         {
@@ -105,15 +105,23 @@ describe("passport history", () => {
     const thailand = result.countries.find((c) => c.code === "TH")
     assert.equal(thailand?.source, "layover")
 
-    assert.equal(result.countries.find((c) => c.code === "FR")?.source, "flight")
-    assert.equal(result.countries.find((c) => c.code === "GB")?.source, "flight")
+    // France/UK/US should NOT appear — they are flight-derived only.
+    assert.equal(
+      result.countries.find((c) => c.code === "FR"),
+      undefined,
+    )
+    assert.equal(
+      result.countries.find((c) => c.code === "GB"),
+      undefined,
+    )
+    assert.equal(
+      result.countries.find((c) => c.code === "US"),
+      undefined,
+    )
 
+    // Visited group ordered before layover group.
     const order = result.countries.map((c) => c.code)
-    const visitedIdx = order.indexOf("JP")
-    const layoverIdx = order.indexOf("TH")
-    const flightIdx = Math.min(order.indexOf("FR"), order.indexOf("GB"))
-    assert.ok(visitedIdx < layoverIdx)
-    assert.ok(layoverIdx < flightIdx)
+    assert.deepEqual(order, ["JP", "TH"])
 
     assert.equal(result.countryFlags.length, result.countries.length)
   })
@@ -148,7 +156,7 @@ describe("passport history", () => {
     )
   })
 
-  it("filters flight-derived data by year and hides visited-only countries in year mode", () => {
+  it("filters flight stats by year while keeping visited countries visible", () => {
     const all = buildPassportHistory({
       flights: [
         mkFlight("a", "2024-03-01", "JFK", "NRT"),
@@ -169,11 +177,9 @@ describe("passport history", () => {
       year: 2025,
     })
     assert.equal(y2025.totalFlights, 1)
-    assert.equal(
-      y2025.countries.find((c) => c.code === "TH"),
-      undefined,
-    )
-    assert.ok(y2025.countries.some((c) => c.code === "FR"))
+    // Visited countries always remain — year only filters flight-derived data.
+    assert.ok(y2025.countries.some((c) => c.code === "TH"))
+    assert.equal(y2025.routeSegments.length, 1)
     assert.deepEqual(y2025.availableYears, [2025, 2024])
   })
 

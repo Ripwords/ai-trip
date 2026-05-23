@@ -1,5 +1,4 @@
 import { airportCoordinates } from "./airport-coordinates"
-import { iataToCountry } from "./iata-to-country"
 import { countryByAlpha2, countryFlag } from "../data/countries"
 
 export interface PassportFlight {
@@ -21,7 +20,7 @@ export interface PassportVisitedCountry {
   visitedAt?: string | null
 }
 
-export type CountrySource = "visited" | "layover" | "flight"
+export type CountrySource = "visited" | "layover"
 
 export interface PassportCountryEntry {
   code: string
@@ -92,7 +91,7 @@ export function buildPassportHistory(input: BuildPassportHistoryInput): Passport
     })
   }
 
-  const countries = mergeCountries(visited, flights, year != null)
+  const countries = buildVisitedCountries(visited)
   const countryFlags = countries.map((c) => c.flag)
 
   const recentFlights = flights
@@ -120,41 +119,20 @@ export function buildPassportHistory(input: BuildPassportHistoryInput): Passport
   }
 }
 
-const SOURCE_RANK: Record<CountrySource, number> = { visited: 0, layover: 1, flight: 2 }
+const SOURCE_RANK: Record<CountrySource, number> = { visited: 0, layover: 1 }
 
-function mergeCountries(
-  visited: PassportVisitedCountry[],
-  flights: PassportFlight[],
-  flightDerivedOnly: boolean,
-): PassportCountryEntry[] {
+function buildVisitedCountries(visited: PassportVisitedCountry[]): PassportCountryEntry[] {
   const map = new Map<string, PassportCountryEntry>()
 
-  if (!flightDerivedOnly) {
-    for (const v of visited) {
-      const code = v.countryCode.toUpperCase()
-      const source: CountrySource = v.visitType === "layover" ? "layover" : "visited"
-      map.set(code, {
-        code,
-        name: countryByAlpha2.get(code)?.name ?? v.countryName,
-        flag: countryFlag(code),
-        source,
-      })
-    }
-  }
-
-  for (const f of flights) {
-    for (const airport of [f.departureAirport, f.arrivalAirport]) {
-      if (!airport) continue
-      const code = iataToCountry[airport]
-      if (!code) continue
-      if (map.has(code)) continue
-      map.set(code, {
-        code,
-        name: countryByAlpha2.get(code)?.name ?? code,
-        flag: countryFlag(code),
-        source: "flight",
-      })
-    }
+  for (const v of visited) {
+    const code = v.countryCode.toUpperCase()
+    const source: CountrySource = v.visitType === "layover" ? "layover" : "visited"
+    map.set(code, {
+      code,
+      name: countryByAlpha2.get(code)?.name ?? v.countryName,
+      flag: countryFlag(code),
+      source,
+    })
   }
 
   return Array.from(map.values()).toSorted((a, b) => {
