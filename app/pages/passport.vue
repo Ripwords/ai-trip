@@ -152,9 +152,9 @@ const uniqueMapPoints = computed(() => {
       v-else-if="!hasAnyData"
       class="passport-shell flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-3xl px-6 py-10 text-center"
     >
-      <Icon name="lucide:stamp" class="h-8 w-8 text-terra-300" />
-      <h2 class="font-display text-2xl text-sand-50">Your passport is empty</h2>
-      <p class="max-w-md text-sm text-sand-300">
+      <Icon name="lucide:stamp" class="passport-empty-icon h-8 w-8" />
+      <h2 class="font-display text-2xl text-sand-900">Your passport is empty</h2>
+      <p class="max-w-md text-sm text-sand-600">
         Add flights or mark countries to start building your travel ledger.
       </p>
       <div class="mt-2 flex flex-wrap justify-center gap-2">
@@ -166,7 +166,7 @@ const uniqueMapPoints = computed(() => {
         </NuxtLink>
         <NuxtLink
           to="/explore"
-          class="rounded-full border border-sand-50/30 px-4 py-2 text-xs font-semibold text-sand-50 transition hover:bg-sand-50/10"
+          class="passport-empty-outline rounded-full border px-4 py-2 text-xs font-semibold transition"
         >
           Mark countries
         </NuxtLink>
@@ -193,22 +193,16 @@ const uniqueMapPoints = computed(() => {
                   height="50"
                   patternUnits="userSpaceOnUse"
                 >
-                  <path
-                    d="M50 0H0V50"
-                    fill="none"
-                    stroke="rgba(214,193,168,0.05)"
-                    stroke-width="0.5"
-                  />
+                  <path d="M50 0H0V50" class="passport-grid-line" stroke-width="0.5" />
                 </pattern>
               </defs>
               <rect width="1000" height="500" fill="url(#passport-grid)" />
-              <g class="passport-world">
+              <g>
                 <path
                   v-for="(d, i) in worldPaths"
                   :key="i"
                   :d="d"
-                  fill="rgba(245,233,215,0.05)"
-                  stroke="rgba(213,143,93,0.18)"
+                  class="passport-world-path"
                   stroke-width="0.4"
                 />
               </g>
@@ -216,8 +210,7 @@ const uniqueMapPoints = computed(() => {
                 v-for="seg in projectedSegments"
                 :key="seg.key"
                 :d="seg.d"
-                fill="none"
-                stroke="rgba(232,170,110,0.95)"
+                class="passport-route"
                 stroke-width="1.6"
                 stroke-linecap="round"
               />
@@ -226,15 +219,14 @@ const uniqueMapPoints = computed(() => {
                   :cx="point.x"
                   :cy="point.y"
                   r="3.5"
-                  fill="#f5d3a4"
-                  stroke="rgba(33,21,17,0.6)"
+                  class="passport-airport-dot"
                   stroke-width="0.8"
                 />
                 <text
                   :x="point.x + 6"
                   :y="point.y - 5"
                   font-size="10"
-                  fill="rgba(245,211,164,0.95)"
+                  class="passport-airport-label"
                   font-family="ui-monospace, SFMono-Regular, monospace"
                 >
                   {{ point.code }}
@@ -243,7 +235,7 @@ const uniqueMapPoints = computed(() => {
             </svg>
             <p
               v-if="passport.routeSegments.length === 0"
-              class="absolute inset-x-0 bottom-3 text-center text-xs text-sand-300"
+              class="absolute inset-x-0 bottom-3 text-center text-xs text-sand-600"
             >
               No mappable routes yet
             </p>
@@ -280,7 +272,7 @@ const uniqueMapPoints = computed(() => {
               >
                 {{ flag }}
               </span>
-              <span v-if="passport.countryFlags.length > 24" class="text-xs text-sand-300">
+              <span v-if="passport.countryFlags.length > 24" class="text-xs text-sand-600">
                 +{{ passport.countryFlags.length - 24 }}
               </span>
             </div>
@@ -303,7 +295,7 @@ const uniqueMapPoints = computed(() => {
 
           <p
             v-if="flightsError || visitedError"
-            class="rounded-xl bg-terra-500/15 px-3 py-2 text-xs text-terra-100"
+            class="rounded-xl bg-terra-500/15 px-3 py-2 text-xs text-terra-700"
           >
             <template v-if="flightsError">Couldn't load flights. </template>
             <template v-if="visitedError">Couldn't load visited countries.</template>
@@ -370,24 +362,73 @@ const uniqueMapPoints = computed(() => {
 </template>
 
 <style scoped>
+/* Passport shell — mirrors PreTripBriefing's terra→ocean→sand gradient.
+   var(--color-sand-50) swaps between light/dark, so the same formula
+   reads as warm parchment in light mode and a deep travel cover in dark. */
+
 .passport-shell {
-  background: linear-gradient(120deg, #33211d 0%, #1d2d2b 58%, #131815 100%);
+  background:
+    /* top-left catchlight */
+    radial-gradient(ellipse 70% 55% at 10% 0%, rgba(255, 255, 255, 0.22), transparent 62%),
+    /* diagonal sheen band */
+    linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.1) 50%, transparent 62%),
+    /* base terra → ocean → sand */
+    linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--color-terra-500) 13%, var(--color-sand-50)),
+        color-mix(in srgb, var(--color-ocean-500) 13%, var(--color-sand-50)) 54%,
+        var(--color-sand-50)
+      );
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 22px 50px rgba(0, 0, 0, 0.22);
-  color: #f3e8d8;
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 16px 42px rgba(61, 51, 40, 0.08);
+  color: var(--color-sand-900);
+}
+
+.dark .passport-shell {
+  background:
+    radial-gradient(ellipse 70% 55% at 10% 0%, rgba(255, 255, 255, 0.06), transparent 62%),
+    linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.035) 50%, transparent 62%),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-terra-500) 15%, var(--color-sand-50)),
+      color-mix(in srgb, var(--color-ocean-500) 16%, var(--color-sand-50)) 58%,
+      var(--color-sand-50)
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 18px 46px rgba(0, 0, 0, 0.28);
+}
+
+.passport-empty-icon {
+  color: var(--color-terra-500);
+}
+
+.passport-empty-outline {
+  border-color: color-mix(in srgb, var(--color-sand-700) 35%, transparent);
+  color: var(--color-sand-900);
+}
+
+.passport-empty-outline:hover {
+  background: color-mix(in srgb, var(--color-sand-900) 6%, transparent);
 }
 
 .passport-map-frame {
   background:
-    radial-gradient(120% 80% at 0% 0%, rgba(213, 143, 93, 0.08), transparent 60%),
-    rgba(20, 26, 26, 0.55);
-  border: 1px solid rgba(213, 143, 93, 0.18);
+    radial-gradient(
+      120% 80% at 0% 0%,
+      color-mix(in srgb, var(--color-terra-500) 8%, transparent),
+      transparent 60%
+    ),
+    color-mix(in srgb, var(--color-sand-50) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-terra-600) 20%, transparent);
 }
 
 .passport-metric {
-  background: rgba(245, 233, 215, 0.06);
-  border: 1px solid rgba(245, 233, 215, 0.1);
+  background: color-mix(in srgb, var(--color-sand-50) 62%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-sand-400) 24%, transparent);
   border-radius: 1rem;
   padding: 0.9rem 1rem;
   backdrop-filter: blur(4px);
@@ -398,14 +439,14 @@ const uniqueMapPoints = computed(() => {
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(213, 143, 93, 0.9);
+  color: var(--color-terra-600);
 }
 
 .passport-metric-value {
   font-family: ui-serif, Georgia, serif;
   font-size: 1.85rem;
   line-height: 1.1;
-  color: #f5e9d7;
+  color: var(--color-sand-900);
   margin-top: 0.35rem;
   word-break: break-word;
 }
@@ -413,13 +454,38 @@ const uniqueMapPoints = computed(() => {
 .passport-metric-unit {
   margin-left: 0.25rem;
   font-size: 0.8rem;
-  color: rgba(245, 233, 215, 0.6);
+  color: color-mix(in srgb, var(--color-sand-900) 55%, transparent);
   font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+/* SVG map — all colors via CSS vars so they swap with the theme. */
+.passport-grid-line {
+  stroke: color-mix(in srgb, var(--color-sand-700) 12%, transparent);
+  fill: none;
+}
+
+.passport-world-path {
+  fill: color-mix(in srgb, var(--color-sand-300) 35%, transparent);
+  stroke: color-mix(in srgb, var(--color-terra-600) 30%, transparent);
+}
+
+.passport-route {
+  fill: none;
+  stroke: var(--color-terra-600);
+}
+
+.passport-airport-dot {
+  fill: var(--color-terra-700);
+  stroke: color-mix(in srgb, var(--color-sand-50) 90%, transparent);
+}
+
+.passport-airport-label {
+  fill: color-mix(in srgb, var(--color-terra-700) 90%, transparent);
 }
 
 .passport-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(118, 95, 71, 0.35) transparent;
+  scrollbar-color: color-mix(in srgb, var(--color-sand-500) 45%, transparent) transparent;
 }
 
 .passport-scroll::-webkit-scrollbar {
@@ -427,7 +493,7 @@ const uniqueMapPoints = computed(() => {
 }
 
 .passport-scroll::-webkit-scrollbar-thumb {
-  background: rgba(118, 95, 71, 0.3);
+  background: color-mix(in srgb, var(--color-sand-500) 40%, transparent);
   border-radius: 999px;
 }
 </style>
