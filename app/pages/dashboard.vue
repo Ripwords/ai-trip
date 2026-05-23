@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import type {
+  DashboardFlight,
+  DashboardPassport,
+  DashboardVisaInfo,
+} from "../utils/dashboard-briefing"
+import { buildPreTripBriefing, getPreTripCandidate } from "../utils/dashboard-briefing"
+
 definePageMeta({ layout: "app" })
 useSeoMeta({
   title: "Dashboard",
@@ -8,6 +15,7 @@ useSeoMeta({
 const { data: trips, status, refresh } = useLazyFetch("/api/trips")
 const { data: stats } = useLazyFetch("/api/stats")
 const { data: upcomingFlights } = useLazyFetch("/api/flights")
+const { data: passports } = useLazyFetch<DashboardPassport[]>("/api/user/passports/summary")
 
 const { confirm } = useConfirm()
 
@@ -115,12 +123,58 @@ const countdown = computed(() => {
   const seconds = Math.floor((diff % (1000 * 60)) / 1000)
   return { days, hours, minutes, seconds }
 })
+
+const defaultPassport = computed(
+  () => passports.value?.find((passport) => passport.isDefault) ?? passports.value?.[0] ?? null,
+)
+const visaByCountry = ref<Record<string, DashboardVisaInfo> | null>(null)
+const visaPassportCode = ref<string | null>(null)
+
+watch(
+  defaultPassport,
+  async (passport) => {
+    if (!passport) {
+      visaByCountry.value = null
+      visaPassportCode.value = null
+      return
+    }
+    if (visaPassportCode.value === passport.countryCode) return
+
+    try {
+      visaByCountry.value = await $fetch("/api/visa/check-all", {
+        query: { passport: passport.countryCode },
+      })
+      visaPassportCode.value = passport.countryCode
+    } catch (e: unknown) {
+      console.error("Failed to load visa readiness:", e)
+      visaByCountry.value = null
+      visaPassportCode.value = null
+    }
+  },
+  { immediate: true },
+)
+
+const preTripCandidate = computed(() =>
+  getPreTripCandidate(
+    trips.value ?? [],
+    new Date(),
+    (upcomingFlights.value as DashboardFlight[]) ?? [],
+  ),
+)
+const dashboardBriefing = computed(() =>
+  buildPreTripBriefing({
+    trip: preTripCandidate.value,
+    flights: (upcomingFlights.value as DashboardFlight[] | null) ?? [],
+    passports: passports.value ?? [],
+    visaByCountry: visaByCountry.value,
+  }),
+)
 </script>
 
 <template>
   <div class="space-y-6 sm:space-y-8">
     <!-- Stats strip -->
-    <div v-if="stats" class="grid grid-cols-3 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
+    <div v-if="stats" class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
       <div class="rounded-xl border border-sand-200 bg-white p-3 sm:rounded-2xl sm:p-4">
         <p class="text-lg font-bold tabular-nums text-sand-900 sm:text-2xl">
           {{ stats.totalTrips }}
@@ -147,20 +201,19 @@ const countdown = computed(() => {
       </div>
       <div class="rounded-xl border border-sand-200 bg-white p-3 sm:rounded-2xl sm:p-4">
         <p class="text-lg font-bold tabular-nums text-sand-900 sm:text-2xl">
-          {{ stats.totalActivities }}
-        </p>
-        <p class="mt-0.5 text-[11px] text-sand-500 sm:text-xs">Activities</p>
-      </div>
-      <div class="rounded-xl border border-sand-200 bg-white p-3 sm:rounded-2xl sm:p-4">
-        <p class="text-lg font-bold tabular-nums text-sand-900 sm:text-2xl">
           {{ stats.totalFlights }}
         </p>
         <p class="mt-0.5 text-[11px] text-sand-500 sm:text-xs">Flights</p>
       </div>
     </div>
 
+    <PreTripBriefing v-if="dashboardBriefing" :briefing="dashboardBriefing" />
+
     <!-- Next flight + Trip countdown row -->
-    <div v-if="nextFlight || (nextTrip && countdown)" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div
+      v-else-if="nextFlight || (nextTrip && countdown)"
+      class="grid grid-cols-1 gap-3 sm:grid-cols-2"
+    >
       <!-- Next flight -->
       <NuxtLink
         v-if="nextFlight"

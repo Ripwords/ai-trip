@@ -105,6 +105,8 @@ export default defineNuxtConfig({
         "@tresjs/cientos",
         "three/examples/jsm/loaders/FBXLoader.js",
         "vue-border-beam",
+        "marked",
+        "dompurify",
       ],
     },
   },

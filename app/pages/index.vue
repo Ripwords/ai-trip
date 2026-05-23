@@ -2,10 +2,10 @@
 useSeoMeta({
   title: "Plan Your Trip with AI",
   description:
-    "AI finds hidden gems and real places verified by Google Maps. No tourist traps — just authentic, editable itineraries.",
+    "AI finds hidden gems, checks trip essentials before you fly, and keeps every itinerary editable.",
   ogTitle: "AI Trip — Plan Your Trip with AI",
   ogDescription:
-    "AI-powered travel planner that finds hidden gems verified by Google Maps. Create authentic, editable itineraries in minutes.",
+    "AI-powered travel planner with verified places, editable itineraries, and calm pre-trip briefings before you fly.",
 })
 
 useSchemaOrg([
@@ -17,7 +17,7 @@ useSchemaOrg([
     "@type": "WebPage",
     name: "AI Trip — Plan Your Trip with AI",
     description:
-      "AI-powered travel planner that finds hidden gems verified by Google Maps. Create authentic, editable itineraries in minutes.",
+      "AI-powered travel planner with verified places, editable itineraries, and calm pre-trip briefings before you fly.",
   }),
 ])
 
@@ -94,8 +94,8 @@ onMounted(() => {
 
         <!-- Subheading -->
         <p class="mx-auto mt-6 max-w-lg text-base leading-relaxed text-sand-600 sm:text-lg">
-          AI finds hidden gems and real places verified by Google Maps. No tourist traps — just
-          authentic, editable itineraries.
+          AI finds hidden gems, verifies real places, and keeps the flight, visa, and passport
+          details you need before departure.
         </p>
 
         <!-- CTA -->
@@ -131,8 +131,8 @@ onMounted(() => {
           <div
             class="flex items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-xs font-medium text-sand-700 backdrop-blur-sm border border-sand-200/60"
           >
-            <Icon name="lucide:plane" class="h-3.5 w-3.5 text-terra-500" />
-            Flight tracking
+            <Icon name="lucide:clipboard-check" class="h-3.5 w-3.5 text-terra-500" />
+            Pre-trip briefing
           </div>
         </div>
       </div>
@@ -345,6 +345,181 @@ onMounted(() => {
     </section>
 
     <!-- ═══════ FEATURE SECTIONS ═══════ -->
+
+    <!-- Feature: Pre-trip Briefing -->
+    <section data-section="5" class="relative overflow-hidden bg-sand-100/50 py-20 sm:py-28">
+      <div class="mx-auto max-w-7xl px-6">
+        <div class="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
+          <!-- Mock: Pre-trip briefing -->
+          <div
+            class="order-2 lg:order-1 transition-all duration-700 delay-200"
+            :class="
+              visibleSections.has(5) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+            "
+          >
+            <div
+              class="rounded-[1.75rem] border border-sand-200/70 bg-sand-50/80 p-3 shadow-2xl shadow-sand-900/8 backdrop-blur sm:p-4"
+            >
+              <div class="grid gap-3 lg:grid-cols-[minmax(0,1.32fr)_minmax(210px,0.68fr)]">
+                <div
+                  class="landing-briefing-hero-surface relative min-h-[250px] overflow-hidden rounded-2xl p-5 sm:p-6"
+                >
+                  <div
+                    class="landing-briefing-orbit absolute -bottom-16 -right-12 h-48 w-48 rounded-full"
+                  />
+                  <div class="relative z-10 flex h-full flex-col">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-terra-500">
+                          Next trip briefing
+                        </p>
+                        <h4
+                          class="mt-2 font-display text-3xl leading-none text-sand-900 sm:text-4xl"
+                        >
+                          Barcelona <span class="text-terra-500">in 3 days</span>
+                        </h4>
+                        <p class="mt-2 flex flex-wrap items-center gap-x-1 text-sm text-sand-600">
+                          Fly Mon, Sep 14
+                          <span class="mx-1 text-sand-300">·</span>
+                          Trip Tue, Sep 15 - Sun, Sep 20
+                        </p>
+                      </div>
+                      <div
+                        class="rounded-full bg-white/75 px-3 py-1 text-xs font-semibold text-sand-700 shadow-sm backdrop-blur dark:bg-white/10 dark:text-sand-800"
+                      >
+                        Depart Sep 14
+                      </div>
+                    </div>
+
+                    <p class="mt-5 max-w-2xl text-sm leading-6 text-sand-700 sm:text-[15px]">
+                      Flight AX214 departs LHR at 8:40 PM. Departure, document, and stay details are
+                      ready.
+                    </p>
+
+                    <div class="mt-auto flex flex-wrap gap-2 pt-8">
+                      <span
+                        class="inline-flex items-center rounded-full border border-sand-200 bg-white/75 px-3 py-1.5 text-xs font-semibold text-sand-700 backdrop-blur dark:bg-white/10 dark:text-sand-800"
+                      >
+                        LHR -> LIS
+                      </span>
+                      <span
+                        class="inline-flex items-center rounded-full border border-sand-200 bg-white/75 px-3 py-1.5 text-xs font-semibold text-sand-700 backdrop-blur dark:bg-white/10 dark:text-sand-800"
+                      >
+                        Terminal 2
+                      </span>
+                      <span
+                        class="inline-flex items-center rounded-full border border-forest-100 bg-forest-50 px-3 py-1.5 text-xs font-semibold text-forest-700 backdrop-blur"
+                      >
+                        Stay saved
+                      </span>
+                      <span
+                        class="inline-flex items-center rounded-full border border-terra-100 bg-terra-50 px-3 py-1.5 text-xs font-semibold text-terra-600 backdrop-blur"
+                      >
+                        Layover: Lisbon
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid gap-3">
+                  <div class="flex min-h-[76px] items-start gap-3 rounded-2xl bg-forest-50 p-4">
+                    <span
+                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-forest-100 text-forest-700"
+                    >
+                      <Icon name="lucide:shield-check" class="h-4 w-4" />
+                    </span>
+                    <span class="min-w-0">
+                      <span class="block text-sm font-semibold text-sand-900">Visa clear</span>
+                      <span class="mt-1 block text-xs leading-5 text-sand-600">
+                        Passport profile checked for Spain and Portugal.
+                      </span>
+                    </span>
+                  </div>
+
+                  <div class="flex min-h-[76px] items-start gap-3 rounded-2xl bg-forest-50 p-4">
+                    <span
+                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-forest-100 text-forest-700"
+                    >
+                      <Icon name="lucide:book-open" class="h-4 w-4" />
+                    </span>
+                    <span class="min-w-0">
+                      <span class="block text-sm font-semibold text-sand-900">Passport ready</span>
+                      <span class="mt-1 block text-xs leading-5 text-sand-600">
+                        Validity remains comfortably beyond the itinerary.
+                      </span>
+                    </span>
+                  </div>
+
+                  <div class="flex min-h-[76px] items-start gap-3 rounded-2xl bg-ocean-50 p-4">
+                    <span
+                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ocean-100 text-ocean-700"
+                    >
+                      <Icon name="lucide:plane" class="h-4 w-4" />
+                    </span>
+                    <span class="min-w-0">
+                      <span class="block text-sm font-semibold text-sand-900">Flight saved</span>
+                      <span class="mt-1 block text-xs leading-5 text-sand-600">
+                        AX214 LHR -> LIS at 8:40 PM.
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Text -->
+          <div
+            class="order-1 lg:order-2 transition-all duration-700"
+            :class="
+              visibleSections.has(5) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+            "
+          >
+            <div
+              class="inline-flex items-center gap-2 rounded-full bg-ocean-50 px-3 py-1 text-xs font-medium text-ocean-700"
+            >
+              <Icon name="lucide:clipboard-check" class="h-3.5 w-3.5" />
+              Pre-trip Briefing
+            </div>
+            <h2 class="mt-4 font-display text-3xl text-sand-900 sm:text-4xl lg:text-5xl">
+              Know what needs attention
+              <span class="text-gradient">before you fly.</span>
+            </h2>
+            <p class="mt-4 max-w-md text-base leading-relaxed text-sand-600">
+              Within seven days of departure, your dashboard surfaces a concise briefing with the
+              essentials: flight timing, passport validity, visa status, accommodation, and layover
+              context.
+            </p>
+            <ul class="mt-6 space-y-3">
+              <li class="flex items-start gap-3 text-sm text-sand-700">
+                <span
+                  class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest-100 text-forest-600"
+                >
+                  <Icon name="lucide:check" class="h-3 w-3" />
+                </span>
+                Recognizes when your outbound flight leaves before the trip start date
+              </li>
+              <li class="flex items-start gap-3 text-sm text-sand-700">
+                <span
+                  class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest-100 text-forest-600"
+                >
+                  <Icon name="lucide:check" class="h-3 w-3" />
+                </span>
+                Includes visa context for the destination and eligible layovers
+              </li>
+              <li class="flex items-start gap-3 text-sm text-sand-700">
+                <span
+                  class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest-100 text-forest-600"
+                >
+                  <Icon name="lucide:check" class="h-3 w-3" />
+                </span>
+                Keeps readiness checks visible without crowding the dashboard
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- Feature 1: AI Itinerary Generation -->
     <section data-section="0" class="relative overflow-hidden py-24 sm:py-32">
@@ -1172,140 +1347,6 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- Feature 6: Flight Tracking & Visa -->
-    <section data-section="5" class="relative overflow-hidden bg-sand-100/50 py-24 sm:py-32">
-      <div class="mx-auto max-w-7xl px-6">
-        <div class="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
-          <!-- Mock: Flight card + visa badge -->
-          <div
-            class="order-2 lg:order-1 transition-all duration-700 delay-200"
-            :class="
-              visibleSections.has(5) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
-            "
-          >
-            <div class="space-y-3">
-              <!-- Mock flight card -->
-              <div
-                class="rounded-2xl border border-sand-200/80 bg-white p-5 shadow-lg shadow-sand-900/5"
-              >
-                <div class="flex items-center gap-3">
-                  <div
-                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sand-100"
-                  >
-                    <Icon name="lucide:plane" class="h-5 w-5 text-sand-500" />
-                  </div>
-                  <div>
-                    <p class="text-xs text-sand-500">Singapore Airlines</p>
-                    <p class="font-display text-lg text-sand-900">SQ638</p>
-                  </div>
-                  <span
-                    class="ml-auto rounded-full bg-forest-50 px-2.5 py-0.5 text-xs font-medium text-forest-700"
-                    >On Time</span
-                  >
-                </div>
-                <div class="mt-4 flex items-center gap-3">
-                  <div class="text-center">
-                    <p class="font-display text-xl text-sand-900">SIN</p>
-                    <p class="text-xs text-sand-500">08:15</p>
-                  </div>
-                  <div class="flex flex-1 items-center">
-                    <div class="h-px flex-1 bg-sand-200" />
-                    <Icon name="lucide:plane" class="mx-2 h-4 w-4 text-sand-400" />
-                    <div class="h-px flex-1 bg-sand-200" />
-                  </div>
-                  <div class="text-center">
-                    <p class="font-display text-xl text-sand-900">NRT</p>
-                    <p class="text-xs text-sand-500">16:30</p>
-                  </div>
-                </div>
-                <div class="mt-3 flex items-center gap-2 text-xs text-sand-500">
-                  <span>Wed, Apr 15</span>
-                  <span>&#183; Terminal 3</span>
-                  <span>&#183; Gate C22</span>
-                  <span
-                    class="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700"
-                  >
-                    <Icon name="lucide:check-circle" class="h-2.5 w-2.5" />
-                    Visa Free (30d)
-                  </span>
-                </div>
-              </div>
-
-              <!-- Mock passport card -->
-              <div
-                class="rounded-2xl border border-sand-200/80 bg-white p-5 shadow-lg shadow-sand-900/5"
-              >
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-3">
-                    <Icon name="lucide:book-open" class="h-5 w-5 text-terra-500" />
-                    <div>
-                      <p class="text-sm font-medium text-sand-900">Malaysia</p>
-                      <p class="text-xs text-sand-500">MY &#183; Exp Jul 2027</p>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-1">
-                    <span class="font-mono text-xs text-sand-500"
-                      >&#8226;&#8226;&#8226;&#8226;8695</span
-                    >
-                    <Icon name="lucide:eye" class="h-3 w-3 text-sand-400" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Text -->
-          <div
-            class="order-1 lg:order-2 transition-all duration-700"
-            :class="
-              visibleSections.has(5) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-            "
-          >
-            <div
-              class="inline-flex items-center gap-2 rounded-full bg-ocean-50 px-3 py-1 text-xs font-medium text-ocean-700"
-            >
-              <Icon name="lucide:plane" class="h-3.5 w-3.5" />
-              Flight Tracking
-            </div>
-            <h2 class="mt-4 font-display text-3xl text-sand-900 sm:text-4xl lg:text-5xl">
-              Track flights.
-              <span class="text-gradient">Check visas instantly.</span>
-            </h2>
-            <p class="mt-4 max-w-md text-base leading-relaxed text-sand-600">
-              Add your flight numbers to see live gate info, terminal details, and delay updates.
-              Visa requirements are checked automatically based on your passport.
-            </p>
-            <ul class="mt-6 space-y-3">
-              <li class="flex items-start gap-3 text-sm text-sand-700">
-                <span
-                  class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest-100 text-forest-600"
-                >
-                  <Icon name="lucide:check" class="h-3 w-3" />
-                </span>
-                Flight status with gate and terminal info
-              </li>
-              <li class="flex items-start gap-3 text-sm text-sand-700">
-                <span
-                  class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest-100 text-forest-600"
-                >
-                  <Icon name="lucide:check" class="h-3 w-3" />
-                </span>
-                Automatic visa checks for 199 countries
-              </li>
-              <li class="flex items-start gap-3 text-sm text-sand-700">
-                <span
-                  class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest-100 text-forest-600"
-                >
-                  <Icon name="lucide:check" class="h-3 w-3" />
-                </span>
-                Encrypted passport storage with expiry alerts
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- ═══════ FINAL CTA ═══════ -->
     <section class="relative overflow-hidden py-24 sm:py-32">
       <div class="pointer-events-none absolute inset-0" aria-hidden="true">
@@ -1338,5 +1379,37 @@ onMounted(() => {
 .feature-mock-enter {
   opacity: 0;
   transform: translateY(20px);
+}
+
+.landing-briefing-hero-surface {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-terra-500) 13%, var(--color-sand-50)),
+    color-mix(in srgb, var(--color-ocean-500) 13%, var(--color-sand-50)) 54%,
+    var(--color-sand-50)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    0 16px 42px rgba(61, 51, 40, 0.08);
+}
+
+.landing-briefing-orbit {
+  border: 1px solid color-mix(in srgb, var(--color-sand-500) 24%, transparent);
+}
+
+.dark .landing-briefing-hero-surface {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-terra-500) 15%, var(--color-sand-50)),
+    color-mix(in srgb, var(--color-ocean-500) 16%, var(--color-sand-50)) 58%,
+    var(--color-sand-50)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 46px rgba(0, 0, 0, 0.24);
+}
+
+.dark .landing-briefing-orbit {
+  border-color: color-mix(in srgb, var(--color-sand-500) 20%, transparent);
 }
 </style>
