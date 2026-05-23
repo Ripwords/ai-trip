@@ -127,7 +127,9 @@ function iconClass(signal: BriefingSignal): string {
           >
             <Icon :name="signal.icon" class="h-2.5 w-2.5 sm:h-4 sm:w-4" />
           </span>
-          <span class="min-w-0 truncate leading-none sm:flex-1 sm:overflow-visible sm:leading-normal">
+          <span
+            class="min-w-0 truncate leading-none sm:flex-1 sm:overflow-visible sm:leading-normal"
+          >
             <span class="sm:block">{{ signal.title }}</span>
             <span class="mt-1 hidden text-xs font-normal leading-5 text-sand-600 sm:block">{{
               signal.detail
@@ -152,7 +154,9 @@ function iconClass(signal: BriefingSignal): string {
           >
             <Icon :name="signal.icon" class="h-2.5 w-2.5 sm:h-4 sm:w-4" />
           </span>
-          <span class="min-w-0 truncate leading-none sm:flex-1 sm:overflow-visible sm:leading-normal">
+          <span
+            class="min-w-0 truncate leading-none sm:flex-1 sm:overflow-visible sm:leading-normal"
+          >
             <span class="sm:block">{{ signal.title }}</span>
             <span class="mt-1 hidden text-xs font-normal leading-5 text-sand-600 sm:block">{{
               signal.detail
