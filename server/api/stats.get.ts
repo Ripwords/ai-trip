@@ -14,9 +14,10 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const userId = session.user.id
 
-  // Get all trip IDs the user owns or is member of
+  // Get all trip IDs the user owns or is an active member of. Removed
+  // memberships are excluded so a kicked user's stats no longer count the trip.
   const memberships = await db.query.tripMembers.findMany({
-    where: eq(tripMembers.userId, userId),
+    where: and(eq(tripMembers.userId, userId), eq(tripMembers.status, "active")),
     columns: { tripId: true },
   })
   const memberTripIds = memberships.map((m) => m.tripId)

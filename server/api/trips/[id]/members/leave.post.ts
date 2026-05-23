@@ -25,7 +25,12 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "You are not a member of this trip" })
   }
 
-  await db.delete(tripMembers).where(eq(tripMembers.id, member.id))
+  // Soft-delete: keep the row as audit trail and stay symmetric with the kick
+  // path (members/[memberId].delete.ts → softRemoveTripMember).
+  await db
+    .update(tripMembers)
+    .set({ status: "removed", inviteToken: null })
+    .where(eq(tripMembers.id, member.id))
 
   await logTripAction({
     tripId: id,
