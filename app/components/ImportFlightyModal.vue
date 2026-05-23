@@ -131,11 +131,14 @@ function close() {
             Upload your Flighty CSV export. We'll show you a preview before importing.
           </p>
           <label
-            class="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-sand-300 p-6 text-center hover:bg-sand-50"
+            class="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-sand-300 p-6 text-center transition hover:bg-sand-50"
+            :class="busy && 'pointer-events-none opacity-60'"
           >
-            <Icon name="lucide:upload" class="h-6 w-6 text-sand-400" />
+            <Icon v-if="busy" name="lucide:loader-2" class="h-6 w-6 animate-spin text-terra-500" />
+            <Icon v-else name="lucide:upload" class="h-6 w-6 text-sand-400" />
             <span class="text-sm text-sand-600">
-              {{ fileRef ? fileRef.name : "Choose a .csv file" }}
+              <template v-if="busy">Reading file and looking up airlines...</template>
+              <template v-else>{{ fileRef ? fileRef.name : "Choose a .csv file" }}</template>
             </span>
             <input
               ref="fileInput"
@@ -146,7 +149,6 @@ function close() {
               @change="onPick"
             />
           </label>
-          <p v-if="busy" class="text-xs text-sand-500">Reading file...</p>
           <p v-if="error" class="text-xs text-red-600">{{ error }}</p>
         </div>
 
@@ -223,10 +225,11 @@ function close() {
             </button>
             <button
               type="button"
-              class="rounded-xl bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600 disabled:opacity-50"
+              class="inline-flex items-center gap-2 rounded-xl bg-terra-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-terra-600 disabled:opacity-50"
               :disabled="busy || preview.importableCount === 0"
               @click="confirmImport"
             >
+              <Icon v-if="busy" name="lucide:loader-2" class="h-4 w-4 animate-spin" />
               {{ busy ? "Importing..." : `Import ${preview.importableCount} flight(s)` }}
             </button>
           </div>

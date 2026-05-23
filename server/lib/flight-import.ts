@@ -18,10 +18,14 @@ function applyIataMap(row: ParsedFlightyRow, icaoToIata: Map<string, string>): P
   return { ...row, airline: iata, flightNumber }
 }
 
-function uniqueIcaoCodes(rows: ParsedFlightyRow[]): string[] {
+function uniqueIcaoCodes(rows: ParsedFlightyRow[], existing: ExistingFlightKey[]): string[] {
   const out = new Set<string>()
   for (const row of rows) {
     if (/^[A-Z]{3}$/.test(row.airline)) out.add(row.airline)
+  }
+  for (const row of existing) {
+    const icao = extractIcaoPrefix(row.flightNumber)
+    if (icao) out.add(icao)
   }
   return [...out]
 }
@@ -54,16 +58,47 @@ export interface CommitResult {
   issues: { line: number; reason: string }[]
 }
 
-async function loadExistingPairs(db: DbHandle, userId: string): Promise<Set<string>> {
-  const rows = await db.query.flights.findMany({
+interface ExistingFlightKey {
+  flightNumber: string
+  flightDate: string
+}
+
+async function loadExistingFlightKeys(db: DbHandle, userId: string): Promise<ExistingFlightKey[]> {
+  return db.query.flights.findMany({
     where: eq(flights.userId, userId),
     columns: { flightNumber: true, flightDate: true },
   })
-  return new Set(rows.map((r) => `${r.flightNumber}|${r.flightDate}`))
 }
 
 function pairKey(row: { flightNumber: string; flightDate: string }): string {
   return `${row.flightNumber}|${row.flightDate}`
+}
+
+function extractIcaoPrefix(flightNumber: string): string | null {
+  const m = flightNumber.match(/^([A-Z]{3})\d/)
+  return m?.[1] ?? null
+}
+
+// Build a dedupe set that recognises BOTH the stored form and the converted
+// IATA form of every existing row. This way an ICAO-stored row from a prior
+// (pre-conversion) import still dedupes against a re-import that now stores
+// the IATA equivalent. Without this, the same flight would be imported twice
+// after we shipped the Wikidata canonicalization.
+function buildDedupeSet(
+  existing: ExistingFlightKey[],
+  icaoToIata: Map<string, string>,
+): Set<string> {
+  const set = new Set<string>()
+  for (const row of existing) {
+    set.add(pairKey(row))
+    const icao = extractIcaoPrefix(row.flightNumber)
+    if (!icao) continue
+    const iata = icaoToIata.get(icao)
+    if (!iata || iata === icao) continue
+    const converted = iata + row.flightNumber.slice(icao.length)
+    set.add(`${converted}|${row.flightDate}`)
+  }
+  return set
 }
 
 // Visible for tests. Pure: builds the row to insert by merging the parsed CSV
@@ -127,16 +162,18 @@ export async function previewImport(
   icaoToIata?: Map<string, string>,
 ): Promise<PreviewResult> {
   const parsed = parseFlightyCsv(csv, now)
-  const [existing, conversions] = await Promise.all([
-    loadExistingPairs(db, userId),
-    icaoToIata ? Promise.resolve(icaoToIata) : lookupIcaoToIata(uniqueIcaoCodes(parsed.rows)),
-  ])
+  // Load existing rows first; their stored airline codes may also need
+  // conversion (older rows imported before the Wikidata canonicalization was
+  // wired up). One Wikidata batch covers both sides.
+  const existing = await loadExistingFlightKeys(db, userId)
+  const conversions = icaoToIata ?? (await lookupIcaoToIata(uniqueIcaoCodes(parsed.rows, existing)))
+  const dedupe = buildDedupeSet(existing, conversions)
 
   let duplicateCount = 0
   const importable: ParsedFlightyRow[] = []
   for (const raw of parsed.rows) {
     const row = applyIataMap(raw, conversions)
-    if (existing.has(pairKey(row))) {
+    if (dedupe.has(pairKey(row))) {
       duplicateCount++
       continue
     }
@@ -177,10 +214,9 @@ export async function commitImport(
   icaoToIata?: Map<string, string>,
 ): Promise<CommitResult> {
   const parsed = parseFlightyCsv(csv, now)
-  const [existing, conversions] = await Promise.all([
-    loadExistingPairs(db, userId),
-    icaoToIata ? Promise.resolve(icaoToIata) : lookupIcaoToIata(uniqueIcaoCodes(parsed.rows)),
-  ])
+  const existing = await loadExistingFlightKeys(db, userId)
+  const conversions = icaoToIata ?? (await lookupIcaoToIata(uniqueIcaoCodes(parsed.rows, existing)))
+  const dedupe = buildDedupeSet(existing, conversions)
   const todayIso = now.toISOString().slice(0, 10)
   const issues: { line: number; reason: string }[] = [...parsed.errors]
 
@@ -190,7 +226,7 @@ export async function commitImport(
 
   for (const raw of parsed.rows) {
     const row = applyIataMap(raw, conversions)
-    if (existing.has(pairKey(row))) {
+    if (dedupe.has(pairKey(row))) {
       skipped++
       continue
     }
@@ -200,7 +236,7 @@ export async function commitImport(
     try {
       await db.insert(flights).values(insertRow).returning()
       imported++
-      existing.add(pairKey(row))
+      dedupe.add(pairKey(row))
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
       if (/unique|duplicate/i.test(message)) {

@@ -76,6 +76,23 @@ describe("previewImport", () => {
     expect(result.importableCount).toBe(0)
     expect(result.duplicateCount).toBe(1)
   })
+
+  it("dedupes against a previously-imported ICAO-stored row by normalizing the existing side too", async () => {
+    // Scenario: first Flighty import (before conversion was wired up) stored
+    // EVA228 as-is. User now re-imports the same CSV; with conversion the
+    // incoming row becomes BR228 but the dedupe set must still match.
+    const csv = makeCsv(["2022-10-01,EVA,228,KUL,TPE,,,,,false,,,,,,,,,,,,,,,,,,,,,,,"])
+    const { db } = makeFakeDb([{ flightNumber: "EVA228", flightDate: "2022-10-01" }])
+    const result = await previewImport(
+      csv,
+      "user-1",
+      db as never,
+      new Date("2026-05-23"),
+      new Map([["EVA", "BR"]]),
+    )
+    expect(result.importableCount).toBe(0)
+    expect(result.duplicateCount).toBe(1)
+  })
 })
 
 describe("previewImport empty input", () => {

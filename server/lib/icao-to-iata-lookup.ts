@@ -16,6 +16,14 @@
 
 const SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
 const REQUEST_TIMEOUT_MS = 5000
+// Real-world ICAO airline designators number well under 1,000. Capping the
+// batch protects against an adversarial CSV that lists tens of thousands of
+// fake 3-letter codes — keeps the outbound POST body small and bounded.
+const MAX_CODES_PER_LOOKUP = 500
+// Cap on the SPARQL response body before we attempt to parse it. A bounded
+// payload defends against a compromised endpoint or MITM that tries to
+// exhaust memory with an arbitrarily large body. Real responses are < 50 KB.
+const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
 
 interface SparqlBinding {
   icao: { value: string }
@@ -46,7 +54,7 @@ export async function lookupIcaoToIata(
 ): Promise<Map<string, string>> {
   const icaoCodes = Array.from(
     new Set(codes.map((c) => c.trim().toUpperCase()).filter((c) => /^[A-Z]{3}$/.test(c))),
-  )
+  ).slice(0, MAX_CODES_PER_LOOKUP)
   if (icaoCodes.length === 0) return new Map()
 
   const values = icaoCodes.map((c) => `"${c}"`).join(" ")
@@ -57,20 +65,30 @@ export async function lookupIcaoToIata(
   const userAgent =
     options.userAgent ?? "ai-trip-flighty-import/1.0 (https://github.com; flight-import)"
 
-  const url = `${endpoint}?query=${encodeURIComponent(query)}&format=json`
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
   try {
-    const res = await fetchImpl(url, {
+    // POST (form-encoded) is Wikidata's recommended verb for any SPARQL body
+    // larger than trivial. Eliminates the GET URL-length concern for batches
+    // of up to MAX_CODES_PER_LOOKUP codes.
+    const res = await fetchImpl(endpoint, {
+      method: "POST",
       headers: {
         Accept: "application/sparql-results+json",
+        "Content-Type": "application/x-www-form-urlencoded",
         "User-Agent": userAgent,
       },
+      body: `query=${encodeURIComponent(query)}&format=json`,
       signal: controller.signal,
     })
     if (!res.ok) {
       console.warn(`Wikidata lookup returned ${res.status}; skipping ICAO conversion`)
+      return new Map()
+    }
+    const declared = Number(res.headers.get("content-length") ?? 0)
+    if (declared > MAX_RESPONSE_BYTES) {
+      console.warn(`Wikidata response too large (${declared} bytes); skipping conversion`)
       return new Map()
     }
     const data = (await res.json()) as SparqlResponse

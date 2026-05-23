@@ -22,32 +22,72 @@ describe("lookupIcaoToIata", () => {
   })
 
   it("filters out non-ICAO inputs (not 3 uppercase letters)", async () => {
-    let captured = ""
+    let body = ""
     await lookupIcaoToIata(["EVA", "BR", "12", "AB", "uae", "Toolong"], {
-      fetchImpl: async (url) => {
-        captured = url.toString()
+      fetchImpl: async (_url, init) => {
+        body = String(init?.body ?? "")
         return jsonResponse({ results: { bindings: [] } })
       },
     })
     // EVA and uae→UAE survive the filter; the rest are dropped.
-    // URL is percent-encoded so check for the encoded quoted token.
-    expect(captured).toContain("%22EVA%22")
-    expect(captured).toContain("%22UAE%22")
-    expect(captured).not.toContain("%22BR%22")
-    expect(captured).not.toContain("%2212%22")
-    expect(captured).not.toContain("%22TOOLONG%22")
-    expect(captured).not.toContain("%22Toolong%22")
+    // Body is percent-encoded so check for the encoded quoted token.
+    expect(body).toContain("%22EVA%22")
+    expect(body).toContain("%22UAE%22")
+    expect(body).not.toContain("%22BR%22")
+    expect(body).not.toContain("%2212%22")
+    expect(body).not.toContain("%22TOOLONG%22")
+    expect(body).not.toContain("%22Toolong%22")
   })
 
   it("dedupes ICAO inputs before querying", async () => {
-    let captured = ""
+    let body = ""
     await lookupIcaoToIata(["EVA", "EVA", "EVA"], {
-      fetchImpl: async (url) => {
-        captured = url.toString()
+      fetchImpl: async (_url, init) => {
+        body = String(init?.body ?? "")
         return jsonResponse({ results: { bindings: [] } })
       },
     })
-    expect(captured.match(/%22EVA%22/g)!).toHaveLength(1)
+    expect(body.match(/%22EVA%22/g)!).toHaveLength(1)
+  })
+
+  it("posts to the endpoint with form-encoded body", async () => {
+    let method = ""
+    let contentType = ""
+    let url = ""
+    await lookupIcaoToIata(["EVA"], {
+      fetchImpl: async (u, init) => {
+        url = u.toString()
+        method = init?.method ?? "GET"
+        const headers = init?.headers as Record<string, string> | undefined
+        contentType = headers?.["Content-Type"] ?? ""
+        return jsonResponse({ results: { bindings: [] } })
+      },
+    })
+    expect(method).toBe("POST")
+    expect(contentType).toBe("application/x-www-form-urlencoded")
+    // URL has no inline query string in POST mode.
+    expect(url).toBe("https://query.wikidata.org/sparql")
+  })
+
+  it("caps the batch to MAX_CODES_PER_LOOKUP (500) so adversarial CSVs don't blow up the body", async () => {
+    const codes: string[] = []
+    // Build 1,000 unique 3-letter codes deterministically.
+    for (let i = 0; i < 1000; i++) {
+      const a = String.fromCharCode(65 + Math.floor(i / 676))
+      const b = String.fromCharCode(65 + Math.floor((i % 676) / 26))
+      const c = String.fromCharCode(65 + (i % 26))
+      codes.push(`${a}${b}${c}`)
+    }
+    let body = ""
+    await lookupIcaoToIata(codes, {
+      fetchImpl: async (_u, init) => {
+        body = String(init?.body ?? "")
+        return jsonResponse({ results: { bindings: [] } })
+      },
+    })
+    // Each code appears as %22XYZ%22 — count exactly the quoted tokens.
+    const matches = body.match(/%22[A-Z]{3}%22/g) ?? []
+    expect(matches.length).toBe(500)
   })
 
   it("returns a Map of ICAO → IATA from the SPARQL response", async () => {
