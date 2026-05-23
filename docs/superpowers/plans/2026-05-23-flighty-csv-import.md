@@ -39,6 +39,7 @@
 ## Task 1: Build the Flighty CSV parser (with tests)
 
 **Files:**
+
 - Create: `server/lib/flighty-import.ts`
 - Test: `server/lib/flighty-import.test.ts`
 
@@ -58,7 +59,9 @@ const FIXTURE_PATH = resolve(process.cwd(), "FlightyExport-2026-05-23.csv")
 
 describe("parseFlightyCsv", () => {
   it("rejects a CSV whose header is not Flighty's", () => {
-    expect(() => parseFlightyCsv("foo,bar\n1,2", new Date("2026-05-23"))).toThrow(FlightyImportError)
+    expect(() => parseFlightyCsv("foo,bar\n1,2", new Date("2026-05-23"))).toThrow(
+      FlightyImportError,
+    )
   })
 
   it("parses every data row in the example fixture", () => {
@@ -90,8 +93,12 @@ describe("parseFlightyCsv", () => {
       "2022-10-01,EVA,228,KUL,TPE,1,C34,2,C3,false,,2022-10-01T15:30,2022-10-01T16:00,,,,,2022-10-01T20:25,2022-10-01T20:47,,,,,,,,,,,,,,",
     ].join("\n")
     const result = parseFlightyCsv(csv, new Date("2026-05-23"))
-    expect(result.rows[0]!.departureTime?.toISOString()).toBe(new Date("2022-10-01T16:00").toISOString())
-    expect(result.rows[0]!.arrivalTime?.toISOString()).toBe(new Date("2022-10-01T20:47").toISOString())
+    expect(result.rows[0]!.departureTime?.toISOString()).toBe(
+      new Date("2022-10-01T16:00").toISOString(),
+    )
+    expect(result.rows[0]!.arrivalTime?.toISOString()).toBe(
+      new Date("2022-10-01T20:47").toISOString(),
+    )
   })
 
   it("falls back to scheduled time when actual is empty", () => {
@@ -100,8 +107,12 @@ describe("parseFlightyCsv", () => {
       "2030-10-01,EVA,228,KUL,TPE,1,C34,2,C3,false,,2030-10-01T15:30,,,,,,2030-10-01T20:25,,,,,,,,,,,,,,,",
     ].join("\n")
     const result = parseFlightyCsv(csv, new Date("2026-05-23"))
-    expect(result.rows[0]!.departureTime?.toISOString()).toBe(new Date("2030-10-01T15:30").toISOString())
-    expect(result.rows[0]!.arrivalTime?.toISOString()).toBe(new Date("2030-10-01T20:25").toISOString())
+    expect(result.rows[0]!.departureTime?.toISOString()).toBe(
+      new Date("2030-10-01T15:30").toISOString(),
+    )
+    expect(result.rows[0]!.arrivalTime?.toISOString()).toBe(
+      new Date("2030-10-01T20:25").toISOString(),
+    )
   })
 
   it("derives status: past flights are landed, future are scheduled, canceled wins", () => {
@@ -310,7 +321,10 @@ export function parseFlightyCsv(input: string, today: Date): FlightyParseResult 
     const from = cells[idx.from] ?? ""
     const to = cells[idx.to] ?? ""
     if (!date || !airline || !flight || !from || !to) {
-      errors.push({ line: lineNum, reason: "Missing required field (Date, Airline, Flight, From, or To)" })
+      errors.push({
+        line: lineNum,
+        reason: "Missing required field (Date, Airline, Flight, From, or To)",
+      })
       continue
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -371,6 +385,7 @@ git commit -m "feat(flights): add Flighty CSV parser"
 ## Task 2: Build the import orchestration library
 
 **Files:**
+
 - Create: `server/lib/flight-import.ts`
 - Test: `server/lib/flight-import.test.ts`
 
@@ -686,6 +701,7 @@ git commit -m "feat(flights): add Flighty import preview + commit service"
 ## Task 3: Add the preview endpoint
 
 **Files:**
+
 - Create: `server/api/flights/import/preview.post.ts`
 
 Thin wrapper. The endpoint accepts `text/csv` as the raw request body (not multipart — simpler, since CSVs are plain text and the codebase has no multipart pattern yet). The browser sends the `File` object directly as the body.
@@ -736,6 +752,7 @@ git commit -m "feat(flights): add POST /api/flights/import/preview endpoint"
 ## Task 4: Add the commit endpoint
 
 **Files:**
+
 - Create: `server/api/flights/import/index.post.ts`
 
 Same shape as preview, calling `commitImport` instead.
@@ -786,6 +803,7 @@ git commit -m "feat(flights): add POST /api/flights/import endpoint"
 ## Task 5: Add the import modal
 
 **Files:**
+
 - Create: `app/components/ImportFlightyModal.vue`
 
 A self-contained modal modeled on `AddActivityModal.vue` (teleport to body, overlay closes on backdrop click, content uses `bg-stone-50` per the dark-mode-safe convention in `feedback_bg_white_dark_override.md`).
@@ -907,9 +925,7 @@ function close() {
   <Teleport to="body">
     <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center">
       <div class="fixed inset-0 bg-black/40" @click="close" />
-      <div
-        class="relative z-10 mx-4 w-full max-w-lg rounded-2xl bg-stone-50 p-6 shadow-2xl"
-      >
+      <div class="relative z-10 mx-4 w-full max-w-lg rounded-2xl bg-stone-50 p-6 shadow-2xl">
         <div class="flex items-center justify-between">
           <h2 class="font-display text-lg text-sand-900">Import from Flighty</h2>
           <button class="text-sand-400 hover:text-sand-700" @click="close">
@@ -959,7 +975,10 @@ function close() {
             </div>
           </div>
 
-          <div v-if="preview.preview.length > 0" class="max-h-60 overflow-y-auto rounded-xl border border-sand-200">
+          <div
+            v-if="preview.preview.length > 0"
+            class="max-h-60 overflow-y-auto rounded-xl border border-sand-200"
+          >
             <table class="w-full text-left text-xs">
               <thead class="bg-sand-100 text-sand-600">
                 <tr>
@@ -986,7 +1005,10 @@ function close() {
             </div>
           </div>
 
-          <details v-if="preview.issues.length > 0" class="rounded-xl border border-sand-200 p-3 text-xs">
+          <details
+            v-if="preview.issues.length > 0"
+            class="rounded-xl border border-sand-200 p-3 text-xs"
+          >
             <summary class="cursor-pointer text-sand-600">
               {{ preview.issues.length }} issue(s) — these rows will be skipped
             </summary>
@@ -1026,7 +1048,10 @@ function close() {
             <strong>{{ result.skipped }}</strong> · Failed
             <strong>{{ result.failed }}</strong>
           </p>
-          <details v-if="result.issues.length > 0" class="rounded-xl border border-sand-200 p-3 text-xs">
+          <details
+            v-if="result.issues.length > 0"
+            class="rounded-xl border border-sand-200 p-3 text-xs"
+          >
             <summary class="cursor-pointer text-sand-600">
               {{ result.issues.length }} issue(s)
             </summary>
@@ -1069,6 +1094,7 @@ git commit -m "feat(flights): add ImportFlightyModal component"
 ## Task 6: Wire the modal into the flights page
 
 **Files:**
+
 - Modify: `app/pages/flights.vue` — add the Import button and modal mount.
 
 - [ ] **Step 6.1: Add the import button + modal mount**
@@ -1088,7 +1114,7 @@ async function onImported() {
 Then in the `<template>`, locate the existing add-flight form `<form>` block (around lines 126–154). Immediately **after** the closing `</form>` tag, insert a small button row:
 
 ```vue
-    <div class="flex justify-end">
+<div class="flex justify-end">
       <button
         type="button"
         class="inline-flex items-center gap-1.5 rounded-xl border border-sand-200 bg-stone-50 px-3 py-1.5 text-xs font-medium text-sand-700 transition hover:bg-sand-100"
@@ -1103,11 +1129,11 @@ Then in the `<template>`, locate the existing add-flight form `<form>` block (ar
 Then at the very end of the template, immediately **before** the closing `</div>` of the page's outer wrapper, mount the modal:
 
 ```vue
-    <ImportFlightyModal
-      :open="showImportModal"
-      @close="showImportModal = false"
-      @imported="onImported"
-    />
+<ImportFlightyModal
+  :open="showImportModal"
+  @close="showImportModal = false"
+  @imported="onImported"
+/>
 ```
 
 - [ ] **Step 6.2: Format + lint**
@@ -1136,6 +1162,7 @@ Expected: Nuxt boots on port 3000 (or whichever port the project uses; check ter
 - [ ] **Step 7.2: Verify the happy path**
 
 In a browser:
+
 1. Log in.
 2. Visit `/flights`.
 3. Click **Import from Flighty**.
@@ -1148,6 +1175,7 @@ In a browser:
 - [ ] **Step 7.3: Verify dedupe**
 
 Re-import the same CSV:
+
 1. Click **Import from Flighty** again, pick the same file.
 2. Preview should show `0 New, N Duplicate, 0 Invalid`.
 3. The **Import** button should be disabled (no importable rows).
@@ -1165,19 +1193,19 @@ Expected: clean (all changes committed in previous tasks).
 
 ## Spec coverage check
 
-| Spec requirement                                                                                  | Covered by             |
-|---------------------------------------------------------------------------------------------------|------------------------|
-| Parse Flighty CSV, validate header, surface per-row errors                                        | Task 1                 |
-| Field mapping table (flightNumber = Airline+Flight, dep/arr times, status derivation)             | Task 1                 |
-| Hybrid sourcing: CSV for past, `lookupFlight` for future with CSV fallback                        | Task 2                 |
-| Dedupe by `(userId, flightNumber, flightDate)`, skip silently                                     | Task 2                 |
-| `POST /api/flights/import/preview` returns counts + first ~20 importable rows                     | Task 2 + Task 3        |
-| `POST /api/flights/import` inserts and returns `{ imported, skipped, failed, issues }`            | Task 2 + Task 4        |
-| Modal flow: picker → preview → confirm → result                                                   | Task 5                 |
-| Import button on `/flights`, refresh list on success                                              | Task 6                 |
-| No schema changes — only existing `flights` columns populated                                     | Task 2 (verified by inspecting the `db.insert(flights).values({...})` shape — no new keys) |
-| `tripId` stays null on import                                                                     | Task 2 (`tripId: null` in the insert) |
-| Trip assignment remains via existing FlightCard UI                                                | No code change needed  |
-| Error handling: missing/invalid file, non-Flighty CSV, unauth, oversize                           | Tasks 3, 4, 5          |
-| Test fixtures use the real `FlightyExport-2026-05-23.csv`                                         | Task 1                 |
-| Manual smoke test on the running app                                                              | Task 7                 |
+| Spec requirement                                                                       | Covered by                                                                                 |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Parse Flighty CSV, validate header, surface per-row errors                             | Task 1                                                                                     |
+| Field mapping table (flightNumber = Airline+Flight, dep/arr times, status derivation)  | Task 1                                                                                     |
+| Hybrid sourcing: CSV for past, `lookupFlight` for future with CSV fallback             | Task 2                                                                                     |
+| Dedupe by `(userId, flightNumber, flightDate)`, skip silently                          | Task 2                                                                                     |
+| `POST /api/flights/import/preview` returns counts + first ~20 importable rows          | Task 2 + Task 3                                                                            |
+| `POST /api/flights/import` inserts and returns `{ imported, skipped, failed, issues }` | Task 2 + Task 4                                                                            |
+| Modal flow: picker → preview → confirm → result                                        | Task 5                                                                                     |
+| Import button on `/flights`, refresh list on success                                   | Task 6                                                                                     |
+| No schema changes — only existing `flights` columns populated                          | Task 2 (verified by inspecting the `db.insert(flights).values({...})` shape — no new keys) |
+| `tripId` stays null on import                                                          | Task 2 (`tripId: null` in the insert)                                                      |
+| Trip assignment remains via existing FlightCard UI                                     | No code change needed                                                                      |
+| Error handling: missing/invalid file, non-Flighty CSV, unauth, oversize                | Tasks 3, 4, 5                                                                              |
+| Test fixtures use the real `FlightyExport-2026-05-23.csv`                              | Task 1                                                                                     |
+| Manual smoke test on the running app                                                   | Task 7                                                                                     |
