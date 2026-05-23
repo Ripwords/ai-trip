@@ -66,6 +66,7 @@ export interface BuildPassportHistoryInput {
 
 export function buildPassportHistory(input: BuildPassportHistoryInput): PassportHistory {
   const allFlights = input.flights ?? []
+  const visited = input.visitedCountries ?? []
   const year = input.year ?? null
 
   const flights =
@@ -90,17 +91,64 @@ export function buildPassportHistory(input: BuildPassportHistoryInput): Passport
     })
   }
 
+  const countries = mergeCountries(visited, flights, year != null)
+  const countryFlags = countries.map((c) => c.flag)
+
   return {
     totalFlights: flights.length,
     totalDistanceKm: Math.round(totalDistance),
     uniqueAirports,
     uniqueAirlines,
-    countries: [],
-    countryFlags: [],
+    countries,
+    countryFlags,
     recentFlights: [],
     routeSegments,
     availableYears: collectYears(allFlights),
   }
+}
+
+const SOURCE_RANK: Record<CountrySource, number> = { visited: 0, layover: 1, flight: 2 }
+
+function mergeCountries(
+  visited: PassportVisitedCountry[],
+  flights: PassportFlight[],
+  flightDerivedOnly: boolean,
+): PassportCountryEntry[] {
+  const map = new Map<string, PassportCountryEntry>()
+
+  if (!flightDerivedOnly) {
+    for (const v of visited) {
+      const code = v.countryCode.toUpperCase()
+      const source: CountrySource = v.visitType === "layover" ? "layover" : "visited"
+      map.set(code, {
+        code,
+        name: countryByAlpha2.get(code)?.name ?? v.countryName,
+        flag: countryFlag(code),
+        source,
+      })
+    }
+  }
+
+  for (const f of flights) {
+    for (const airport of [f.departureAirport, f.arrivalAirport]) {
+      if (!airport) continue
+      const code = iataToCountry[airport]
+      if (!code) continue
+      if (map.has(code)) continue
+      map.set(code, {
+        code,
+        name: countryByAlpha2.get(code)?.name ?? code,
+        flag: countryFlag(code),
+        source: "flight",
+      })
+    }
+  }
+
+  return Array.from(map.values()).toSorted((a, b) => {
+    const r = SOURCE_RANK[a.source] - SOURCE_RANK[b.source]
+    if (r !== 0) return r
+    return a.name.localeCompare(b.name)
+  })
 }
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {

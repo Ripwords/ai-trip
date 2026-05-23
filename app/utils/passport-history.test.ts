@@ -67,4 +67,65 @@ describe("passport history", () => {
     assert.equal(Number.isInteger(result.totalDistanceKm), true)
     assert.equal(result.totalFlights, 2)
   })
+
+  it("merges visited countries with flight-derived countries, visited wins", () => {
+    const result = buildPassportHistory({
+      flights: [
+        {
+          id: "f1",
+          flightNumber: "JL5",
+          flightDate: "2025-03-10",
+          airline: "JL",
+          departureAirport: "JFK",
+          arrivalAirport: "NRT",
+          departureTime: null,
+          arrivalTime: null,
+        },
+        {
+          id: "f2",
+          flightNumber: "BA1",
+          flightDate: "2025-05-01",
+          airline: "BA",
+          departureAirport: "LHR",
+          arrivalAirport: "CDG",
+          departureTime: null,
+          arrivalTime: null,
+        },
+      ],
+      visitedCountries: [
+        { countryCode: "JP", countryName: "Japan", visitType: "visited" },
+        { countryCode: "TH", countryName: "Thailand", visitType: "layover" },
+      ],
+    })
+
+    const japan = result.countries.find((c) => c.code === "JP")
+    assert.ok(japan)
+    assert.equal(japan.source, "visited")
+
+    const thailand = result.countries.find((c) => c.code === "TH")
+    assert.equal(thailand?.source, "layover")
+
+    assert.equal(result.countries.find((c) => c.code === "FR")?.source, "flight")
+    assert.equal(result.countries.find((c) => c.code === "GB")?.source, "flight")
+
+    const order = result.countries.map((c) => c.code)
+    const visitedIdx = order.indexOf("JP")
+    const layoverIdx = order.indexOf("TH")
+    const flightIdx = Math.min(order.indexOf("FR"), order.indexOf("GB"))
+    assert.ok(visitedIdx < layoverIdx)
+    assert.ok(layoverIdx < flightIdx)
+
+    assert.equal(result.countryFlags.length, result.countries.length)
+  })
+
+  it("falls back to country code when alpha2 is unknown", () => {
+    const result = buildPassportHistory({
+      flights: [],
+      visitedCountries: [{ countryCode: "XX", countryName: "Nowhereland", visitType: "visited" }],
+    })
+
+    const entry = result.countries[0]
+    assert.equal(entry?.code, "XX")
+    assert.equal(entry?.name, "Nowhereland")
+  })
 })
