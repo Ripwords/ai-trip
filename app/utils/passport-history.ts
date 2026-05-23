@@ -68,6 +68,7 @@ export function buildPassportHistory(input: BuildPassportHistoryInput): Passport
   const allFlights = input.flights ?? []
   const visited = input.visitedCountries ?? []
   const year = input.year ?? null
+  const recentLimit = Math.max(1, Math.min(5, input.recentFlightLimit ?? 4))
 
   const flights =
     year == null ? allFlights : allFlights.filter((f) => yearOf(f.flightDate) === year)
@@ -94,6 +95,18 @@ export function buildPassportHistory(input: BuildPassportHistoryInput): Passport
   const countries = mergeCountries(visited, flights, year != null)
   const countryFlags = countries.map((c) => c.flag)
 
+  const recentFlights = flights
+    .toSorted((a, b) => b.flightDate.localeCompare(a.flightDate))
+    .slice(0, recentLimit)
+    .map<PassportRecentFlight>((f) => ({
+      id: f.id,
+      flightNumber: f.flightNumber,
+      flightDate: f.flightDate,
+      airline: f.airline,
+      departureAirport: f.departureAirport,
+      arrivalAirport: f.arrivalAirport,
+    }))
+
   return {
     totalFlights: flights.length,
     totalDistanceKm: Math.round(totalDistance),
@@ -101,7 +114,7 @@ export function buildPassportHistory(input: BuildPassportHistoryInput): Passport
     uniqueAirlines,
     countries,
     countryFlags,
-    recentFlights: [],
+    recentFlights,
     routeSegments,
     availableYears: collectYears(allFlights),
   }

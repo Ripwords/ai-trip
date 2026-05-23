@@ -128,4 +128,50 @@ describe("passport history", () => {
     assert.equal(entry?.code, "XX")
     assert.equal(entry?.name, "Nowhereland")
   })
+
+  it("returns up to N most-recent flights, newest first", () => {
+    const result = buildPassportHistory({
+      flights: [
+        mkFlight("f-old", "2023-01-10", "JFK", "LHR"),
+        mkFlight("f-mid", "2024-06-15", "JFK", "CDG"),
+        mkFlight("f-new", "2025-09-20", "JFK", "NRT"),
+        mkFlight("f-newer", "2025-12-01", "JFK", "HND"),
+        mkFlight("f-newest", "2026-02-02", "JFK", "ICN"),
+      ],
+      visitedCountries: [],
+      recentFlightLimit: 3,
+    })
+
+    assert.deepEqual(
+      result.recentFlights.map((f) => f.id),
+      ["f-newest", "f-newer", "f-new"],
+    )
+  })
 })
+
+function mkFlight(
+  id: string,
+  date: string,
+  dep: string | null,
+  arr: string | null,
+): {
+  id: string
+  flightNumber: string
+  flightDate: string
+  airline: string | null
+  departureAirport: string | null
+  arrivalAirport: string | null
+  departureTime: string | null
+  arrivalTime: string | null
+} {
+  return {
+    id,
+    flightNumber: id.toUpperCase(),
+    flightDate: date,
+    airline: "Test Air",
+    departureAirport: dep,
+    arrivalAirport: arr,
+    departureTime: null,
+    arrivalTime: null,
+  }
+}
