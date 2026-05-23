@@ -161,7 +161,7 @@ function buildVisaSignal(input: {
       title: "Add passport",
       detail: "Needed for visa checks before departure.",
       tone: "warn",
-      icon: "lucide:passport",
+      icon: "material-symbols:passport",
       to: "/settings",
     }
   }
@@ -224,7 +224,7 @@ function buildPassportSignal(passport: DashboardPassport, tripEndDate: string): 
       title: "Passport expiry missing",
       detail: "Add the expiry date for better readiness checks.",
       tone: "warn",
-      icon: "lucide:passport",
+      icon: "material-symbols:passport",
       to: "/settings",
     }
   }
@@ -240,7 +240,7 @@ function buildPassportSignal(passport: DashboardPassport, tripEndDate: string): 
       title: "Passport expires soon",
       detail: "Expiry falls before this trip ends.",
       tone: "warn",
-      icon: "lucide:passport",
+      icon: "material-symbols:passport",
       to: "/settings",
     }
   }
@@ -251,7 +251,7 @@ function buildPassportSignal(passport: DashboardPassport, tripEndDate: string): 
       title: "Passport validity check",
       detail: "Some destinations expect 6 months validity after travel.",
       tone: "warn",
-      icon: "lucide:passport",
+      icon: "material-symbols:passport",
       to: "/settings",
     }
   }
