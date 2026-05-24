@@ -97,7 +97,7 @@ const uniqueMapPoints = computed(() => {
       <p class="passport-metric-label">Travel passport</p>
       <div
         v-if="passport.countryFlags.length"
-        class="flex flex-wrap items-center gap-0.5 text-base leading-none"
+        class="flex flex-wrap items-center gap-0.5 text-base"
         aria-hidden="true"
       >
         <span
@@ -220,7 +220,7 @@ const uniqueMapPoints = computed(() => {
           </div>
           <div
             v-if="passport.countryFlags.length"
-            class="mt-3 flex flex-wrap gap-1 text-xl leading-none"
+            class="mt-3 flex flex-wrap gap-1 text-xl"
             aria-hidden="true"
           >
             <span
