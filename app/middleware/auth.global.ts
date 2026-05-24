@@ -1,11 +1,9 @@
 const PROTECTED_PREFIXES = ["/dashboard", "/trips", "/explore", "/settings"]
-const GUEST_ONLY_ROUTES = new Set(["/"])
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const needsAuth = PROTECTED_PREFIXES.some((r) => to.path.startsWith(r))
-  const guestOnly = GUEST_ONLY_ROUTES.has(to.path)
 
-  if (!needsAuth && !guestOnly) return
+  if (!needsAuth) return
 
   // useRequestFetch returns a $fetch that auto-forwards cookies/headers
   // during SSR — unlike authClient.useSession(useFetch) which fails to
@@ -19,11 +17,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     // Session fetch failed — treat as unauthenticated
   }
 
-  if (!isAuthenticated && needsAuth) {
+  if (!isAuthenticated) {
     return navigateTo("/")
-  }
-
-  if (isAuthenticated && guestOnly) {
-    return navigateTo("/dashboard")
   }
 })

@@ -23,9 +23,6 @@ useSchemaOrg([
   }),
 ])
 
-// Authenticated users are redirected to /dashboard by auth middleware,
-// so anyone seeing this page is a guest.
-
 // Intersection observer for scroll-triggered animations
 const visibleSections = reactive(new Set<number>())
 const siteURL = useSiteConfig().url
