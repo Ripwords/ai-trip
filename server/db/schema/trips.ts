@@ -8,6 +8,7 @@ import {
   index,
   uniqueIndex,
   numeric,
+  char,
 } from "drizzle-orm/pg-core"
 import { relations } from "drizzle-orm"
 import { user } from "./auth-schema"
@@ -27,6 +28,8 @@ export const trips = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     destination: text("destination").notNull(),
+    name: text("name"),
+    countryCode: char("country_code", { length: 2 }),
     startDate: date("start_date").notNull(),
     endDate: date("end_date").notNull(),
     status: text("status").notNull().default("upcoming"),
@@ -45,6 +48,7 @@ export const trips = pgTable(
   (table) => [
     index("idx_trips_user_id").on(table.userId),
     index("idx_trips_status").on(table.status),
+    index("idx_trips_country_code").on(table.countryCode),
     uniqueIndex("idx_trips_share_token").on(table.shareToken),
   ],
 )

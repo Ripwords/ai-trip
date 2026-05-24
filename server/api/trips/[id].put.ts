@@ -1,4 +1,5 @@
 import { and, asc, eq, gt, lt, or } from "drizzle-orm"
+import { countryByAlpha2 } from "~/data/countries"
 import { db } from "../../db"
 import { trips, itineraryDays } from "../../db/schema"
 import { uuidParamsSchema, updateTripSchema } from "../../utils/schemas"
@@ -17,13 +18,32 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Trip not found" })
   }
 
+  // If countryCode or name is being changed, keep the legacy `destination`
+  // column in sync (`name ?? country.name`) so old readers keep working.
+  // Validate the country code upfront.
+  const patch: Record<string, unknown> = { ...body }
+  if (body.countryCode !== undefined) {
+    const country = countryByAlpha2.get(body.countryCode)
+    if (!country) {
+      throw createError({ statusCode: 400, message: "Unknown country" })
+    }
+    patch.countryCode = country.alpha2
+  }
+  if (body.countryCode !== undefined || body.name !== undefined) {
+    const nextCountryCode = body.countryCode ?? existing.countryCode
+    const nextName = body.name === undefined ? existing.name : body.name?.trim() || null
+    patch.name = nextName
+    const nextCountry = nextCountryCode ? countryByAlpha2.get(nextCountryCode) : null
+    patch.destination = nextName ?? nextCountry?.name ?? existing.destination
+  }
+
   const datesChanging =
     (body.startDate !== undefined && body.startDate !== existing.startDate) ||
     (body.endDate !== undefined && body.endDate !== existing.endDate)
 
   if (!datesChanging) {
     // Simple path: trip fields only, no day reconciliation.
-    await db.update(trips).set(body).where(eq(trips.id, id))
+    await db.update(trips).set(patch).where(eq(trips.id, id))
   } else {
     const newStart = body.startDate ?? existing.startDate
     const newEnd = body.endDate ?? existing.endDate
@@ -79,7 +99,7 @@ export default defineEventHandler(async (event) => {
             .set({ dayNumber: u.dayNumber })
             .where(eq(itineraryDays.id, u.id))
         }
-        await tx.update(trips).set(body).where(eq(trips.id, id))
+        await tx.update(trips).set(patch).where(eq(trips.id, id))
       })
     } else {
       const ops: unknown[] = []
@@ -106,7 +126,7 @@ export default defineEventHandler(async (event) => {
             .where(eq(itineraryDays.id, u.id)),
         )
       }
-      ops.push(db.update(trips).set(body).where(eq(trips.id, id)))
+      ops.push(db.update(trips).set(patch).where(eq(trips.id, id)))
 
       // db.batch wraps the array in a single atomic SQL transaction on the
       // neon-http driver. It is not present on node-postgres, so this branch

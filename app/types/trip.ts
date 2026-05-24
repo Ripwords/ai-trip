@@ -46,6 +46,8 @@ export interface TripDay {
 export interface TripResponse {
   id: string
   destination: string
+  name: string | null
+  countryCode: string | null
   startDate: string
   endDate: string
   status: string

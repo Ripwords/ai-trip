@@ -27,8 +27,12 @@ export const tripPreferencesSchema = z.object({
   transportMode: transportModeEnum.optional(),
 })
 
+// Note: `.refine()` returns a `ZodEffects`, which doesn't expose `.partial()`
+// — `updateTripSchema` below builds on this with `.partial().extend()`. Keep
+// the cross-field date check in the POST handler instead.
 export const createTripSchema = z.object({
-  destination: z.string().min(1),
+  countryCode: z.string().length(2).toUpperCase(),
+  name: z.string().min(1).max(100).nullish(),
   startDate: z.string().date(),
   endDate: z.string().date(),
   preferences: tripPreferencesSchema.optional(),

@@ -1,4 +1,5 @@
 import { eq, sql } from "drizzle-orm"
+import { countryByAlpha2 } from "~/data/countries"
 import { db } from "../../db"
 import { trips, itineraryDays } from "../../db/schema"
 import { createTripSchema } from "../../utils/schemas"
@@ -9,6 +10,15 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const body = await readValidatedBody(event, createTripSchema.parse)
 
+  const country = countryByAlpha2.get(body.countryCode)
+  if (!country) {
+    throw createError({ statusCode: 400, message: "Unknown country" })
+  }
+
+  if (body.endDate < body.startDate) {
+    throw createError({ statusCode: 400, message: "End date must be on or after start date" })
+  }
+
   // Check per-user trip limit
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)` })
@@ -18,15 +28,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: "Maximum number of trips reached (50)" })
   }
 
+  const name = body.name?.trim() || null
   const [trip] = await db
     .insert(trips)
     .values({
       userId: session.user.id,
-      destination: body.destination,
+      destination: name ?? country.name,
+      name,
+      countryCode: country.alpha2,
       startDate: body.startDate,
       endDate: body.endDate,
       preferences: body.preferences ?? {},
-      currencyCode: body.currencyCode ?? "USD",
+      currencyCode: body.currencyCode ?? country.currency,
     })
     .returning()
 
