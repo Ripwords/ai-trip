@@ -1,5 +1,7 @@
 <script setup lang="ts">
 /// <reference types="google.maps" />
+import { countryByAlpha2 } from "../data/countries"
+
 interface Activity {
   id: string
   name: string
@@ -32,6 +34,9 @@ const props = defineProps<{
   endAccommodation?: Accommodation | null
   // Airport pins to render on the first/last day of the trip
   airports?: AirportMarker[]
+  // ISO 3166-1 alpha-2 country code — used to center the map on the country
+  // when there are no activities/accommodation/airports yet.
+  countryCode?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -356,20 +361,37 @@ function updateMarkers(AdvancedMarkerElement?: typeof google.maps.marker.Advance
 
   const totalPoints = geoActivities.length + accommodationMarkers.length + airportMarkers.length
   if (totalPoints === 0) {
-    map.setCenter({ lat: 0, lng: 0 })
-    map.setZoom(2)
+    const country = props.countryCode ? countryByAlpha2.get(props.countryCode) : null
+    if (country) {
+      map.setCenter({ lat: country.lat, lng: country.lng })
+      map.setZoom(country.zoom)
+    } else {
+      map.setCenter({ lat: 0, lng: 0 })
+      map.setZoom(2)
+    }
     updatePolylines()
     return
   }
 
   if (totalPoints === 1) {
-    if (geoActivities.length === 1) {
-      map.setCenter({ lat: geoActivities[0]!.lat!, lng: geoActivities[0]!.lng! })
+    // Find the single point — could be an activity, accommodation, or airport.
+    const onlyPoint =
+      geoActivities.length === 1
+        ? { lat: geoActivities[0]!.lat!, lng: geoActivities[0]!.lng! }
+        : end
+          ? { lat: end.lat, lng: end.lng }
+          : start
+            ? { lat: start.lat, lng: start.lng }
+            : (props.airports ?? [])[0]
+              ? { lat: (props.airports ?? [])[0]!.lat, lng: (props.airports ?? [])[0]!.lng }
+              : null
+    if (onlyPoint) {
+      map.setCenter(onlyPoint)
+      map.setZoom(15)
     } else {
-      const only = end ?? start!
-      map.setCenter({ lat: only.lat, lng: only.lng })
+      // Fallback (shouldn't happen — totalPoints===1 implies one source)
+      map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 })
     }
-    map.setZoom(15)
   } else {
     map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 })
   }
@@ -430,6 +452,7 @@ watch(
     () => props.startAccommodation,
     () => props.endAccommodation,
     () => props.airports,
+    () => props.countryCode,
   ],
   () => {
     if (isLoaded.value && map) {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 /// <reference types="google.maps" />
+import { countryByAlpha2 } from "../data/countries"
 
 interface Activity {
   id: string
@@ -28,6 +29,7 @@ const props = defineProps<{
   days: DayWithActivities[]
   selectedDayId?: string | null
   airports?: AirportMarker[]
+  countryCode?: string | null
 }>()
 
 const DAY_COLORS = [
@@ -333,8 +335,14 @@ function updateMarkers() {
   }
 
   if (!hasMarkers) {
-    map.setCenter({ lat: 0, lng: 0 })
-    map.setZoom(2)
+    const country = props.countryCode ? countryByAlpha2.get(props.countryCode) : null
+    if (country) {
+      map.setCenter({ lat: country.lat, lng: country.lng })
+      map.setZoom(country.zoom)
+    } else {
+      map.setCenter({ lat: 0, lng: 0 })
+      map.setZoom(2)
+    }
     return
   }
 
@@ -379,7 +387,7 @@ function updateMarkers() {
 }
 
 watch(
-  [() => props.days, () => props.selectedDayId, () => props.airports],
+  [() => props.days, () => props.selectedDayId, () => props.airports, () => props.countryCode],
   () => {
     if (isLoaded.value && map) {
       updateMarkers()
@@ -409,7 +417,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-if="hasGeocodedActivities" class="relative h-full">
+  <div v-if="hasGeocodedActivities || countryCode" class="relative h-full">
     <div ref="mapContainer" class="h-full w-full" />
 
     <!-- Map mode toggle -->

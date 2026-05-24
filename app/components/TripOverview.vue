@@ -27,6 +27,7 @@ interface TripDay {
 
 interface TripData {
   destination: string
+  countryCode: string | null
   startDate: string
   endDate: string
   status: string
@@ -310,7 +311,12 @@ function formatDayRange(dayNumbers: number[]): string {
     <!-- Mobile: stacked map -->
     <div class="h-[65vh] overflow-hidden rounded-2xl shadow-lg lg:hidden">
       <ClientOnly>
-        <TripOverviewMap :days="sortedDays" :selected-day-id="selectedDayId" :airports="airports" />
+        <TripOverviewMap
+          :days="sortedDays"
+          :selected-day-id="selectedDayId"
+          :airports="airports"
+          :country-code="trip.countryCode"
+        />
       </ClientOnly>
     </div>
 
@@ -325,6 +331,7 @@ function formatDayRange(dayNumbers: number[]): string {
             :days="sortedDays"
             :selected-day-id="selectedDayId"
             :airports="airports"
+            :country-code="trip.countryCode"
           />
         </ClientOnly>
       </div>

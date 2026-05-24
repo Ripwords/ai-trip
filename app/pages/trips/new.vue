@@ -1,21 +1,55 @@
 <script setup lang="ts">
+import { countryByAlpha2 } from "~/data/countries"
+
 definePageMeta({ layout: "app" })
 useSeoMeta({
   title: "New Trip",
   description: "Create a new AI-powered travel itinerary with verified places from Google Maps.",
 })
 
-const destination = ref("")
-const startDate = ref("")
-const endDate = ref("")
+// Default the dates to "trip starts a week from today, lasts a week" — the
+// most common shape and lets users submit without manually picking dates.
+function toIsoDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+const defaultStart = new Date()
+defaultStart.setDate(defaultStart.getDate() + 7)
+const defaultEnd = new Date(defaultStart)
+defaultEnd.setDate(defaultEnd.getDate() + 6)
+
+const countryCode = ref<string | null>(null)
+const showNameInput = ref(false)
+const name = ref("")
+const startDate = ref(toIsoDate(defaultStart))
+const endDate = ref(toIsoDate(defaultEnd))
 const budget = ref<string>()
 const pace = ref<string>()
 const currencyCode = ref("USD")
+const userTouchedCurrency = ref(false)
 const travelStyle = ref<string[]>([])
 const error = ref("")
 const loading = ref(false)
 
-const currencies = [
+// Keep endDate ≥ startDate: if the user moves startDate past endDate, snap
+// endDate forward to match. The reverse (endDate < startDate via direct edit)
+// is caught by the submit-time check below.
+watch(startDate, (next, prev) => {
+  if (next && endDate.value && next > endDate.value) {
+    endDate.value = next
+  } else if (next && !endDate.value) {
+    endDate.value = next
+  }
+  void prev
+})
+
+const rangeValid = computed(
+  () => !!startDate.value && !!endDate.value && endDate.value >= startDate.value,
+)
+
+const baseCurrencies = [
   { code: "USD", label: "USD ($)" },
   { code: "EUR", label: "EUR (€)" },
   { code: "GBP", label: "GBP (£)" },
@@ -34,6 +68,28 @@ const currencies = [
   { code: "CNY", label: "CNY (¥)" },
 ]
 
+// Currencies shown in the dropdown — the base 16 plus the auto-picked currency
+// for the selected country if it isn't already on the list.
+const currencies = computed(() => {
+  const set = new Map(baseCurrencies.map((c) => [c.code, c]))
+  if (currencyCode.value && !set.has(currencyCode.value)) {
+    set.set(currencyCode.value, { code: currencyCode.value, label: currencyCode.value })
+  }
+  return [...set.values()]
+})
+
+// When the country changes, auto-update currency unless the user already
+// overrode it explicitly.
+watch(countryCode, (code) => {
+  if (!code || userTouchedCurrency.value) return
+  const c = countryByAlpha2.get(code)
+  if (c) currencyCode.value = c.currency
+})
+
+function onCurrencyChange() {
+  userTouchedCurrency.value = true
+}
+
 const travelStyleOptions = [
   "foodie",
   "culture",
@@ -51,15 +107,26 @@ function toggleStyle(style: string) {
   else travelStyle.value.push(style)
 }
 
+const canSubmit = computed(() => !!countryCode.value && rangeValid.value && !loading.value)
+
 async function handleCreate() {
   error.value = ""
+  if (!countryCode.value) {
+    error.value = "Please pick a country"
+    return
+  }
+  if (!rangeValid.value) {
+    error.value = "End date must be on or after start date"
+    return
+  }
   loading.value = true
 
   try {
     const trip = await $fetch("/api/trips", {
       method: "POST",
       body: {
-        destination: destination.value,
+        countryCode: countryCode.value,
+        name: name.value.trim() || null,
         startDate: startDate.value,
         endDate: endDate.value,
         currencyCode: currencyCode.value,
@@ -87,17 +154,29 @@ async function handleCreate() {
 
     <form class="mt-8 space-y-5" @submit.prevent="handleCreate">
       <div>
-        <label for="destination" class="block text-sm font-medium text-sand-700">
-          Destination
-        </label>
-        <input
-          id="destination"
-          v-model="destination"
-          type="text"
-          required
-          placeholder="e.g. Tokyo, Japan"
-          class="form-input"
-        />
+        <label for="country" class="block text-sm font-medium text-sand-700"> Destination </label>
+        <div class="mt-1.5">
+          <CountryCombobox id="country" v-model="countryCode" placeholder="Pick a country" />
+        </div>
+
+        <div v-if="!showNameInput" class="mt-2">
+          <button
+            type="button"
+            class="text-xs font-medium text-terra-600 hover:text-terra-700"
+            @click="showNameInput = true"
+          >
+            + Add a custom name
+          </button>
+        </div>
+        <div v-else class="mt-2">
+          <input
+            v-model="name"
+            type="text"
+            maxlength="100"
+            placeholder="e.g. Honeymoon 2026"
+            class="form-input"
+          />
+        </div>
       </div>
 
       <div class="space-y-4 sm:grid sm:grid-cols-2 sm:gap-4 sm:space-y-0">
@@ -109,7 +188,17 @@ async function handleCreate() {
         </div>
         <div>
           <label for="endDate" class="block text-sm font-medium text-sand-700"> End date </label>
-          <input id="endDate" v-model="endDate" type="date" required class="form-input" />
+          <input
+            id="endDate"
+            v-model="endDate"
+            type="date"
+            required
+            :min="startDate || undefined"
+            class="form-input"
+          />
+          <p v-if="!rangeValid && startDate && endDate" class="mt-1 text-xs text-red-600">
+            End date must be on or after start date.
+          </p>
         </div>
       </div>
 
@@ -137,7 +226,7 @@ async function handleCreate() {
       <!-- Currency -->
       <div>
         <label for="currency" class="block text-sm font-medium text-sand-700">Currency</label>
-        <select id="currency" v-model="currencyCode" class="form-input">
+        <select id="currency" v-model="currencyCode" class="form-input" @change="onCurrencyChange">
           <option v-for="c in currencies" :key="c.code" :value="c.code">{{ c.label }}</option>
         </select>
       </div>
@@ -167,7 +256,7 @@ async function handleCreate() {
 
       <button
         type="submit"
-        :disabled="loading"
+        :disabled="!canSubmit"
         class="w-full rounded-xl bg-terra-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-terra-600 disabled:opacity-50"
       >
         {{ loading ? "Creating..." : "Create Trip" }}

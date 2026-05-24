@@ -1,6 +1,8 @@
 <script setup lang="ts">
 interface TripLike {
   destination: string
+  name: string | null
+  countryCode: string | null
   startDate: string
   endDate: string
 }
@@ -24,7 +26,13 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const destination = ref(props.trip.destination)
+// Prefill the name input from the legacy destination when no explicit name
+// is set, so existing trips don't show a blank field. We treat the prefill
+// as the baseline for "changed" comparisons — opening the modal and saving
+// without edits should not create a synthetic custom name.
+const initialName = computed(() => props.trip.name ?? props.trip.destination ?? "")
+const countryCode = ref<string | null>(props.trip.countryCode)
+const name = ref(initialName.value)
 const startDate = ref(props.trip.startDate)
 const endDate = ref(props.trip.endDate)
 const submitting = ref(false)
@@ -40,7 +48,8 @@ watch(
   () => [props.open, props.trip],
   () => {
     if (props.open) {
-      destination.value = props.trip.destination
+      countryCode.value = props.trip.countryCode
+      name.value = initialName.value
       startDate.value = props.trip.startDate
       endDate.value = props.trip.endDate
       stage.value = "form"
@@ -54,9 +63,11 @@ const datesChanged = computed(
   () => startDate.value !== props.trip.startDate || endDate.value !== props.trip.endDate,
 )
 
-const destinationChanged = computed(() => destination.value.trim() !== props.trip.destination)
+const countryChanged = computed(() => countryCode.value !== props.trip.countryCode)
 
-const anyChange = computed(() => datesChanged.value || destinationChanged.value)
+const nameChanged = computed(() => name.value.trim() !== initialName.value)
+
+const anyChange = computed(() => datesChanged.value || countryChanged.value || nameChanged.value)
 
 const rangeValid = computed(() => endDate.value >= startDate.value)
 
@@ -70,8 +81,8 @@ function formatDate(iso: string): string {
 
 async function handleSubmit() {
   error.value = null
-  if (!destination.value.trim()) {
-    error.value = "Destination is required"
+  if (!countryCode.value) {
+    error.value = "Please pick a country"
     return
   }
   if (!rangeValid.value) {
@@ -112,13 +123,16 @@ async function handleSubmit() {
 async function commitUpdate() {
   submitting.value = true
   try {
+    const body: Record<string, unknown> = {}
+    if (countryChanged.value && countryCode.value) body.countryCode = countryCode.value
+    if (nameChanged.value) body.name = name.value.trim() || null
+    if (datesChanged.value) {
+      body.startDate = startDate.value
+      body.endDate = endDate.value
+    }
     const result = await $fetch(`/api/trips/${props.tripId}`, {
       method: "PUT",
-      body: {
-        destination: destination.value.trim(),
-        startDate: startDate.value,
-        endDate: endDate.value,
-      },
+      body,
     })
     emit("updated", result)
     emit("close")
@@ -142,10 +156,18 @@ async function commitUpdate() {
           <form class="mt-4 space-y-4" @submit.prevent="handleSubmit">
             <div>
               <label class="block text-sm font-medium text-sand-700">Destination</label>
+              <div class="mt-1">
+                <CountryCombobox v-model="countryCode" placeholder="Pick a country" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-sand-700">Trip name</label>
               <input
-                v-model="destination"
+                v-model="name"
                 type="text"
-                required
+                maxlength="100"
+                placeholder="e.g. Honeymoon 2026 (optional)"
                 class="mt-1 block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
               />
             </div>
