@@ -289,16 +289,16 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
         {{ index + 1 }}
       </span>
 
-      <!-- Mobile drag handle — long-press to reorder.
+      <!-- Drag handle — long-press on touch, click+drag on desktop.
            Anchored next to the number badge (left side) so a long type pill on the right
            can't collide with it. -->
       <button
         v-if="!readonly"
-        class="drag-handle absolute left-13 top-3.5 flex h-7 w-7 cursor-grab items-center justify-center rounded-full bg-black/45 text-white/90 backdrop-blur-md active:cursor-grabbing active:bg-black/65"
-        :title="'Hold to reorder'"
+        class="drag-handle absolute left-13 top-3 flex h-8 w-8 cursor-grab items-center justify-center rounded-full bg-black/55 text-white shadow-md ring-2 ring-white/90 backdrop-blur-md transition hover:bg-black/75 active:cursor-grabbing active:bg-black/85"
+        :title="'Drag to reorder'"
         @click.stop
       >
-        <Icon name="lucide:grip-vertical" class="h-3.5 w-3.5" />
+        <Icon name="lucide:grip-vertical" class="h-4 w-4" />
       </button>
 
       <!-- Type pill (top-right)

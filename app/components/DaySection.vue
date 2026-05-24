@@ -186,32 +186,23 @@ function timeToMinutes(time: string): number | null {
               <span>Schedule conflict — activities overlap in time</span>
             </div>
 
-            <div :id="`activity-${activity.id}`" class="flex gap-1">
-              <!-- Drag handle (desktop only; touch users reorder via long-press on card) -->
-              <div
-                v-if="!readonly"
-                class="drag-handle hidden sm:flex shrink-0 cursor-grab items-center px-0.5 text-sand-300 active:cursor-grabbing"
-              >
-                <Icon name="lucide:grip-vertical" class="h-4 w-4" />
-              </div>
-              <div class="min-w-0 flex-1">
-                <ActivityCard
-                  :activity="activity"
-                  :index="index"
-                  :currency-code="currencyCode"
-                  :highlighted="activity.id === highlightedActivityId"
-                  :readonly="readonly"
-                  :participants="participantsMap?.[activity.id]"
-                  :members="members"
-                  @edit="emit('editActivity', $event)"
-                  @delete="emit('deleteActivity', $event)"
-                  @click="emit('clickActivity', $event)"
-                  @toggle-participant="
-                    (activityId: string, userId: string) =>
-                      emit('toggleParticipant', activityId, userId)
-                  "
-                />
-              </div>
+            <div :id="`activity-${activity.id}`">
+              <ActivityCard
+                :activity="activity"
+                :index="index"
+                :currency-code="currencyCode"
+                :highlighted="activity.id === highlightedActivityId"
+                :readonly="readonly"
+                :participants="participantsMap?.[activity.id]"
+                :members="members"
+                @edit="emit('editActivity', $event)"
+                @delete="emit('deleteActivity', $event)"
+                @click="emit('clickActivity', $event)"
+                @toggle-participant="
+                  (activityId: string, userId: string) =>
+                    emit('toggleParticipant', activityId, userId)
+                "
+              />
             </div>
             <TravelSegmentDivider
               v-if="index < localActivities.length - 1 && !isDragging"
