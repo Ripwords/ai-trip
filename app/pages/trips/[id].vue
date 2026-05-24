@@ -187,7 +187,13 @@ onMounted(() => {
   if (match) activeTab.value = match
 })
 const activeDayId = ref<string | null>(null)
-const showPrefsEditor = ref(false)
+const showSettingsSheet = ref(false)
+const settingsFocusField = ref<"country" | null>(null)
+
+function openSettings(focus: "country" | null = null) {
+  settingsFocusField.value = focus
+  showSettingsSheet.value = true
+}
 
 function handleExportKml() {
   if (!trip.value) return
@@ -1059,7 +1065,6 @@ function handleActivityAdded(payload: {
 
 const showMoreMenu = ref(false)
 const showShareMenu = ref(false)
-const showEditTripModal = ref(false)
 
 function handleTripUpdated(updated: unknown) {
   if (!updated) return
@@ -1176,7 +1181,7 @@ async function recomputeSegments(dayId: string) {
               v-if="!trip.countryCode && !isViewer"
               type="button"
               class="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-terra-50 px-2.5 py-1 text-xs font-medium text-terra-700 transition hover:bg-terra-100"
-              @click="showEditTripModal = true"
+              @click="openSettings('country')"
             >
               <Icon name="lucide:map-pin" class="h-3.5 w-3.5" />
               Set a destination
@@ -1189,8 +1194,8 @@ async function recomputeSegments(dayId: string) {
             v-if="!isViewer"
             type="button"
             class="flex h-9 w-9 items-center justify-center rounded-lg text-sand-500 transition hover:bg-sand-100 hover:text-sand-800"
-            title="Trip preferences"
-            @click="showPrefsEditor = !showPrefsEditor"
+            title="Trip settings"
+            @click="showSettingsSheet ? (showSettingsSheet = false) : openSettings()"
           >
             <Icon name="lucide:sliders-horizontal" class="h-4 w-4" />
           </button>
@@ -1283,20 +1288,6 @@ async function recomputeSegments(dayId: string) {
                 v-if="showMoreMenu"
                 class="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
               >
-                <button
-                  v-if="!isViewer"
-                  type="button"
-                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
-                  @click="
-                    () => {
-                      showMoreMenu = false
-                      showEditTripModal = true
-                    }
-                  "
-                >
-                  <Icon name="lucide:pencil" class="h-4 w-4 text-sand-400" />
-                  Edit trip
-                </button>
                 <button
                   type="button"
                   class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
@@ -1641,15 +1632,18 @@ async function recomputeSegments(dayId: string) {
       </div>
     </div>
 
-    <!-- Preferences sheet -->
-    <TripPreferencesSheet
+    <!-- Trip settings sheet -->
+    <TripSettingsSheet
       v-if="trip && !isViewer"
-      :open="showPrefsEditor"
+      :open="showSettingsSheet"
+      :trip-id="tripId"
       :trip="trip"
       :currency-converting="currencyConverting"
-      @close="showPrefsEditor = false"
+      :focus-field="settingsFocusField"
+      @close="showSettingsSheet = false"
       @update-preference="updatePreference"
       @change-currency="handleCurrencyChange"
+      @trip-info-saved="handleTripUpdated"
     />
 
     <!-- AI dock -->
@@ -1691,16 +1685,6 @@ async function recomputeSegments(dayId: string) {
       :day-number="addActivityModal.dayNumber"
       @added="handleActivityAdded"
       @close="addActivityModal.open = false"
-    />
-
-    <!-- Edit trip modal -->
-    <EditTripModal
-      v-if="trip"
-      :open="showEditTripModal"
-      :trip-id="tripId"
-      :trip="trip"
-      @close="showEditTripModal = false"
-      @updated="handleTripUpdated"
     />
   </div>
 </template>
