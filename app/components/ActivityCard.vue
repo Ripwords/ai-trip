@@ -96,18 +96,27 @@ function getPhotoPlaceId(photo: string): string | null {
   return props.activity.placeId ?? photo.match(/^places\/([^/?#]+)\/photos\/[^/?#]+$/)?.[1] ?? null
 }
 
+function photoUrl(photo: string, placeId: string, width: number): string {
+  const params = new URLSearchParams({ photo, maxWidthPx: String(width) })
+  return `/api/places/${encodeURIComponent(placeId)}/photo?${params.toString()}`
+}
+
+// Hero spans the full card width (up to ~480px on desktop). Request 800px
+// base + 1600px for retina via srcset so the image stays crisp.
 const thumbnailUrl = computed(() => {
   const photo = resolvedPhotos.value[0]
   if (!photo || imageFailed.value) return null
-
   const placeId = getPhotoPlaceId(photo)
   if (!placeId) return null
+  return photoUrl(photo, placeId, 800)
+})
 
-  const params = new URLSearchParams({
-    photo,
-    maxWidthPx: "240",
-  })
-  return `/api/places/${encodeURIComponent(placeId)}/photo?${params.toString()}`
+const thumbnailSrcset = computed(() => {
+  const photo = resolvedPhotos.value[0]
+  if (!photo || imageFailed.value) return undefined
+  const placeId = getPhotoPlaceId(photo)
+  if (!placeId) return undefined
+  return `${photoUrl(photo, placeId, 800)} 1x, ${photoUrl(photo, placeId, 1600)} 2x`
 })
 
 async function loadPlacePhotos() {
@@ -243,15 +252,17 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
     "
     @click="emit('click', activity)"
   >
-    <!-- ─────────────────────────── MOBILE HERO ─────────────────────────── -->
-    <div class="relative sm:hidden">
+    <!-- ─────────────────────────── HERO ─────────────────────────── -->
+    <div class="relative">
       <div class="aspect-[16/10] w-full overflow-hidden bg-sand-100">
         <img
           v-if="thumbnailUrl"
           :src="thumbnailUrl"
+          :srcset="thumbnailSrcset"
           :alt="activity.name"
           class="h-full w-full object-cover transition duration-500 group-active:scale-105"
           loading="lazy"
+          decoding="async"
           @error="imageFailed = true"
         />
         <div v-else class="flex h-full w-full items-center justify-center text-sand-300">
@@ -325,89 +336,24 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
 
     <!-- ─────────────────────────── CONTENT ─────────────────────────── -->
     <div class="p-4 sm:p-5">
-      <!-- Desktop header (≥sm) -->
-      <div class="hidden sm:flex sm:items-start sm:justify-between sm:gap-3">
-        <div class="flex items-start gap-3 min-w-0">
-          <span
-            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-terra-500 text-xs font-bold text-white"
-          >
-            {{ index + 1 }}
-          </span>
-          <div
-            class="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-sand-100 text-sand-300"
-          >
-            <img
-              v-if="thumbnailUrl"
-              :src="thumbnailUrl"
-              :alt="activity.name"
-              class="h-full w-full object-cover"
-              loading="lazy"
-              @error="imageFailed = true"
-            />
-            <Icon v-else-if="detailsLoading" name="lucide:loader" class="h-5 w-5 animate-spin" />
-            <Icon v-else name="lucide:image" class="h-5 w-5" />
-          </div>
-          <div class="min-w-0">
-            <h4 class="text-base font-semibold text-sand-900 truncate">
-              {{ activity.name }}
-            </h4>
-            <div class="mt-1 flex flex-wrap items-center gap-2">
-              <span
-                class="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium"
-                :class="getBadgeClass(activity.type)"
-              >
-                {{ formatType(activity.type) }}
-              </span>
-              <span
-                v-if="activity.suggestedTime"
-                class="inline-flex items-center gap-1 rounded-full bg-terra-50 px-2.5 py-0.5 text-xs font-semibold text-terra-700"
-              >
-                <Icon name="lucide:clock" class="h-3 w-3" />
-                {{ formatTime12h(activity.suggestedTime) }}
-              </span>
-              <span v-if="activity.estimatedDurationMinutes" class="text-sm text-sand-500">
-                {{ formatDuration(activity.estimatedDurationMinutes) }}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div
-          v-if="!readonly"
-          class="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100 transition"
-        >
-          <button
-            class="rounded-lg p-1.5 text-sand-400 hover:bg-terra-50 hover:text-terra-600"
-            title="Edit"
-            @click.stop="emit('edit', activity)"
-          >
-            <Icon name="lucide:edit" class="h-4 w-4" />
-          </button>
-          <button
-            class="rounded-lg p-1.5 text-sand-400 hover:bg-red-50 hover:text-red-600"
-            title="Delete"
-            @click.stop="emit('delete', activity)"
-          >
-            <Icon name="lucide:trash-2" class="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      <!-- Mobile title row (<sm) -->
-      <div class="flex items-start justify-between gap-2 sm:hidden">
-        <h4 class="text-[17px] font-bold leading-tight text-sand-900">
+      <!-- Title row — hero above already carries number + type + time + duration -->
+      <div class="flex items-start justify-between gap-2">
+        <h4 class="text-[17px] font-bold leading-tight text-sand-900 sm:text-base">
           {{ activity.name }}
         </h4>
-        <div v-if="!readonly" class="-mr-1.5 -mt-1.5 flex shrink-0 gap-0.5">
+        <div
+          v-if="!readonly"
+          class="-mr-1.5 -mt-1.5 flex shrink-0 gap-0.5 sm:opacity-0 sm:transition sm:group-hover:opacity-100"
+        >
           <button
-            class="rounded-lg p-1.5 text-sand-400 active:bg-terra-50 active:text-terra-600"
+            class="rounded-lg p-1.5 text-sand-400 active:bg-terra-50 active:text-terra-600 sm:hover:bg-terra-50 sm:hover:text-terra-600"
             title="Edit"
             @click.stop="emit('edit', activity)"
           >
             <Icon name="lucide:edit" class="h-4 w-4" />
           </button>
           <button
-            class="rounded-lg p-1.5 text-sand-400 active:bg-red-50 active:text-red-600"
+            class="rounded-lg p-1.5 text-sand-400 active:bg-red-50 active:text-red-600 sm:hover:bg-red-50 sm:hover:text-red-600"
             title="Delete"
             @click.stop="emit('delete', activity)"
           >
