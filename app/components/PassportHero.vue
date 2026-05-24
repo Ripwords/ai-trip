@@ -95,11 +95,7 @@ const uniqueMapPoints = computed(() => {
   >
     <div class="flex min-w-0 items-center gap-2">
       <p class="passport-metric-label">Travel passport</p>
-      <span
-        v-if="passport.countryFlags.length"
-        class="text-base text-sand-900"
-        aria-hidden="true"
-      >
+      <span v-if="passport.countryFlags.length" class="text-base text-sand-900" aria-hidden="true">
         {{ passport.countryFlags.slice(0, 10).join(" ") }}
         <span v-if="passport.countryFlags.length > 10" class="ml-1 text-xs text-sand-500">
           +{{ passport.countryFlags.length - 10 }}
