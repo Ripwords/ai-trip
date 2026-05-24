@@ -95,21 +95,16 @@ const uniqueMapPoints = computed(() => {
   >
     <div class="flex min-w-0 items-center gap-2">
       <p class="passport-metric-label">Travel passport</p>
-      <div
+      <span
         v-if="passport.countryFlags.length"
-        class="flex flex-wrap items-center gap-0.5 text-base"
+        class="text-base text-sand-900"
         aria-hidden="true"
       >
-        <span
-          v-for="(flag, i) in passport.countryFlags.slice(0, 10)"
-          :key="passport.countries[i]?.code ?? i"
-        >
-          {{ flag }}
-        </span>
+        {{ passport.countryFlags.slice(0, 10).join(" ") }}
         <span v-if="passport.countryFlags.length > 10" class="ml-1 text-xs text-sand-500">
           +{{ passport.countryFlags.length - 10 }}
         </span>
-      </div>
+      </span>
     </div>
     <dl class="flex flex-wrap items-baseline gap-x-5 gap-y-1 tabular-nums">
       <div class="flex items-baseline gap-1.5">
@@ -218,21 +213,16 @@ const uniqueMapPoints = computed(() => {
             <p class="passport-metric-label">Countries</p>
             <p class="passport-metric-value tabular-nums">{{ passport.countries.length }}</p>
           </div>
-          <div
+          <p
             v-if="passport.countryFlags.length"
-            class="mt-3 flex flex-wrap gap-1 text-xl"
+            class="mt-3 text-xl leading-snug text-sand-900"
             aria-hidden="true"
           >
-            <span
-              v-for="(flag, i) in passport.countryFlags.slice(0, 24)"
-              :key="passport.countries[i]?.code ?? i"
-            >
-              {{ flag }}
-            </span>
-            <span v-if="passport.countryFlags.length > 24" class="text-xs text-sand-600">
+            {{ passport.countryFlags.slice(0, 24).join(" ") }}
+            <span v-if="passport.countryFlags.length > 24" class="ml-1 text-xs text-sand-600">
               +{{ passport.countryFlags.length - 24 }}
             </span>
-          </div>
+          </p>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
