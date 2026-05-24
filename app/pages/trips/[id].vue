@@ -3,6 +3,7 @@ import type { TripActivity, TripDay, TripResponse } from "~/types/trip"
 import type { Proposal } from "~/types/proposal"
 import type { ReviewFinding } from "~/types/review"
 import type { ChatMessage } from "~/components/AiDock.vue"
+import { countryByAlpha2 } from "~/data/countries"
 
 definePageMeta({ layout: "app" })
 
@@ -20,10 +21,20 @@ const tripId = route.params.id as string
 
 const { data: trip, status, refresh } = useLazyFetch<TripResponse>(`/api/trips/${tripId}`)
 
-const tripTitle = computed(() => (trip.value ? `${trip.value.destination}` : "Trip"))
+const tripDisplayName = computed(() => {
+  const t = trip.value
+  if (!t) return "Trip"
+  if (t.name) return t.name
+  const c = t.countryCode ? countryByAlpha2.get(t.countryCode) : null
+  if (c) return `Trip to ${c.name}`
+  // Legacy fallback for trips that haven't been migrated yet
+  return t.destination || "Untitled trip"
+})
+
+const tripTitle = computed(() => tripDisplayName.value)
 const tripDescription = computed(() =>
   trip.value
-    ? `AI-planned itinerary for ${trip.value.destination}. View and edit your travel plans with verified places.`
+    ? `AI-planned itinerary for ${tripDisplayName.value}. View and edit your travel plans with verified places.`
     : "View and edit your AI-planned travel itinerary.",
 )
 
@@ -376,6 +387,27 @@ const todayDate = new Date().toISOString().slice(0, 10)
 const sortedDays = computed(() => {
   if (!trip.value?.days) return []
   return [...trip.value.days].toSorted((a, b) => a.dayNumber - b.dayNumber)
+})
+
+const dayWeeks = computed(() => {
+  const groups: (typeof sortedDays.value)[] = []
+  for (let i = 0; i < sortedDays.value.length; i += 7) {
+    groups.push(sortedDays.value.slice(i, i + 7))
+  }
+  return groups
+})
+
+const dayStripRef = ref<HTMLElement | null>(null)
+
+async function scrollActiveDayIntoView() {
+  await nextTick()
+  if (!activeDayId.value || !dayStripRef.value) return
+  const el = dayStripRef.value.querySelector<HTMLElement>(`[data-day-id="${activeDayId.value}"]`)
+  el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" })
+}
+
+watch([activeDayId, activeTab], () => {
+  if (activeTab.value === "itinerary") scrollActiveDayIntoView()
 })
 
 const activeDay = computed(() => sortedDays.value.find((d) => d.id === activeDayId.value) ?? null)
@@ -1138,24 +1170,17 @@ async function recomputeSegments(dayId: string) {
           </NuxtLink>
           <div class="min-w-0">
             <h1 class="truncate font-display text-2xl text-sand-900 sm:text-3xl">
-              {{ trip.destination }}
+              {{ tripDisplayName }}
             </h1>
-            <div class="mt-1.5 text-xs text-sand-500 sm:text-sm">
-              <NuxtTime
-                :datetime="trip.startDate + 'T00:00:00'"
-                locale="en-US"
-                month="short"
-                day="numeric"
-              />
-              –
-              <NuxtTime
-                :datetime="trip.endDate + 'T00:00:00'"
-                locale="en-US"
-                month="short"
-                day="numeric"
-                year="numeric"
-              />
-            </div>
+            <button
+              v-if="!trip.countryCode && !isViewer"
+              type="button"
+              class="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-terra-50 px-2.5 py-1 text-xs font-medium text-terra-700 transition hover:bg-terra-100"
+              @click="showEditTripModal = true"
+            >
+              <Icon name="lucide:map-pin" class="h-3.5 w-3.5" />
+              Set a destination
+            </button>
           </div>
         </div>
 
@@ -1326,46 +1351,64 @@ async function recomputeSegments(dayId: string) {
       </div>
 
       <div v-else-if="activeTab === 'itinerary'" class="mt-6">
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-          <!-- Day tabs (client-only to avoid hydration mismatch with sessionStorage) -->
-          <div class="min-w-0 sm:flex-1">
-            <ClientOnly>
-              <div class="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-                <button
-                  v-for="day in sortedDays"
-                  :key="day.id"
-                  type="button"
-                  class="flex shrink-0 flex-col items-center gap-0.5 rounded-xl px-3 py-2 transition"
-                  :class="
-                    day.id === activeDayId
-                      ? 'bg-terra-500 text-white shadow-sm'
-                      : day.date === todayDate
-                        ? 'text-terra-600 hover:bg-sand-100'
-                        : 'text-sand-600 hover:bg-sand-100'
-                  "
-                  @click="activeDayId = day.id"
-                >
-                  <NuxtTime
-                    class="text-base font-semibold leading-none tabular-nums sm:text-lg"
-                    :datetime="day.date + 'T00:00:00'"
-                    locale="en-US"
-                    day="numeric"
+        <!-- Day strip + controls in one band -->
+        <div class="flex items-center gap-3">
+          <ClientOnly>
+            <div
+              ref="dayStripRef"
+              class="-mx-1 min-w-0 flex-1 overflow-x-auto px-1 pb-1 scrollbar-hide"
+            >
+              <div class="flex min-w-max items-center gap-1">
+                <template v-for="(week, weekIdx) in dayWeeks" :key="weekIdx">
+                  <div
+                    v-if="weekIdx > 0"
+                    class="mx-1.5 h-8 w-px shrink-0 bg-sand-200/70 dark:bg-white/10"
+                    aria-hidden="true"
                   />
-                  <NuxtTime
-                    class="text-[10px] uppercase tracking-wider opacity-70"
-                    :datetime="day.date + 'T00:00:00'"
-                    locale="en-US"
-                    weekday="short"
-                  />
-                </button>
+                  <button
+                    v-for="day in week"
+                    :key="day.id"
+                    :data-day-id="day.id"
+                    type="button"
+                    class="relative flex h-12 w-10 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terra-400"
+                    :class="
+                      day.id === activeDayId
+                        ? 'bg-terra-500 text-white shadow-sm shadow-terra-500/30'
+                        : day.date === todayDate
+                          ? 'text-terra-600 hover:bg-sand-100'
+                          : 'text-sand-600 hover:bg-sand-100'
+                    "
+                    @click="activeDayId = day.id"
+                  >
+                    <NuxtTime
+                      class="font-display text-base leading-none tabular-nums"
+                      :datetime="day.date + 'T00:00:00'"
+                      locale="en-US"
+                      day="numeric"
+                    />
+                    <NuxtTime
+                      class="text-[9px] font-medium uppercase tracking-[0.12em] opacity-70"
+                      :datetime="day.date + 'T00:00:00'"
+                      locale="en-US"
+                      weekday="short"
+                    />
+                    <span
+                      v-if="day.date === todayDate && day.id !== activeDayId"
+                      class="absolute bottom-1 h-1 w-1 rounded-full bg-terra-500"
+                      aria-hidden="true"
+                    />
+                  </button>
+                </template>
               </div>
-            </ClientOnly>
-          </div>
+            </div>
+          </ClientOnly>
 
-          <div
-            class="flex items-center justify-between gap-3 px-1 sm:shrink-0 sm:justify-end sm:gap-3 sm:px-0"
-          >
-            <div class="flex items-center gap-0.5">
+          <div class="h-8 w-px shrink-0 bg-sand-200/70 dark:bg-white/10" aria-hidden="true" />
+
+          <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+            <div
+              class="flex items-center gap-0.5 rounded-lg bg-sand-100/60 p-0.5 dark:bg-white/[0.04]"
+            >
               <button
                 v-for="mode in transportModeOptions"
                 :key="mode.value"
@@ -1374,15 +1417,15 @@ async function recomputeSegments(dayId: string) {
                 :title="`${mode.label} travel time`"
                 :aria-label="`Use ${mode.label.toLowerCase()} travel times`"
                 :aria-pressed="activeTransportMode === mode.value"
-                class="flex h-8 w-8 items-center justify-center rounded-lg transition disabled:opacity-50"
+                class="flex h-7 w-7 items-center justify-center rounded-md transition disabled:opacity-50"
                 :class="
                   activeTransportMode === mode.value
                     ? 'bg-terra-500 text-white shadow-sm'
-                    : 'text-sand-400 hover:bg-sand-100 hover:text-sand-700'
+                    : 'text-sand-500 hover:bg-sand-200/60 hover:text-sand-700'
                 "
                 @click="handleTransportModeChange(mode.value)"
               >
-                <Icon :name="mode.icon" class="h-4 w-4" />
+                <Icon :name="mode.icon" class="h-3.5 w-3.5" />
               </button>
             </div>
 
@@ -1391,11 +1434,22 @@ async function recomputeSegments(dayId: string) {
               :href="activeDayMapsUrl"
               target="_blank"
               rel="noopener noreferrer"
-              class="inline-flex items-center gap-1.5 text-xs font-medium text-sand-500 transition hover:text-terra-600"
+              class="hidden items-center gap-1.5 text-xs font-medium text-sand-500 transition hover:text-terra-600 md:inline-flex"
               title="Open this day's route in Google Maps"
             >
               <Icon name="lucide:navigation" class="h-3.5 w-3.5" />
               Open in Maps
+            </a>
+            <a
+              v-if="activeDayMapsUrl"
+              :href="activeDayMapsUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex h-7 w-7 items-center justify-center rounded-md text-sand-500 transition hover:bg-sand-100 hover:text-terra-600 md:hidden"
+              :title="`Open this day's route in Google Maps`"
+              :aria-label="`Open this day's route in Google Maps`"
+            >
+              <Icon name="lucide:navigation" class="h-3.5 w-3.5" />
             </a>
           </div>
         </div>
@@ -1405,7 +1459,7 @@ async function recomputeSegments(dayId: string) {
           <div class="flex flex-col gap-6 lg:flex-row">
             <!-- Left: Ideas + Accommodation + Activities -->
             <div
-              class="flex-1 space-y-4 pb-24 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-4 lg:pb-6"
+              class="flex-1 space-y-4 pb-24 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-4 lg:pb-6 scrollbar-thin"
             >
               <!-- Ideas bucket (hidden for viewers) -->
               <IdeasBucket
@@ -1477,6 +1531,7 @@ async function recomputeSegments(dayId: string) {
                   :start-accommodation="activeDayStartLocation"
                   :end-accommodation="activeDayEndAccommodation"
                   :airports="activeDayAirports"
+                  :country-code="trip?.countryCode ?? null"
                   @marker-click="handleMarkerClick"
                 />
               </div>
