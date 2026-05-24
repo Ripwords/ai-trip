@@ -206,7 +206,7 @@ describe("passport history", () => {
     assert.equal(result.recentFlights[0]?.id, "ok")
   })
 
-  it("keeps future years in availableYears so the year picker can scope to them", () => {
+  it("omits future-only years from availableYears since scoping there would be empty", () => {
     const result = buildPassportHistory({
       flights: [
         mkFlight("past", "2025-01-01", "JFK", "NRT"),
@@ -216,25 +216,38 @@ describe("passport history", () => {
       now: new Date("2026-05-24T00:00:00Z"),
     })
 
-    assert.deepEqual(result.availableYears, [2027, 2025])
+    assert.deepEqual(result.availableYears, [2025])
   })
 
-  it("shows future flights when the user explicitly scopes to a future year", () => {
-    // Year picker is the user saying "show me this year" — including upcoming
-    // years. Cancellation filter still applies, but date filter is bypassed.
+  it("keeps a year in availableYears if any flight in it has happened", () => {
     const result = buildPassportHistory({
       flights: [
-        mkFlight("past", "2025-01-01", "JFK", "NRT"),
-        mkFlight("future", "2027-03-01", "JFK", "LHR"),
-        { ...mkFlight("cxl", "2027-04-01", "JFK", "CDG"), status: "cancelled" },
+        mkFlight("past-2026", "2026-01-15", "JFK", "NRT"),
+        mkFlight("future-2026", "2026-11-01", "JFK", "LHR"),
       ],
       visitedCountries: [],
-      year: 2027,
+      now: new Date("2026-05-24T00:00:00Z"),
+    })
+
+    assert.deepEqual(result.availableYears, [2026])
+  })
+
+  it("excludes future flights even when the user scopes to a year", () => {
+    // Year scoping never bypasses the "must have happened" rule — flights in
+    // the future of the selected year are still dropped from totals.
+    const result = buildPassportHistory({
+      flights: [
+        mkFlight("past-2026", "2026-01-01", "JFK", "NRT"),
+        mkFlight("future-2026", "2026-12-01", "JFK", "LHR"),
+        { ...mkFlight("cxl", "2026-02-01", "JFK", "CDG"), status: "cancelled" },
+      ],
+      visitedCountries: [],
+      year: 2026,
       now: new Date("2026-05-24T00:00:00Z"),
     })
 
     assert.equal(result.totalFlights, 1)
-    assert.equal(result.recentFlights[0]?.id, "future")
+    assert.equal(result.recentFlights[0]?.id, "past-2026")
   })
 
   it("returns zeroed values for empty / nullish input", () => {

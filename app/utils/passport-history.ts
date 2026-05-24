@@ -69,14 +69,13 @@ export function buildPassportHistory(input: BuildPassportHistoryInput): Passport
   const todayIso = (input.now ?? new Date()).toISOString().slice(0, 10)
 
   // Match Flighty Passport semantics: only flights actually taken count.
-  // Cancelled rows never count. Future rows are excluded from the unscoped
-  // "all time" view, but kept when the user explicitly scopes to a year so
-  // upcoming-year selections in the picker are still meaningful.
-  const flown = allFlights.filter((f) => f.status !== "cancelled")
-  const flights =
-    year == null
-      ? flown.filter((f) => f.flightDate <= todayIso)
-      : flown.filter((f) => yearOf(f.flightDate) === year)
+  // Cancelled rows never count, and future rows are always excluded — year
+  // scoping narrows the window but does not surface flights that haven't
+  // happened yet.
+  const flown = allFlights.filter(
+    (f) => f.status !== "cancelled" && f.flightDate <= todayIso,
+  )
+  const flights = year == null ? flown : flown.filter((f) => yearOf(f.flightDate) === year)
 
   const uniqueAirports = unique(
     flights.flatMap((f) => [f.departureAirport, f.arrivalAirport].filter(nonEmpty)),
@@ -121,7 +120,7 @@ export function buildPassportHistory(input: BuildPassportHistoryInput): Passport
     countryFlags,
     recentFlights,
     routeSegments,
-    availableYears: collectYears(allFlights),
+    availableYears: collectYears(flown),
   }
 }
 
