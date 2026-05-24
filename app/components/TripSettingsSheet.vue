@@ -201,7 +201,7 @@ onUnmounted(() => {
   >
     <div
       v-if="open"
-      class="fixed inset-x-0 bottom-0 z-[70] max-h-[85vh] overflow-y-auto rounded-t-2xl border border-sand-200 bg-white p-5 shadow-2xl lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-0 lg:h-full lg:max-h-none lg:w-96 lg:rounded-none lg:rounded-l-2xl"
+      class="fixed inset-x-0 bottom-0 z-[70] max-h-[85vh] overflow-x-hidden overflow-y-auto rounded-t-2xl border border-sand-200 bg-white p-5 shadow-2xl lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-0 lg:h-full lg:max-h-none lg:w-96 lg:rounded-none lg:rounded-l-2xl"
     >
       <!-- Header -->
       <div class="flex items-center justify-between">
@@ -388,7 +388,7 @@ onUnmounted(() => {
             <p class="text-sm font-medium text-red-900">
               Day {{ d.dayNumber }} ({{ formatDate(d.date) }})
             </p>
-            <p class="mt-1 text-xs text-red-700">
+            <p class="mt-1 text-xs text-red-700 break-words">
               {{ d.activityCount }}
               {{ d.activityCount === 1 ? "activity" : "activities" }}:
               {{ d.activityNames.join(", ") }}
