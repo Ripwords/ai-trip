@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { authClient } from "../../lib/auth-client"
+
 useSeoMeta({
   title: "Accept Invite",
   description: "Accept an invitation to collaborate on a trip.",
@@ -6,9 +8,13 @@ useSeoMeta({
 
 const route = useRoute()
 const token = route.params.token as string
+// Only allow callback URLs of our expected shape — this value is used as the
+// post-OAuth navigation target, so an unconstrained value would allow an open
+// redirect via /invite/<arbitrary-path>.
+const safeToken = /^[A-Za-z0-9_-]{1,128}$/.test(token) ? token : ""
 
 // Use useRequestFetch so cookies are forwarded during SSR — authClient.useSession(useFetch)
-// fails to detect sessions on the server, which silently bounced authenticated users to /login.
+// fails to detect sessions on the server, which silently bounced authenticated users.
 let isAuthenticated = false
 try {
   const fetchWithCookies = useRequestFetch()
@@ -22,17 +28,12 @@ const loading = ref(false)
 const error = ref("")
 const success = ref(false)
 
-if (!isAuthenticated) {
-  if (import.meta.client) {
-    // Only persist the redirect when the token matches our expected shape — the
-    // value is used as the post-login navigation target, so an unconstrained
-    // value would allow an open redirect via /invite/<arbitrary-path>.
-    const safeToken = /^[A-Za-z0-9_-]{1,128}$/.test(token) ? token : ""
-    if (safeToken) {
-      sessionStorage.setItem("pending-invite", `/invite/${safeToken}`)
-    }
-  }
-  await navigateTo("/login")
+function signInWithGoogle() {
+  authClient.signIn.social({
+    provider: "google",
+    callbackURL: safeToken ? `/invite/${safeToken}` : "/dashboard",
+    errorCallbackURL: "/",
+  })
 }
 
 async function acceptInvite() {
@@ -53,6 +54,8 @@ async function acceptInvite() {
 onMounted(() => {
   if (isAuthenticated) {
     acceptInvite()
+  } else {
+    signInWithGoogle()
   }
 })
 </script>
@@ -84,6 +87,11 @@ onMounted(() => {
         <NuxtLink to="/dashboard" class="mt-4 inline-block text-sm text-terra-600 underline">
           Go to dashboard
         </NuxtLink>
+      </div>
+
+      <div v-else class="space-y-4">
+        <Icon name="lucide:loader" class="mx-auto h-8 w-8 animate-spin text-terra-500" />
+        <p class="text-sm text-sand-600">Redirecting to sign in...</p>
       </div>
     </div>
   </div>

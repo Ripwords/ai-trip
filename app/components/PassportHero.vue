@@ -91,7 +91,7 @@ const uniqueMapPoints = computed(() => {
 <template>
   <section
     v-if="variant === 'slim'"
-    class="passport-slim flex flex-wrap items-center justify-between gap-x-5 gap-y-2 rounded-xl border border-sand-200/70 bg-white/40 px-4 py-3 dark:border-white/5 dark:bg-white/[0.02]"
+    class="passport-slim flex flex-wrap items-center justify-between gap-x-5 gap-y-2 rounded-xl border border-sand-200/70 bg-white/40 px-4 py-3 dark:border-white/5 dark:bg-sand-100"
   >
     <div class="flex min-w-0 items-center gap-2">
       <p class="passport-metric-label">Travel passport</p>

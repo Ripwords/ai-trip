@@ -13,7 +13,7 @@ async function logout() {
   } catch {
     // Sign-out may fail if session already expired — redirect anyway
   }
-  await navigateTo("/login", { external: true })
+  await navigateTo("/", { external: true })
 }
 
 // Close on click outside

@@ -1,5 +1,5 @@
 const PROTECTED_PREFIXES = ["/dashboard", "/trips", "/explore", "/settings"]
-const GUEST_ONLY_ROUTES = new Set(["/", "/login"])
+const GUEST_ONLY_ROUTES = new Set(["/"])
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const needsAuth = PROTECTED_PREFIXES.some((r) => to.path.startsWith(r))
@@ -20,7 +20,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (!isAuthenticated && needsAuth) {
-    return navigateTo("/login")
+    return navigateTo("/")
   }
 
   if (isAuthenticated && guestOnly) {
