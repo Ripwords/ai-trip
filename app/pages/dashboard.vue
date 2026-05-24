@@ -207,26 +207,28 @@ const dashboardBriefing = computed(() =>
       <NuxtLink
         v-if="nextFlight"
         to="/flights"
-        class="flex items-center gap-3 rounded-2xl border border-ocean-200 bg-ocean-50 p-3 transition hover:bg-ocean-100/60 sm:gap-4 sm:p-4"
+        class="flex items-center gap-3 rounded-2xl border border-sand-200/70 bg-white/40 p-3 transition hover:border-sand-300 hover:bg-white/60 dark:border-white/5 dark:bg-white/[0.02] dark:hover:border-white/10 dark:hover:bg-white/[0.04] sm:gap-4 sm:p-4"
       >
         <div
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ocean-100 sm:h-10 sm:w-10"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sand-100/70 text-ocean-700 dark:bg-white/5 dark:text-ocean-600 sm:h-10 sm:w-10"
         >
-          <Icon name="lucide:plane" class="h-4 w-4 text-ocean-600 sm:h-5 sm:w-5" />
+          <Icon name="lucide:plane" class="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
         <div class="min-w-0 flex-1">
-          <p class="text-[11px] font-medium text-ocean-600 sm:text-xs">Next flight</p>
-          <p class="truncate font-display text-sand-900">
+          <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-sand-500">
+            Next flight
+          </p>
+          <p class="mt-0.5 truncate font-display text-base leading-none text-sand-900 sm:text-lg">
             {{ nextFlight.flightNumber }}
           </p>
-          <p class="truncate text-xs text-sand-500 sm:text-sm">
+          <p class="mt-1 truncate text-xs text-sand-500 sm:text-sm">
             {{ nextFlight.departureAirport ?? "???" }}
             &#8594;
             {{ nextFlight.arrivalAirport ?? "???" }}
           </p>
         </div>
         <div class="shrink-0 text-right">
-          <p class="text-sm font-medium text-sand-900">
+          <p class="text-sm font-medium text-sand-900 sm:text-base">
             <NuxtTime
               v-if="nextFlight.departureTime"
               :datetime="nextFlight.departureTime"
@@ -252,17 +254,21 @@ const dashboardBriefing = computed(() =>
       <NuxtLink
         v-if="nextTrip && countdown"
         :to="`/trips/${nextTrip.id}`"
-        class="flex items-center gap-3 rounded-2xl border border-terra-200 bg-terra-50 p-3 transition hover:bg-terra-100/60 sm:gap-4 sm:p-4"
+        class="flex items-center gap-3 rounded-2xl border border-sand-200/70 bg-white/40 p-3 transition hover:border-sand-300 hover:bg-white/60 dark:border-white/5 dark:bg-white/[0.02] dark:hover:border-white/10 dark:hover:bg-white/[0.04] sm:gap-4 sm:p-4"
       >
         <div
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-terra-100 sm:h-10 sm:w-10"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sand-100/70 text-terra-600 dark:bg-white/5 sm:h-10 sm:w-10"
         >
-          <Icon name="lucide:map-pin" class="h-4 w-4 text-terra-600 sm:h-5 sm:w-5" />
+          <Icon name="lucide:map-pin" class="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
         <div class="min-w-0 flex-1">
-          <p class="text-[11px] font-medium text-terra-600 sm:text-xs">Next adventure</p>
-          <p class="truncate font-display text-sand-900">{{ nextTrip.destination }}</p>
-          <p class="text-[11px] text-sand-500 sm:text-xs">
+          <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-sand-500">
+            Next adventure
+          </p>
+          <p class="mt-0.5 truncate font-display text-base leading-none text-sand-900 sm:text-lg">
+            {{ nextTrip.destination }}
+          </p>
+          <p class="mt-1 truncate text-xs text-sand-500 sm:text-sm">
             <NuxtTime
               :datetime="nextTrip.startDate + 'T00:00:00'"
               locale="en-US"
@@ -272,31 +278,31 @@ const dashboardBriefing = computed(() =>
             />
           </p>
         </div>
-        <div class="flex shrink-0 items-baseline gap-1.5 tabular-nums sm:gap-3">
+        <div class="flex shrink-0 items-baseline gap-1 tabular-nums sm:gap-2">
           <div class="text-center">
-            <p class="font-display text-base text-terra-600 sm:text-xl">{{ countdown.days }}</p>
-            <p class="text-[10px] uppercase tracking-wider text-sand-500">d</p>
+            <p class="font-display text-sm text-sand-900 sm:text-base">{{ countdown.days }}</p>
+            <p class="text-[9px] uppercase tracking-wider text-sand-500">d</p>
           </div>
           <span class="text-sand-300">:</span>
           <div class="text-center">
-            <p class="font-display text-base text-terra-600 sm:text-xl">
+            <p class="font-display text-sm text-sand-900 sm:text-base">
               {{ String(countdown.hours).padStart(2, "0") }}
             </p>
-            <p class="text-[10px] uppercase tracking-wider text-sand-500">h</p>
+            <p class="text-[9px] uppercase tracking-wider text-sand-500">h</p>
           </div>
           <span class="text-sand-300">:</span>
           <div class="text-center">
-            <p class="font-display text-base text-terra-600 sm:text-xl">
+            <p class="font-display text-sm text-sand-900 sm:text-base">
               {{ String(countdown.minutes).padStart(2, "0") }}
             </p>
-            <p class="text-[10px] uppercase tracking-wider text-sand-500">m</p>
+            <p class="text-[9px] uppercase tracking-wider text-sand-500">m</p>
           </div>
           <span class="hidden text-sand-300 sm:inline">:</span>
           <div class="hidden text-center sm:block">
-            <p class="font-display text-base text-terra-600 sm:text-xl">
+            <p class="font-display text-sm text-sand-900 sm:text-base">
               {{ String(countdown.seconds).padStart(2, "0") }}
             </p>
-            <p class="text-[10px] uppercase tracking-wider text-sand-500">s</p>
+            <p class="text-[9px] uppercase tracking-wider text-sand-500">s</p>
           </div>
         </div>
       </NuxtLink>
