@@ -1,9 +1,17 @@
 const PROTECTED_PREFIXES = ["/dashboard", "/trips", "/explore", "/settings"]
+const GUEST_ONLY_ROUTES = new Set(["/"])
 
 export default defineNuxtRouteMiddleware(async (to) => {
-  const needsAuth = PROTECTED_PREFIXES.some((r) => to.path.startsWith(r))
+  // Sign-out redirect carries ?logout=1 — skip the auth check so we don't
+  // race BetterAuth's cookie clearing and bounce back to /dashboard via the
+  // cookieCache (5-min JWE TTL). Without this guard, just-signed-out users
+  // can land in a /-↔-/dashboard redirect loop while the cache lingers.
+  if (to.query.logout === "1") return
 
-  if (!needsAuth) return
+  const needsAuth = PROTECTED_PREFIXES.some((r) => to.path.startsWith(r))
+  const guestOnly = GUEST_ONLY_ROUTES.has(to.path)
+
+  if (!needsAuth && !guestOnly) return
 
   // useRequestFetch returns a $fetch that auto-forwards cookies/headers
   // during SSR — unlike authClient.useSession(useFetch) which fails to
@@ -17,7 +25,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
     // Session fetch failed — treat as unauthenticated
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && needsAuth) {
     return navigateTo("/")
+  }
+
+  if (isAuthenticated && guestOnly) {
+    return navigateTo("/dashboard")
   }
 })
