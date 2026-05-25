@@ -22,10 +22,6 @@ interface SharedDay {
   id: string
   dayNumber: number
   date: string
-  accommodationName: string | null
-  accommodationAddress: string | null
-  accommodationLat: number | null
-  accommodationLng: number | null
   activities: SharedActivity[]
 }
 
@@ -101,20 +97,6 @@ const currentDayId = computed(() => {
 })
 
 const activeDay = computed(() => sortedDays.value.find((d) => d.id === currentDayId.value) ?? null)
-
-const activeDayPreviousAccommodation = computed(() => {
-  const day = activeDay.value
-  if (!day) return null
-  const days = sortedDays.value
-  const index = days.findIndex((d) => d.id === day.id)
-  const previousDay = index > 0 ? days[index - 1] : null
-  if (!previousDay?.accommodationName) return null
-  return {
-    name: previousDay.accommodationName,
-    lat: previousDay.accommodationLat,
-    lng: previousDay.accommodationLng,
-  }
-})
 
 function mapsLinkFor(activity: SharedActivity): string {
   const base = "https://www.google.com/maps/search/?api=1&query="
@@ -203,29 +185,8 @@ const imageFailed = reactive<Record<string, boolean>>({})
 
       <!-- Day content -->
       <div v-if="activeDay" class="mt-6 flex flex-col gap-6 lg:flex-row">
-        <!-- Left: accommodation + activity list -->
+        <!-- Left: activity list -->
         <div class="min-w-0 flex-1 space-y-3">
-          <div
-            v-if="activeDay.accommodationName"
-            class="rounded-2xl border border-ocean-200 bg-ocean-50 p-4"
-          >
-            <div class="flex items-start gap-3">
-              <div
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ocean-100"
-              >
-                <Icon name="lucide:bed-double" class="h-4 w-4 text-ocean-600" />
-              </div>
-              <div class="min-w-0">
-                <p class="text-sm font-medium text-sand-900">
-                  {{ activeDay.accommodationName }}
-                </p>
-                <p v-if="activeDay.accommodationAddress" class="mt-0.5 text-xs text-sand-500">
-                  {{ activeDay.accommodationAddress }}
-                </p>
-              </div>
-            </div>
-          </div>
-
           <div
             v-for="(activity, index) in activeDay.activities"
             :id="`shared-activity-${activity.id}`"
@@ -303,12 +264,6 @@ const imageFailed = reactive<Record<string, boolean>>({})
             <TripMap
               ref="tripMapRef"
               :activities="activeDay.activities"
-              :start-accommodation="activeDayPreviousAccommodation"
-              :end-accommodation="{
-                name: activeDay.accommodationName,
-                lat: activeDay.accommodationLat,
-                lng: activeDay.accommodationLng,
-              }"
               @marker-click="handleMarkerClick"
             />
           </div>

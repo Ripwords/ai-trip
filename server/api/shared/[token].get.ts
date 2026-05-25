@@ -50,7 +50,9 @@ export default defineEventHandler(async (event) => {
     }),
   )
 
-  // Return only public-safe fields — no preferences, notes, or costs
+  // Return only public-safe fields — no preferences, notes, costs, or accommodation.
+  // Accommodation is intentionally omitted: revealing where the owner sleeps is a
+  // physical-safety leak for anyone the share link is forwarded to.
   return {
     destination: trip.destination,
     startDate: trip.startDate,
@@ -60,10 +62,6 @@ export default defineEventHandler(async (event) => {
       id: day.id,
       dayNumber: day.dayNumber,
       date: day.date,
-      accommodationName: day.accommodationName,
-      accommodationAddress: day.accommodationAddress,
-      accommodationLat: day.accommodationLat,
-      accommodationLng: day.accommodationLng,
       activities: day.activities.map((a) => ({
         id: a.id,
         name: a.name,
