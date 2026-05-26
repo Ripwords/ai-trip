@@ -12,15 +12,7 @@ interface Activity {
   actualCost: string | null
   openingHours?: string[] | null
   priceLevel?: number | null
-  photos?: string[] | null
   [key: string]: unknown
-}
-
-interface PlaceDetails {
-  openingHours?: string[]
-  priceLevel?: number | null
-  photos?: string[]
-  editorialSummary?: string
 }
 
 function formatPriceLevel(level: number): string {
@@ -38,65 +30,11 @@ const { symbol: currencySymbol, code: currencyCodeResolved } = useCurrencyFormat
 )
 const symbolText = computed(() => currencySymbol())
 
-// Lazy-load place details when modal opens
-const placeDetails = ref<PlaceDetails | null>(null)
-const detailsLoading = ref(false)
-
-watch(
-  () => props.open,
-  async (isOpen) => {
-    if (
-      isOpen &&
-      props.activity?.placeId &&
-      (!props.activity.openingHours?.length || !props.activity.photos?.length)
-    ) {
-      detailsLoading.value = true
-      try {
-        const details = await $fetch<PlaceDetails>(
-          `/api/places/${encodeURIComponent(props.activity.placeId)}/details`,
-        )
-        placeDetails.value = details
-      } catch {
-        // Graceful — details are optional
-      } finally {
-        detailsLoading.value = false
-      }
-    } else {
-      placeDetails.value = null
-    }
-  },
-)
-
-const resolvedPhotos = computed(() =>
-  props.activity?.photos?.length ? props.activity.photos : (placeDetails.value?.photos ?? []),
-)
-const resolvedOpeningHours = computed(() =>
-  props.activity?.openingHours?.length
-    ? props.activity.openingHours
-    : (placeDetails.value?.openingHours ?? []),
-)
-const resolvedPriceLevel = computed(
-  () => props.activity?.priceLevel ?? placeDetails.value?.priceLevel ?? null,
-)
-
-function getPlacePhotoUrl(photo: string, maxWidthPx = 200): string | null {
-  const placeId =
-    props.activity?.placeId ?? photo.match(/^places\/([^/?#]+)\/photos\/[^/?#]+$/)?.[1] ?? null
-  if (!placeId) return null
-
-  const params = new URLSearchParams({
-    photo,
-    maxWidthPx: maxWidthPx.toString(),
-  })
-  return `/api/places/${encodeURIComponent(placeId)}/photo?${params.toString()}`
-}
-
-const resolvedPhotoUrls = computed(() =>
-  resolvedPhotos.value
-    .slice(0, 3)
-    .map((photo) => getPlacePhotoUrl(photo, 200))
-    .filter((url): url is string => Boolean(url)),
-)
+// openingHours / priceLevel are persisted at enrichment time, so we
+// read them straight from the activity row. Images are temporarily
+// disabled to eliminate Place Photo API spend.
+const resolvedOpeningHours = computed(() => props.activity?.openingHours ?? [])
+const resolvedPriceLevel = computed(() => props.activity?.priceLevel ?? null)
 
 const emit = defineEmits<{
   save: [
@@ -156,22 +94,6 @@ function handleSave() {
       <div class="fixed inset-0 bg-black/40" @click="emit('close')" />
       <div class="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl mx-4">
         <h2 class="text-lg font-display text-sand-900">Edit Activity</h2>
-
-        <!-- Photos strip (lazy-loaded from Google Maps) -->
-        <div v-if="resolvedPhotoUrls.length" class="mt-3 flex gap-2 overflow-x-auto scrollbar-thin">
-          <img
-            v-for="photoUrl in resolvedPhotoUrls"
-            :key="photoUrl"
-            :src="photoUrl"
-            :alt="activity?.name"
-            class="h-20 w-28 shrink-0 rounded-xl object-cover"
-            loading="lazy"
-          />
-        </div>
-        <div v-else-if="detailsLoading" class="mt-3 flex items-center gap-2 text-xs text-sand-400">
-          <Icon name="lucide:loader" class="h-3 w-3 animate-spin" />
-          Loading place details...
-        </div>
 
         <form class="mt-4 space-y-4" @submit.prevent="handleSave">
           <div>

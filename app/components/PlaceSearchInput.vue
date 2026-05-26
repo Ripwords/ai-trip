@@ -77,10 +77,6 @@ watch(results, (val) => {
           <p v-if="place.formattedAddress" class="text-xs text-sand-500 truncate">
             {{ place.formattedAddress }}
           </p>
-          <div v-if="place.rating" class="mt-0.5 flex items-center gap-1 text-xs text-sand-500">
-            <Icon name="lucide:star" class="h-3 w-3 text-terra-400" />
-            {{ place.rating }}
-          </div>
         </div>
       </button>
     </div>

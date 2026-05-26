@@ -54,7 +54,7 @@ export function createTripTools(ctx: TripToolsContext) {
   const searchPlaces = createTool({
     id: "searchPlaces",
     description:
-      "Search Google Places for a venue by name and city. Returns up to 5 candidates with lat/lng, address, rating. Use this to verify a place exists before recommending it.",
+      "Search Google Places for a venue by name and city. Returns up to 5 candidates with lat/lng and address. Use this to verify a place exists before recommending it. (Use getPlaceDetails afterwards if you need rating, hours, or price level.)",
     inputSchema: z.object({
       query: z.string().describe("Place name plus city, e.g. 'Afuri Ramen Roppongi Tokyo'"),
       near: z
@@ -74,7 +74,6 @@ export function createTripTools(ctx: TripToolsContext) {
           address: c.formattedAddress ?? null,
           lat: c.lat,
           lng: c.lng,
-          rating: c.rating ?? null,
         })),
       }
     },

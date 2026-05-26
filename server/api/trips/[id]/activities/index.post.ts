@@ -4,6 +4,7 @@ import { itineraryDays, activities, travelSegments, trips } from "../../../../db
 import { uuidParamsSchema, addActivitySchema } from "../../../../utils/schemas"
 import { computeAndSaveSegments } from "../../../../lib/segments"
 import { deriveCostFromPlace } from "../../../../lib/cost-from-place"
+import { getPlaceDetails } from "../../../../lib/google-maps"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -54,13 +55,33 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // Backfill rating / openingHours / priceLevel from Place Details
+  // when the client didn't pre-populate them. Text Search no longer
+  // returns rating (cost optimization), so this is the single place
+  // those fields get attached for manually-added activities.
+  let resolvedRating: string | undefined = rating != null ? String(rating) : undefined
+  let resolvedOpeningHours: string[] | undefined
+  let resolvedPriceLevel: number | undefined
+  if (body.placeId) {
+    const details = await getPlaceDetails(body.placeId).catch(() => null)
+    if (details) {
+      if (resolvedRating == null && details.rating != null) {
+        resolvedRating = String(details.rating)
+      }
+      if (details.openingHours) resolvedOpeningHours = details.openingHours
+      if (details.priceLevel != null) resolvedPriceLevel = details.priceLevel
+    }
+  }
+
   const [activity] = await db
     .insert(activities)
     .values({
       ...rest,
       itineraryDayId,
       sortOrder,
-      rating: rating != null ? String(rating) : undefined,
+      rating: resolvedRating,
+      openingHours: resolvedOpeningHours,
+      priceLevel: resolvedPriceLevel,
       costEstimate,
     })
     .returning()

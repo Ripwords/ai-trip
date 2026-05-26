@@ -15,7 +15,9 @@ export function usePlaceSearch() {
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
   async function search(q: string) {
-    if (!q || q.length < 2) {
+    // Min length 3 (was 2): two-char queries return very generic results
+    // and inflate Text Search call volume during fast typing.
+    if (!q || q.length < 3) {
       results.value = []
       return
     }
@@ -34,7 +36,9 @@ export function usePlaceSearch() {
 
   watch(query, (val) => {
     if (debounceTimer) clearTimeout(debounceTimer)
-    debounceTimer = setTimeout(() => search(val), 400)
+    // Debounce 600ms (was 400ms): each keystroke that fires is a paid
+    // Text Search call, so we wait until the user actually pauses.
+    debounceTimer = setTimeout(() => search(val), 600)
   })
 
   return { query, results, isSearching }

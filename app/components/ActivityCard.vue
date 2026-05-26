@@ -21,12 +21,6 @@ interface Activity {
   sortOrder: number
 }
 
-interface PlaceDetails {
-  photos?: string[]
-}
-
-const placeDetailsCache = new Map<string, Promise<PlaceDetails | null>>()
-
 function formatPriceLevel(level: number): string {
   return "$".repeat(Math.min(level, 4))
 }
@@ -83,104 +77,6 @@ const emit = defineEmits<{
 
 const showParticipantPicker = ref(false)
 const cardRef = ref<HTMLElement | null>(null)
-const loadedPlacePhotos = ref<string[]>([])
-const detailsLoading = ref(false)
-const imageFailed = ref(false)
-let visibilityObserver: IntersectionObserver | null = null
-
-const resolvedPhotos = computed(() =>
-  props.activity.photos?.length ? props.activity.photos : loadedPlacePhotos.value,
-)
-
-function getPhotoPlaceId(photo: string): string | null {
-  return props.activity.placeId ?? photo.match(/^places\/([^/?#]+)\/photos\/[^/?#]+$/)?.[1] ?? null
-}
-
-function photoUrl(photo: string, placeId: string, width: number): string {
-  const params = new URLSearchParams({ photo, maxWidthPx: String(width) })
-  return `/api/places/${encodeURIComponent(placeId)}/photo?${params.toString()}`
-}
-
-// Hero spans the full card width (up to ~480px on desktop). Request 800px
-// base + 1600px for retina via srcset so the image stays crisp.
-const thumbnailUrl = computed(() => {
-  const photo = resolvedPhotos.value[0]
-  if (!photo || imageFailed.value) return null
-  const placeId = getPhotoPlaceId(photo)
-  if (!placeId) return null
-  return photoUrl(photo, placeId, 800)
-})
-
-const thumbnailSrcset = computed(() => {
-  const photo = resolvedPhotos.value[0]
-  if (!photo || imageFailed.value) return undefined
-  const placeId = getPhotoPlaceId(photo)
-  if (!placeId) return undefined
-  return `${photoUrl(photo, placeId, 800)} 1x, ${photoUrl(photo, placeId, 1600)} 2x`
-})
-
-async function loadPlacePhotos() {
-  const placeId = props.activity.placeId
-  if (
-    !placeId ||
-    props.activity.photos?.length ||
-    loadedPlacePhotos.value.length ||
-    detailsLoading.value
-  ) {
-    return
-  }
-
-  detailsLoading.value = true
-  try {
-    if (!placeDetailsCache.has(placeId)) {
-      placeDetailsCache.set(
-        placeId,
-        $fetch<PlaceDetails>(`/api/places/${encodeURIComponent(placeId)}/details`),
-      )
-    }
-
-    const details = await placeDetailsCache.get(placeId)
-    loadedPlacePhotos.value = details?.photos ?? []
-  } catch {
-    loadedPlacePhotos.value = []
-  } finally {
-    detailsLoading.value = false
-  }
-}
-
-onMounted(() => {
-  if (props.activity.photos?.length || !props.activity.placeId) return
-
-  if (!("IntersectionObserver" in window) || !cardRef.value) {
-    void loadPlacePhotos()
-    return
-  }
-
-  visibilityObserver = new IntersectionObserver(
-    (entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return
-      visibilityObserver?.disconnect()
-      visibilityObserver = null
-      void loadPlacePhotos()
-    },
-    { rootMargin: "200px" },
-  )
-
-  visibilityObserver.observe(cardRef.value)
-})
-
-onBeforeUnmount(() => {
-  visibilityObserver?.disconnect()
-})
-
-watch(
-  () => props.activity.id,
-  () => {
-    loadedPlacePhotos.value = []
-    imageFailed.value = false
-    void loadPlacePhotos()
-  },
-)
 
 function isParticipant(userId: string): boolean {
   return props.participants?.some((p) => p.userId === userId) ?? false
@@ -232,13 +128,6 @@ function formatDuration(minutes: number): string {
   return m ? `${h}h ${m}min` : `${h}h`
 }
 
-function starFill(rating: string | null, position: number): "full" | "half" | "empty" {
-  if (!rating) return "empty"
-  const val = parseFloat(rating)
-  if (position <= Math.floor(val)) return "full"
-  if (position === Math.floor(val) + 1 && val % 1 >= 0.25) return "half"
-  return "empty"
-}
 </script>
 
 <template>
@@ -252,92 +141,42 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
     "
     @click="emit('click', activity)"
   >
-    <!-- ─────────────────────────── HERO ─────────────────────────── -->
-    <div class="relative">
-      <div class="aspect-[16/10] w-full overflow-hidden bg-sand-100">
-        <img
-          v-if="thumbnailUrl"
-          :src="thumbnailUrl"
-          :srcset="thumbnailSrcset"
-          :alt="activity.name"
-          class="h-full w-full object-cover transition duration-500 group-active:scale-105"
-          loading="lazy"
-          decoding="async"
-          @error="imageFailed = true"
-        />
-        <div v-else class="flex h-full w-full items-center justify-center text-sand-300">
-          <Icon
-            :name="detailsLoading ? 'lucide:loader' : 'lucide:image'"
-            class="h-10 w-10"
-            :class="{ 'animate-spin': detailsLoading }"
-          />
-        </div>
-      </div>
-
-      <!-- Legibility gradient -->
-      <div
-        class="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/65 via-black/20 to-transparent"
-      ></div>
-      <div
-        class="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/35 to-transparent"
-      ></div>
-
-      <!-- Number badge (top-left) -->
-      <span
-        class="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-terra-500 text-sm font-bold text-white shadow-md ring-2 ring-white/90"
-      >
-        {{ index + 1 }}
-      </span>
-
-      <!-- Drag handle — long-press on touch, click+drag on desktop.
-           Anchored next to the number badge (left side) so a long type pill on the right
-           can't collide with it. -->
-      <button
-        v-if="!readonly"
-        class="drag-handle absolute left-13 top-3 flex h-8 w-8 cursor-grab items-center justify-center rounded-full bg-black/55 text-white shadow-md ring-2 ring-white/90 backdrop-blur-md transition hover:bg-black/75 active:cursor-grabbing active:bg-black/85"
-        :title="'Drag to reorder'"
-        @click.stop
-      >
-        <Icon name="lucide:grip-vertical" class="h-4 w-4" />
-      </button>
-
-      <!-- Type pill (top-right)
-           Uses stone-* palette (not in the project's .dark CSS-var swap)
-           and dodges the global `.dark .bg-white { ... !important }` override,
-           so the pill stays near-white with dark text in BOTH themes. -->
-      <span
-        class="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-stone-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-stone-900 shadow-lg ring-1 ring-black/10"
-      >
-        <span
-          class="inline-block h-1.5 w-1.5 rounded-full"
-          :class="getDotClass(activity.type)"
-        ></span>
-        {{ formatType(activity.type) }}
-      </span>
-
-      <!-- Time + duration overlay (bottom) -->
-      <div class="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
-        <span
-          v-if="activity.suggestedTime"
-          class="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-terra-700 shadow-sm backdrop-blur"
-        >
-          <Icon name="lucide:clock" class="h-3 w-3" />
-          {{ formatTime12h(activity.suggestedTime) }}
-        </span>
-        <span
-          v-if="activity.estimatedDurationMinutes"
-          class="inline-flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur"
-        >
-          <Icon name="lucide:hourglass" class="h-3 w-3" />
-          {{ formatDuration(activity.estimatedDurationMinutes) }}
-        </span>
-      </div>
-    </div>
-
     <!-- ─────────────────────────── CONTENT ─────────────────────────── -->
+    <!-- Hero image block removed — Place Photos API was the dominant cost
+         driver and the placeholder was wasting vertical space. Number,
+         drag handle, type, time, and duration all live in the content
+         area now. -->
     <div class="p-4 sm:p-5">
-      <!-- Title row — hero above already carries number + type + time + duration -->
-      <div class="flex items-start justify-between gap-2">
+      <!-- Meta row: number + drag (left), type pill (right) -->
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span
+            class="flex h-7 w-7 items-center justify-center rounded-full bg-terra-500 text-xs font-bold text-white shadow-sm"
+          >
+            {{ index + 1 }}
+          </span>
+          <button
+            v-if="!readonly"
+            class="drag-handle flex h-7 w-7 cursor-grab items-center justify-center rounded-full bg-sand-100 text-sand-500 transition hover:bg-sand-200 active:cursor-grabbing"
+            title="Drag to reorder"
+            @click.stop
+          >
+            <Icon name="lucide:grip-vertical" class="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <span
+          class="inline-flex items-center gap-1.5 rounded-full bg-stone-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-stone-900 ring-1 ring-black/10"
+        >
+          <span
+            class="inline-block h-1.5 w-1.5 rounded-full"
+            :class="getDotClass(activity.type)"
+          ></span>
+          {{ formatType(activity.type) }}
+        </span>
+      </div>
+
+      <!-- Title row -->
+      <div class="mt-3 flex items-start justify-between gap-2">
         <h4 class="text-[17px] font-bold leading-tight text-sand-900 sm:text-base">
           {{ activity.name }}
         </h4>
@@ -360,6 +199,27 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
             <Icon name="lucide:trash-2" class="h-4 w-4" />
           </button>
         </div>
+      </div>
+
+      <!-- Time + duration -->
+      <div
+        v-if="activity.suggestedTime || activity.estimatedDurationMinutes"
+        class="mt-2 flex flex-wrap items-center gap-2"
+      >
+        <span
+          v-if="activity.suggestedTime"
+          class="inline-flex items-center gap-1.5 rounded-full bg-terra-50 px-2.5 py-1 text-xs font-semibold text-terra-700"
+        >
+          <Icon name="lucide:clock" class="h-3 w-3" />
+          {{ formatTime12h(activity.suggestedTime) }}
+        </span>
+        <span
+          v-if="activity.estimatedDurationMinutes"
+          class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2.5 py-1 text-[11px] font-semibold text-sand-700"
+        >
+          <Icon name="lucide:hourglass" class="h-3 w-3" />
+          {{ formatDuration(activity.estimatedDurationMinutes) }}
+        </span>
       </div>
 
       <p
@@ -419,23 +279,6 @@ function starFill(rating: string | null, position: number): "full" | "half" | "e
         </span>
         <span v-if="activity.notes" class="flex items-center gap-1" title="Has notes">
           <Icon name="lucide:sticky-note" class="h-3.5 w-3.5" />
-        </span>
-        <span v-if="activity.rating" class="flex items-center gap-0.5">
-          <template v-for="i in 5" :key="i">
-            <span v-if="starFill(activity.rating, i) === 'half'" class="relative h-3.5 w-3.5">
-              <Icon name="lucide:star" class="absolute inset-0 h-3.5 w-3.5 text-sand-300" />
-              <span class="absolute inset-0 overflow-hidden" style="width: 50%">
-                <Icon name="mdi:star" class="h-3.5 w-3.5 text-terra-400" />
-              </span>
-            </span>
-            <Icon
-              v-else
-              :name="starFill(activity.rating, i) === 'full' ? 'mdi:star' : 'lucide:star'"
-              class="h-3.5 w-3.5"
-              :class="starFill(activity.rating, i) === 'full' ? 'text-terra-400' : 'text-sand-300'"
-            />
-          </template>
-          <span class="ml-1">{{ activity.rating }}</span>
         </span>
       </div>
 

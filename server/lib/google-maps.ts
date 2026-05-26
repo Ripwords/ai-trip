@@ -1,5 +1,3 @@
-import { createHash } from "crypto"
-
 import { normalizeTransportMode, type TransportMode } from "../utils/transport"
 
 interface LatLng {
@@ -12,7 +10,6 @@ interface PlaceCandidate {
   placeId: string
   lat: number
   lng: number
-  rating?: number
   formattedAddress?: string
   types?: string[]
 }
@@ -28,17 +25,20 @@ interface PlaceDetails {
   photos?: string[]
   openingHours?: string[]
   priceLevel?: number | null
-  /**
-   * Google-provided per-person price range (shown in Google Maps as
-   * "Around $10–20"). Available for restaurants/cafes/bars; null for
-   * places Google doesn't track this for (temples, transit, etc).
-   */
-  priceRange?: {
+}
+
+/**
+ * Google-provided per-person price range (shown in Google Maps as
+ * "Around $10–20"). Only available for restaurants/cafes/bars.
+ * Fetched separately because `priceRange` is an Atmosphere-tier field
+ * that bills the whole Place Details call at the more expensive SKU.
+ */
+interface PlacePricing {
+  priceRange: {
     startAmount: number
     endAmount: number
     currencyCode: string
   } | null
-  editorialSummary?: string
 }
 
 interface DistanceMatrixEntry {
@@ -52,7 +52,12 @@ function getServerMapsApiKey(): string {
   return config.privateGoogleMapsApiKey || config.public.googleMapsApiKey
 }
 
-// ── Cached: Place Text Search ($35/1K — cache 24h) ──────────────────
+// ── Cached: Place Text Search — Pro SKU ($32/1K — cache 24h) ────────
+//
+// Field mask intentionally omits `rating` (Enterprise tier). Rating is
+// hydrated later via `getPlaceDetails` once a place is actually selected,
+// rather than for every type-ahead candidate. Saves ~$8/1K on every
+// keystroke-driven search.
 
 const _searchPlace = defineCachedFunction(
   async (_event: unknown, query: string, locationBiasStr?: string): Promise<PlaceCandidate[]> => {
@@ -79,7 +84,7 @@ const _searchPlace = defineCachedFunction(
           "Content-Type": "application/json",
           "X-Goog-Api-Key": getServerMapsApiKey(),
           "X-Goog-FieldMask":
-            "places.displayName,places.id,places.location,places.rating,places.formattedAddress,places.types",
+            "places.displayName,places.id,places.location,places.formattedAddress,places.types",
         },
         body,
       },
@@ -96,7 +101,6 @@ const _searchPlace = defineCachedFunction(
         placeId: (place.id as string) ?? "",
         lat: location?.latitude ?? 0,
         lng: location?.longitude ?? 0,
-        rating: place.rating as number | undefined,
         formattedAddress: place.formattedAddress as string | undefined,
         types: place.types as string[] | undefined,
       }
@@ -191,7 +195,12 @@ export function getDistanceMatrix(
   )
 }
 
-// ── Cached: Place Details ($5-10/1K — cache 7 days) ──────────────────
+// ── Cached: Place Details — Enterprise SKU ($25/1K — cache 7 days) ───
+//
+// Field mask deliberately excludes Atmosphere-tier fields (priceRange,
+// editorialSummary, reviews). Adding any one of those bumps the entire
+// call from Enterprise ($25/1K) to Atmosphere ($30/1K). For pricing,
+// call `getPlacePricing` separately.
 
 const _getPlaceDetails = defineCachedFunction(
   async (_event: unknown, placeId: string): Promise<PlaceDetails | null> => {
@@ -201,7 +210,7 @@ const _getPlaceDetails = defineCachedFunction(
         headers: {
           "X-Goog-Api-Key": getServerMapsApiKey(),
           "X-Goog-FieldMask":
-            "displayName,id,location,rating,formattedAddress,types,photos,regularOpeningHours,priceLevel,priceRange,editorialSummary",
+            "displayName,id,location,rating,formattedAddress,types,regularOpeningHours,priceLevel",
         },
       },
     )
@@ -210,13 +219,11 @@ const _getPlaceDetails = defineCachedFunction(
 
     const location = response.location as { latitude: number; longitude: number } | undefined
     const displayName = response.displayName as { text: string } | undefined
-    const photos = response.photos as Array<{ name: string }> | undefined
     const openingHours = response.regularOpeningHours as
       | {
           weekdayDescriptions?: string[]
         }
       | undefined
-    const editorialSummary = response.editorialSummary as { text: string } | undefined
 
     const priceLevelMap: Record<string, number> = {
       PRICE_LEVEL_FREE: 0,
@@ -226,8 +233,52 @@ const _getPlaceDetails = defineCachedFunction(
       PRICE_LEVEL_VERY_EXPENSIVE: 4,
     }
 
-    // Parse Google's priceRange (Money object: { units: string, nanos?: number, currencyCode })
-    // into a flat { startAmount, endAmount, currencyCode } shape.
+    return {
+      name: displayName?.text ?? "",
+      placeId: (response.id as string) ?? "",
+      lat: location?.latitude ?? 0,
+      lng: location?.longitude ?? 0,
+      rating: response.rating as number | undefined,
+      formattedAddress: response.formattedAddress as string | undefined,
+      types: response.types as string[] | undefined,
+      photos: [],
+      openingHours: openingHours?.weekdayDescriptions,
+      priceLevel:
+        response.priceLevel != null ? (priceLevelMap[response.priceLevel as string] ?? null) : null,
+    }
+  },
+  {
+    maxAge: 60 * 60 * 24 * 7, // 7 days — place details are very stable
+    name: "placeDetails",
+    group: "maps",
+    getKey: (_event: unknown, placeId: string) => placeId,
+  },
+)
+
+export function getPlaceDetails(placeId: string): Promise<PlaceDetails | null> {
+  return _getPlaceDetails(null, placeId)
+}
+
+// ── Cached: Place Pricing — Atmosphere SKU ($30/1K — cache 7 days) ───
+//
+// Isolated from getPlaceDetails so only cost-derivation paths pay the
+// Atmosphere premium. Returns null when Google doesn't track a price
+// range for the place (temples, transit, etc).
+
+const _getPlacePricing = defineCachedFunction(
+  async (_event: unknown, placeId: string): Promise<PlacePricing | null> => {
+    const response = await $fetch<Record<string, unknown>>(
+      `https://places.googleapis.com/v1/places/${placeId}`,
+      {
+        headers: {
+          "X-Goog-Api-Key": getServerMapsApiKey(),
+          "X-Goog-FieldMask": "id,priceRange",
+        },
+      },
+    )
+
+    if (!response) return null
+
     const priceRangeRaw = response.priceRange as
       | {
           startPrice?: { units?: string; nanos?: number; currencyCode?: string }
@@ -245,37 +296,24 @@ const _getPlaceDetails = defineCachedFunction(
     const endAmount = parseMoney(priceRangeRaw?.endPrice)
     const currencyCode =
       priceRangeRaw?.endPrice?.currencyCode ?? priceRangeRaw?.startPrice?.currencyCode ?? null
-    const priceRange =
-      startAmount != null && endAmount != null && currencyCode
-        ? { startAmount, endAmount, currencyCode }
-        : null
 
     return {
-      name: displayName?.text ?? "",
-      placeId: (response.id as string) ?? "",
-      lat: location?.latitude ?? 0,
-      lng: location?.longitude ?? 0,
-      rating: response.rating as number | undefined,
-      formattedAddress: response.formattedAddress as string | undefined,
-      types: response.types as string[] | undefined,
-      photos: photos?.slice(0, 3).map((p) => p.name) ?? [],
-      openingHours: openingHours?.weekdayDescriptions,
-      priceLevel:
-        response.priceLevel != null ? (priceLevelMap[response.priceLevel as string] ?? null) : null,
-      priceRange,
-      editorialSummary: editorialSummary?.text,
+      priceRange:
+        startAmount != null && endAmount != null && currencyCode
+          ? { startAmount, endAmount, currencyCode }
+          : null,
     }
   },
   {
-    maxAge: 60 * 60 * 24 * 7, // 7 days — place details are very stable
-    name: "placeDetails",
+    maxAge: 60 * 60 * 24 * 7,
+    name: "placePricing",
     group: "maps",
     getKey: (_event: unknown, placeId: string) => placeId,
   },
 )
 
-export function getPlaceDetails(placeId: string): Promise<PlaceDetails | null> {
-  return _getPlaceDetails(null, placeId)
+export function getPlacePricing(placeId: string): Promise<PlacePricing | null> {
+  return _getPlacePricing(null, placeId)
 }
 
 // ── Cached: Time Zone ($5/1K — cache 30 days) ───────────────────────
@@ -365,49 +403,7 @@ export function geocode(
   return _geocode(null, address)
 }
 
-// ── Cached: Place Photo ($7/1K — cache 30 days) ──────────────────────
-
-interface CachedPhoto {
-  data: string // base64
-  contentType: string
-}
-
-const _getPlacePhoto = defineCachedFunction(
-  async (_event: unknown, photo: string, maxWidthPx: number): Promise<CachedPhoto | null> => {
-    const apiKey = getServerMapsApiKey()
-    if (!apiKey) return null
-
-    const url = new URL(`https://places.googleapis.com/v1/${photo}/media`)
-    url.searchParams.set("maxWidthPx", maxWidthPx.toString())
-    url.searchParams.set("skipHttpRedirect", "true")
-    url.searchParams.set("key", apiKey)
-
-    const metadataResponse = await fetch(url)
-    if (!metadataResponse.ok) return null
-
-    const metadata = (await metadataResponse.json()) as { photoUri?: string }
-    if (!metadata.photoUri) return null
-
-    const imageResponse = await fetch(metadata.photoUri)
-    if (!imageResponse.ok) return null
-
-    const buffer = Buffer.from(await imageResponse.arrayBuffer())
-    return {
-      data: buffer.toString("base64"),
-      contentType: imageResponse.headers.get("content-type") ?? "image/jpeg",
-    }
-  },
-  {
-    maxAge: 60 * 60 * 24 * 30, // 30 days — photo content is stable
-    name: "placePhoto",
-    group: "maps",
-    // Hash the photo reference: Google's tokens contain "/" and can exceed
-    // 600 chars, which overruns the 255-byte filename limit on most filesystems.
-    getKey: (_event: unknown, photo: string, maxWidthPx: number) =>
-      `${createHash("sha1").update(photo).digest("hex")}__${maxWidthPx}`,
-  },
-)
-
-export function getPlacePhoto(photo: string, maxWidthPx: number): Promise<CachedPhoto | null> {
-  return _getPlacePhoto(null, photo, maxWidthPx)
-}
+// Place Photo (New) — Atmosphere SKU ($7/1K) — temporarily disabled.
+// The image rendering paths in the UI have been stripped to eliminate
+// this line item entirely. Restore by re-introducing a getPlacePhoto
+// fetcher here and wiring it back into the photo endpoint handlers.

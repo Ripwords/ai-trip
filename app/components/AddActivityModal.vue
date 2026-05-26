@@ -133,13 +133,6 @@ function resetForm() {
             <p v-if="selectedPlace.formattedAddress" class="mt-0.5 text-xs text-sand-500">
               {{ selectedPlace.formattedAddress }}
             </p>
-            <div
-              v-if="selectedPlace.rating"
-              class="mt-1 flex items-center gap-1 text-xs text-sand-500"
-            >
-              <Icon name="lucide:star" class="h-3 w-3 text-terra-400" />
-              {{ selectedPlace.rating }}
-            </div>
           </div>
 
           <div class="flex justify-end gap-3 pt-2">

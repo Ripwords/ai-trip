@@ -43,6 +43,21 @@ export default defineNuxtConfig({
       // Check passport expiry reminders daily at 9am
       "0 9 * * *": "check-passport-expiry",
     },
+    // Persist `defineCachedFunction` results across serverless invocations.
+    // Without this, Nitro defaults to in-memory storage and every Vercel
+    // cold start re-pays Google Places. Activates only when the Upstash
+    // env vars are present (Vercel Marketplace > Upstash KV provisions them).
+    ...(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN
+      ? {
+          storage: {
+            cache: {
+              driver: "upstash",
+              url: process.env.KV_REST_API_URL,
+              token: process.env.KV_REST_API_TOKEN,
+            },
+          },
+        }
+      : {}),
     externals: {
       inline: [/^@mastra\//],
       external: ["@neondatabase/serverless", "pg", "better-sqlite3", "@resvg/resvg-js", "sharp"],
@@ -278,11 +293,6 @@ export default defineNuxtConfig({
     "/api/places/search": {
       security: {
         rateLimiter: { tokensPerInterval: 60, interval: 60000 },
-      },
-    },
-    "/api/places/*/details": {
-      security: {
-        rateLimiter: { tokensPerInterval: 30, interval: 60000 },
       },
     },
     "/api/auth/**": {

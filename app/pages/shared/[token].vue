@@ -9,13 +9,11 @@ interface SharedActivity {
   address: string | null
   lat: number | null
   lng: number | null
-  rating: string | null
   suggestedTime: string | null
   estimatedDurationMinutes: number | null
   tags: string[]
   sortOrder: number
   placeId: string | null
-  photos: string[] | null
 }
 
 interface SharedDay {
@@ -107,20 +105,9 @@ function mapsLinkFor(activity: SharedActivity): string {
   return `${base}${encodeURIComponent(q)}`
 }
 
-function thumbnailUrlFor(activity: SharedActivity): string | null {
-  const photo = activity.photos?.[0]
-  const placeId = activity.placeId
-  if (!photo || !placeId) return null
-  if (!photo.startsWith(`places/${placeId}/photos/`)) return null
-  const params = new URLSearchParams({
-    placeId,
-    photo,
-    maxWidthPx: "240",
-  })
-  return `/api/shared/${token}/photo?${params.toString()}`
-}
-
-const imageFailed = reactive<Record<string, boolean>>({})
+// Place Photo rendering is temporarily disabled to eliminate
+// Google Places Photo API spend. Activity rows keep a placeholder
+// instead of a thumbnail.
 </script>
 
 <template>
@@ -205,19 +192,6 @@ const imageFailed = reactive<Record<string, boolean>>({})
               >
                 {{ index + 1 }}
               </span>
-              <div
-                class="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-sand-100 text-sand-300"
-              >
-                <img
-                  v-if="thumbnailUrlFor(activity) && !imageFailed[activity.id]"
-                  :src="thumbnailUrlFor(activity)!"
-                  :alt="activity.name"
-                  class="h-full w-full object-cover"
-                  loading="lazy"
-                  @error="imageFailed[activity.id] = true"
-                />
-                <Icon v-else name="lucide:image" class="h-5 w-5" />
-              </div>
               <div class="min-w-0">
                 <h4 class="text-base font-semibold text-sand-900">{{ activity.name }}</h4>
                 <p v-if="activity.description" class="mt-1 text-sm text-sand-600">

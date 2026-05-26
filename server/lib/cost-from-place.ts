@@ -1,4 +1,4 @@
-import { getPlaceDetails } from "./google-maps"
+import { getPlacePricing } from "./google-maps"
 import { convertCurrency } from "../utils/exchange-rate"
 
 // Zero-decimal currencies — Intl reports 0 fraction digits and the AI is
@@ -21,12 +21,12 @@ export async function deriveCostFromPlace(
   placeId: string,
   tripCurrency: string,
 ): Promise<string | null> {
-  const details = await getPlaceDetails(placeId)
-  if (!details?.priceRange) return null
-  const midpoint = (details.priceRange.startAmount + details.priceRange.endAmount) / 2
+  const pricing = await getPlacePricing(placeId)
+  if (!pricing?.priceRange) return null
+  const midpoint = (pricing.priceRange.startAmount + pricing.priceRange.endAmount) / 2
   if (!Number.isFinite(midpoint) || midpoint <= 0) return null
 
-  const converted = await convertCurrency(midpoint, details.priceRange.currencyCode, tripCurrency)
+  const converted = await convertCurrency(midpoint, pricing.priceRange.currencyCode, tripCurrency)
   if (converted == null) return null
   return formatAmount(converted, tripCurrency)
 }

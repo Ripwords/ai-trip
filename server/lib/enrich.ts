@@ -1,5 +1,5 @@
 import type { AIItineraryOutput, AIActivity } from "./ai"
-import { searchPlace } from "./google-maps"
+import { searchPlace, getPlaceDetails } from "./google-maps"
 
 interface EnrichedActivity extends AIActivity {
   placeId: string | null
@@ -24,10 +24,17 @@ export interface EnrichedItinerary {
 }
 
 /**
- * Enrich with basic Place Search data only (name, coordinates, rating, address).
- * Full details (photos, openingHours, priceLevel) are fetched on-demand
- * via GET /api/places/[placeId]/details when the user opens the edit modal.
- * This saves ~$20/1K Place Details API calls for activities users never inspect.
+ * Enrich an AI activity with Google Places data.
+ *
+ * Two-step:
+ *   1. Text Search (Pro SKU) → resolve to a placeId + coordinates.
+ *   2. Place Details (Enterprise SKU) → backfill rating, openingHours,
+ *      priceLevel. Photos intentionally not fetched — the image feature
+ *      is disabled to eliminate Place Photos API spend.
+ *
+ * Doing both at enrichment time means the trip view never re-hits Google:
+ * subsequent reads come straight from the DB. With KV cache the Details
+ * call is also free on repeat for popular places.
  */
 async function enrichActivity(
   activity: AIActivity,
@@ -39,16 +46,18 @@ async function enrichActivity(
     const topResult = candidates[0]
 
     if (topResult) {
+      const details = await getPlaceDetails(topResult.placeId).catch(() => null)
+
       return {
         ...activity,
         placeId: topResult.placeId,
         lat: topResult.lat,
         lng: topResult.lng,
-        rating: topResult.rating ?? null,
+        rating: details?.rating ?? null,
         address: topResult.formattedAddress ?? null,
         photos: [],
-        openingHours: [],
-        priceLevel: null,
+        openingHours: details?.openingHours ?? [],
+        priceLevel: details?.priceLevel ?? null,
       }
     }
 
@@ -133,11 +142,12 @@ export async function enrichSingleActivity(
     const topResult = candidates[0]
 
     if (topResult) {
+      const details = await getPlaceDetails(topResult.placeId).catch(() => null)
       return {
         placeId: topResult.placeId,
         lat: topResult.lat,
         lng: topResult.lng,
-        rating: topResult.rating ?? null,
+        rating: details?.rating ?? null,
         address: topResult.formattedAddress ?? null,
       }
     }
