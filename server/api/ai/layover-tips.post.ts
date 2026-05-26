@@ -23,7 +23,7 @@ const layoverTipsSchema = z.object({
 
 const generateLayoverTips = defineCachedFunction(
   async (airport: string, durationHours: number, visaStatus: string, timeOfDay: string) => {
-    const model = google("gemini-3.1-flash-lite-preview")
+    const model = google("gemini-3.1-flash-lite")
 
     const requiresAirportOnly = visaStatus === "visa_required" || visaStatus === "visa-required"
 

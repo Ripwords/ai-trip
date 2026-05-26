@@ -6,9 +6,9 @@ import { google } from "@ai-sdk/google"
  * to promote handlers to smarter models when needed.
  */
 export const AI_MODELS = {
-  default: "gemini-3.1-flash-lite-preview",
-  research: "gemini-3.1-flash-lite-preview",
-  classify: "gemini-3.1-flash-lite-preview",
+  default: "gemini-3.1-flash-lite",
+  research: "gemini-3.1-flash-lite",
+  classify: "gemini-3.1-flash-lite",
 } as const
 
 export type AIModelKey = keyof typeof AI_MODELS

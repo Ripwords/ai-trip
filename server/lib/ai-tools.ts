@@ -205,7 +205,7 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
       if (!searchQuery) return { results: "" }
       try {
         const { text } = await generateText({
-          model: gp("gemini-3.1-flash-lite-preview"),
+          model: gp("gemini-3.1-flash-lite"),
           tools: { google_search: gp.tools.googleSearch({ searchTypes: { webSearch: {} } }) },
           stopWhen: stepCountIs(3),
           prompt: searchQuery,

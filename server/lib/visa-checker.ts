@@ -23,7 +23,7 @@ export const checkVisaRequirements = defineCachedFunction(
     passportCountryName: string,
     destinationCountryName: string,
   ): Promise<VisaResult> => {
-    const model = google("gemini-3.1-flash-lite-preview")
+    const model = google("gemini-3.1-flash-lite")
 
     const result = await generateText({
       model,
