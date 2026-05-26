@@ -127,7 +127,6 @@ function formatDuration(minutes: number): string {
   const m = minutes % 60
   return m ? `${h}h ${m}min` : `${h}h`
 }
-
 </script>
 
 <template>
