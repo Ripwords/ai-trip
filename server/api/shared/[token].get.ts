@@ -41,6 +41,7 @@ export default defineEventHandler(async (event) => {
     destination: trip.destination,
     startDate: trip.startDate,
     endDate: trip.endDate,
+    status: trip.status,
     currencyCode: trip.currencyCode,
     days: trip.days.map((day) => ({
       id: day.id,

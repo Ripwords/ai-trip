@@ -18,6 +18,9 @@ export default defineNuxtConfig({
           content:
             "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content",
         },
+        { name: "apple-mobile-web-app-capable", content: "yes" },
+        { name: "mobile-web-app-capable", content: "yes" },
+        { name: "apple-mobile-web-app-title", content: "AI Trip" },
       ],
       link: [
         { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
@@ -135,7 +138,7 @@ export default defineNuxtConfig({
 
   // PWA Configuration
   pwa: {
-    registerType: "autoUpdate",
+    registerType: "prompt",
     pwaAssets: {
       config: true,
       includeHtmlHeadLinks: true,
@@ -180,6 +183,7 @@ export default defineNuxtConfig({
       // Navigation requests should go to the server for proper auth redirects.
       navigateFallback: null,
       globPatterns: ["**/*.{js,css,png,svg,ico,woff2}"],
+      globIgnores: ["**/apple-splash-*.png"],
       runtimeCaching: [
         {
           urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

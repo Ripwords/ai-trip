@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 
-import { buildPreTripBriefing, getPreTripCandidate } from "./dashboard-briefing"
+import { buildPreTripBriefing, getTripJourneyKind, getPreTripCandidate } from "./dashboard-briefing"
 
 const today = new Date("2026-06-01T12:00:00Z")
 
@@ -180,5 +180,53 @@ describe("dashboard briefing", () => {
     assert.equal(layoverChip?.label, "Layover: SG")
     assert.ok(!layoverChip?.label.includes("JP"))
     assert.ok(!layoverChip?.label.includes("MY"))
+  })
+
+  it("uses only the final linked flight to detect a homebound trip", () => {
+    const flights = [
+      {
+        id: "outbound",
+        tripId: "trip-1",
+        flightNumber: "TR808",
+        flightDate: "2026-06-07",
+        departureAirport: "KUL",
+        arrivalAirport: "NRT",
+        departureTime: "2026-06-07T14:20:00.000Z",
+        arrivalTime: "2026-06-07T20:40:00.000Z",
+        terminal: null,
+        gate: null,
+        status: "scheduled",
+      },
+      {
+        id: "return-connection",
+        tripId: "trip-1",
+        flightNumber: "TR809",
+        flightDate: "2026-06-12",
+        departureAirport: "NRT",
+        arrivalAirport: "SIN",
+        departureTime: "2026-06-12T11:00:00.000Z",
+        arrivalTime: "2026-06-12T17:20:00.000Z",
+        terminal: null,
+        gate: null,
+        status: "scheduled",
+      },
+      {
+        id: "return-final",
+        tripId: "trip-1",
+        flightNumber: "TR468",
+        flightDate: "2026-06-12",
+        departureAirport: "SIN",
+        arrivalAirport: "KUL",
+        departureTime: "2026-06-12T19:10:00.000Z",
+        arrivalTime: "2026-06-12T20:15:00.000Z",
+        terminal: null,
+        gate: null,
+        status: "scheduled",
+      },
+    ]
+
+    assert.equal(getTripJourneyKind(flights, { countryCode: "MY" }, "MY"), "homebound")
+    assert.equal(getTripJourneyKind(flights, { countryCode: "MY" }, "JP"), "outbound")
+    assert.equal(getTripJourneyKind(flights, { countryCode: "SG" }, "MY"), "outbound")
   })
 })

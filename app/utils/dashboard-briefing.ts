@@ -7,8 +7,10 @@ const PRE_TRIP_WINDOW_DAYS = 7
 export interface DashboardTrip {
   id: string
   destination: string
+  countryCode?: string | null
   startDate: string
   endDate: string
+  status?: string | null
   days?: { accommodationName?: string | null }[]
 }
 
@@ -56,6 +58,8 @@ export interface BriefingChip {
 export interface PreTripBriefing {
   tripId: string
   destination: string
+  journeyKind: TripJourneyKind
+  journeyLabel: string
   daysUntil: number
   departureDate: string
   startDate: string
@@ -64,6 +68,8 @@ export interface PreTripBriefing {
   chips: BriefingChip[]
   signals: BriefingSignal[]
 }
+
+export type TripJourneyKind = "outbound" | "homebound"
 
 export function daysUntilDate(date: string, today = new Date()): number {
   const target = parseDateOnly(date)
@@ -81,6 +87,7 @@ export function getPreTripCandidate<T extends DashboardTrip>(
   return (
     trips
       .filter((trip) => {
+        if (trip.status === "cancelled") return false
         const daysUntil = daysUntilDate(effectiveTravelDate(trip, flights), today)
         return daysUntil >= 0 && daysUntil <= PRE_TRIP_WINDOW_DAYS
       })
@@ -99,6 +106,7 @@ export function buildPreTripBriefing(input: {
 }): PreTripBriefing | null {
   const { trip, flights = [], passports = [], visaByCountry = null, today = new Date() } = input
   if (!trip) return null
+  if (trip.status === "cancelled") return null
 
   const tripFlights = flights
     ?.filter((flight) => flight.tripId === trip.id)
@@ -112,6 +120,7 @@ export function buildPreTripBriefing(input: {
     outboundFlights.find((flight) => flight.flightDate >= dateKey(today)) ?? outboundFlights[0]
   const defaultPassport =
     passports?.find((passport) => passport.isDefault) ?? passports?.[0] ?? null
+  const journeyKind = getTripJourneyKind(tripFlights ?? [], defaultPassport, trip.countryCode)
   const itineraryCountries = deriveArrivalCountries(outboundFlights)
   const finalCountry = itineraryCountries.at(-1) ?? null
   const layoverCountries = unique(
@@ -138,6 +147,8 @@ export function buildPreTripBriefing(input: {
   return {
     tripId: trip.id,
     destination: trip.destination,
+    journeyKind,
+    journeyLabel: journeyKind === "homebound" ? "Going home" : "Next trip briefing",
     daysUntil,
     departureDate,
     startDate: trip.startDate,
@@ -146,6 +157,20 @@ export function buildPreTripBriefing(input: {
     chips,
     signals,
   }
+}
+
+export function getTripJourneyKind(
+  flights: DashboardFlight[] | null | undefined,
+  defaultPassport: { countryCode: string } | null | undefined,
+  tripCountryCode?: string | null,
+): TripJourneyKind {
+  if (!defaultPassport?.countryCode || !flights?.length) return "outbound"
+  if (tripCountryCode && tripCountryCode !== defaultPassport.countryCode) return "outbound"
+  const lastFlight = flights.toSorted(compareFlights).at(-1)
+  const arrivalCountry = lastFlight?.arrivalAirport
+    ? iataToCountry[lastFlight.arrivalAirport]
+    : null
+  return arrivalCountry === defaultPassport.countryCode ? "homebound" : "outbound"
 }
 
 function buildVisaSignal(input: {

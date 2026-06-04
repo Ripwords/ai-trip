@@ -27,6 +27,7 @@ interface SharedTrip {
   destination: string
   startDate: string
   endDate: string
+  status: string
   currencyCode: string
   days: SharedDay[]
 }
@@ -140,9 +141,9 @@ function mapsLinkFor(activity: SharedActivity): string {
         </p>
         <span
           class="mt-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium"
-          :class="getTripStatus(trip.startDate, trip.endDate).badgeClass"
+          :class="getTripStatus(trip.startDate, trip.endDate, trip.status).badgeClass"
         >
-          {{ getTripStatus(trip.startDate, trip.endDate).label }}
+          {{ getTripStatus(trip.startDate, trip.endDate, trip.status).label }}
         </span>
       </div>
 

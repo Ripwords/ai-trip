@@ -43,7 +43,7 @@ function iconClass(signal: BriefingSignal): string {
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-terra-500">
-              Next trip briefing
+              {{ briefing.journeyLabel }}
             </p>
             <h2 class="mt-2 font-display text-3xl leading-none text-sand-900 sm:text-4xl">
               {{ briefing.destination }}

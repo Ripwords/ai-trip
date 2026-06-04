@@ -208,11 +208,14 @@ Respond with a JSON object matching this shape (your entire response should be o
 
     const validated = judgmentOutputSchema.safeParse(parsed)
     if (validated.success) {
-      // Add synthetic id to each judgment finding
-      judgmentFlat = validated.data.findings.map((f) => ({
-        ...f,
-        id: `${f.dayId}:${f.code}:${f.activityIds?.join("-") ?? "judgment"}`,
-      })) as ItineraryReviewFinding[]
+      // Add synthetic id to each local parsed finding before merging.
+      for (const f of validated.data.findings) {
+        judgmentFlat.push(
+          Object.assign(f, {
+            id: `${f.dayId}:${f.code}:${f.activityIds?.join("-") ?? "judgment"}`,
+          }) as ItineraryReviewFinding,
+        )
+      }
     }
   } catch (e) {
     console.error("[review-ai] judgment generation failed, returning deterministic only:", e)

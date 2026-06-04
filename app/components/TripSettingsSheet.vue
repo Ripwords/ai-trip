@@ -57,6 +57,7 @@ const countryCode = ref<string | null>(props.trip.countryCode)
 const name = ref(initialName.value)
 const startDate = ref(props.trip.startDate)
 const endDate = ref(props.trip.endDate)
+const cancelled = ref(props.trip.status === "cancelled")
 const savingTripInfo = ref(false)
 const tripInfoError = ref<string | null>(null)
 
@@ -73,6 +74,7 @@ watch(
       name.value = initialName.value
       startDate.value = props.trip.startDate
       endDate.value = props.trip.endDate
+      cancelled.value = props.trip.status === "cancelled"
       stage.value = "settings"
       tripInfoError.value = null
       if (props.focusField === "country") {
@@ -90,12 +92,14 @@ const datesChanged = computed(
 )
 const countryChanged = computed(() => countryCode.value !== props.trip.countryCode)
 const nameChanged = computed(() => name.value.trim() !== initialName.value)
+const statusChanged = computed(() => cancelled.value !== (props.trip.status === "cancelled"))
 const tripInfoChanged = computed(
-  () => datesChanged.value || countryChanged.value || nameChanged.value,
+  () => datesChanged.value || countryChanged.value || nameChanged.value || statusChanged.value,
 )
 const rangeValid = computed(() => endDate.value >= startDate.value)
+const countryValid = computed(() => !countryChanged.value || !!countryCode.value)
 const canSaveTripInfo = computed(
-  () => tripInfoChanged.value && rangeValid.value && !!countryCode.value,
+  () => tripInfoChanged.value && rangeValid.value && countryValid.value,
 )
 
 function formatDate(iso: string): string {
@@ -108,7 +112,7 @@ function formatDate(iso: string): string {
 
 async function handleTripInfoSubmit() {
   tripInfoError.value = null
-  if (!countryCode.value) {
+  if (countryChanged.value && !countryCode.value) {
     tripInfoError.value = "Please pick a country"
     return
   }
@@ -147,6 +151,7 @@ async function commitTripInfo() {
     const body: Record<string, unknown> = {}
     if (countryChanged.value && countryCode.value) body.countryCode = countryCode.value
     if (nameChanged.value) body.name = name.value.trim() || null
+    if (statusChanged.value) body.status = cancelled.value ? "cancelled" : "upcoming"
     if (datesChanged.value) {
       body.startDate = startDate.value
       body.endDate = endDate.value
@@ -262,6 +267,22 @@ onUnmounted(() => {
                 />
               </div>
             </div>
+
+            <label
+              class="flex items-start gap-3 rounded-xl border border-sand-200 bg-sand-50/50 px-3 py-2.5"
+            >
+              <input
+                v-model="cancelled"
+                type="checkbox"
+                class="mt-0.5 h-4 w-4 rounded border-sand-300 text-terra-500 focus:ring-terra-300"
+              />
+              <span>
+                <span class="block text-sm font-medium text-sand-800">Cancelled</span>
+                <span class="block text-xs leading-5 text-sand-500">
+                  Hide this trip from upcoming travel prompts.
+                </span>
+              </span>
+            </label>
 
             <p v-if="tripInfoError" class="text-sm text-red-600">{{ tripInfoError }}</p>
 

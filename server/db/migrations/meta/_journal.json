@@ -211,6 +211,13 @@
       "when": 1779586065824,
       "tag": "0029_peaceful_boomer",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1780546546872,
+      "tag": "0030_add_trip_explore_suppression",
+      "breakpoints": true
     }
   ]
 }

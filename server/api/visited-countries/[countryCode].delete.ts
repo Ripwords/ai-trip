@@ -1,6 +1,6 @@
-import { eq, and } from "drizzle-orm"
+import { eq, and, isNull } from "drizzle-orm"
 import { db } from "../../db"
-import { visitedCountries } from "../../db/schema"
+import { trips, visitedCountries } from "../../db/schema"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -20,9 +20,21 @@ export default defineEventHandler(async (event) => {
     )
     .returning()
 
-  if (!deleted.length) {
+  const suppressed = await db
+    .update(trips)
+    .set({ exploreSuppressedAt: new Date() })
+    .where(
+      and(
+        eq(trips.userId, session.user.id),
+        eq(trips.countryCode, countryCode),
+        isNull(trips.exploreSuppressedAt),
+      ),
+    )
+    .returning({ id: trips.id })
+
+  if (!deleted.length && !suppressed.length) {
     throw createError({ statusCode: 404, message: "Country not found in visited list" })
   }
 
-  return { success: true }
+  return { success: true, suppressed: suppressed.length > 0 }
 })

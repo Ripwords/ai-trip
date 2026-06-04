@@ -4,7 +4,11 @@ import type {
   DashboardPassport,
   DashboardVisaInfo,
 } from "../utils/dashboard-briefing"
-import { buildPreTripBriefing, getPreTripCandidate } from "../utils/dashboard-briefing"
+import {
+  buildPreTripBriefing,
+  getPreTripCandidate,
+  getTripJourneyKind,
+} from "../utils/dashboard-briefing"
 import type { PassportFlight, PassportVisitedCountry } from "../utils/passport-history"
 
 definePageMeta({ layout: "app" })
@@ -53,8 +57,9 @@ const sortedTrips = computed(() => {
   const today = new Date().toISOString().split("T")[0]!
   return [...trips.value].toSorted((a, b) => {
     // Ongoing first, then upcoming, then completed
-    const aStatus = a.endDate < today ? 2 : a.startDate > today ? 1 : 0
-    const bStatus = b.endDate < today ? 2 : b.startDate > today ? 1 : 0
+    const statusRank = { ongoing: 0, upcoming: 1, completed: 2, cancelled: 3 } as const
+    const aStatus = statusRank[getTripStatus(a.startDate, a.endDate, a.status).status]
+    const bStatus = statusRank[getTripStatus(b.startDate, b.endDate, b.status).status]
     if (aStatus !== bStatus) return aStatus - bStatus
     // Within same status, sort by start date
     return a.startDate.localeCompare(b.startDate)
@@ -101,7 +106,7 @@ const MIN_ACTIVITIES_FOR_COUNTDOWN = 3
 const nextTrip = computed(() => {
   if (!trips.value) return null
   const upcoming = trips.value
-    .filter((t) => t.startDate > today)
+    .filter((t) => t.status !== "cancelled" && t.startDate > today)
     .toSorted((a, b) => a.startDate.localeCompare(b.startDate))
 
   for (const trip of upcoming) {
@@ -141,6 +146,16 @@ const countdown = computed(() => {
 const defaultPassport = computed(
   () => passports.value?.find((passport) => passport.isDefault) ?? passports.value?.[0] ?? null,
 )
+const nextTripJourneyLabel = computed(() => {
+  if (!nextTrip.value) return "Next adventure"
+  const tripFlights = ((upcomingFlights.value as DashboardFlight[] | null) ?? []).filter(
+    (flight) => flight.tripId === nextTrip.value?.id,
+  )
+  return getTripJourneyKind(tripFlights, defaultPassport.value, nextTrip.value.countryCode) ===
+    "homebound"
+    ? "Going home"
+    : "Next adventure"
+})
 const visaByCountry = ref<Record<string, DashboardVisaInfo> | null>(null)
 const visaPassportCode = ref<string | null>(null)
 
@@ -263,7 +278,7 @@ const dashboardBriefing = computed(() =>
         </div>
         <div class="min-w-0 flex-1">
           <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-sand-500">
-            Next adventure
+            {{ nextTripJourneyLabel }}
           </p>
           <p class="mt-0.5 truncate font-display text-base leading-none text-sand-900 sm:text-lg">
             {{ nextTrip.destination }}
@@ -410,9 +425,9 @@ const dashboardBriefing = computed(() =>
               <div class="mt-3 flex items-center gap-2">
                 <span
                   class="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium"
-                  :class="getTripStatus(trip.startDate, trip.endDate).badgeClass"
+                  :class="getTripStatus(trip.startDate, trip.endDate, trip.status).badgeClass"
                 >
-                  {{ getTripStatus(trip.startDate, trip.endDate).label }}
+                  {{ getTripStatus(trip.startDate, trip.endDate, trip.status).label }}
                 </span>
                 <span class="text-xs text-sand-400">
                   {{ getDayCount(trip.startDate, trip.endDate) }} days

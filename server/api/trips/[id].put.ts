@@ -36,6 +36,9 @@ export default defineEventHandler(async (event) => {
     const nextCountry = nextCountryCode ? countryByAlpha2.get(nextCountryCode) : null
     patch.destination = nextName ?? nextCountry?.name ?? existing.destination
   }
+  if (body.countryCode !== undefined && body.countryCode !== existing.countryCode) {
+    patch.exploreSuppressedAt = null
+  }
 
   const datesChanging =
     (body.startDate !== undefined && body.startDate !== existing.startDate) ||

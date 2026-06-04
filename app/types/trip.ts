@@ -50,7 +50,7 @@ export interface TripResponse {
   countryCode: string | null
   startDate: string
   endDate: string
-  status: string
+  status: "upcoming" | "ongoing" | "completed" | "cancelled"
   budget: string | null
   currencyCode: string
   tripNotes: string | null

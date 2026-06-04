@@ -1,7 +1,7 @@
-import { eq, and } from "drizzle-orm"
+import { eq, and, isNull } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../../db"
-import { visitedCountries } from "../../db/schema"
+import { trips, visitedCountries } from "../../db/schema"
 
 const bodySchema = z.object({
   countryCode: z.string().length(2).toUpperCase(),
@@ -39,6 +39,19 @@ export default defineEventHandler(async (event) => {
       set: { visitType: body.visitType },
     })
     .returning()
+
+  if (body.visitType !== "visited") {
+    await db
+      .update(trips)
+      .set({ exploreSuppressedAt: new Date() })
+      .where(
+        and(
+          eq(trips.userId, session.user.id),
+          eq(trips.countryCode, body.countryCode),
+          isNull(trips.exploreSuppressedAt),
+        ),
+      )
+  }
 
   return result
 })

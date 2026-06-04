@@ -19,6 +19,7 @@ useSeoMeta({
 <template>
   <VitePwaManifest />
   <NuxtPwaAssets />
+  <AppSplashScreen />
   <NuxtRouteAnnouncer />
   <NuxtLayout>
     <NuxtPage />

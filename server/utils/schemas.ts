@@ -10,7 +10,7 @@ export const paginationSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
-export const tripStatusEnum = z.enum(["upcoming", "ongoing", "completed"])
+export const tripStatusEnum = z.enum(["upcoming", "ongoing", "completed", "cancelled"])
 
 // Not a strict enum — Google Places returns types like "museum", "cafe", "park", etc.
 export const activityTypeEnum = z.string().min(1)

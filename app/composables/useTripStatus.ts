@@ -1,4 +1,4 @@
-export type TripStatus = "upcoming" | "ongoing" | "completed"
+export type TripStatus = "upcoming" | "ongoing" | "completed" | "cancelled"
 
 export interface TripStatusInfo {
   label: string
@@ -7,8 +7,22 @@ export interface TripStatusInfo {
   textClass: string
 }
 
-export function getTripStatus(startDate: string, endDate: string): TripStatusInfo {
-  const today = new Date()
+export function getTripStatus(
+  startDate: string,
+  endDate: string,
+  storedStatus?: string | null,
+  options: { today?: Date } = {},
+): TripStatusInfo {
+  if (storedStatus === "cancelled") {
+    return {
+      label: "Cancelled",
+      status: "cancelled",
+      badgeClass: "bg-red-50 text-red-600",
+      textClass: "text-red-600",
+    }
+  }
+
+  const today = new Date((options.today ?? new Date()).getTime())
   today.setHours(0, 0, 0, 0)
 
   const start = new Date(startDate + "T00:00:00")
