@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/192x192.png" alt="AI Trip" width="80" height="80" />
+  <img src="public/pwa-192x192.png" alt="AI Trip" width="80" height="80" />
 </p>
 
 <h1 align="center">AI Trip</h1>
