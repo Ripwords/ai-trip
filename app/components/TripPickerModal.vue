@@ -41,6 +41,12 @@ function close() {
 }
 
 const searchInput = ref<HTMLInputElement>()
+const panelRef = ref<HTMLElement | null>(null)
+
+useModalA11y(panelRef, {
+  isOpen: () => props.open,
+  onClose: close,
+})
 
 watch(
   () => props.open,
@@ -64,23 +70,39 @@ watch(
     >
       <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center">
         <div class="fixed inset-0 bg-black/40" @click="close" />
-        <div class="relative z-10 mx-4 w-full max-w-md rounded-2xl bg-white shadow-2xl">
+        <div
+          ref="panelRef"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="trip-picker-title"
+          tabindex="-1"
+          class="relative z-10 mx-4 w-full max-w-md rounded-2xl bg-white shadow-2xl"
+        >
           <!-- Header -->
           <div class="flex items-center justify-between border-b border-sand-200 px-5 py-4">
-            <h3 class="font-display text-base text-sand-900">Link to trip</h3>
-            <button class="rounded-lg p-1.5 text-sand-400 hover:bg-sand-100" @click="close">
+            <h3 id="trip-picker-title" class="font-display text-base text-sand-900">
+              Link to trip
+            </h3>
+            <button
+              type="button"
+              class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-sand-400 hover:bg-sand-100 focus-ring"
+              aria-label="Close"
+              @click="close"
+            >
               <Icon name="lucide:x" class="h-4 w-4" />
             </button>
           </div>
 
           <!-- Search -->
           <div class="px-5 pt-4">
+            <label for="trip-picker-search" class="sr-only">Search trips</label>
             <input
+              id="trip-picker-search"
               ref="searchInput"
               v-model="search"
               type="text"
               placeholder="Search trips..."
-              class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
+              class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-500 focus:border-terra-400 focus:outline-none"
             />
           </div>
 
@@ -101,7 +123,7 @@ watch(
                     month="short"
                     day="numeric"
                   />
-                  –
+                  -
                   <NuxtTime
                     :datetime="trip.endDate + 'T00:00:00'"
                     locale="en-US"
@@ -113,7 +135,7 @@ watch(
               </div>
               <Icon name="lucide:chevron-right" class="h-4 w-4 text-sand-400" />
             </button>
-            <p v-if="filtered.length === 0" class="px-3 py-6 text-center text-sm text-sand-400">
+            <p v-if="filtered.length === 0" class="px-3 py-6 text-center text-sm text-sand-500">
               {{ search ? "No trips match your search" : "No trips yet" }}
             </p>
           </div>

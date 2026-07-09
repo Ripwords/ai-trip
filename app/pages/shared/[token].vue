@@ -38,7 +38,7 @@ const token = route.params.token as string
 const { data: trip, error } = useLazyFetch<SharedTrip>(`/api/shared/${token}`)
 
 const sharedTitle = computed(() =>
-  trip.value ? `${trip.value.destination} — Shared Trip` : "Shared Trip",
+  trip.value ? `${trip.value.destination}: Shared Trip` : "Shared Trip",
 )
 const sharedDescription = computed(() =>
   trip.value
@@ -113,12 +113,32 @@ function mapsLinkFor(activity: SharedActivity): string {
 
 <template>
   <div class="mx-auto max-w-6xl px-4 py-8">
-    <div v-if="error" class="text-center">
+    <div v-if="error" role="alert" class="text-center">
       <h1 class="font-display text-2xl text-sand-900">Trip Not Found</h1>
       <p class="mt-2 text-sand-600">This shared link may have expired or been removed.</p>
     </div>
 
-    <div v-else-if="trip">
+    <!-- Loading skeleton -->
+    <div v-else-if="!trip" role="status" aria-label="Loading shared trip" class="animate-pulse">
+      <div class="flex flex-col items-center gap-3 text-center">
+        <div class="h-8 w-56 rounded-lg bg-sand-200" />
+        <div class="h-4 w-40 rounded bg-sand-200" />
+        <div class="h-5 w-24 rounded-full bg-sand-200" />
+      </div>
+      <div class="mt-8 flex gap-2">
+        <div v-for="n in 4" :key="n" class="h-11 w-28 shrink-0 rounded-full bg-sand-200" />
+      </div>
+      <div class="mt-6 flex flex-col gap-6 lg:flex-row">
+        <div class="min-w-0 flex-1 space-y-3">
+          <div v-for="n in 3" :key="n" class="h-28 rounded-2xl bg-sand-200" />
+        </div>
+        <div class="lg:w-[420px] lg:shrink-0">
+          <div class="h-[260px] rounded-2xl bg-sand-200 sm:h-[320px]" />
+        </div>
+      </div>
+    </div>
+
+    <div v-else>
       <!-- Header -->
       <div class="text-center">
         <h1 class="font-display text-3xl text-sand-900">{{ trip.destination }}</h1>
@@ -152,7 +172,9 @@ function mapsLinkFor(activity: SharedActivity): string {
         <button
           v-for="day in sortedDays"
           :key="day.id"
-          class="shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition"
+          type="button"
+          :aria-pressed="day.id === currentDayId"
+          class="focus-ring inline-flex min-h-11 shrink-0 items-center rounded-full px-4 py-2.5 text-sm font-medium transition active:scale-95"
           :class="
             day.id === currentDayId
               ? 'bg-terra-500 text-white shadow-sm'
@@ -179,13 +201,18 @@ function mapsLinkFor(activity: SharedActivity): string {
             v-for="(activity, index) in activeDay.activities"
             :id="`shared-activity-${activity.id}`"
             :key="activity.id"
-            class="cursor-pointer rounded-2xl border bg-white p-5 transition"
+            role="button"
+            tabindex="0"
+            :aria-label="`Show ${activity.name} on map`"
+            class="focus-ring cursor-pointer rounded-2xl border bg-white p-5 transition"
             :class="
               highlightedActivityId === activity.id
                 ? 'border-terra-400 ring-2 ring-terra-200'
                 : 'border-sand-200 hover:border-terra-300'
             "
             @click="handleActivityClick(activity)"
+            @keydown.enter.prevent="handleActivityClick(activity)"
+            @keydown.space.prevent="handleActivityClick(activity)"
           >
             <div class="flex items-start gap-3">
               <span
@@ -226,7 +253,7 @@ function mapsLinkFor(activity: SharedActivity): string {
               </div>
             </div>
           </div>
-          <p v-if="!activeDay.activities.length" class="text-center text-sm text-sand-400 py-8">
+          <p v-if="!activeDay.activities.length" class="text-center text-sm text-sand-500 py-8">
             No activities planned for this day.
           </p>
         </div>
@@ -234,7 +261,7 @@ function mapsLinkFor(activity: SharedActivity): string {
         <!-- Right: map -->
         <div class="order-first lg:order-none lg:w-[420px] lg:shrink-0">
           <div
-            class="h-[260px] overflow-hidden rounded-2xl shadow-lg sm:h-[320px] lg:sticky lg:top-8 lg:h-[calc(100vh-200px)]"
+            class="h-[260px] overflow-hidden rounded-2xl shadow-lg sm:h-[320px] lg:sticky lg:top-8 lg:h-[calc(100dvh-200px)]"
           >
             <TripMap
               ref="tripMapRef"

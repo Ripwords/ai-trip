@@ -78,10 +78,10 @@ function groupByCategory(items: ChecklistItem[]): { category: string; items: Che
 const categoryColors: Record<string, string> = {
   Clothes: "bg-ocean-50 text-ocean-700",
   Toiletries: "bg-terra-50 text-terra-600",
-  Electronics: "bg-yellow-50 text-yellow-700",
+  Electronics: "bg-ocean-50 text-ocean-700",
   Documents: "bg-sand-200 text-sand-700",
   Gear: "bg-forest-50 text-forest-700",
-  Accessories: "bg-purple-50 text-purple-700",
+  Accessories: "bg-terra-50 text-terra-700",
 }
 
 function getCategoryClass(category: string): string {
@@ -308,17 +308,21 @@ function checkedCount(checklist: Checklist): number {
               </span>
             </template>
           </button>
-          <div class="flex gap-1">
+          <div class="flex">
             <button
-              class="rounded p-1 text-sand-400 hover:bg-ocean-50 hover:text-ocean-600"
+              type="button"
+              class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:bg-ocean-50 hover:text-ocean-600 focus-ring"
               title="Load from template"
+              aria-label="Load from template"
               @click.stop="openTemplateModal(checklist.id)"
             >
               <Icon name="lucide:package-plus" class="h-3.5 w-3.5" />
             </button>
             <button
-              class="rounded p-1 text-sand-400 hover:bg-forest-50 hover:text-forest-600"
+              type="button"
+              class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:bg-forest-50 hover:text-forest-600 focus-ring"
               title="Save as template"
+              aria-label="Save as template"
               @click.stop="
                 () => {
                   showSaveTemplateForm = showSaveTemplateForm === checklist.id ? null : checklist.id
@@ -329,15 +333,19 @@ function checkedCount(checklist: Checklist): number {
               <Icon name="lucide:save" class="h-3.5 w-3.5" />
             </button>
             <button
-              class="rounded p-1 text-sand-400 hover:bg-sand-100 hover:text-sand-600"
+              type="button"
+              class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:bg-sand-100 hover:text-sand-600 focus-ring"
               title="Edit name"
+              aria-label="Edit checklist name"
               @click.stop="startEditList(checklist)"
             >
               <Icon name="lucide:edit" class="h-3.5 w-3.5" />
             </button>
             <button
-              class="rounded p-1 text-sand-400 hover:bg-red-50 hover:text-red-600"
+              type="button"
+              class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:bg-red-50 hover:text-red-600 focus-ring"
               title="Delete"
+              aria-label="Delete checklist"
               @click.stop="deleteChecklist(checklist.id)"
             >
               <Icon name="lucide:trash-2" class="h-3.5 w-3.5" />
@@ -359,7 +367,7 @@ function checkedCount(checklist: Checklist): number {
             />
             <button
               type="submit"
-              class="rounded-lg bg-forest-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-forest-600"
+              class="rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600"
             >
               Save
             </button>
@@ -420,12 +428,27 @@ function checkedCount(checklist: Checklist): number {
                     {{ item.text }}
                   </span>
                 </label>
-                <button
-                  class="rounded p-0.5 text-sand-300 hover:text-red-500"
-                  @click="deleteItem(checklist.id, item.id)"
-                >
-                  <Icon name="lucide:x" class="h-3.5 w-3.5" />
-                </button>
+                <div class="flex shrink-0 items-center">
+                  <button
+                    v-if="editingItemId !== item.id"
+                    type="button"
+                    class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:text-terra-500 focus-ring"
+                    title="Edit item"
+                    aria-label="Edit item"
+                    @click="startEditItem(item)"
+                  >
+                    <Icon name="lucide:edit" class="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:text-red-500 focus-ring"
+                    title="Delete item"
+                    aria-label="Delete item"
+                    @click="deleteItem(checklist.id, item.id)"
+                  >
+                    <Icon name="lucide:x" class="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           </template>
@@ -462,12 +485,27 @@ function checkedCount(checklist: Checklist): number {
                   {{ item.text }}
                 </span>
               </label>
-              <button
-                class="rounded p-0.5 text-sand-300 hover:text-red-500"
-                @click="deleteItem(checklist.id, item.id)"
-              >
-                <Icon name="lucide:x" class="h-3.5 w-3.5" />
-              </button>
+              <div class="flex shrink-0 items-center">
+                <button
+                  v-if="editingItemId !== item.id"
+                  type="button"
+                  class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:text-terra-500 focus-ring"
+                  title="Edit item"
+                  aria-label="Edit item"
+                  @click="startEditItem(item)"
+                >
+                  <Icon name="lucide:edit" class="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:text-red-500 focus-ring"
+                  title="Delete item"
+                  aria-label="Delete item"
+                  @click="deleteItem(checklist.id, item.id)"
+                >
+                  <Icon name="lucide:x" class="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           </template>
 
@@ -515,7 +553,7 @@ function checkedCount(checklist: Checklist): number {
           <div class="fixed inset-0 bg-black/40" @click="showTemplateModal = false" />
           <div class="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl mx-4">
             <div class="flex items-center justify-between">
-              <h3 class="text-base font-semibold text-sand-900">Load Template</h3>
+              <h3 class="font-display text-lg text-sand-900">Load Template</h3>
               <button
                 class="rounded p-1 text-sand-400 hover:text-sand-600"
                 @click="showTemplateModal = false"

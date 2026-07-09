@@ -113,13 +113,13 @@ function handleCheckVisa(country: CountryInfo) {
   <div>
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h1 class="font-display text-3xl text-sand-900">Explore</h1>
+        <h1 class="font-display text-2xl text-sand-900 sm:text-3xl">Explore</h1>
         <p class="mt-1 text-sm text-sand-500">
           Click on a country to mark it as visited or check visa requirements.
         </p>
       </div>
       <div class="w-full sm:w-48 sm:shrink-0">
-        <label class="mb-1 block text-xs font-medium text-sand-400">Your passport</label>
+        <label class="mb-1 block text-xs font-medium text-sand-600">Your passport</label>
         <NationalitySelector v-model="nationality" />
       </div>
     </div>

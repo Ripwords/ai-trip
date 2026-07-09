@@ -39,6 +39,7 @@ const DISP_SCALE = 0.34
 const SURFACE_RADIUS = GLOBE_RADIUS + DISP_SCALE + 0.02
 
 const { isDark } = useDarkMode()
+const prefersReducedMotion = useReducedMotion()
 
 const theme = computed(() =>
   isDark.value
@@ -249,7 +250,7 @@ const summaryText = computed(() => {
         <OrbitControls
           :enable-zoom="true"
           :enable-pan="false"
-          :auto-rotate="true"
+          :auto-rotate="!prefersReducedMotion"
           :auto-rotate-speed="0.3"
           :min-distance="12"
           :max-distance="35"
@@ -266,8 +267,12 @@ const summaryText = computed(() => {
     </ClientOnly>
 
     <!-- Summary overlay -->
-    <div class="absolute bottom-3 left-0 right-0 text-center">
-      <span class="font-display text-xs tracking-wide text-sand-500">{{ summaryText }}</span>
+    <div class="absolute bottom-3 left-0 right-0 flex justify-center">
+      <span
+        role="status"
+        class="rounded-full bg-white/70 px-3 py-1 font-display text-xs tracking-wide text-sand-800 backdrop-blur-sm"
+        >{{ summaryText }}</span
+      >
     </div>
   </div>
 </template>

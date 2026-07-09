@@ -26,6 +26,8 @@ const emit = defineEmits<{
   refresh: []
 }>()
 
+const toast = useToast()
+
 async function handlePlaceSelect(place: {
   name: string
   placeId: string
@@ -35,7 +37,10 @@ async function handlePlaceSelect(place: {
   formattedAddress?: string
   types?: string[]
 }) {
-  if (!props.activeDayId) return
+  if (!props.activeDayId) {
+    toast.error("Select a day first before adding a place.")
+    return
+  }
 
   try {
     // Add directly to the current day as an activity
@@ -55,6 +60,7 @@ async function handlePlaceSelect(place: {
     emit("refresh")
   } catch (e: unknown) {
     console.error("Failed to add activity:", e)
+    toast.error("Couldn't add that place to the day. Try again.")
   }
 }
 
@@ -83,6 +89,7 @@ async function handleSaveToIdeas(place: {
     emit("refresh")
   } catch (e: unknown) {
     console.error("Failed to add idea:", e)
+    toast.error("Couldn't save that idea. Try again.")
   }
 }
 
@@ -95,6 +102,7 @@ async function handlePromote(payload: { ideaId: string; itineraryDayId: string }
     emit("refresh")
   } catch (e: unknown) {
     console.error("Failed to promote idea:", e)
+    toast.error("Couldn't move that idea to the day. Try again.")
   }
 }
 
@@ -106,6 +114,7 @@ async function handleDelete(ideaId: string) {
     emit("refresh")
   } catch (e: unknown) {
     console.error("Failed to delete idea:", e)
+    toast.error("Couldn't delete that idea. Try again.")
   }
 }
 

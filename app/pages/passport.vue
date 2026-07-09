@@ -48,15 +48,15 @@ const periodLabel = computed(() =>
   <div class="space-y-6">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-terra-500">Passport</p>
-        <h1 class="mt-1 font-display text-3xl text-sand-900 sm:text-4xl">Travel Passport</h1>
+        <h1 class="font-display text-3xl text-sand-900 sm:text-4xl">Travel Passport</h1>
         <p class="mt-1 text-sm text-sand-600">{{ periodLabel }}</p>
       </div>
 
       <div v-if="passport.availableYears.length > 1" class="flex flex-wrap gap-1.5">
         <button
           type="button"
-          class="rounded-full border border-sand-200 px-3 py-1 text-xs font-semibold transition"
+          :aria-pressed="selectedYear == null"
+          class="focus-ring inline-flex min-h-11 items-center rounded-full border border-sand-200 px-4 text-xs font-semibold transition active:scale-95"
           :class="
             selectedYear == null
               ? 'bg-sand-900 text-sand-50'
@@ -70,7 +70,8 @@ const periodLabel = computed(() =>
           v-for="year in passport.availableYears"
           :key="year"
           type="button"
-          class="rounded-full border border-sand-200 px-3 py-1 text-xs font-semibold transition"
+          :aria-pressed="selectedYear === year"
+          class="focus-ring inline-flex min-h-11 items-center rounded-full border border-sand-200 px-4 text-xs font-semibold transition active:scale-95"
           :class="
             selectedYear === year
               ? 'bg-sand-900 text-sand-50'
@@ -96,7 +97,7 @@ const periodLabel = computed(() =>
       <Icon name="lucide:stamp" class="passport-empty-icon h-8 w-8" />
       <h2 class="font-display text-2xl text-sand-900">Your passport is empty</h2>
       <p class="max-w-md text-sm text-sand-600">
-        Add flights or mark countries to start building your travel ledger.
+        Add flights or mark countries to start building your passport.
       </p>
       <div class="mt-2 flex flex-wrap justify-center gap-2">
         <NuxtLink

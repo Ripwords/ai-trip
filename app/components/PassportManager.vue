@@ -12,6 +12,11 @@ interface Passport {
 
 const { data: passports, refresh } = await useFetch<Passport[]>("/api/user/passports")
 
+// Add form field ids for label association
+const countryFieldId = useId()
+const numberFieldId = useId()
+const expiryFieldId = useId()
+
 // Add form state
 const newCountryCode = ref("")
 const newPassportNumber = ref("")
@@ -22,6 +27,7 @@ const adding = ref(false)
 const editingId = ref<string | null>(null)
 const editPassportNumber = ref("")
 const editExpiryDate = ref("")
+const savingEdit = ref(false)
 
 // Visibility toggle for passport numbers
 const visibleNumbers = ref<Set<string>>(new Set())
@@ -60,15 +66,20 @@ function cancelEditing() {
 }
 
 async function saveEdit(id: string) {
-  await $fetch(`/api/user/passports/${id}`, {
-    method: "PATCH",
-    body: {
-      passportNumber: editPassportNumber.value || null,
-      expiryDate: editExpiryDate.value || null,
-    },
-  })
-  editingId.value = null
-  await refresh()
+  savingEdit.value = true
+  try {
+    await $fetch(`/api/user/passports/${id}`, {
+      method: "PATCH",
+      body: {
+        passportNumber: editPassportNumber.value || null,
+        expiryDate: editExpiryDate.value || null,
+      },
+    })
+    editingId.value = null
+    await refresh()
+  } finally {
+    savingEdit.value = false
+  }
 }
 
 async function addPassport() {
@@ -141,11 +152,11 @@ function isExpiringSoon(date: string): boolean {
                 <span class="font-medium text-sand-900">
                   {{ countryFlag(passport.countryCode) }} {{ countryName(passport.countryCode) }}
                 </span>
-                <span class="text-xs text-sand-400">{{ passport.countryCode }}</span>
+                <span class="text-xs text-sand-600">{{ passport.countryCode }}</span>
               </div>
               <div class="mt-1.5 flex flex-wrap items-center gap-3 text-xs">
                 <span v-if="passport.passportNumber" class="flex items-center gap-1 text-sand-600">
-                  <Icon name="lucide:hash" class="h-3 w-3 text-sand-400" />
+                  <Icon name="lucide:hash" class="h-3 w-3 text-sand-600" />
                   <span class="font-mono">
                     {{
                       visibleNumbers.has(passport.id)
@@ -154,7 +165,13 @@ function isExpiringSoon(date: string): boolean {
                     }}
                   </span>
                   <button
-                    class="ml-0.5 text-sand-400 hover:text-sand-600"
+                    type="button"
+                    :aria-label="
+                      visibleNumbers.has(passport.id)
+                        ? 'Hide passport number'
+                        : 'Show passport number'
+                    "
+                    class="focus-ring -my-2 ml-0.5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-600 hover:text-sand-900"
                     @click="toggleVisibility(passport.id)"
                   >
                     <Icon
@@ -166,7 +183,7 @@ function isExpiringSoon(date: string): boolean {
                 <span
                   v-if="passport.expiryDate"
                   class="flex items-center gap-1"
-                  :class="isExpiringSoon(passport.expiryDate) ? 'text-red-600' : 'text-sand-500'"
+                  :class="isExpiringSoon(passport.expiryDate) ? 'text-red-600' : 'text-sand-600'"
                 >
                   <Icon name="lucide:calendar" class="h-3 w-3" />
                   Exp
@@ -187,30 +204,34 @@ function isExpiringSoon(date: string): boolean {
             </div>
             <div class="flex shrink-0 items-center gap-1">
               <button
-                class="rounded-lg p-1.5 text-sand-400 hover:bg-sand-50 hover:text-sand-600"
-                title="Edit"
+                type="button"
+                aria-label="Edit passport"
+                class="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-500 hover:bg-sand-50 hover:text-sand-700"
                 @click="startEditing(passport)"
               >
                 <Icon name="lucide:pencil" class="h-3.5 w-3.5" />
               </button>
               <button
                 v-if="!passport.isDefault"
-                class="rounded-lg p-1.5 text-sand-400 hover:bg-sand-50 hover:text-terra-500"
-                title="Set as default"
+                type="button"
+                aria-label="Set as default"
+                class="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-500 hover:bg-sand-50 hover:text-terra-500"
                 @click="setDefault(passport.id)"
               >
                 <Icon name="lucide:star" class="h-3.5 w-3.5" />
               </button>
-              <div v-else class="p-1.5">
-                <Icon
-                  name="lucide:star"
-                  class="h-3.5 w-3.5 text-terra-500"
-                  title="Default passport"
-                />
+              <div
+                v-else
+                class="inline-flex min-h-11 min-w-11 items-center justify-center"
+                aria-label="Default passport"
+                role="img"
+              >
+                <Icon name="lucide:star" class="h-3.5 w-3.5 text-terra-500" />
               </div>
               <button
-                class="rounded-lg p-1.5 text-sand-400 hover:bg-red-50 hover:text-red-500"
-                title="Remove"
+                type="button"
+                aria-label="Remove passport"
+                class="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-500 hover:bg-red-50 hover:text-red-500"
                 @click="removePassport(passport.id)"
               >
                 <Icon name="lucide:trash-2" class="h-3.5 w-3.5" />
@@ -226,7 +247,7 @@ function isExpiringSoon(date: string): boolean {
               <span class="font-medium text-sand-900">
                 {{ countryName(passport.countryCode) }}
               </span>
-              <span class="text-xs text-sand-400">{{ passport.countryCode }}</span>
+              <span class="text-xs text-sand-600">{{ passport.countryCode }}</span>
             </div>
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <input
@@ -247,16 +268,21 @@ function isExpiringSoon(date: string): boolean {
             </div>
             <div class="flex justify-end gap-2">
               <button
-                class="rounded-lg border border-sand-200 px-3 py-1.5 text-xs font-medium text-sand-600 hover:bg-sand-50"
+                type="button"
+                :disabled="savingEdit"
+                class="rounded-lg border border-sand-200 px-3 py-1.5 text-xs font-medium text-sand-600 hover:bg-sand-50 disabled:opacity-50"
                 @click="cancelEditing"
               >
                 Cancel
               </button>
               <button
-                class="rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600"
+                type="button"
+                :disabled="savingEdit"
+                class="inline-flex items-center gap-1.5 rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600 disabled:opacity-50"
                 @click="saveEdit(passport.id)"
               >
-                Save
+                <Icon v-if="savingEdit" name="lucide:loader" class="h-3 w-3 animate-spin" />
+                {{ savingEdit ? "Saving..." : "Save" }}
               </button>
             </div>
           </div>
@@ -268,35 +294,54 @@ function isExpiringSoon(date: string): boolean {
     <div class="space-y-2 rounded-xl border border-dashed border-sand-300 p-4">
       <p class="text-xs font-medium text-sand-600">Add passport</p>
       <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <select
-          v-model="newCountryCode"
-          class="w-full appearance-none rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
-        >
-          <option value="" disabled>Select country</option>
-          <option v-for="opt in countryOptions" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </option>
-        </select>
-        <input
-          :value="newPassportNumber"
-          type="text"
-          placeholder="Passport number"
-          class="rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm font-mono uppercase text-sand-900 placeholder:normal-case placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
-          @input="newPassportNumber = ($event.target as HTMLInputElement).value.toUpperCase()"
-        />
-        <input
-          v-model="newExpiryDate"
-          type="date"
-          placeholder="Expiry date"
-          class="rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
-        />
+        <div>
+          <label :for="countryFieldId" class="mb-1 block text-xs font-medium text-sand-700">
+            Country
+          </label>
+          <select
+            :id="countryFieldId"
+            v-model="newCountryCode"
+            class="w-full appearance-none rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
+          >
+            <option value="" disabled>Select country</option>
+            <option v-for="opt in countryOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
+        <div>
+          <label :for="numberFieldId" class="mb-1 block text-xs font-medium text-sand-700">
+            Passport number
+          </label>
+          <input
+            :id="numberFieldId"
+            :value="newPassportNumber"
+            type="text"
+            placeholder="Passport number"
+            class="w-full rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm font-mono uppercase text-sand-900 placeholder:normal-case placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
+            @input="newPassportNumber = ($event.target as HTMLInputElement).value.toUpperCase()"
+          />
+        </div>
+        <div>
+          <label :for="expiryFieldId" class="mb-1 block text-xs font-medium text-sand-700">
+            Expiry date
+          </label>
+          <input
+            :id="expiryFieldId"
+            v-model="newExpiryDate"
+            type="date"
+            class="w-full rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
+          />
+        </div>
       </div>
       <div class="flex justify-end">
         <button
+          type="button"
           :disabled="!newCountryCode || adding"
-          class="rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-terra-600 disabled:opacity-50"
+          class="inline-flex items-center gap-1.5 rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-terra-600 disabled:opacity-50"
           @click="addPassport"
         >
+          <Icon v-if="adding" name="lucide:loader" class="h-3.5 w-3.5 animate-spin" />
           {{ adding ? "Adding..." : "Add Passport" }}
         </button>
       </div>

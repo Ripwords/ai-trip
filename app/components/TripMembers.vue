@@ -159,7 +159,7 @@ const roleBadgeClass: Record<string, string> = {
           <option value="viewer">Viewer</option>
         </select>
       </div>
-      <p v-if="inviteError" class="text-xs text-red-600">{{ inviteError }}</p>
+      <p v-if="inviteError" role="alert" class="text-xs text-red-600">{{ inviteError }}</p>
       <button
         type="submit"
         :disabled="inviteLoading"

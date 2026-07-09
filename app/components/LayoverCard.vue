@@ -38,11 +38,11 @@ function formatDuration(minutes: number): string {
 const recommendationStyle = computed(() => {
   switch (props.layover.recommendation) {
     case "stay":
-      return "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-400"
+      return "bg-ocean-50 text-ocean-700"
     case "tight":
-      return "bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400"
+      return "bg-amber-50 text-amber-700"
     case "explore":
-      return "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400"
+      return "bg-forest-50 text-forest-700"
   }
 })
 
@@ -124,7 +124,10 @@ async function fetchAiTips() {
 
       <!-- AI tips button -->
       <button
-        class="shrink-0 text-xs font-medium text-terra-500 transition hover:text-terra-600"
+        type="button"
+        :aria-expanded="showAiTips"
+        :disabled="aiTipsLoading"
+        class="shrink-0 min-h-11 inline-flex items-center px-2 text-xs font-medium text-terra-500 transition hover:text-terra-600 focus-ring disabled:opacity-60"
         @click="fetchAiTips"
       >
         <template v-if="aiTipsLoading">Loading...</template>
@@ -134,7 +137,7 @@ async function fetchAiTips() {
 
     <!-- Expanded AI tips -->
     <div v-if="showAiTips && (aiTips || aiError)" class="mt-3 border-t border-sand-200 pt-3">
-      <div v-if="aiError" class="text-xs text-red-500">{{ aiError }}</div>
+      <div v-if="aiError" role="alert" class="text-xs text-red-500">{{ aiError }}</div>
       <div v-else-if="aiTips" class="space-y-2 text-xs text-sand-700">
         <p class="font-medium text-sand-900">{{ aiTips.recommendation }}</p>
         <ul class="list-inside list-disc space-y-1">

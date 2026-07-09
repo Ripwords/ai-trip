@@ -310,7 +310,7 @@ const uniqueMapPoints = computed(() => {
 }
 
 .passport-metric-value {
-  font-family: ui-serif, Georgia, serif;
+  font-family: var(--font-display);
   font-size: 1.85rem;
   line-height: 1.1;
   color: var(--color-sand-900);

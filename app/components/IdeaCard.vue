@@ -36,17 +36,17 @@ watch(
   },
 )
 
-const typeBadgeClasses: Record<string, string> = {
-  attraction: "bg-ocean-50 text-ocean-700",
-  restaurant: "bg-terra-50 text-terra-700",
-  hotel: "bg-ocean-50 text-ocean-700",
-  transport: "bg-sand-100 text-sand-700",
-  shopping: "bg-terra-50 text-terra-600",
-  entertainment: "bg-forest-50 text-forest-700",
+const typeIcons: Record<string, string> = {
+  attraction: "lucide:camera",
+  restaurant: "lucide:utensils",
+  hotel: "lucide:bed",
+  transport: "lucide:bus",
+  shopping: "lucide:shopping-bag",
+  entertainment: "lucide:ticket",
 }
 
-function getBadgeClass(type: string): string {
-  return typeBadgeClasses[type] || "bg-sand-100 text-sand-700"
+function getTypeIcon(type: string): string {
+  return typeIcons[type] || "lucide:map-pin"
 }
 
 function handlePromote() {
@@ -63,9 +63,9 @@ function handlePromote() {
         <div class="mt-1 flex flex-wrap items-center gap-2">
           <span
             v-if="idea.type"
-            class="inline-block rounded-full px-2 py-0.5 text-xs font-medium"
-            :class="getBadgeClass(idea.type)"
+            class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2 py-0.5 text-xs font-medium text-sand-600"
           >
+            <Icon :name="getTypeIcon(idea.type)" class="h-3 w-3" />
             {{ formatType(idea.type) }}
           </span>
           <a
@@ -90,8 +90,10 @@ function handlePromote() {
         </div>
       </div>
       <button
-        class="shrink-0 rounded p-1 text-sand-400 hover:bg-red-50 hover:text-red-600"
+        type="button"
+        class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded text-sand-400 hover:bg-red-50 hover:text-red-600"
         title="Delete"
+        aria-label="Delete idea"
         @click="emit('delete', idea.id)"
       >
         <Icon name="lucide:trash-2" class="h-3.5 w-3.5" />
@@ -101,12 +103,14 @@ function handlePromote() {
     <div class="mt-2 flex items-center gap-2">
       <select
         v-model="selectedDayId"
-        class="block flex-1 rounded-lg border border-sand-300 px-2 py-1 text-xs input-focus"
+        aria-label="Move to day"
+        class="block min-h-11 flex-1 rounded-lg border border-sand-300 px-2 py-1 text-xs input-focus"
       >
         <option v-for="day in days" :key="day.id" :value="day.id">Day {{ day.dayNumber }}</option>
       </select>
       <button
-        class="rounded-lg bg-terra-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-terra-600"
+        type="button"
+        class="inline-flex min-h-11 items-center rounded-lg bg-terra-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-terra-600"
         @click="handlePromote"
       >
         Move

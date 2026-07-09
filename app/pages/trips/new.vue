@@ -162,14 +162,16 @@ async function handleCreate() {
         <div v-if="!showNameInput" class="mt-2">
           <button
             type="button"
-            class="text-xs font-medium text-terra-600 hover:text-terra-700"
+            class="inline-flex min-h-11 items-center text-sm font-medium text-terra-600 hover:text-terra-700 focus-ring"
             @click="showNameInput = true"
           >
             + Add a custom name
           </button>
         </div>
         <div v-else class="mt-2">
+          <label for="tripName" class="block text-sm font-medium text-sand-700">Trip name</label>
           <input
+            id="tripName"
             v-model="name"
             type="text"
             maxlength="100"
@@ -239,7 +241,8 @@ async function handleCreate() {
             v-for="style in travelStyleOptions"
             :key="style"
             type="button"
-            class="rounded-full border px-3 py-1 text-xs font-medium capitalize transition"
+            :aria-pressed="travelStyle.includes(style)"
+            class="inline-flex min-h-11 items-center rounded-full border px-4 py-2 text-sm font-medium capitalize transition focus-ring"
             :class="
               travelStyle.includes(style)
                 ? 'border-terra-400 bg-terra-50 text-terra-700'
@@ -252,13 +255,17 @@ async function handleCreate() {
         </div>
       </div>
 
-      <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{{ error }}</p>
+      <p v-if="error" role="alert" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+        {{ error }}
+      </p>
 
       <button
         type="submit"
         :disabled="!canSubmit"
-        class="w-full rounded-xl bg-terra-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-terra-600 disabled:opacity-50"
+        :aria-busy="loading"
+        class="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-terra-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-terra-600 focus-ring disabled:opacity-50"
       >
+        <Icon v-if="loading" name="lucide:loader" class="h-4 w-4 animate-spin" />
         {{ loading ? "Creating..." : "Create Trip" }}
       </button>
     </form>

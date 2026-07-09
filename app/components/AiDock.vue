@@ -106,8 +106,8 @@ const limitReached = computed(() => (props.usageRemaining ?? 1) <= 0)
 
 const placeholder = computed(() => {
   if (limitReached.value) return "Limit reached. Resets next month."
-  if (props.loading) return "Thinking…"
-  return "Ask, discuss, or push back…"
+  if (props.loading) return "Thinking..."
+  return "Ask, discuss, or push back..."
 })
 
 function handleSubmit() {
@@ -207,14 +207,14 @@ function onDismiss(message: ChatMessage, proposal: Proposal) {
 
 const proposalKindMeta: Record<
   Proposal["kind"],
-  { label: string; symbol: string; tone: "terra" | "ocean" | "forest" | "sand" }
+  { label: string; icon: string; tone: "terra" | "ocean" | "forest" | "sand" }
 > = {
-  "add-activities": { label: "Addition", symbol: "+", tone: "terra" },
-  "remove-activities": { label: "Removal", symbol: "−", tone: "sand" },
-  reschedule: { label: "Reschedule", symbol: "↻", tone: "ocean" },
-  "optimize-route": { label: "Route", symbol: "↗", tone: "ocean" },
-  "reorder-activities": { label: "Reorder", symbol: "⇅", tone: "ocean" },
-  "set-accommodation": { label: "Accommodation", symbol: "✦", tone: "forest" },
+  "add-activities": { label: "Addition", icon: "lucide:plus", tone: "terra" },
+  "remove-activities": { label: "Removal", icon: "lucide:minus", tone: "sand" },
+  reschedule: { label: "Reschedule", icon: "lucide:rotate-cw", tone: "ocean" },
+  "optimize-route": { label: "Route", icon: "lucide:arrow-up-right", tone: "ocean" },
+  "reorder-activities": { label: "Reorder", icon: "lucide:arrow-down-up", tone: "ocean" },
+  "set-accommodation": { label: "Accommodation", icon: "lucide:sparkles", tone: "forest" },
 }
 </script>
 
@@ -259,9 +259,9 @@ const proposalKindMeta: Record<
       <div class="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-sand-400/40 md:hidden" />
 
       <header class="mx-auto mt-3 flex w-full max-w-[28rem] items-baseline justify-between px-4">
-        <div class="flex items-baseline gap-2">
-          <span class="font-display text-base italic text-terra-500">✦</span>
-          <span class="text-[10px] uppercase tracking-[0.22em] text-sand-500">
+        <div class="flex items-center gap-2">
+          <Icon name="lucide:sparkles" class="h-4 w-4 text-terra-500" />
+          <span class="text-[10px] uppercase tracking-[0.22em] text-sand-600">
             From your planner
           </span>
         </div>
@@ -269,7 +269,7 @@ const proposalKindMeta: Record<
           <span
             v-if="usageUsed != null && usageLimit != null"
             class="text-[10px] uppercase tracking-[0.18em] tabular-nums"
-            :class="(usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-500'"
+            :class="(usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-600'"
             :title="`${usageUsed}/${usageLimit} AI prompts used this month`"
           >
             {{ usageUsed }} / {{ usageLimit }}
@@ -277,16 +277,18 @@ const proposalKindMeta: Record<
           <button
             v-if="messages.length > 0"
             type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-full text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+            class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
             title="Clear conversation"
+            aria-label="Clear conversation"
             @click="emit('clear')"
           >
             <Icon name="lucide:trash-2" class="h-4 w-4" />
           </button>
           <button
             type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-full text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+            class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
             title="Close (keep conversation)"
+            aria-label="Close"
             @click="collapse"
           >
             <Icon name="lucide:x" class="h-4 w-4" />
@@ -298,20 +300,22 @@ const proposalKindMeta: Record<
       <!-- Message list -->
       <div
         ref="listEl"
+        role="log"
+        aria-live="polite"
         class="dock-list relative mx-auto w-full max-w-[28rem] flex-1 overflow-y-auto px-4 py-3"
         @scroll="onListScroll"
       >
         <!-- Empty state -->
         <div v-if="messages.length === 0" class="flex flex-col gap-3">
           <p class="font-display text-[18px] italic leading-snug text-sand-900">
-            Hi — what's on your mind about this trip?
+            Tell me what to change, or pick a suggestion below.
           </p>
-          <p class="text-[11px] text-sand-500">
+          <p class="text-[11px] text-sand-600">
             Each reply uses 1 of your {{ usageLimit ?? 100 }} monthly credits.
           </p>
 
           <div v-if="starters.length > 0" class="mt-2 flex flex-col gap-2">
-            <span class="text-[10px] uppercase tracking-[0.22em] text-sand-500">Or try</span>
+            <span class="text-[10px] uppercase tracking-[0.22em] text-sand-600">Or try</span>
             <div class="flex flex-wrap gap-1.5">
               <button
                 v-for="s in starters"
@@ -362,9 +366,9 @@ const proposalKindMeta: Record<
                       class="flex items-center justify-between gap-2 border-b border-dashed border-sand-300/60 px-3 py-1.5"
                     >
                       <div class="flex items-center gap-2">
-                        <span class="dock-stamp" :data-tone="proposalKindMeta[p.kind].tone">{{
-                          proposalKindMeta[p.kind].symbol
-                        }}</span>
+                        <span class="dock-stamp" :data-tone="proposalKindMeta[p.kind].tone">
+                          <Icon :name="proposalKindMeta[p.kind].icon" class="h-3 w-3" />
+                        </span>
                         <span class="text-[10px] uppercase tracking-[0.22em] text-sand-700">
                           {{ proposalKindMeta[p.kind].label }}
                         </span>
@@ -389,7 +393,7 @@ const proposalKindMeta: Record<
                           class="dock-apply"
                           @click="onApply(msg, p)"
                         >
-                          <span class="dock-apply-symbol">✦</span>
+                          <Icon name="lucide:sparkles" class="h-3.5 w-3.5" />
                           <span>{{
                             proposalState(msg, p.id) === "applying" ? "Applying" : "Apply"
                           }}</span>
@@ -417,7 +421,8 @@ const proposalKindMeta: Record<
             class="dock-new-reply"
             @click="scrollToBottom()"
           >
-            ↓ new reply
+            <Icon name="lucide:arrow-down" class="h-3.5 w-3.5" />
+            new reply
           </button>
         </Transition>
       </div>
@@ -457,12 +462,12 @@ const proposalKindMeta: Record<
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
             </span>
-            <span
+            <Icon
               v-else
-              class="font-display text-base italic leading-none text-terra-400"
+              name="lucide:sparkles"
+              class="h-4 w-4 shrink-0 text-terra-400"
               aria-hidden="true"
-              >✦</span
-            >
+            />
             <input
               ref="inputEl"
               :value="input"
@@ -476,9 +481,10 @@ const proposalKindMeta: Record<
             <button
               type="button"
               :disabled="!loading && (!input.trim() || limitReached)"
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition disabled:opacity-40"
+              class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-white transition disabled:opacity-40"
               :class="loading ? 'bg-sand-600 hover:bg-sand-500' : 'bg-terra-500 hover:bg-terra-600'"
               :title="loading ? 'Cancel' : 'Send'"
+              :aria-label="loading ? 'Cancel' : 'Send'"
               @click="handleSendClick"
             >
               <Icon :name="loading ? 'lucide:x' : 'lucide:arrow-up'" class="h-4 w-4" />
@@ -699,7 +705,7 @@ const proposalKindMeta: Record<
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 36px;
+  min-height: 44px;
   padding: 0 16px;
   border-radius: 9999px;
   font-size: 13px;
@@ -712,17 +718,10 @@ const proposalKindMeta: Record<
   opacity: 0.6;
   cursor: progress;
 }
-.dock-apply-symbol {
-  font-family: var(--font-display);
-  font-style: italic;
-  font-size: 13px;
-  transform: translateY(-1px);
-}
-
 .dock-dismiss {
   font-size: 13px;
   color: var(--color-sand-600);
-  min-height: 36px;
+  min-height: 44px;
   padding: 0 10px;
   display: inline-flex;
   align-items: center;
@@ -752,7 +751,7 @@ const proposalKindMeta: Record<
   align-items: center;
   gap: 6px;
   padding: 8px 14px 9px;
-  min-height: 34px;
+  min-height: 44px;
   font-size: 13px;
   color: var(--color-sand-800);
   background: var(--color-sand-100);
@@ -781,7 +780,10 @@ const proposalKindMeta: Record<
   position: sticky;
   bottom: 8px;
   margin: 0 auto;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
   padding: 6px 14px;
   border-radius: 9999px;
   background: var(--color-sand-900);

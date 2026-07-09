@@ -106,39 +106,29 @@ function getBadgeClass(type: string): string {
   return typeBadgeClasses[type] || "bg-sand-100 text-sand-700"
 }
 
-const typeDotClasses: Record<string, string> = {
-  attraction: "bg-ocean-500",
-  restaurant: "bg-terra-500",
-  hotel: "bg-ocean-500",
-  transport: "bg-sand-500",
-  shopping: "bg-terra-400",
-  entertainment: "bg-forest-500",
-  park: "bg-forest-500",
-  nature: "bg-forest-500",
-}
-
-function getDotClass(type: string): string {
-  return typeDotClasses[type] || "bg-sand-500"
-}
-
 function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes}min`
+  if (minutes < 60) return `${minutes} min`
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
-  return m ? `${h}h ${m}min` : `${h}h`
+  return m ? `${h}h ${m} min` : `${h}h`
 }
 </script>
 
 <template>
   <div
     ref="cardRef"
-    class="group relative overflow-hidden rounded-2xl border bg-white transition cursor-pointer hover:shadow-md"
+    role="button"
+    tabindex="0"
+    :aria-label="`Focus ${activity.name} on the map`"
+    class="group relative rounded-2xl border bg-white transition cursor-pointer hover:shadow-md focus-ring"
     :class="
       highlighted
         ? 'border-terra-500 bg-terra-50 shadow-md'
         : 'border-sand-200 hover:border-sand-300'
     "
     @click="emit('click', activity)"
+    @keydown.enter.prevent="emit('click', activity)"
+    @keydown.space.prevent="emit('click', activity)"
   >
     <!-- ─────────────────────────── CONTENT ─────────────────────────── -->
     <!-- Hero image block removed — Place Photos API was the dominant cost
@@ -164,12 +154,9 @@ function formatDuration(minutes: number): string {
           </button>
         </div>
         <span
-          class="inline-flex items-center gap-1.5 rounded-full bg-stone-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-stone-900 ring-1 ring-black/10"
+          class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider"
+          :class="getBadgeClass(activity.type)"
         >
-          <span
-            class="inline-block h-1.5 w-1.5 rounded-full"
-            :class="getDotClass(activity.type)"
-          ></span>
           {{ formatType(activity.type) }}
         </span>
       </div>
@@ -287,8 +274,7 @@ function formatDuration(minutes: number): string {
           <span
             v-for="p in (participants ?? []).slice(0, 5)"
             :key="p.userId"
-            class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white text-[8px] font-bold text-white"
-            :style="{ background: '#E85D3A' }"
+            class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white bg-terra-500 text-[8px] font-bold text-white"
             :title="p.name"
           >
             {{ getInitials(p.name) }}
@@ -322,7 +308,7 @@ function formatDuration(minutes: number): string {
           >
             <span
               class="inline-flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white"
-              :style="{ background: isParticipant(m.userId) ? '#E85D3A' : '#a8a29e' }"
+              :class="isParticipant(m.userId) ? 'bg-terra-500' : 'bg-sand-400'"
             >
               {{ getInitials(m.user.name) }}
             </span>

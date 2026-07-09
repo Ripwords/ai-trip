@@ -18,6 +18,14 @@ const mode = ref<"search" | "manual">("search")
 const selectedPlace = ref<PlaceResult | null>(null)
 const submitting = ref(false)
 
+const { error: toastError } = useToast()
+
+const dialogRef = ref<HTMLElement | null>(null)
+useModalA11y(dialogRef, {
+  isOpen: () => props.open,
+  onClose: () => emit("close"),
+})
+
 // Manual mode fields
 const name = ref("")
 const type = ref("attraction")
@@ -58,6 +66,7 @@ async function handleSearchSubmit() {
     resetForm()
   } catch (e: unknown) {
     console.error("Failed to add activity:", e)
+    toastError("Could not add the place. Please try again.")
   } finally {
     submitting.value = false
   }
@@ -81,6 +90,7 @@ async function handleManualSubmit() {
     resetForm()
   } catch (e: unknown) {
     console.error("Failed to add activity:", e)
+    toastError("Could not add the activity. Please try again.")
   } finally {
     submitting.value = false
   }
@@ -99,8 +109,17 @@ function resetForm() {
   <Teleport to="body">
     <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center">
       <div class="fixed inset-0 bg-black/40" @click="emit('close')" />
-      <div class="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl mx-4">
-        <h2 class="text-lg font-display text-sand-900">Add Activity to Day {{ dayNumber }}</h2>
+      <div
+        ref="dialogRef"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-activity-title"
+        tabindex="-1"
+        class="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl mx-4"
+      >
+        <h2 id="add-activity-title" class="text-lg font-display text-sand-900">
+          Add Activity to Day {{ dayNumber }}
+        </h2>
 
         <!-- Mode toggle -->
         <div class="mt-4 flex rounded-lg border border-sand-200 p-0.5">
@@ -146,10 +165,11 @@ function resetForm() {
             <button
               type="button"
               :disabled="!selectedPlace || submitting"
-              class="rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600 disabled:opacity-50"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600 disabled:opacity-50"
               @click="handleSearchSubmit"
             >
-              Add
+              <Icon v-if="submitting" name="lucide:loader" class="h-4 w-4 animate-spin" />
+              {{ submitting ? "Adding..." : "Add" }}
             </button>
           </div>
         </div>
@@ -198,9 +218,10 @@ function resetForm() {
             <button
               type="submit"
               :disabled="submitting"
-              class="rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600 disabled:opacity-50"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600 disabled:opacity-50"
             >
-              Add
+              <Icon v-if="submitting" name="lucide:loader" class="h-4 w-4 animate-spin" />
+              {{ submitting ? "Adding..." : "Add" }}
             </button>
           </div>
         </form>

@@ -285,13 +285,13 @@ async function refreshFromGoogle() {
     refreshMessage.value =
       result.updated === 0
         ? result.candidates === 0
-          ? "Nothing to refresh — costs are already set."
+          ? "Nothing to refresh. Costs are already set."
           : "Google doesn't have price data for any of these places."
         : `Updated ${result.updated} of ${result.candidates} from Google Maps.`
     emit("refreshed")
   } catch (e: unknown) {
     console.error("Failed to refresh cost estimates:", e)
-    refreshMessage.value = "Couldn't refresh — try again in a moment."
+    refreshMessage.value = "Couldn't refresh. Try again in a moment."
   } finally {
     refreshing.value = false
     setTimeout(() => {
@@ -302,7 +302,7 @@ async function refreshFromGoogle() {
 
 function formatDayRange(dayNumbers: number[]): string {
   if (dayNumbers.length === 1) return `Day ${dayNumbers[0]}`
-  return `Days ${dayNumbers[0]}–${dayNumbers[dayNumbers.length - 1]}`
+  return `Days ${dayNumbers[0]} to ${dayNumbers[dayNumbers.length - 1]}`
 }
 </script>
 
@@ -338,8 +338,11 @@ function formatDayRange(dayNumbers: number[]): string {
 
       <!-- Sidebar toggle -->
       <button
-        class="ov-toggle absolute top-3 z-30 flex items-center justify-center rounded-xl shadow-lg transition-all duration-300 hover:scale-105"
+        type="button"
+        class="ov-toggle focus-ring absolute top-3 z-30 flex items-center justify-center rounded-xl shadow-lg transition-all duration-300 hover:scale-105"
         :class="sidebarOpen ? 'left-[356px]' : 'left-3'"
+        :aria-label="sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'"
+        :aria-expanded="sidebarOpen"
         @click="sidebarOpen = !sidebarOpen"
       >
         <Icon
@@ -375,20 +378,25 @@ function formatDayRange(dayNumbers: number[]): string {
                     v-if="tripId && hasPlaceIdActivities"
                     type="button"
                     :disabled="refreshing"
-                    title="Refresh missing cost estimates from Google Maps"
-                    class="rounded p-0.5 transition hover:opacity-100 disabled:opacity-50"
+                    aria-label="Refresh missing cost estimates from Google Maps"
+                    class="focus-ring -my-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded transition hover:opacity-100 disabled:opacity-50"
                     @click="refreshFromGoogle"
                   >
                     <Icon
                       :name="refreshing ? 'lucide:loader' : 'lucide:refresh-cw'"
-                      class="h-3 w-3"
+                      class="h-4 w-4"
                       :class="{ 'animate-spin': refreshing }"
                     />
                   </button>
                 </p>
               </div>
             </div>
-            <p v-if="refreshMessage" class="mt-2 text-center text-[10px] opacity-70">
+            <p
+              v-if="refreshMessage"
+              role="status"
+              aria-live="polite"
+              class="mt-2 text-center text-[10px] opacity-70"
+            >
               {{ refreshMessage }}
             </p>
             <div v-if="budgetNum" class="mt-4">
@@ -418,7 +426,8 @@ function formatDayRange(dayNumbers: number[]): string {
               <button
                 v-for="item in upcomingActivities"
                 :key="item.activity.id"
-                class="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-sand-50"
+                type="button"
+                class="focus-ring flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-sand-50"
                 @click="emit('navigate-to-day', item.dayId)"
               >
                 <span
@@ -428,7 +437,7 @@ function formatDayRange(dayNumbers: number[]): string {
                   {{ formatTime12h(item.activity.suggestedTime) }}
                 </span>
                 <span class="min-w-0 truncate text-sm text-sand-800">{{ item.activity.name }}</span>
-                <span class="ml-auto shrink-0 text-[11px] text-sand-400"
+                <span class="ml-auto shrink-0 text-[11px] text-sand-500"
                   >D{{ item.dayNumber }}</span
                 >
               </button>
@@ -441,7 +450,7 @@ function formatDayRange(dayNumbers: number[]): string {
               <h3 class="ov-section-title text-[11px] font-semibold uppercase tracking-widest">
                 Itinerary
               </h3>
-              <span v-if="isHistoricalWeather" class="text-[11px] italic text-sand-300">
+              <span v-if="isHistoricalWeather" class="text-[11px] italic text-sand-500">
                 ~last year
               </span>
             </div>
@@ -449,7 +458,7 @@ function formatDayRange(dayNumbers: number[]): string {
               <button
                 v-for="day in sortedDays"
                 :key="day.id"
-                class="ov-day-row group flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition"
+                class="ov-day-row focus-ring group flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition"
                 :class="{ 'ov-day-row-active': selectedDayId === day.id }"
                 @click="toggleDaySelection(day.id)"
               >
@@ -513,7 +522,7 @@ function formatDayRange(dayNumbers: number[]): string {
                 </span>
                 <div class="min-w-0 flex-1">
                   <p class="text-sm font-medium text-sand-800 truncate">{{ group.name }}</p>
-                  <p class="text-[11px] text-sand-400">{{ formatDayRange(group.dayNumbers) }}</p>
+                  <p class="text-[11px] text-sand-500">{{ formatDayRange(group.dayNumbers) }}</p>
                 </div>
               </div>
             </div>
@@ -525,7 +534,9 @@ function formatDayRange(dayNumbers: number[]): string {
             <div class="mt-2.5 space-y-0.5">
               <div v-for="(activities, type) in activitiesByType" :key="type">
                 <button
-                  class="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-sand-50"
+                  type="button"
+                  class="focus-ring flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-sand-50"
+                  :aria-expanded="expandedTypes.has(type as string)"
                   @click="toggleType(type as string)"
                 >
                   <span
@@ -533,10 +544,10 @@ function formatDayRange(dayNumbers: number[]): string {
                     :class="typeColors[type as string] || 'bg-sand-400'"
                   />
                   <span class="flex-1 text-sm text-sand-700">{{ formatType(type as string) }}</span>
-                  <span class="text-xs tabular-nums text-sand-400">{{ activities.length }}</span>
+                  <span class="text-xs tabular-nums text-sand-500">{{ activities.length }}</span>
                   <Icon
                     name="lucide:chevron-down"
-                    class="h-3 w-3 text-sand-300 transition-transform"
+                    class="h-3 w-3 text-sand-500 transition-transform"
                     :class="{ '-rotate-180': expandedTypes.has(type as string) }"
                   />
                 </button>
@@ -552,7 +563,7 @@ function formatDayRange(dayNumbers: number[]): string {
                     <span class="text-xs text-sand-600 truncate">{{ activity.name }}</span>
                     <span
                       v-if="activity.costEstimate"
-                      class="shrink-0 text-[11px] tabular-nums text-sand-400"
+                      class="shrink-0 text-[11px] tabular-nums text-sand-500"
                     >
                       {{ formatCurrency(parseFloat(activity.costEstimate)) }}
                     </span>
@@ -598,18 +609,21 @@ function formatDayRange(dayNumbers: number[]): string {
           <h3 class="ov-section-title text-[11px] font-semibold uppercase tracking-widest">
             Itinerary
           </h3>
-          <span
+          <button
             v-if="selectedDayId"
-            class="text-[11px] text-terra-500 cursor-pointer"
+            type="button"
+            aria-label="Clear selected day"
+            class="focus-ring inline-flex min-h-11 items-center rounded px-2 text-[11px] text-terra-500"
             @click="selectedDayId = null"
-            >Clear</span
           >
+            Clear
+          </button>
         </div>
         <div class="space-y-px">
           <button
             v-for="day in sortedDays"
             :key="day.id"
-            class="ov-day-row group flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition"
+            class="ov-day-row focus-ring group flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition"
             :class="{ 'ov-day-row-active': selectedDayId === day.id }"
             @click="toggleDaySelection(day.id)"
           >
@@ -720,6 +734,12 @@ function formatDayRange(dayNumbers: number[]): string {
   background: #ffffff;
   color: #6e5c46;
   border: 1px solid rgba(0, 0, 0, 0.08);
+}
+@media (pointer: coarse) {
+  .ov-toggle {
+    width: 44px;
+    height: 44px;
+  }
 }
 .ov-toggle:hover {
   color: #e85d3a;

@@ -5,7 +5,12 @@ defineProps<{
 </script>
 
 <template>
-  <div class="relative w-full overflow-hidden rounded-2xl border border-sand-200">
+  <div
+    role="status"
+    aria-busy="true"
+    class="relative w-full overflow-hidden rounded-2xl border border-sand-200"
+  >
+    <span class="sr-only">Loading map...</span>
     <!-- 2D skeleton: matches ScratchMap's 960×600 aspect ratio -->
     <div v-if="mode === '2d'" class="aspect-[960/600] w-full">
       <!-- Ocean background -->

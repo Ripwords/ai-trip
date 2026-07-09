@@ -139,6 +139,7 @@ async function handleToggleParticipant(activityId: string, userId: string) {
     await refreshParticipants()
   } catch (e: unknown) {
     console.error("Failed to toggle participant:", e)
+    toastError("Could not update who is assigned. Please try again.")
   }
 }
 
@@ -152,6 +153,7 @@ const aiMutating = ref(false)
 const aiLoading = computed(() => aiChatLoading.value || aiMutating.value)
 const editingActivity = ref<TripActivity | null>(null)
 const editModalOpen = ref(false)
+const savingActivity = ref(false)
 const highlightedActivityId = ref<string | null>(null)
 const tripMapRef = ref<InstanceType<typeof TripMap> | null>(null)
 const activityLogRef = ref<{ refresh: () => void } | null>(null)
@@ -260,6 +262,7 @@ async function handleExportPdf() {
     })
   } catch (e: unknown) {
     console.error("Failed to export PDF:", e)
+    toastError("Could not export the PDF. Please try again.")
   }
 }
 
@@ -273,10 +276,12 @@ async function updateTripField(field: string, value: string) {
     await refresh()
   } catch (e: unknown) {
     console.error(`Failed to update ${field}:`, e)
+    toastError("Could not save your change. Please try again.")
   }
 }
 
 const { confirm } = useConfirm()
+const { error: toastError, success: toastSuccess } = useToast()
 
 // Trip flights
 const tripFlightNumber = ref("")
@@ -300,6 +305,7 @@ async function addTripFlight() {
     await refreshFlights()
   } catch (e: unknown) {
     console.error("Failed to add flight:", e)
+    toastError("Could not add the flight. Check the flight number and try again.")
   } finally {
     addingTripFlight.value = false
   }
@@ -313,8 +319,13 @@ async function deleteTripFlight(flightId: string) {
     destructive: true,
   })
   if (!ok) return
-  await $fetch(`/api/flights/${flightId}`, { method: "DELETE" })
-  await refreshFlights()
+  try {
+    await $fetch(`/api/flights/${flightId}`, { method: "DELETE" })
+    await refreshFlights()
+  } catch (e: unknown) {
+    console.error("Failed to delete flight:", e)
+    toastError("Could not delete the flight. Please try again.")
+  }
 }
 
 const currencyConverting = ref(false)
@@ -337,8 +348,10 @@ async function handleCurrencyChange(newCurrency: string) {
       body: { from: oldCurrency, to: newCurrency },
     })
     await refresh()
+    toastSuccess(`Converted costs from ${oldCurrency} to ${newCurrency}.`)
   } catch (e: unknown) {
     console.error("Failed to convert currency:", e)
+    toastError("Could not convert the currency. Please try again.")
   } finally {
     currencyConverting.value = false
   }
@@ -360,6 +373,7 @@ async function updatePreference(key: string, value: string | string[]): Promise<
     return true
   } catch (e: unknown) {
     console.error("Failed to update preferences:", e)
+    toastError("Could not save your preference. Please try again.")
     return false
   }
 }
@@ -953,6 +967,7 @@ async function handleUpdateDayNotes(notes: string) {
     })
   } catch (e: unknown) {
     console.error("Failed to update day notes:", e)
+    toastError("Could not save the day notes. Please try again.")
   }
 }
 
@@ -977,6 +992,7 @@ async function handleSaveActivity(data: {
 }) {
   if (!editingActivity.value) return
 
+  savingActivity.value = true
   try {
     await $fetch(`/api/trips/${tripId}/activities/${editingActivity.value.id}`, {
       method: "PUT",
@@ -993,6 +1009,9 @@ async function handleSaveActivity(data: {
     await refresh()
   } catch (e: unknown) {
     console.error("Failed to update activity:", e)
+    toastError("Could not save your changes. Please try again.")
+  } finally {
+    savingActivity.value = false
   }
 }
 
@@ -1017,6 +1036,7 @@ async function handleDeleteActivity(activity: TripActivity) {
     await refresh()
   } catch (e: unknown) {
     console.error("Failed to delete activity:", e)
+    toastError("Could not delete the activity. Please try again.")
   }
 }
 
@@ -1105,6 +1125,7 @@ async function handleToggleShare() {
     }
   } catch (e: unknown) {
     console.error("Failed to toggle share:", e)
+    toastError("Could not update the share link. Please try again.")
   } finally {
     shareLoading.value = false
   }
@@ -1193,8 +1214,9 @@ async function recomputeSegments(dayId: string) {
           <button
             v-if="!isViewer"
             type="button"
-            class="flex h-9 w-9 items-center justify-center rounded-lg text-sand-500 transition hover:bg-sand-100 hover:text-sand-800"
+            class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-500 transition hover:bg-sand-100 hover:text-sand-800 focus-ring"
             title="Trip settings"
+            aria-label="Trip settings"
             @click="showSettingsSheet ? (showSettingsSheet = false) : openSettings()"
           >
             <Icon name="lucide:sliders-horizontal" class="h-4 w-4" />
@@ -1205,8 +1227,9 @@ async function recomputeSegments(dayId: string) {
               v-if="!trip.shareToken"
               type="button"
               :disabled="shareLoading"
-              class="flex h-9 w-9 items-center justify-center rounded-lg text-sand-500 transition hover:bg-sand-100 hover:text-sand-800 disabled:opacity-50"
+              class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-500 transition hover:bg-sand-100 hover:text-sand-800 disabled:opacity-50 focus-ring"
               title="Generate share link"
+              aria-label="Generate share link"
               @click="handleToggleShare"
             >
               <Icon
@@ -1218,8 +1241,11 @@ async function recomputeSegments(dayId: string) {
             <div v-else class="relative">
               <button
                 type="button"
-                class="flex h-9 w-9 items-center justify-center rounded-lg text-ocean-600 transition hover:bg-ocean-50"
+                class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ocean-600 transition hover:bg-ocean-50 focus-ring"
                 :title="shareCopied ? 'Copied!' : 'Share options'"
+                :aria-label="shareCopied ? 'Share link copied' : 'Share options'"
+                aria-haspopup="menu"
+                :aria-expanded="showShareMenu"
                 @click="showShareMenu = !showShareMenu"
               >
                 <Icon :name="shareCopied ? 'lucide:check' : 'lucide:link'" class="h-4 w-4" />
@@ -1270,8 +1296,11 @@ async function recomputeSegments(dayId: string) {
           <div class="relative">
             <button
               type="button"
-              class="flex h-9 w-9 items-center justify-center rounded-lg text-sand-500 transition hover:bg-sand-100 hover:text-sand-800"
+              class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-500 transition hover:bg-sand-100 hover:text-sand-800 focus-ring"
               title="More options"
+              aria-label="More options"
+              aria-haspopup="menu"
+              :aria-expanded="showMoreMenu"
               @click="showMoreMenu = !showMoreMenu"
             >
               <Icon name="lucide:more-horizontal" class="h-4 w-4" />
@@ -1408,7 +1437,7 @@ async function recomputeSegments(dayId: string) {
                 :title="`${mode.label} travel time`"
                 :aria-label="`Use ${mode.label.toLowerCase()} travel times`"
                 :aria-pressed="activeTransportMode === mode.value"
-                class="flex h-7 w-7 items-center justify-center rounded-md transition disabled:opacity-50"
+                class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md transition disabled:opacity-50 focus-ring"
                 :class="
                   activeTransportMode === mode.value
                     ? 'bg-terra-500 text-white shadow-sm'
@@ -1436,7 +1465,7 @@ async function recomputeSegments(dayId: string) {
               :href="activeDayMapsUrl"
               target="_blank"
               rel="noopener noreferrer"
-              class="flex h-7 w-7 items-center justify-center rounded-md text-sand-500 transition hover:bg-sand-100 hover:text-terra-600 md:hidden"
+              class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-sand-500 transition hover:bg-sand-100 hover:text-terra-600 md:hidden focus-ring"
               :title="`Open this day's route in Google Maps`"
               :aria-label="`Open this day's route in Google Maps`"
             >
@@ -1673,6 +1702,7 @@ async function recomputeSegments(dayId: string) {
       :activity="editingActivity"
       :open="editModalOpen"
       :currency-code="trip?.currencyCode ?? 'USD'"
+      :saving="savingActivity"
       @save="handleSaveActivity"
       @close="editModalOpen = false"
     />
@@ -1688,4 +1718,3 @@ async function recomputeSegments(dayId: string) {
     />
   </div>
 </template>
-w

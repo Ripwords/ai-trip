@@ -24,6 +24,11 @@ const { data: reservations, refresh } = await useFetch<Reservation[]>(
 const showAddForm = ref(false)
 const editingId = ref<string | null>(null)
 
+const uid = useId()
+const nameId = `${uid}-name`
+const confirmationId = `${uid}-confirmation`
+const providerId = `${uid}-provider`
+
 // Form fields
 const formType = ref("flight")
 const formStatus = ref("confirmed")
@@ -199,16 +204,24 @@ const showEndDate = computed(
             </option>
           </select>
         </div>
-        <input
-          v-model="formName"
-          type="text"
-          placeholder="Name (e.g. Tokyo → Osaka Shinkansen)"
-          required
-          class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
-        />
+        <div>
+          <label :for="nameId" class="mb-1 block text-xs font-medium text-sand-600">Name</label>
+          <input
+            :id="nameId"
+            v-model="formName"
+            type="text"
+            placeholder="Name (e.g. Tokyo to Osaka Shinkansen)"
+            required
+            class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+          />
+        </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
+            <label :for="confirmationId" class="mb-1 block text-xs font-medium text-sand-600">
+              Confirmation number
+            </label>
             <input
+              :id="confirmationId"
               v-model="formConfirmation"
               type="text"
               placeholder="Confirmation # (optional)"
@@ -218,12 +231,18 @@ const showEndDate = computed(
               Visible to trip editors and the owner. Hidden from viewers.
             </p>
           </div>
-          <input
-            v-model="formProvider"
-            type="text"
-            placeholder="Provider (e.g. Booking.com)"
-            class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
-          />
+          <div>
+            <label :for="providerId" class="mb-1 block text-xs font-medium text-sand-600">
+              Provider
+            </label>
+            <input
+              :id="providerId"
+              v-model="formProvider"
+              type="text"
+              placeholder="Provider (e.g. Booking.com)"
+              class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+            />
+          </div>
         </div>
         <div class="grid gap-3" :class="showEndDate ? 'grid-cols-3' : 'grid-cols-2'">
           <div>
@@ -320,7 +339,7 @@ const showEndDate = computed(
                     <Icon name="lucide:calendar" class="h-3 w-3" />
                     <NuxtTime :datetime="r.startDate" locale="en-US" month="short" day="numeric" />
                     <template v-if="r.endDate">
-                      &ndash;
+                      to
                       <NuxtTime :datetime="r.endDate" locale="en-US" month="short" day="numeric"
                     /></template>
                   </span>
@@ -335,19 +354,23 @@ const showEndDate = computed(
               </div>
             </div>
             <div class="flex shrink-0 items-center gap-1.5">
-              <span v-if="r.amount" class="text-sm font-semibold text-sand-900">
+              <span v-if="r.amount" class="text-sm font-semibold text-sand-900 tabular-nums">
                 {{ formatCurrency(r.amount) }}
               </span>
               <button
-                class="rounded p-1 text-sand-300 hover:text-terra-500"
+                type="button"
+                class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-terra-500 active:scale-95 focus-ring"
                 title="Edit"
+                aria-label="Edit reservation"
                 @click="startEdit(r)"
               >
                 <Icon name="lucide:edit" class="h-3.5 w-3.5" />
               </button>
               <button
-                class="rounded p-1 text-sand-300 hover:text-red-500"
+                type="button"
+                class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-red-500 active:scale-95 focus-ring"
                 title="Delete"
+                aria-label="Delete reservation"
                 @click="deleteReservation(r.id)"
               >
                 <Icon name="lucide:trash-2" class="h-3.5 w-3.5" />

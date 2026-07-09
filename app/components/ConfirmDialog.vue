@@ -1,5 +1,8 @@
 <script setup lang="ts">
 const { isOpen, options, handleConfirm, handleCancel } = useConfirm()
+
+const panel = ref<HTMLElement | null>(null)
+useModalA11y(panel, { isOpen, onClose: handleCancel })
 </script>
 
 <template>
@@ -14,26 +17,36 @@ const { isOpen, options, handleConfirm, handleCancel } = useConfirm()
     >
       <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center">
         <div class="fixed inset-0 bg-black/40" @click="handleCancel" />
-        <div class="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl mx-4">
-          <h3 class="text-base font-display text-sand-900">
+        <div
+          ref="panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-dialog-title"
+          aria-describedby="confirm-dialog-message"
+          tabindex="-1"
+          class="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl mx-4"
+        >
+          <h3 id="confirm-dialog-title" class="text-base font-display text-sand-900">
             {{ options.title }}
           </h3>
-          <p class="mt-2 text-sm text-sand-500">
+          <p id="confirm-dialog-message" class="mt-2 text-sm text-sand-500">
             {{ options.message }}
           </p>
           <div class="mt-5 flex justify-end gap-3">
             <button
-              class="rounded-lg border border-sand-300 px-4 py-2 text-sm font-medium text-sand-700 hover:bg-sand-50"
+              type="button"
+              class="min-h-11 rounded-lg border border-sand-300 px-4 py-2 text-sm font-medium text-sand-700 transition hover:bg-sand-50 focus-ring active:bg-sand-100"
               @click="handleCancel"
             >
               {{ options.cancelText || "Cancel" }}
             </button>
             <button
-              class="rounded-lg px-4 py-2 text-sm font-medium text-white"
+              type="button"
+              class="min-h-11 rounded-lg px-4 py-2 text-sm font-medium text-white transition focus-ring"
               :class="
                 options.destructive
-                  ? 'bg-red-600 hover:bg-red-700'
-                  : 'bg-terra-500 hover:bg-terra-600'
+                  ? 'bg-red-600 hover:bg-red-700 active:bg-red-800'
+                  : 'bg-terra-500 hover:bg-terra-600 active:bg-terra-700'
               "
               @click="handleConfirm"
             >

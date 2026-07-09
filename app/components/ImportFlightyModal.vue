@@ -112,16 +112,37 @@ async function confirmImport() {
 function close() {
   emit("close")
 }
+
+const panelRef = ref<HTMLElement | null>(null)
+
+useModalA11y(panelRef, {
+  isOpen: () => props.open,
+  onClose: close,
+})
 </script>
 
 <template>
   <Teleport to="body">
     <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center">
       <div class="fixed inset-0 bg-black/40" @click="close" />
-      <div class="relative z-10 mx-4 w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+      <div
+        ref="panelRef"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-flighty-title"
+        tabindex="-1"
+        class="relative z-10 mx-4 w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+      >
         <div class="flex items-center justify-between">
-          <h2 class="font-display text-lg text-sand-900">Import from Flighty</h2>
-          <button class="text-sand-400 hover:text-sand-700" @click="close">
+          <h2 id="import-flighty-title" class="font-display text-lg text-sand-900">
+            Import from Flighty
+          </h2>
+          <button
+            type="button"
+            class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-sand-400 hover:bg-sand-100 hover:text-sand-700 focus-ring"
+            aria-label="Close"
+            @click="close"
+          >
             <Icon name="lucide:x" class="h-5 w-5" />
           </button>
         </div>
@@ -149,7 +170,7 @@ function close() {
               @change="onPick"
             />
           </label>
-          <p v-if="error" class="text-xs text-red-600">{{ error }}</p>
+          <p v-if="error" role="alert" class="text-xs text-red-600">{{ error }}</p>
         </div>
 
         <div v-else-if="phase === 'previewing' && preview" class="mt-4 space-y-4">
@@ -203,7 +224,7 @@ function close() {
             class="rounded-xl border border-sand-200 p-3 text-xs"
           >
             <summary class="cursor-pointer text-sand-600">
-              {{ preview.issues.length }} issue(s) — these rows will be skipped
+              {{ preview.issues.length }} issue(s): these rows will be skipped
             </summary>
             <ul class="mt-2 space-y-1 text-sand-600">
               <li v-for="issue in preview.issues" :key="issue.line">
@@ -212,7 +233,7 @@ function close() {
             </ul>
           </details>
 
-          <p v-if="error" class="text-xs text-red-600">{{ error }}</p>
+          <p v-if="error" role="alert" class="text-xs text-red-600">{{ error }}</p>
 
           <div class="flex justify-end gap-2">
             <button
@@ -236,7 +257,7 @@ function close() {
         </div>
 
         <div v-else-if="phase === 'result' && result" class="mt-4 space-y-4">
-          <p class="text-sm text-sand-700">
+          <p aria-live="polite" class="text-sm text-sand-700">
             Imported <strong>{{ result.imported }}</strong> · Skipped
             <strong>{{ result.skipped }}</strong> · Failed
             <strong>{{ result.failed }}</strong>

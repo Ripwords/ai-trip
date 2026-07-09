@@ -39,7 +39,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   },
   landed: {
     label: "Landed",
-    color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+    color: "bg-forest-100 text-forest-700",
   },
   cancelled: {
     label: "Cancelled",
@@ -123,7 +123,7 @@ function unlinkTrip() {
           <Icon name="lucide:plane" class="h-4 w-4 text-sand-400" />
         </div>
         <div>
-          <p class="text-sm text-sand-500">
+          <p class="text-sm text-sand-600">
             {{ flight.airline ?? "Unknown Airline" }}
           </p>
           <p class="font-display text-lg text-sand-900">
@@ -136,8 +136,9 @@ function unlinkTrip() {
           {{ statusBadge.label }}
         </span>
         <button
-          class="rounded-lg p-1.5 text-sand-400 transition hover:bg-sand-100 hover:text-red-500"
-          title="Delete flight"
+          type="button"
+          class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-red-500 focus-ring"
+          aria-label="Delete flight"
           @click="emit('delete', flight.id)"
         >
           <Icon name="lucide:trash-2" class="h-4 w-4" />
@@ -149,9 +150,9 @@ function unlinkTrip() {
     <div class="mt-4 flex items-center gap-3">
       <div class="text-center">
         <p class="font-display text-xl text-sand-900">
-          {{ flight.departureAirport ?? "???" }}
+          {{ flight.departureAirport ?? "-" }}
         </p>
-        <p class="text-xs text-sand-500">
+        <p class="text-xs text-sand-600">
           <NuxtTime
             v-if="flight.departureTime"
             :datetime="flight.departureTime"
@@ -168,9 +169,9 @@ function unlinkTrip() {
       </div>
       <div class="text-center">
         <p class="font-display text-xl text-sand-900">
-          {{ flight.arrivalAirport ?? "???" }}
+          {{ flight.arrivalAirport ?? "-" }}
         </p>
-        <p class="text-xs text-sand-500">
+        <p class="text-xs text-sand-600">
           <NuxtTime
             v-if="flight.arrivalTime"
             :datetime="flight.arrivalTime"
@@ -183,7 +184,7 @@ function unlinkTrip() {
     </div>
 
     <!-- Date + terminal/gate + visa -->
-    <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-sand-500">
+    <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-sand-600">
       <span
         ><NuxtTime
           :datetime="flight.flightDate + 'T00:00:00'"

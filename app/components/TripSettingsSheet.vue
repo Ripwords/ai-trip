@@ -211,11 +211,11 @@ onUnmounted(() => {
       <!-- Header -->
       <div class="flex items-center justify-between">
         <h3 class="font-display text-lg text-sand-900">
-          {{ stage === "settings" ? "Trip settings" : "This will delete activities" }}
+          {{ stage === "settings" ? "Trip settings" : "Delete days and activities?" }}
         </h3>
         <button
           type="button"
-          class="rounded-lg p-1 text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+          class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 focus-ring"
           aria-label="Close"
           @click="emit('close')"
         >
@@ -292,7 +292,7 @@ onUnmounted(() => {
                 :disabled="savingTripInfo || !canSaveTripInfo"
                 class="rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600 disabled:opacity-50"
               >
-                {{ savingTripInfo ? "Saving…" : "Save changes" }}
+                {{ savingTripInfo ? "Saving..." : "Save changes" }}
               </button>
             </div>
           </form>

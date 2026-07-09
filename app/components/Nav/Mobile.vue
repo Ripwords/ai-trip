@@ -23,9 +23,12 @@ const { open: keyboardOpen } = useKeyboardOpen()
       <li v-for="tab in tabs" :key="tab.to">
         <NuxtLink
           :to="tab.to"
-          class="flex flex-col items-center justify-center px-3 py-1 text-sand-400 transition-colors hover:text-sand-700"
-          active-class="!text-terra-500"
+          class="group relative flex min-h-11 flex-col items-center justify-center px-3 py-1 font-normal text-sand-500 transition-colors hover:text-sand-700"
+          active-class="!font-semibold !text-terra-500"
         >
+          <span
+            class="absolute top-0 h-0.5 w-8 rounded-full bg-terra-500 opacity-0 transition-opacity group-[.router-link-active]:opacity-100"
+          />
           <Icon :name="tab.icon" class="mb-0.5 text-xl" />
           <span class="text-xs">{{ tab.label }}</span>
         </NuxtLink>

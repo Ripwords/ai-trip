@@ -117,8 +117,10 @@ const visiblePages = computed(() => {
       class="mt-4 flex items-center justify-center gap-1 border-t border-sand-100 pt-4"
     >
       <button
+        type="button"
         :disabled="page <= 1"
-        class="rounded-lg p-1.5 text-sand-400 transition hover:bg-sand-100 hover:text-sand-700 disabled:opacity-30"
+        aria-label="Previous page"
+        class="rounded-lg p-1.5 text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 disabled:opacity-30"
         @click="goToPage(page - 1)"
       >
         <Icon name="lucide:chevron-left" class="h-4 w-4" />
@@ -127,6 +129,8 @@ const visiblePages = computed(() => {
       <button
         v-for="p in visiblePages"
         :key="p"
+        type="button"
+        :aria-current="p === page ? 'page' : undefined"
         class="h-8 w-8 rounded-lg text-xs font-medium transition"
         :class="p === page ? 'bg-terra-500 text-white' : 'text-sand-600 hover:bg-sand-100'"
         @click="goToPage(p)"
@@ -135,8 +139,10 @@ const visiblePages = computed(() => {
       </button>
 
       <button
+        type="button"
         :disabled="page >= totalPages"
-        class="rounded-lg p-1.5 text-sand-400 transition hover:bg-sand-100 hover:text-sand-700 disabled:opacity-30"
+        aria-label="Next page"
+        class="rounded-lg p-1.5 text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 disabled:opacity-30"
         @click="goToPage(page + 1)"
       >
         <Icon name="lucide:chevron-right" class="h-4 w-4" />

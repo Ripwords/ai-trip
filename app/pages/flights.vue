@@ -28,6 +28,8 @@ const newFlightNumber = ref("")
 const newFlightDate = ref("")
 const adding = ref(false)
 
+const toast = useToast()
+
 async function addFlight() {
   if (!newFlightNumber.value || !newFlightDate.value) return
   adding.value = true
@@ -44,6 +46,7 @@ async function addFlight() {
     await refresh()
   } catch (e: unknown) {
     console.error("Failed to add flight:", e)
+    toast.error("Couldn't add flight. Please try again.")
   } finally {
     adding.value = false
   }
@@ -136,17 +139,23 @@ const paginatedPast = computed(() => {
       @submit.prevent="addFlight"
     >
       <div class="flex-1">
-        <label class="mb-1 block text-xs font-medium text-sand-600"> Flight number </label>
+        <label for="new-flight-number" class="mb-1 block text-xs font-medium text-sand-600">
+          Flight number
+        </label>
         <input
+          id="new-flight-number"
           v-model="newFlightNumber"
           type="text"
           placeholder="e.g. SQ638"
-          class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
+          class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-500 focus:border-terra-400 focus:outline-none"
         />
       </div>
       <div class="min-w-0 flex-1 overflow-hidden">
-        <label class="mb-1 block text-xs font-medium text-sand-600"> Date </label>
+        <label for="new-flight-date" class="mb-1 block text-xs font-medium text-sand-600">
+          Date
+        </label>
         <input
+          id="new-flight-date"
           v-model="newFlightDate"
           type="date"
           class="w-full appearance-none rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
@@ -192,16 +201,20 @@ const paginatedPast = computed(() => {
       </div>
       <div v-if="upcomingTotalPages > 1" class="mt-4 flex items-center justify-center gap-2">
         <button
+          type="button"
           :disabled="upcomingPage <= 1"
-          class="rounded-lg border border-sand-200 p-2 text-sand-500 transition hover:bg-sand-50 disabled:opacity-30"
+          aria-label="Previous page"
+          class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-sand-200 text-sand-500 transition hover:bg-sand-50 focus-ring disabled:opacity-30"
           @click="upcomingPage--"
         >
           <Icon name="lucide:chevron-left" class="h-4 w-4" />
         </button>
         <span class="text-xs text-sand-500">{{ upcomingPage }} / {{ upcomingTotalPages }}</span>
         <button
+          type="button"
           :disabled="upcomingPage >= upcomingTotalPages"
-          class="rounded-lg border border-sand-200 p-2 text-sand-500 transition hover:bg-sand-50 disabled:opacity-30"
+          aria-label="Next page"
+          class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-sand-200 text-sand-500 transition hover:bg-sand-50 focus-ring disabled:opacity-30"
           @click="upcomingPage++"
         >
           <Icon name="lucide:chevron-right" class="h-4 w-4" />
@@ -238,16 +251,20 @@ const paginatedPast = computed(() => {
         />
         <div v-if="pastTotalPages > 1" class="mt-4 flex items-center justify-center gap-2">
           <button
+            type="button"
             :disabled="pastPage <= 1"
-            class="rounded-lg border border-sand-200 p-2 text-sand-500 transition hover:bg-sand-50 disabled:opacity-30"
+            aria-label="Previous page"
+            class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-sand-200 text-sand-500 transition hover:bg-sand-50 focus-ring disabled:opacity-30"
             @click="pastPage--"
           >
             <Icon name="lucide:chevron-left" class="h-4 w-4" />
           </button>
           <span class="text-xs text-sand-500">{{ pastPage }} / {{ pastTotalPages }}</span>
           <button
+            type="button"
             :disabled="pastPage >= pastTotalPages"
-            class="rounded-lg border border-sand-200 p-2 text-sand-500 transition hover:bg-sand-50 disabled:opacity-30"
+            aria-label="Next page"
+            class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-sand-200 text-sand-500 transition hover:bg-sand-50 focus-ring disabled:opacity-30"
             @click="pastPage++"
           >
             <Icon name="lucide:chevron-right" class="h-4 w-4" />
