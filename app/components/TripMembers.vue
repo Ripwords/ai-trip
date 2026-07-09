@@ -201,7 +201,7 @@ const roleBadgeClass: Record<string, string> = {
           <select
             v-if="currentRole === 'owner' && member.role !== 'owner' && member.status === 'active'"
             :value="member.role"
-            class="rounded-full border border-sand-200 bg-sand-50 px-2 py-0.5 text-xs font-medium text-sand-700"
+            class="input-focus rounded-lg border border-sand-200 bg-sand-50 py-1 pl-2.5 pr-1.5 text-xs font-medium text-sand-700"
             @change="handleChangeRole(member.id, ($event.target as HTMLSelectElement).value)"
           >
             <option value="editor">Editor</option>
