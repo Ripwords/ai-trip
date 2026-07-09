@@ -445,54 +445,62 @@ function resetZoom() {
     <!-- Zoom controls — larger on mobile (44px touch targets) -->
     <div class="absolute right-3 top-3 flex flex-col gap-1.5">
       <button
-        class="map-btn flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
-        title="Zoom in"
+        type="button"
+        class="map-btn focus-ring flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
+        aria-label="Zoom in"
         @click="zoomIn"
       >
         <Icon name="lucide:plus" class="h-5 w-5 sm:h-4 sm:w-4" />
       </button>
       <button
-        class="map-btn flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
-        title="Zoom out"
+        type="button"
+        class="map-btn focus-ring flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
+        aria-label="Zoom out"
         @click="zoomOut"
       >
         <Icon name="lucide:minus" class="h-5 w-5 sm:h-4 sm:w-4" />
       </button>
       <button
         v-if="scale > 1"
-        class="map-btn flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
-        title="Reset zoom"
+        type="button"
+        class="map-btn focus-ring flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
+        aria-label="Reset zoom"
         @click="resetZoom"
       >
         <Icon name="lucide:maximize-2" class="h-5 w-5 sm:h-4 sm:w-4" />
       </button>
       <button
-        class="map-btn flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
-        title="Switch to 3D globe"
+        type="button"
+        class="map-btn focus-ring flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
+        aria-label="Switch to 3D globe"
         @click="emit('toggleView')"
       >
         <Icon name="lucide:globe" class="h-5 w-5 sm:h-4 sm:w-4" />
       </button>
     </div>
 
-    <!-- Stats overlay -->
+    <!-- Stats overlay — doubles as a color legend so visit status is not
+         conveyed by map fill color alone (swatch + label, no hover needed) -->
     <div
       class="map-overlay map-overlay-border absolute bottom-3 left-3 rounded-xl px-3 py-1.5 backdrop-blur-sm"
     >
-      <p class="map-overlay-text text-sm font-medium">
-        <span class="map-overlay-accent text-lg font-bold">{{ visitedCount }}</span>
-        visited
-        <template v-if="layoverCount">
-          <span class="mx-1 opacity-40">&middot;</span>
+      <ul class="map-overlay-text flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium">
+        <li class="flex items-center gap-1.5">
+          <span class="map-legend-swatch map-legend-visited" aria-hidden="true" />
+          <span class="map-overlay-accent text-lg font-bold">{{ visitedCount }}</span>
+          visited
+        </li>
+        <li v-if="layoverCount" class="flex items-center gap-1.5">
+          <span class="map-legend-swatch map-legend-layover" aria-hidden="true" />
           <span class="map-layover-accent text-lg font-bold">{{ layoverCount }}</span>
           layover
-        </template>
-        <template v-if="wantCount">
-          <span class="mx-1 opacity-40">&middot;</span>
+        </li>
+        <li v-if="wantCount" class="flex items-center gap-1.5">
+          <span class="map-legend-swatch map-legend-want" aria-hidden="true" />
           <span class="map-want-accent text-lg font-bold">{{ wantCount }}</span>
           wishlist
-        </template>
-      </p>
+        </li>
+      </ul>
     </div>
 
     <!-- Zoom level indicator -->
@@ -506,6 +514,25 @@ function resetZoom() {
 </template>
 
 <style scoped>
+/* ── Legend swatches (non-color cue: shape + label, mirrors map fills) ── */
+.map-legend-swatch {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+  border: 1px solid var(--map-border, rgba(0, 0, 0, 0.15));
+  flex-shrink: 0;
+}
+.map-legend-visited {
+  background: var(--map-visited);
+}
+.map-legend-layover {
+  background: var(--map-layover);
+}
+.map-legend-want {
+  background: var(--map-want);
+}
+
 /* ── Light Mode ────────────────────────────────────────── */
 .scratch-map {
   --map-ocean: #dceef5;

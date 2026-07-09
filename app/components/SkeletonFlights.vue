@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-4">
+  <div class="space-y-4" role="status" aria-busy="true" aria-label="Loading flights">
     <!-- Add flight form skeleton -->
     <div class="rounded-2xl border border-sand-200 bg-white p-5">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end">

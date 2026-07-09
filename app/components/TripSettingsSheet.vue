@@ -215,7 +215,7 @@ onUnmounted(() => {
         </h3>
         <button
           type="button"
-          class="rounded-lg p-1 text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+          class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 focus-ring"
           aria-label="Close"
           @click="emit('close')"
         >

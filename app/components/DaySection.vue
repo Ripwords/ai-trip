@@ -183,7 +183,7 @@ function timeToMinutes(time: string): number | null {
               class="mb-2 flex items-center gap-1.5 rounded-lg bg-terra-50 px-3 py-2 text-sm text-terra-700"
             >
               <Icon name="lucide:alert-triangle" class="h-3.5 w-3.5 shrink-0" />
-              <span>Schedule conflict — activities overlap in time</span>
+              <span>Schedule conflict: activities overlap in time</span>
             </div>
 
             <div :id="`activity-${activity.id}`">
@@ -218,7 +218,7 @@ function timeToMinutes(time: string): number | null {
 
       <button
         v-if="!readonly"
-        class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-terra-200 py-2.5 text-sm text-sand-400 transition hover:border-terra-400 hover:text-terra-500"
+        class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-terra-200 py-2.5 text-sm text-sand-600 transition hover:border-terra-400 hover:text-terra-500 focus-ring"
         @click="emit('addActivity', day.id)"
       >
         <Icon name="lucide:plus" class="h-3 w-3" />
@@ -228,7 +228,7 @@ function timeToMinutes(time: string): number | null {
 
     <div
       v-else
-      class="rounded-xl border border-dashed border-sand-200 p-6 text-center text-sm text-sand-400"
+      class="rounded-xl border border-dashed border-sand-200 p-6 text-center text-sm text-sand-500"
     >
       No activities planned for this day
     </div>

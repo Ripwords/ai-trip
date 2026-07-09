@@ -261,7 +261,7 @@ const proposalKindMeta: Record<
       <header class="mx-auto mt-3 flex w-full max-w-[28rem] items-baseline justify-between px-4">
         <div class="flex items-baseline gap-2">
           <span class="font-display text-base italic text-terra-500">✦</span>
-          <span class="text-[10px] uppercase tracking-[0.22em] text-sand-500">
+          <span class="text-[10px] uppercase tracking-[0.22em] text-sand-600">
             From your planner
           </span>
         </div>
@@ -269,7 +269,7 @@ const proposalKindMeta: Record<
           <span
             v-if="usageUsed != null && usageLimit != null"
             class="text-[10px] uppercase tracking-[0.18em] tabular-nums"
-            :class="(usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-500'"
+            :class="(usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-600'"
             :title="`${usageUsed}/${usageLimit} AI prompts used this month`"
           >
             {{ usageUsed }} / {{ usageLimit }}
@@ -277,16 +277,18 @@ const proposalKindMeta: Record<
           <button
             v-if="messages.length > 0"
             type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-full text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+            class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
             title="Clear conversation"
+            aria-label="Clear conversation"
             @click="emit('clear')"
           >
             <Icon name="lucide:trash-2" class="h-4 w-4" />
           </button>
           <button
             type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-full text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+            class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
             title="Close (keep conversation)"
+            aria-label="Close"
             @click="collapse"
           >
             <Icon name="lucide:x" class="h-4 w-4" />
@@ -298,20 +300,22 @@ const proposalKindMeta: Record<
       <!-- Message list -->
       <div
         ref="listEl"
+        role="log"
+        aria-live="polite"
         class="dock-list relative mx-auto w-full max-w-[28rem] flex-1 overflow-y-auto px-4 py-3"
         @scroll="onListScroll"
       >
         <!-- Empty state -->
         <div v-if="messages.length === 0" class="flex flex-col gap-3">
           <p class="font-display text-[18px] italic leading-snug text-sand-900">
-            Hi — what's on your mind about this trip?
+            Hi, what's on your mind about this trip?
           </p>
-          <p class="text-[11px] text-sand-500">
+          <p class="text-[11px] text-sand-600">
             Each reply uses 1 of your {{ usageLimit ?? 100 }} monthly credits.
           </p>
 
           <div v-if="starters.length > 0" class="mt-2 flex flex-col gap-2">
-            <span class="text-[10px] uppercase tracking-[0.22em] text-sand-500">Or try</span>
+            <span class="text-[10px] uppercase tracking-[0.22em] text-sand-600">Or try</span>
             <div class="flex flex-wrap gap-1.5">
               <button
                 v-for="s in starters"
@@ -476,9 +480,10 @@ const proposalKindMeta: Record<
             <button
               type="button"
               :disabled="!loading && (!input.trim() || limitReached)"
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition disabled:opacity-40"
+              class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-white transition disabled:opacity-40"
               :class="loading ? 'bg-sand-600 hover:bg-sand-500' : 'bg-terra-500 hover:bg-terra-600'"
               :title="loading ? 'Cancel' : 'Send'"
+              :aria-label="loading ? 'Cancel' : 'Send'"
               @click="handleSendClick"
             >
               <Icon :name="loading ? 'lucide:x' : 'lucide:arrow-up'" class="h-4 w-4" />
@@ -699,7 +704,7 @@ const proposalKindMeta: Record<
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 36px;
+  min-height: 44px;
   padding: 0 16px;
   border-radius: 9999px;
   font-size: 13px;
@@ -722,7 +727,7 @@ const proposalKindMeta: Record<
 .dock-dismiss {
   font-size: 13px;
   color: var(--color-sand-600);
-  min-height: 36px;
+  min-height: 44px;
   padding: 0 10px;
   display: inline-flex;
   align-items: center;
@@ -752,7 +757,7 @@ const proposalKindMeta: Record<
   align-items: center;
   gap: 6px;
   padding: 8px 14px 9px;
-  min-height: 34px;
+  min-height: 44px;
   font-size: 13px;
   color: var(--color-sand-800);
   background: var(--color-sand-100);

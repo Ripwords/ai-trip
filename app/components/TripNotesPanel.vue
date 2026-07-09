@@ -7,6 +7,8 @@ const props = defineProps<{
 const value = ref(props.notes ?? "")
 const saved = ref(false)
 
+const textareaId = useId()
+
 watch(
   () => props.notes,
   (n) => {
@@ -33,10 +35,13 @@ async function handleBlur() {
 <template>
   <div class="rounded-2xl border border-sand-200 bg-white p-6">
     <div class="flex items-center justify-between">
-      <label class="text-sm font-semibold text-sand-700">Trip Notes</label>
-      <span v-if="saved" class="text-xs text-forest-600 transition"> Saved </span>
+      <label :for="textareaId" class="text-sm font-semibold text-sand-700">Trip Notes</label>
+      <span role="status" aria-live="polite" class="text-xs text-forest-600 transition">
+        <template v-if="saved">Saved</template>
+      </span>
     </div>
     <textarea
+      :id="textareaId"
       v-model="value"
       rows="6"
       placeholder="Write your trip notes here..."

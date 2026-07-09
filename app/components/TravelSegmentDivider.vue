@@ -59,7 +59,7 @@ const showEmpty = computed(
       <template v-if="distanceText">{{ distanceText }}</template>
     </span>
   </div>
-  <div v-else-if="showEmpty" class="flex items-center gap-2 py-2 pl-7 text-sm italic text-sand-400">
+  <div v-else-if="showEmpty" class="flex items-center gap-2 py-2 pl-7 text-sm italic text-sand-500">
     <div class="h-5 border-l border-dashed border-sand-300" />
     <Icon :name="modeIcons[displayMode]" class="h-3.5 w-3.5 text-sand-400" />
     <span>No {{ modeNouns[displayMode] }} route found</span>

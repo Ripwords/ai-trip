@@ -17,6 +17,8 @@ const emit = defineEmits<{
 
 const panelRef = ref<HTMLElement | null>(null)
 const mobileSheetRef = ref<HTMLElement | null>(null)
+const desktopHeadingId = useId()
+const mobileHeadingId = useId()
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === "Escape" && props.country) emit("close")
@@ -64,18 +66,23 @@ function handleSetType(type: VisitType) {
     <div
       v-if="country"
       ref="panelRef"
+      role="dialog"
+      aria-modal="true"
+      :aria-labelledby="desktopHeadingId"
       class="absolute inset-y-0 right-0 z-10 hidden w-full max-w-sm flex-col border-l border-sand-200 bg-white shadow-xl sm:flex"
     >
       <!-- Header -->
       <div class="flex items-center justify-between border-b border-sand-200 px-5 py-4">
         <div>
-          <h2 class="font-display text-lg text-sand-900">
+          <h2 :id="desktopHeadingId" class="font-display text-lg text-sand-900">
             {{ country.name }}
           </h2>
           <p class="text-sm text-sand-500">{{ country.region }} &middot; {{ country.alpha2 }}</p>
         </div>
         <button
-          class="rounded-lg p-2 text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+          type="button"
+          aria-label="Close"
+          class="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
           @click="emit('close')"
         >
           <Icon name="lucide:x" class="h-5 w-5" />
@@ -84,7 +91,7 @@ function handleSetType(type: VisitType) {
 
       <!-- Body -->
       <div class="flex-1 space-y-3 overflow-y-auto p-5">
-        <p class="text-xs font-medium uppercase tracking-wider text-sand-400">Mark as</p>
+        <p class="text-xs font-medium uppercase tracking-wider text-sand-600">Mark as</p>
 
         <!-- Visited button -->
         <button
@@ -191,24 +198,24 @@ function handleSetType(type: VisitType) {
     <div
       v-if="country"
       ref="mobileSheetRef"
+      role="dialog"
+      aria-modal="true"
+      :aria-labelledby="mobileHeadingId"
       class="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl border-t border-sand-200 bg-white shadow-2xl sm:hidden"
       style="max-height: 60vh"
     >
-      <!-- Drag handle -->
-      <div class="flex justify-center py-2.5">
-        <div class="h-1 w-10 rounded-full bg-sand-300" />
-      </div>
-
       <!-- Header -->
-      <div class="flex items-center justify-between px-5 pb-3">
+      <div class="flex items-center justify-between px-5 pb-3 pt-4">
         <div>
-          <h2 class="font-display text-lg text-sand-900">
+          <h2 :id="mobileHeadingId" class="font-display text-lg text-sand-900">
             {{ country.name }}
           </h2>
           <p class="text-sm text-sand-500">{{ country.region }} &middot; {{ country.alpha2 }}</p>
         </div>
         <button
-          class="rounded-lg p-2 text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+          type="button"
+          aria-label="Close"
+          class="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
           @click="emit('close')"
         >
           <Icon name="lucide:x" class="h-5 w-5" />
@@ -217,7 +224,7 @@ function handleSetType(type: VisitType) {
 
       <!-- Body -->
       <div class="flex-1 space-y-2.5 overflow-y-auto px-5 pb-5">
-        <p class="text-xs font-medium uppercase tracking-wider text-sand-400">Mark as</p>
+        <p class="text-xs font-medium uppercase tracking-wider text-sand-600">Mark as</p>
 
         <div class="grid grid-cols-3 gap-2">
           <button

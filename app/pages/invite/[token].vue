@@ -61,16 +61,16 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex min-h-[80vh] items-center justify-center px-4">
+  <div class="flex min-h-[80dvh] items-center justify-center px-4">
     <div
       class="w-full max-w-sm rounded-2xl border border-sand-200/80 bg-white/80 p-8 shadow-xl backdrop-blur-sm text-center"
     >
-      <div v-if="loading" class="space-y-4">
+      <div v-if="loading" role="status" class="space-y-4">
         <Icon name="lucide:loader" class="mx-auto h-8 w-8 animate-spin text-terra-500" />
         <p class="text-sm text-sand-600">Accepting invite...</p>
       </div>
 
-      <div v-else-if="success" class="space-y-4">
+      <div v-else-if="success" role="status" class="space-y-4">
         <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-forest-50">
           <Icon name="lucide:check" class="h-6 w-6 text-forest-600" />
         </div>
@@ -78,7 +78,7 @@ onMounted(() => {
         <p class="text-sm text-sand-600">Redirecting to the trip...</p>
       </div>
 
-      <div v-else-if="error" class="space-y-4">
+      <div v-else-if="error" role="alert" class="space-y-4">
         <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-terra-50">
           <Icon name="lucide:x" class="h-6 w-6 text-terra-600" />
         </div>
@@ -89,7 +89,7 @@ onMounted(() => {
         </NuxtLink>
       </div>
 
-      <div v-else class="space-y-4">
+      <div v-else role="status" class="space-y-4">
         <Icon name="lucide:loader" class="mx-auto h-8 w-8 animate-spin text-terra-500" />
         <p class="text-sm text-sand-600">Redirecting to sign in...</p>
       </div>

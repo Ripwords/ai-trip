@@ -43,14 +43,16 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex items-end gap-x-4 border-b border-sand-200 sm:gap-x-6">
+  <div role="tablist" class="flex items-end gap-x-4 border-b border-sand-200 sm:gap-x-6">
     <div class="min-w-0 flex-1 overflow-x-auto scrollbar-hide">
       <div class="flex items-end gap-x-4 pb-px sm:gap-x-6">
         <button
           v-for="tab in primaryTabs"
           :key="tab.value"
           type="button"
-          class="relative shrink-0 py-2.5 text-sm transition"
+          role="tab"
+          :aria-selected="modelValue === tab.value"
+          class="relative shrink-0 rounded-sm py-2.5 text-sm transition focus-ring"
           :class="
             modelValue === tab.value
               ? 'font-medium text-sand-900'
@@ -70,7 +72,10 @@ onUnmounted(() => {
     <div data-tabs-more class="relative shrink-0">
       <button
         type="button"
-        class="relative inline-flex items-center gap-1 py-2.5 text-sm transition"
+        aria-haspopup="menu"
+        :aria-expanded="overflowOpen"
+        aria-label="More tabs"
+        class="relative inline-flex items-center gap-1 rounded-sm py-2.5 text-sm transition focus-ring"
         :class="
           overflowTabs.some((t) => t.value === modelValue)
             ? 'font-medium text-sand-900'
@@ -101,7 +106,9 @@ onUnmounted(() => {
             v-for="tab in overflowTabs"
             :key="tab.value"
             type="button"
-            class="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-sand-50"
+            role="tab"
+            :aria-selected="modelValue === tab.value"
+            class="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-sand-50 focus-ring"
             :class="modelValue === tab.value ? 'font-medium text-sand-900' : 'text-sand-700'"
             @click.stop="pick(tab.value)"
           >

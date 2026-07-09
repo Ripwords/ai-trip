@@ -5,7 +5,7 @@ useSeoMeta({
   title: "Plan Your Trip with AI",
   description:
     "AI finds hidden gems, checks trip essentials before you fly, and keeps every itinerary editable.",
-  ogTitle: "AI Trip — Plan Your Trip with AI",
+  ogTitle: "AI Trip: Plan Your Trip with AI",
   ogDescription:
     "AI-powered travel planner with verified places, editable itineraries, and calm pre-trip briefings before you fly.",
 })
@@ -17,7 +17,7 @@ useSchemaOrg([
   }),
   defineWebPage({
     "@type": "WebPage",
-    name: "AI Trip — Plan Your Trip with AI",
+    name: "AI Trip: Plan Your Trip with AI",
     description:
       "AI-powered travel planner with verified places, editable itineraries, and calm pre-trip briefings before you fly.",
   }),
@@ -27,7 +27,17 @@ useSchemaOrg([
 const visibleSections = reactive(new Set<number>())
 const siteURL = useSiteConfig().url
 
+const reduceMotion = useReducedMotion()
+// When reduced motion is preferred, render the final visible state directly
+// and skip the hidden/translated initial state used for the reveal.
+function revealed(idx: number) {
+  return reduceMotion.value || visibleSections.has(idx)
+}
+
+const signInPending = ref(false)
+
 function signInWithGoogle() {
+  signInPending.value = true
   authClient.signIn.social({
     provider: "google",
     callbackURL: "/dashboard",
@@ -85,7 +95,7 @@ onMounted(() => {
         <div
           class="inline-flex items-center gap-2 rounded-full border border-terra-200 bg-white/60 px-4 py-1.5 backdrop-blur-sm"
         >
-          <span class="h-1.5 w-1.5 rounded-full bg-terra-500 animate-pulse" />
+          <span class="h-1.5 w-1.5 rounded-full bg-terra-500" aria-hidden="true" />
           <span class="text-xs font-medium tracking-wide text-terra-700"
             >AI-Powered Travel Planning</span
           >
@@ -109,10 +119,17 @@ onMounted(() => {
         <div class="mt-10 flex items-center gap-4">
           <button
             type="button"
-            class="group relative flex items-center gap-2.5 overflow-hidden rounded-xl bg-terra-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all hover:bg-terra-600 hover:shadow-xl hover:shadow-terra-500/30"
+            :disabled="signInPending"
+            class="focus-ring group relative flex items-center gap-2.5 overflow-hidden rounded-xl bg-terra-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all hover:bg-terra-600 hover:shadow-xl hover:shadow-terra-500/30 disabled:cursor-not-allowed disabled:opacity-70"
             @click="signInWithGoogle"
           >
-            <svg class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+            <Icon
+              v-if="signInPending"
+              name="lucide:loader"
+              class="h-4 w-4 animate-spin"
+              aria-hidden="true"
+            />
+            <svg v-else class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
               <path
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
                 fill="#fff"
@@ -133,7 +150,9 @@ onMounted(() => {
                 fill="#fff"
               />
             </svg>
-            <span class="relative z-10">Sign in with Google</span>
+            <span class="relative z-10">{{
+              signInPending ? "Redirecting..." : "Sign in with Google"
+            }}</span>
           </button>
         </div>
 
@@ -177,7 +196,7 @@ onMounted(() => {
             <span class="h-2.5 w-2.5 rounded-full bg-sand-300" />
             <span class="h-2.5 w-2.5 rounded-full bg-forest-300" />
             <div
-              class="ml-3 flex-1 rounded-md bg-sand-100 px-3 py-1 text-[11px] text-sand-400 font-mono"
+              class="ml-3 flex-1 rounded-md bg-sand-100 px-3 py-1 text-[11px] text-sand-500 font-mono"
             >
               {{ siteURL.slice(8) }}/trips/tokyo-adventure
             </div>
@@ -231,8 +250,8 @@ onMounted(() => {
                   1
                 </div>
                 <div>
-                  <h4 class="text-sm font-semibold text-sand-900">Day 1 — Arrival & Shibuya</h4>
-                  <p class="text-xs text-sand-400">Tuesday, Apr 15</p>
+                  <h4 class="text-sm font-semibold text-sand-900">Day 1: Arrival & Shibuya</h4>
+                  <p class="text-xs text-sand-500">Tuesday, Apr 15</p>
                 </div>
               </div>
 
@@ -261,7 +280,7 @@ onMounted(() => {
                         Tokyo's oldest temple with the iconic Kaminarimon gate. Explore Nakamise
                         shopping street.
                       </p>
-                      <div class="mt-2 flex items-center gap-3 text-xs text-sand-400">
+                      <div class="mt-2 flex items-center gap-3 text-xs text-sand-500">
                         <span class="flex items-center gap-1 text-ocean-600">
                           <Icon name="lucide:map-pin" class="h-3 w-3" />
                           Asakusa, Taito City
@@ -297,10 +316,10 @@ onMounted(() => {
                         </span>
                       </div>
                       <p class="mt-1 text-xs text-sand-500 line-clamp-1">
-                        Famous tonkotsu ramen chain with individual dining booths — a unique solo
+                        Famous tonkotsu ramen chain with individual dining booths, a unique solo
                         dining experience.
                       </p>
-                      <div class="mt-2 flex items-center gap-3 text-xs text-sand-400">
+                      <div class="mt-2 flex items-center gap-3 text-xs text-sand-500">
                         <span class="flex items-center gap-1 text-ocean-600">
                           <Icon name="lucide:map-pin" class="h-3 w-3" />
                           Shibuya, Tokyo
@@ -342,7 +361,7 @@ onMounted(() => {
                         Walk the world's busiest pedestrian crossing and visit the Hachiko memorial
                         statue.
                       </p>
-                      <div class="mt-2 flex items-center gap-3 text-xs text-sand-400">
+                      <div class="mt-2 flex items-center gap-3 text-xs text-sand-500">
                         <span class="flex items-center gap-1 text-ocean-600">
                           <Icon name="lucide:map-pin" class="h-3 w-3" />
                           Shibuya Station
@@ -382,9 +401,7 @@ onMounted(() => {
           <!-- Mock: Pre-trip briefing -->
           <div
             class="order-2 lg:order-1 transition-all duration-700 delay-200"
-            :class="
-              visibleSections.has(5) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
-            "
+            :class="revealed(5) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'"
           >
             <div
               class="rounded-[1.75rem] border border-sand-200/70 bg-sand-50/80 p-3 shadow-2xl shadow-sand-900/8 backdrop-blur sm:p-4"
@@ -500,9 +517,7 @@ onMounted(() => {
           <!-- Text -->
           <div
             class="order-1 lg:order-2 transition-all duration-700"
-            :class="
-              visibleSections.has(5) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-            "
+            :class="revealed(5) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'"
           >
             <div
               class="inline-flex items-center gap-2 rounded-full bg-ocean-50 px-3 py-1 text-xs font-medium text-ocean-700"
@@ -557,9 +572,7 @@ onMounted(() => {
           <!-- Text -->
           <div
             class="transition-all duration-700"
-            :class="
-              visibleSections.has(0) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-            "
+            :class="revealed(0) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'"
           >
             <div
               class="inline-flex items-center gap-2 rounded-full bg-terra-50 px-3 py-1 text-xs font-medium text-terra-700"
@@ -572,7 +585,7 @@ onMounted(() => {
               <span class="text-gradient">It handles the rest.</span>
             </h2>
             <p class="mt-4 max-w-md text-base leading-relaxed text-sand-600">
-              Describe your trip — destination, dates, budget, travel style. Our AI builds a
+              Describe your trip: destination, dates, budget, travel style. Our AI builds a
               day-by-day itinerary with real places, accurate costs, and local hidden gems.
             </p>
             <ul class="mt-6 space-y-3">
@@ -598,7 +611,7 @@ onMounted(() => {
                 >
                   <Icon name="lucide:check" class="h-3 w-3" />
                 </span>
-                Fully editable — add, remove, or rearrange anything
+                Fully editable: add, remove, or rearrange anything
               </li>
             </ul>
           </div>
@@ -606,9 +619,7 @@ onMounted(() => {
           <!-- Mock: Trip creation form -->
           <div
             class="transition-all duration-700 delay-200"
-            :class="
-              visibleSections.has(0) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
-            "
+            :class="revealed(0) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'"
           >
             <div
               class="rounded-2xl border border-sand-200/80 bg-white shadow-xl shadow-sand-900/5 overflow-hidden"
@@ -694,9 +705,7 @@ onMounted(() => {
           <!-- Mock: Activity card with map data -->
           <div
             class="order-2 lg:order-1 transition-all duration-700 delay-200"
-            :class="
-              visibleSections.has(1) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
-            "
+            :class="revealed(1) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'"
           >
             <div class="space-y-3">
               <!-- Mock verified activity -->
@@ -719,7 +728,7 @@ onMounted(() => {
                     <p class="mt-1 text-sm text-sand-500">
                       Thousands of vermillion torii gates winding through the forested mountain.
                     </p>
-                    <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-sand-400">
+                    <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-sand-500">
                       <span class="flex items-center gap-1 text-ocean-600">
                         <Icon name="lucide:map-pin" class="h-3 w-3" />
                         68 Fukakusa, Fushimi-ku
@@ -764,10 +773,10 @@ onMounted(() => {
                       >
                     </div>
                     <p class="mt-1 text-sm text-sand-500">
-                      "Kyoto's Kitchen" — five blocks of fresh food, street snacks, and local
+                      "Kyoto's Kitchen": five blocks of fresh food, street snacks, and local
                       ingredients.
                     </p>
-                    <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-sand-400">
+                    <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-sand-500">
                       <span class="flex items-center gap-1 text-ocean-600">
                         <Icon name="lucide:map-pin" class="h-3 w-3" />
                         Nishikikoji-dori, Nakagyo
@@ -799,9 +808,7 @@ onMounted(() => {
           <!-- Text -->
           <div
             class="order-1 lg:order-2 transition-all duration-700"
-            :class="
-              visibleSections.has(1) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-            "
+            :class="revealed(1) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'"
           >
             <div
               class="inline-flex items-center gap-2 rounded-full bg-forest-50 px-3 py-1 text-xs font-medium text-forest-700"
@@ -855,9 +862,7 @@ onMounted(() => {
           <!-- Text -->
           <div
             class="transition-all duration-700"
-            :class="
-              visibleSections.has(2) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-            "
+            :class="revealed(2) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'"
           >
             <div
               class="inline-flex items-center gap-2 rounded-full bg-ocean-50 px-3 py-1 text-xs font-medium text-ocean-700"
@@ -904,9 +909,7 @@ onMounted(() => {
           <!-- Mock: Expense tracker -->
           <div
             class="transition-all duration-700 delay-200"
-            :class="
-              visibleSections.has(2) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
-            "
+            :class="revealed(2) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'"
           >
             <div
               class="rounded-2xl border border-sand-200/80 bg-white shadow-xl shadow-sand-900/5 overflow-hidden"
@@ -987,9 +990,7 @@ onMounted(() => {
           <!-- Mock: Scratch map preview -->
           <div
             class="order-2 lg:order-1 transition-all duration-700 delay-200"
-            :class="
-              visibleSections.has(3) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
-            "
+            :class="revealed(3) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'"
           >
             <div
               class="rounded-2xl border border-sand-200/80 bg-white shadow-xl shadow-sand-900/5 overflow-hidden"
@@ -997,7 +998,7 @@ onMounted(() => {
               <div class="border-b border-sand-100 bg-sand-50 px-5 py-3 flex items-center gap-2">
                 <Icon name="lucide:globe" class="h-4 w-4 text-terra-500" />
                 <h4 class="text-sm font-semibold text-sand-900">My Travel Map</h4>
-                <span class="ml-auto text-xs text-sand-400">12 countries visited</span>
+                <span class="ml-auto text-xs text-sand-500">12 countries visited</span>
               </div>
               <div class="p-5 sm:p-6">
                 <!-- Stylized world map representation -->
@@ -1168,9 +1169,7 @@ onMounted(() => {
           <!-- Text -->
           <div
             class="order-1 lg:order-2 transition-all duration-700"
-            :class="
-              visibleSections.has(3) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-            "
+            :class="revealed(3) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'"
           >
             <div
               class="inline-flex items-center gap-2 rounded-full bg-terra-50 px-3 py-1 text-xs font-medium text-terra-700"
@@ -1224,9 +1223,7 @@ onMounted(() => {
           <!-- Text -->
           <div
             class="transition-all duration-700"
-            :class="
-              visibleSections.has(4) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-            "
+            :class="revealed(4) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'"
           >
             <div
               class="inline-flex items-center gap-2 rounded-full bg-ocean-50 px-3 py-1 text-xs font-medium text-ocean-700"
@@ -1273,9 +1270,7 @@ onMounted(() => {
           <!-- Mock: Collaborative activity -->
           <div
             class="transition-all duration-700 delay-200"
-            :class="
-              visibleSections.has(4) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
-            "
+            :class="revealed(4) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'"
           >
             <div class="space-y-3">
               <div
@@ -1314,7 +1309,7 @@ onMounted(() => {
                           >ML</span
                         >
                       </div>
-                      <span class="text-xs text-sand-400">3 going</span>
+                      <span class="text-xs text-sand-500">3 going</span>
                     </div>
 
                     <!-- Vote + comment bar -->
@@ -1323,7 +1318,7 @@ onMounted(() => {
                         <Icon name="lucide:thumbs-up" class="h-3.5 w-3.5" />
                         <span>5</span>
                       </div>
-                      <div class="flex items-center gap-1.5 text-xs text-sand-400">
+                      <div class="flex items-center gap-1.5 text-xs text-sand-500">
                         <Icon name="lucide:thumbs-down" class="h-3.5 w-3.5" />
                       </div>
                       <div
@@ -1347,7 +1342,7 @@ onMounted(() => {
                   <div>
                     <p class="text-xs font-medium text-sand-700">
                       Amy K.
-                      <span class="font-normal text-sand-400 ml-1">2h ago</span>
+                      <span class="font-normal text-sand-500 ml-1">2h ago</span>
                     </p>
                     <p class="mt-0.5 text-xs text-sand-600">
                       Go early morning before 8am, way less crowded!
@@ -1362,7 +1357,7 @@ onMounted(() => {
                   <div>
                     <p class="text-xs font-medium text-sand-700">
                       Mike L.
-                      <span class="font-normal text-sand-400 ml-1">1h ago</span>
+                      <span class="font-normal text-sand-500 ml-1">1h ago</span>
                     </p>
                     <p class="mt-0.5 text-xs text-sand-600">
                       Can we combine this with the monkey park nearby? It's a short walk.
@@ -1393,10 +1388,17 @@ onMounted(() => {
         </p>
         <button
           type="button"
-          class="mt-8 inline-flex items-center gap-2.5 rounded-xl bg-terra-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all hover:bg-terra-600 hover:shadow-xl hover:shadow-terra-500/30"
+          :disabled="signInPending"
+          class="focus-ring mt-8 inline-flex items-center gap-2.5 rounded-xl bg-terra-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all hover:bg-terra-600 hover:shadow-xl hover:shadow-terra-500/30 disabled:cursor-not-allowed disabled:opacity-70"
           @click="signInWithGoogle"
         >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+          <Icon
+            v-if="signInPending"
+            name="lucide:loader"
+            class="h-4 w-4 animate-spin"
+            aria-hidden="true"
+          />
+          <svg v-else class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
               fill="#fff"
@@ -1417,7 +1419,7 @@ onMounted(() => {
               fill="#fff"
             />
           </svg>
-          Sign in with Google
+          {{ signInPending ? "Redirecting..." : "Sign in with Google" }}
         </button>
       </div>
     </section>

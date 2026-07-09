@@ -79,6 +79,7 @@ const hasGeocodedActivities = computed(
 
 // Category filter
 const hiddenTypes = ref<Set<string>>(new Set())
+const filterSheetOpen = ref(false)
 const uniqueTypes = computed(() => {
   const types = new Set<string>()
   for (const day of props.days) {
@@ -422,8 +423,9 @@ onMounted(() => {
 
     <!-- Map mode toggle -->
     <button
-      class="map-btn absolute right-2 top-2 z-10 flex h-8 items-center gap-1.5 rounded-lg px-2.5 shadow-md transition"
-      :title="mapModeLabel"
+      type="button"
+      class="map-btn focus-ring absolute right-2 top-2 z-10 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 shadow-md transition"
+      :aria-label="`Map style: ${mapModeLabel}. Tap to change.`"
       @click="cycleMapMode"
     >
       <Icon :name="mapModeIcon" class="h-4 w-4" />
@@ -451,28 +453,45 @@ onMounted(() => {
     <!-- Category filter -->
     <div
       v-if="uniqueTypes.length > 1"
-      class="absolute bottom-2 right-2 z-10 hidden max-w-[50%] flex-wrap justify-end gap-1 lg:flex"
+      class="absolute bottom-2 right-2 z-10 flex max-w-[70%] flex-col items-end gap-1.5"
     >
+      <!-- Mobile disclosure toggle -->
       <button
-        v-for="type in uniqueTypes"
-        :key="type"
-        class="map-filter-pill flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium shadow-sm transition"
-        :class="{ 'is-hidden': hiddenTypes.has(type) }"
-        @click="toggleTypeFilter(type)"
+        type="button"
+        class="map-btn focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 shadow-md transition lg:hidden"
+        :aria-expanded="filterSheetOpen"
+        aria-label="Filter places by category"
+        @click="filterSheetOpen = !filterSheetOpen"
       >
-        <span
-          class="inline-block h-2 w-2 rounded-full"
-          :style="{
-            background: hiddenTypes.has(type) ? '#78716c' : markerColors[type] || '#3B82F6',
-          }"
-        />
-        {{ formatType(type) }}
+        <Icon name="lucide:sliders-horizontal" class="h-4 w-4" />
+        <span class="text-xs font-medium">Filters</span>
       </button>
+      <!-- Pills: always shown on desktop, toggled on mobile -->
+      <div class="flex-wrap justify-end gap-1 lg:flex" :class="filterSheetOpen ? 'flex' : 'hidden'">
+        <button
+          v-for="type in uniqueTypes"
+          :key="type"
+          type="button"
+          class="map-filter-pill focus-ring inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-[11px] font-medium shadow-sm transition"
+          :class="{ 'is-hidden': hiddenTypes.has(type) }"
+          :aria-pressed="!hiddenTypes.has(type)"
+          :aria-label="`${formatType(type)} places${hiddenTypes.has(type) ? ' (hidden)' : ''}`"
+          @click="toggleTypeFilter(type)"
+        >
+          <span
+            class="inline-block h-2 w-2 rounded-full"
+            :style="{
+              background: hiddenTypes.has(type) ? '#78716c' : markerColors[type] || '#3B82F6',
+            }"
+          />
+          {{ formatType(type) }}
+        </button>
+      </div>
     </div>
   </div>
 
   <div v-else class="flex h-full items-center justify-center bg-sand-50">
-    <p class="text-sm text-sand-400">No locations to display on map yet.</p>
+    <p class="text-sm text-sand-600">No locations to display on map yet.</p>
   </div>
 </template>
 

@@ -10,15 +10,14 @@ const emit = defineEmits<{
   close: []
 }>()
 
-// Close on Escape — stop propagation so the sidebar doesn't also close
-function handleEscape(e: KeyboardEvent) {
-  if (e.key === "Escape") {
-    e.stopPropagation()
-    emit("close")
-  }
-}
-onMounted(() => document.addEventListener("keydown", handleEscape, true))
-onUnmounted(() => document.removeEventListener("keydown", handleEscape, true))
+// Dialog accessibility: focus trap, initial focus, Escape-to-close, focus restore.
+// The component is mounted only while the modal is open, so isOpen is always true here.
+const dialogRef = ref<HTMLElement | null>(null)
+const headingId = useId()
+useModalA11y(dialogRef, {
+  isOpen: () => true,
+  onClose: () => emit("close"),
+})
 
 // Shared nationality state (synced with settings page)
 const { nationality, save: saveNationality, fetch: fetchNationality } = useNationality()
@@ -163,17 +162,26 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
     @click.self="emit('close')"
   >
-    <div class="w-full max-w-lg rounded-2xl border border-sand-200 bg-white shadow-2xl">
+    <div
+      ref="dialogRef"
+      role="dialog"
+      aria-modal="true"
+      :aria-labelledby="headingId"
+      tabindex="-1"
+      class="w-full max-w-lg rounded-2xl border border-sand-200 bg-white shadow-2xl focus:outline-none"
+    >
       <!-- Header -->
       <div class="flex items-center justify-between border-b border-sand-200 px-6 py-4">
         <div>
-          <h2 class="font-display text-lg text-sand-900">Visa Requirements</h2>
+          <h2 :id="headingId" class="font-display text-lg text-sand-900">Visa Requirements</h2>
           <p v-if="destination" class="text-sm text-sand-500">
             Travelling to {{ destination.name }}
           </p>
         </div>
         <button
-          class="rounded-lg p-2 text-sand-400 transition hover:bg-sand-100"
+          type="button"
+          aria-label="Close"
+          class="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
           @click="emit('close')"
         >
           <Icon name="lucide:x" class="h-5 w-5" />
@@ -191,7 +199,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
         </div>
 
         <!-- Loading -->
-        <div v-if="loading" class="flex items-center justify-center py-8">
+        <div v-if="loading" role="status" class="flex items-center justify-center py-8">
           <Icon name="lucide:loader" class="h-6 w-6 animate-spin text-terra-400" />
           <span class="ml-2 text-sm text-sand-500">Checking visa requirements...</span>
         </div>
@@ -199,6 +207,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
         <!-- Error -->
         <div
           v-if="error"
+          role="alert"
           class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600"
         >
           {{ error }}
@@ -311,6 +320,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
           <!-- AI Details error -->
           <div
             v-else-if="aiError"
+            role="alert"
             class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600"
           >
             {{ aiError }}

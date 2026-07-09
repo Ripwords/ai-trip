@@ -50,7 +50,7 @@ const modeIcons: Record<string, string> = {
         </div>
         <div>
           <p class="font-medium text-sand-900">{{ session.user.name }}</p>
-          <p class="text-sm text-sand-500">{{ session.user.email }}</p>
+          <p class="text-sm text-sand-600">{{ session.user.email }}</p>
         </div>
       </div>
     </div>
@@ -58,7 +58,7 @@ const modeIcons: Record<string, string> = {
     <!-- Passports -->
     <div class="rounded-2xl border border-sand-200 bg-white p-6">
       <h2 class="text-sm font-semibold text-sand-900">Passports</h2>
-      <p class="mt-1 text-xs text-sand-500">
+      <p class="mt-1 text-xs text-sand-600">
         Used for visa requirement checks. Add multiple if you hold dual citizenship.
       </p>
       <div class="mt-4">
@@ -75,15 +75,22 @@ const modeIcons: Record<string, string> = {
             <span class="font-semibold text-sand-900">{{ aiUsage.used }}</span> /
             {{ aiUsage.limit }} prompts used
           </p>
-          <p class="text-xs text-sand-400">Resets monthly</p>
+          <p class="text-xs text-sand-600">Resets monthly</p>
         </div>
-        <div class="mt-2 h-2 w-full rounded-full bg-sand-200">
+        <div
+          role="progressbar"
+          :aria-valuemin="0"
+          :aria-valuemax="aiUsage.limit"
+          :aria-valuenow="aiUsage.used"
+          :aria-label="`AI prompts used: ${aiUsage.used} of ${aiUsage.limit}`"
+          class="mt-2 h-2 w-full rounded-full bg-sand-200"
+        >
           <div
             class="h-2 rounded-full bg-terra-500 transition-all"
             :style="{ width: `${Math.min((aiUsage.used / aiUsage.limit) * 100, 100)}%` }"
           />
         </div>
-        <p class="mt-1 text-xs text-sand-500">{{ aiUsage.remaining }} remaining</p>
+        <p class="mt-1 text-xs text-sand-600">{{ aiUsage.remaining }} remaining</p>
       </div>
     </div>
 
@@ -94,7 +101,9 @@ const modeIcons: Record<string, string> = {
         <button
           v-for="m in ['light', 'dark', 'system']"
           :key="m"
-          class="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition"
+          type="button"
+          :aria-pressed="mode === m"
+          class="flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition focus-ring active:scale-95"
           :class="
             mode === m
               ? 'border-terra-400 bg-terra-50 text-terra-700'
@@ -104,6 +113,7 @@ const modeIcons: Record<string, string> = {
         >
           <Icon :name="modeIcons[m] ?? 'lucide:sun'" class="h-4 w-4" />
           {{ modeLabels[m] }}
+          <Icon v-if="mode === m" name="lucide:check" class="h-4 w-4 text-terra-600" />
         </button>
       </div>
     </div>

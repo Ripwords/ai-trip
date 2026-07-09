@@ -362,20 +362,23 @@ const dashboardBriefing = computed(() =>
       <template v-else>
         <div v-if="showControls" class="mt-5 sm:mt-6">
           <div class="relative max-w-sm">
+            <label for="trip-search" class="sr-only">Search trips by destination</label>
             <Icon
               name="lucide:search"
-              class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-400"
+              class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-500"
             />
             <input
+              id="trip-search"
               v-model="searchQuery"
               type="text"
               placeholder="Search by destination..."
-              class="w-full rounded-xl border border-sand-200 bg-sand-50 py-2 pl-9 pr-9 text-sm text-sand-900 placeholder:text-sand-400 focus:border-terra-300 focus:outline-none focus:ring-2 focus:ring-terra-200"
+              class="w-full rounded-xl border border-sand-200 bg-sand-50 py-2 pl-9 pr-11 text-sm text-sand-900 placeholder:text-sand-500 focus:border-terra-300 focus:outline-none focus:ring-2 focus:ring-terra-200"
             />
             <button
               v-if="searchQuery"
-              class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-sand-400 transition hover:bg-sand-100 hover:text-sand-600"
-              title="Clear search"
+              type="button"
+              class="absolute right-1 top-1/2 min-h-11 min-w-11 -translate-y-1/2 inline-flex items-center justify-center rounded text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 focus-ring"
+              aria-label="Clear search"
               @click="searchQuery = ''"
             >
               <Icon name="lucide:x" class="h-3.5 w-3.5" />
@@ -413,7 +416,7 @@ const dashboardBriefing = computed(() =>
                   month="short"
                   day="numeric"
                 />
-                –
+                -
                 <NuxtTime
                   :datetime="trip.endDate + 'T00:00:00'"
                   locale="en-US"
@@ -436,8 +439,9 @@ const dashboardBriefing = computed(() =>
             </NuxtLink>
 
             <button
-              class="absolute right-3 top-3 rounded p-1.5 text-sand-300 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-              title="Delete trip"
+              type="button"
+              class="absolute right-2 top-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-400 opacity-100 transition hover:bg-red-50 hover:text-red-600 focus-ring sm:opacity-0 sm:group-hover:opacity-100"
+              :aria-label="`Delete trip to ${trip.destination}`"
               @click.stop="handleDelete(trip.id, trip.destination)"
             >
               <Icon name="lucide:trash-2" class="h-4 w-4" />
@@ -448,8 +452,10 @@ const dashboardBriefing = computed(() =>
         <!-- Pagination -->
         <div v-if="totalPages > 1" class="mt-6 flex items-center justify-center gap-2">
           <button
+            type="button"
             :disabled="page <= 1"
-            class="rounded-lg border border-sand-200 p-2 text-sand-500 transition hover:bg-sand-50 disabled:opacity-30"
+            class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-sand-200 text-sand-500 transition hover:bg-sand-50 focus-ring disabled:opacity-30"
+            aria-label="Previous page"
             @click="page--"
           >
             <Icon name="lucide:chevron-left" class="h-4 w-4" />
@@ -457,15 +463,20 @@ const dashboardBriefing = computed(() =>
           <button
             v-for="p in totalPages"
             :key="p"
-            class="h-8 w-8 rounded-lg text-sm font-medium transition"
+            type="button"
+            class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-sm font-medium transition focus-ring"
             :class="p === page ? 'bg-terra-500 text-white' : 'text-sand-500 hover:bg-sand-50'"
+            :aria-label="`Page ${p}`"
+            :aria-current="p === page ? 'page' : undefined"
             @click="page = p"
           >
             {{ p }}
           </button>
           <button
+            type="button"
             :disabled="page >= totalPages"
-            class="rounded-lg border border-sand-200 p-2 text-sand-500 transition hover:bg-sand-50 disabled:opacity-30"
+            class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-sand-200 text-sand-500 transition hover:bg-sand-50 focus-ring disabled:opacity-30"
+            aria-label="Next page"
             @click="page++"
           >
             <Icon name="lucide:chevron-right" class="h-4 w-4" />

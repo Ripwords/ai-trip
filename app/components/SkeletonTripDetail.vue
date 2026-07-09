@@ -1,5 +1,6 @@
 <template>
-  <div class="space-y-6">
+  <div role="status" aria-busy="true" class="space-y-6">
+    <span class="sr-only">Loading trip...</span>
     <!-- Header skeleton -->
     <div>
       <div class="flex items-center gap-3">

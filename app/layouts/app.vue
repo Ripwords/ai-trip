@@ -23,12 +23,25 @@ function handleClickOutside(e: MouseEvent) {
   }
 }
 
-onMounted(() => document.addEventListener("click", handleClickOutside))
-onUnmounted(() => document.removeEventListener("click", handleClickOutside))
+// Close on Escape
+function handleEscape(e: KeyboardEvent) {
+  if (e.key === "Escape" && showUserMenu.value) {
+    showUserMenu.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener("click", handleClickOutside)
+  document.addEventListener("keydown", handleEscape)
+})
+onUnmounted(() => {
+  document.removeEventListener("click", handleClickOutside)
+  document.removeEventListener("keydown", handleEscape)
+})
 </script>
 
 <template>
-  <div class="min-h-screen bg-sand-50">
+  <div class="min-h-dvh bg-sand-50">
     <header class="glass sticky top-0 z-50 border-b border-sand-200/50">
       <nav class="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
         <NuxtLink to="/dashboard" class="flex items-center gap-2">
@@ -39,14 +52,15 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside))
           <NuxtLink
             v-if="(session?.user as Record<string, unknown>)?.role === 'admin'"
             to="/admin"
-            class="flex h-9 w-9 items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+            class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-sand-700 focus-ring"
+            aria-label="Admin"
             title="Admin"
           >
             <Icon name="lucide:shield" class="h-4 w-4" />
           </NuxtLink>
           <NuxtLink
             to="/explore"
-            class="hidden h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 sm:flex dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
+            class="hidden min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 focus-ring sm:inline-flex dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
             active-class="bg-sand-100 text-sand-900 dark:bg-sand-800 dark:text-sand-100"
           >
             <Icon name="lucide:globe" class="h-4 w-4" />
@@ -54,7 +68,7 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside))
           </NuxtLink>
           <NuxtLink
             to="/flights"
-            class="hidden h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 sm:flex dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
+            class="hidden min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 focus-ring sm:inline-flex dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
             active-class="bg-sand-100 text-sand-900 dark:bg-sand-800 dark:text-sand-100"
           >
             <Icon name="lucide:plane" class="h-4 w-4" />
@@ -62,7 +76,7 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside))
           </NuxtLink>
           <NuxtLink
             to="/passport"
-            class="hidden h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 sm:flex dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
+            class="hidden min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 focus-ring sm:inline-flex dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
             active-class="bg-sand-100 text-sand-900 dark:bg-sand-800 dark:text-sand-100"
           >
             <Icon name="lucide:stamp" class="h-4 w-4" />
@@ -70,7 +84,9 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside))
           </NuxtLink>
           <ClientOnly>
             <button
-              class="flex h-9 w-9 items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+              type="button"
+              class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-sand-700 focus-ring"
+              :aria-label="`Theme: ${modeLabel}`"
               :title="`Theme: ${modeLabel}`"
               @click="cycle"
             >
@@ -81,7 +97,11 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside))
           <!-- User pill with dropdown -->
           <div ref="menuRef" class="relative">
             <button
-              class="flex items-center gap-2 rounded-full bg-sand-100 px-3 py-1.5 transition hover:bg-sand-200"
+              type="button"
+              class="flex min-h-11 items-center gap-2 rounded-full bg-sand-100 px-3 py-1.5 transition hover:bg-sand-200 focus-ring"
+              aria-haspopup="menu"
+              :aria-expanded="showUserMenu"
+              aria-label="Account menu"
               @click.stop="showUserMenu = !showUserMenu"
             >
               <ClientOnly>

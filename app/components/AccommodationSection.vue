@@ -282,7 +282,8 @@ defineExpose({
         <div class="flex items-center justify-between border-t border-ocean-200 pt-3">
           <div class="flex items-center gap-3">
             <button
-              class="flex h-8 w-8 items-center justify-center rounded-lg border border-sand-300 bg-white text-sand-700 hover:bg-sand-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              type="button"
+              class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-sand-300 bg-white text-sand-700 hover:bg-sand-50 disabled:opacity-40 disabled:cursor-not-allowed focus-ring"
               :disabled="nights <= 1 || isSaving"
               aria-label="Decrease nights"
               @click="decNights"
@@ -293,7 +294,8 @@ defineExpose({
               {{ nights }} {{ nights === 1 ? "night" : "nights" }}
             </div>
             <button
-              class="flex h-8 w-8 items-center justify-center rounded-lg border border-sand-300 bg-white text-sand-700 hover:bg-sand-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              type="button"
+              class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-sand-300 bg-white text-sand-700 hover:bg-sand-50 disabled:opacity-40 disabled:cursor-not-allowed focus-ring"
               :disabled="nights >= maxNights || isSaving"
               aria-label="Increase nights"
               @click="incNights"
@@ -321,7 +323,7 @@ defineExpose({
 
         <p v-if="nights > 1" class="text-xs text-sand-500">
           Applies to days
-          {{ targetDays[0]?.dayNumber }}–{{ targetDays[targetDays.length - 1]?.dayNumber }}
+          {{ targetDays[0]?.dayNumber }} to {{ targetDays[targetDays.length - 1]?.dayNumber }}
         </p>
       </div>
     </div>
@@ -367,14 +369,16 @@ defineExpose({
         </div>
         <div class="flex shrink-0 items-center gap-1">
           <button
-            class="rounded px-2 py-1 text-xs text-sand-500 hover:bg-ocean-100 hover:text-sand-700"
+            type="button"
+            class="inline-flex min-h-11 items-center rounded px-2 py-1 text-xs text-sand-500 hover:bg-ocean-100 hover:text-sand-700 focus-ring"
             :disabled="isSaving"
             @click.stop="isEditing = true"
           >
             Edit
           </button>
           <button
-            class="rounded px-2 py-1 text-xs text-sand-400 hover:bg-ocean-100 hover:text-red-600"
+            type="button"
+            class="inline-flex min-h-11 items-center rounded px-2 py-1 text-xs text-sand-500 hover:bg-ocean-100 hover:text-red-600 focus-ring"
             :disabled="isSaving"
             @click.stop="handleClear"
           >

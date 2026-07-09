@@ -12,13 +12,26 @@ const emit = defineEmits<{
 const { query, results, isSearching } = usePlaceSearch()
 const showDropdown = ref(false)
 const wrapper = ref<HTMLElement | null>(null)
+const listboxId = "place-search-listbox"
 
 function handleSelect(place: PlaceResult) {
   emit("select", place)
   query.value = ""
   results.value = []
   showDropdown.value = false
+  reset()
 }
+
+const { activeIndex, onKeydown, reset } = useListboxNav({
+  itemCount: computed(() => (showDropdown.value ? results.value.length : 0)),
+  onSelect: (index) => {
+    const place = results.value[index]
+    if (place) handleSelect(place)
+  },
+  onClose: () => {
+    showDropdown.value = false
+  },
+})
 
 function handleClickOutside(e: MouseEvent) {
   if (wrapper.value && !wrapper.value.contains(e.target as Node)) {
@@ -49,9 +62,16 @@ watch(results, (val) => {
       <input
         v-model="query"
         type="text"
+        role="combobox"
+        :aria-label="placeholder || 'Search for a place'"
+        :aria-expanded="showDropdown && results.length > 0"
+        :aria-controls="listboxId"
+        :aria-activedescendant="activeIndex >= 0 ? `place-option-${activeIndex}` : undefined"
+        aria-autocomplete="list"
         :placeholder="placeholder || 'Search for a place...'"
         class="peer block w-full rounded-lg border border-sand-300 py-2 pl-9 pr-3 text-sm input-focus"
         @focus="showDropdown = results.length > 0"
+        @keydown="onKeydown"
       />
       <Icon
         v-if="isSearching"
@@ -62,13 +82,19 @@ watch(results, (val) => {
 
     <div
       v-if="showDropdown && results.length > 0"
+      :id="listboxId"
+      role="listbox"
       class="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-sand-200 bg-white shadow-xl"
     >
       <button
-        v-for="place in results"
+        v-for="(place, index) in results"
+        :id="`place-option-${index}`"
         :key="place.placeId"
         type="button"
+        role="option"
+        :aria-selected="index === activeIndex"
         class="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-sand-100"
+        :class="index === activeIndex ? 'bg-sand-100' : ''"
         @click="handleSelect(place)"
       >
         <Icon name="lucide:map-pin" class="mt-0.5 h-4 w-4 shrink-0 text-sand-400" />

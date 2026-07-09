@@ -5,7 +5,10 @@ const { data: session } = await authClient.useSession(useFetch)
 const isLoggedIn = computed(() => !!session.value?.user)
 const { cycle, modeIcon, modeLabel } = useDarkMode()
 
+const signInPending = ref(false)
+
 function signInWithGoogle() {
+  signInPending.value = true
   authClient.signIn.social({
     provider: "google",
     callbackURL: "/dashboard",
@@ -15,7 +18,7 @@ function signInWithGoogle() {
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col bg-sand-50">
+  <div class="flex min-h-dvh flex-col bg-sand-50">
     <header class="glass sticky top-0 z-50 border-b border-sand-200/50">
       <nav class="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
         <NuxtLink to="/" class="flex items-center gap-2">
@@ -25,8 +28,10 @@ function signInWithGoogle() {
         <div class="flex items-center gap-3">
           <ClientOnly>
             <button
-              class="rounded-lg p-1.5 text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+              type="button"
+              class="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-500 transition hover:bg-sand-100 hover:text-sand-700"
               :title="`Theme: ${modeLabel}`"
+              :aria-label="`Theme: ${modeLabel}`"
               @click="cycle"
             >
               <Icon :name="modeIcon" class="h-4 w-4" />
@@ -36,17 +41,24 @@ function signInWithGoogle() {
             <NuxtLink
               v-if="isLoggedIn"
               to="/dashboard"
-              class="rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-terra-600 hover:shadow-md"
+              class="focus-ring rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-terra-600 hover:shadow-md"
             >
               Dashboard
             </NuxtLink>
             <button
               v-else
               type="button"
-              class="flex items-center gap-2 rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-terra-600 hover:shadow-md"
+              :disabled="signInPending"
+              class="focus-ring flex items-center gap-2 rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-terra-600 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
               @click="signInWithGoogle"
             >
-              <svg class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+              <Icon
+                v-if="signInPending"
+                name="lucide:loader"
+                class="h-4 w-4 animate-spin"
+                aria-hidden="true"
+              />
+              <svg v-else class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
                   fill="#fff"
@@ -67,7 +79,7 @@ function signInWithGoogle() {
                   fill="#fff"
                 />
               </svg>
-              Sign in with Google
+              {{ signInPending ? "Redirecting..." : "Sign in with Google" }}
             </button>
             <template #fallback>
               <span

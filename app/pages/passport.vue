@@ -56,7 +56,8 @@ const periodLabel = computed(() =>
       <div v-if="passport.availableYears.length > 1" class="flex flex-wrap gap-1.5">
         <button
           type="button"
-          class="rounded-full border border-sand-200 px-3 py-1 text-xs font-semibold transition"
+          :aria-pressed="selectedYear == null"
+          class="focus-ring inline-flex min-h-11 items-center rounded-full border border-sand-200 px-4 text-xs font-semibold transition active:scale-95"
           :class="
             selectedYear == null
               ? 'bg-sand-900 text-sand-50'
@@ -70,7 +71,8 @@ const periodLabel = computed(() =>
           v-for="year in passport.availableYears"
           :key="year"
           type="button"
-          class="rounded-full border border-sand-200 px-3 py-1 text-xs font-semibold transition"
+          :aria-pressed="selectedYear === year"
+          class="focus-ring inline-flex min-h-11 items-center rounded-full border border-sand-200 px-4 text-xs font-semibold transition active:scale-95"
           :class="
             selectedYear === year
               ? 'bg-sand-900 text-sand-50'

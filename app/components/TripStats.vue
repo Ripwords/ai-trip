@@ -82,6 +82,7 @@ function formatCurrency(amount: number): string {
 // priceRange. Only relevant when there are activities with placeIds.
 const refreshing = ref(false)
 const refreshMessage = ref<string | null>(null)
+const refreshError = ref(false)
 const hasPlaceIdActivities = computed(() =>
   props.days.some((d) => d.activities.some((a) => !!a.placeId)),
 )
@@ -90,6 +91,7 @@ async function refreshFromGoogle() {
   if (!props.tripId || refreshing.value) return
   refreshing.value = true
   refreshMessage.value = null
+  refreshError.value = false
   try {
     const result = await $fetch<{ updated: number; candidates: number }>(
       `/api/trips/${props.tripId}/refresh-cost-estimates`,
@@ -98,13 +100,14 @@ async function refreshFromGoogle() {
     refreshMessage.value =
       result.updated === 0
         ? result.candidates === 0
-          ? "Nothing to refresh — costs are already set."
+          ? "Nothing to refresh, costs are already set."
           : "Google doesn't have price data for any of these places."
         : `Updated ${result.updated} of ${result.candidates} from Google Maps.`
     emit("refreshed")
   } catch (e: unknown) {
     console.error("Failed to refresh cost estimates:", e)
-    refreshMessage.value = "Couldn't refresh — try again in a moment."
+    refreshError.value = true
+    refreshMessage.value = "Couldn't refresh, try again in a moment."
   } finally {
     refreshing.value = false
     setTimeout(() => {
@@ -137,8 +140,9 @@ async function refreshFromGoogle() {
             v-if="tripId && hasPlaceIdActivities"
             type="button"
             :disabled="refreshing"
-            :title="'Refresh missing cost estimates from Google Maps'"
-            class="rounded p-0.5 text-sand-400 transition hover:text-terra-500 disabled:opacity-50"
+            title="Refresh cost estimates from Google Maps"
+            aria-label="Refresh cost estimates from Google Maps"
+            class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-400 transition hover:text-terra-500 focus-ring disabled:opacity-50"
             @click="refreshFromGoogle"
           >
             <Icon
@@ -151,7 +155,12 @@ async function refreshFromGoogle() {
       </div>
     </div>
 
-    <p v-if="refreshMessage" class="mt-2 text-center text-[11px] text-sand-500">
+    <p
+      v-if="refreshMessage"
+      class="mt-2 text-center text-[11px] text-sand-500"
+      :role="refreshError ? 'alert' : 'status'"
+      aria-live="polite"
+    >
       {{ refreshMessage }}
     </p>
 

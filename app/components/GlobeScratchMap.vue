@@ -38,6 +38,7 @@ const emit = defineEmits<{
 }>()
 
 const { isDark } = useDarkMode()
+const prefersReducedMotion = useReducedMotion()
 
 // --- Theme: mirrors 2D ScratchMap color tokens exactly ---
 const theme = computed(() =>
@@ -481,6 +482,14 @@ function animateToCentroid(info: CountryInfo) {
   const controls = getControls()
   if (!controls) return
 
+  // Respect reduced-motion: snap directly to the destination instead of flying.
+  if (prefersReducedMotion.value) {
+    controls.target.copy(target)
+    controls.object.position.copy(cameraTarget)
+    controls.update()
+    return
+  }
+
   const startTarget = controls.target.clone()
   const startPos = controls.object.position.clone()
   const duration = 500
@@ -570,8 +579,9 @@ function animateToCentroid(info: CountryInfo) {
     <!-- View toggle -->
     <div class="absolute right-3 top-3 flex flex-col gap-1.5">
       <button
-        class="globe-btn flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
-        title="Switch to 2D map"
+        type="button"
+        class="globe-btn focus-ring flex h-11 w-11 items-center justify-center rounded-xl shadow-md transition sm:h-8 sm:w-8 sm:rounded-lg sm:shadow"
+        aria-label="Switch to 2D map"
         @click="emit('toggleView')"
       >
         <Icon name="lucide:map" class="h-5 w-5 sm:h-4 sm:w-4" />

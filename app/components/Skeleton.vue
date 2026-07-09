@@ -13,6 +13,7 @@ defineProps<{
 
 <template>
   <div
+    aria-hidden="true"
     class="skeleton-shimmer"
     :class="{
       'h-4 w-full rounded-md': variant === 'text' || !variant,

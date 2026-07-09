@@ -1,5 +1,6 @@
 <template>
-  <div class="space-y-8">
+  <div role="status" aria-busy="true" class="space-y-8">
+    <span class="sr-only">Loading dashboard...</span>
     <!-- Stats strip skeleton -->
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       <div v-for="i in 6" :key="i" class="rounded-2xl border border-sand-200 bg-white p-4">

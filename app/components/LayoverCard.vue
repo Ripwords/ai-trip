@@ -124,7 +124,10 @@ async function fetchAiTips() {
 
       <!-- AI tips button -->
       <button
-        class="shrink-0 text-xs font-medium text-terra-500 transition hover:text-terra-600"
+        type="button"
+        :aria-expanded="showAiTips"
+        :disabled="aiTipsLoading"
+        class="shrink-0 min-h-11 inline-flex items-center px-2 text-xs font-medium text-terra-500 transition hover:text-terra-600 focus-ring disabled:opacity-60"
         @click="fetchAiTips"
       >
         <template v-if="aiTipsLoading">Loading...</template>
@@ -134,7 +137,7 @@ async function fetchAiTips() {
 
     <!-- Expanded AI tips -->
     <div v-if="showAiTips && (aiTips || aiError)" class="mt-3 border-t border-sand-200 pt-3">
-      <div v-if="aiError" class="text-xs text-red-500">{{ aiError }}</div>
+      <div v-if="aiError" role="alert" class="text-xs text-red-500">{{ aiError }}</div>
       <div v-else-if="aiTips" class="space-y-2 text-xs text-sand-700">
         <p class="font-medium text-sand-900">{{ aiTips.recommendation }}</p>
         <ul class="list-inside list-disc space-y-1">

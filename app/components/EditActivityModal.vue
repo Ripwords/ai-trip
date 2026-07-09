@@ -23,6 +23,7 @@ const props = defineProps<{
   activity: Activity | null
   open: boolean
   currencyCode?: string
+  saving?: boolean
 }>()
 
 const { symbol: currencySymbol, code: currencyCodeResolved } = useCurrencyFormat(
@@ -75,6 +76,12 @@ watch(
   { immediate: true },
 )
 
+const dialogRef = ref<HTMLElement | null>(null)
+useModalA11y(dialogRef, {
+  isOpen: () => props.open,
+  onClose: () => emit("close"),
+})
+
 function handleSave() {
   emit("save", {
     name: name.value,
@@ -92,8 +99,15 @@ function handleSave() {
   <Teleport to="body">
     <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center">
       <div class="fixed inset-0 bg-black/40" @click="emit('close')" />
-      <div class="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl mx-4">
-        <h2 class="text-lg font-display text-sand-900">Edit Activity</h2>
+      <div
+        ref="dialogRef"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-activity-title"
+        tabindex="-1"
+        class="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl mx-4"
+      >
+        <h2 id="edit-activity-title" class="text-lg font-display text-sand-900">Edit Activity</h2>
 
         <form class="mt-4 space-y-4" @submit.prevent="handleSave">
           <div>
@@ -219,9 +233,11 @@ function handleSave() {
             </button>
             <button
               type="submit"
-              class="rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600"
+              :disabled="saving"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600 disabled:opacity-50"
             >
-              Save
+              <Icon v-if="saving" name="lucide:loader" class="h-4 w-4 animate-spin" />
+              {{ saving ? "Saving..." : "Save" }}
             </button>
           </div>
         </form>

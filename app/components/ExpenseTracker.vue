@@ -34,6 +34,15 @@ const editingBudget = ref(false)
 const budgetInput = ref(props.budget ?? "")
 const showAddForm = ref(false)
 const editingExpenseId = ref<string | null>(null)
+const savingBudget = ref(false)
+const submittingExpense = ref(false)
+
+const uid = useId()
+const descriptionId = `${uid}-description`
+const amountId = `${uid}-amount`
+const categoryId = `${uid}-category`
+const dateId = `${uid}-date`
+const paidById = `${uid}-paid-by`
 
 // Form fields
 const formDescription = ref("")
@@ -133,7 +142,11 @@ function startEdit(expense: Expense) {
   showAddForm.value = true
 }
 
+const toast = useToast()
+
 async function saveBudget() {
+  if (savingBudget.value) return
+  savingBudget.value = true
   try {
     await $fetch(`/api/trips/${props.tripId}`, {
       method: "PUT",
@@ -143,11 +156,16 @@ async function saveBudget() {
     emit("budgetUpdated")
   } catch (e: unknown) {
     console.error("Failed to save budget:", e)
+    toast.error("Couldn't save budget. Please try again.")
+  } finally {
+    savingBudget.value = false
   }
 }
 
 async function submitExpense() {
   if (!formDescription.value.trim() || !formAmount.value) return
+  if (submittingExpense.value) return
+  submittingExpense.value = true
   try {
     const body: Record<string, unknown> = {
       description: formDescription.value,
@@ -173,6 +191,9 @@ async function submitExpense() {
     await refresh()
   } catch (e: unknown) {
     console.error("Failed to save expense:", e)
+    toast.error("Couldn't save expense. Please try again.")
+  } finally {
+    submittingExpense.value = false
   }
 }
 
@@ -216,7 +237,10 @@ function getMemberName(userId: string | null): string {
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-semibold text-sand-900">Budget</h3>
         <button
-          class="rounded p-1 text-sand-400 hover:bg-terra-50 hover:text-terra-600"
+          type="button"
+          class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:bg-terra-50 hover:text-terra-600 focus-ring"
+          aria-label="Edit budget"
+          :aria-expanded="editingBudget"
           @click="editingBudget = !editingBudget"
         >
           <Icon name="lucide:edit" class="h-4 w-4" />
@@ -224,17 +248,21 @@ function getMemberName(userId: string | null): string {
       </div>
 
       <div v-if="editingBudget" class="mt-3 flex gap-2">
+        <label :for="`${uid}-budget`" class="sr-only">Budget amount</label>
         <input
+          :id="`${uid}-budget`"
           v-model="budgetInput"
           type="text"
           placeholder="e.g. 2000"
           class="block flex-1 rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
         />
         <button
-          class="rounded-lg bg-terra-500 px-3 py-2 text-sm font-medium text-white hover:bg-terra-600"
+          type="button"
+          :disabled="savingBudget"
+          class="min-h-11 rounded-lg bg-terra-500 px-3 py-2 text-sm font-medium text-white hover:bg-terra-600 disabled:opacity-50"
           @click="saveBudget"
         >
-          Save
+          {{ savingBudget ? "Saving…" : "Save" }}
         </button>
       </div>
 
@@ -319,7 +347,11 @@ function getMemberName(userId: string | null): string {
         @submit.prevent="submitExpense"
       >
         <div>
+          <label :for="descriptionId" class="mb-1 block text-xs font-medium text-sand-600">
+            Description
+          </label>
           <input
+            :id="descriptionId"
             v-model="formDescription"
             type="text"
             placeholder="Description"
@@ -328,44 +360,65 @@ function getMemberName(userId: string | null): string {
           />
         </div>
         <div class="grid grid-cols-2 gap-3">
-          <input
-            v-model="formAmount"
-            type="number"
-            step="0.01"
-            placeholder="Amount"
-            required
-            class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
-          />
-          <select
-            v-model="formCategory"
-            class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
-          >
-            <option v-for="cat in categories" :key="cat" :value="cat">
-              {{ cat }}
-            </option>
-          </select>
+          <div>
+            <label :for="amountId" class="mb-1 block text-xs font-medium text-sand-600">
+              Amount
+            </label>
+            <input
+              :id="amountId"
+              v-model="formAmount"
+              type="number"
+              step="0.01"
+              placeholder="Amount"
+              required
+              class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+            />
+          </div>
+          <div>
+            <label :for="categoryId" class="mb-1 block text-xs font-medium text-sand-600">
+              Category
+            </label>
+            <select
+              :id="categoryId"
+              v-model="formCategory"
+              class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+            >
+              <option v-for="cat in categories" :key="cat" :value="cat">
+                {{ cat }}
+              </option>
+            </select>
+          </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
-          <input
-            v-model="formDate"
-            type="date"
-            class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
-          />
-          <select
-            v-if="members && members.length > 1"
-            v-model="formPaidById"
-            class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
-          >
-            <option value="">Who paid?</option>
-            <option v-for="m in members" :key="m.userId" :value="m.userId">
-              {{ m.user.name }}
-            </option>
-          </select>
+          <div>
+            <label :for="dateId" class="mb-1 block text-xs font-medium text-sand-600">Date</label>
+            <input
+              :id="dateId"
+              v-model="formDate"
+              type="date"
+              class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+            />
+          </div>
+          <div v-if="members && members.length > 1">
+            <label :for="paidById" class="mb-1 block text-xs font-medium text-sand-600">
+              Who paid?
+            </label>
+            <select
+              :id="paidById"
+              v-model="formPaidById"
+              class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+            >
+              <option value="">Who paid?</option>
+              <option v-for="m in members" :key="m.userId" :value="m.userId">
+                {{ m.user.name }}
+              </option>
+            </select>
+          </div>
         </div>
         <div class="flex items-center gap-2">
           <button
             type="button"
-            class="rounded-lg border border-sand-300 px-3 py-2 text-sm font-medium text-sand-700 hover:bg-sand-50"
+            class="min-h-11 rounded-lg border border-sand-300 px-3 py-2 text-sm font-medium text-sand-700 hover:bg-sand-50"
             @click="
               () => {
                 showAddForm = false
@@ -377,9 +430,10 @@ function getMemberName(userId: string | null): string {
           </button>
           <button
             type="submit"
-            class="rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600"
+            :disabled="submittingExpense"
+            class="min-h-11 rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600 disabled:opacity-50"
           >
-            {{ editingExpenseId ? "Update" : "Add" }}
+            {{ submittingExpense ? "Saving…" : editingExpenseId ? "Update" : "Add" }}
           </button>
         </div>
       </form>
@@ -418,15 +472,19 @@ function getMemberName(userId: string | null): string {
               {{ formatCurrency(parseFloat(expense.amount)) }}
             </span>
             <button
-              class="rounded p-1 text-sand-300 hover:text-terra-500"
+              type="button"
+              class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-terra-500 active:scale-95 focus-ring"
               title="Edit"
+              aria-label="Edit expense"
               @click="startEdit(expense)"
             >
               <Icon name="lucide:edit" class="h-3.5 w-3.5" />
             </button>
             <button
-              class="rounded p-1 text-sand-300 hover:text-red-500"
+              type="button"
+              class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-red-500 active:scale-95 focus-ring"
               title="Delete"
+              aria-label="Delete expense"
               @click="deleteExpense(expense.id)"
             >
               <Icon name="lucide:trash-2" class="h-3.5 w-3.5" />

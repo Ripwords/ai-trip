@@ -90,8 +90,10 @@ function handlePromote() {
         </div>
       </div>
       <button
-        class="shrink-0 rounded p-1 text-sand-400 hover:bg-red-50 hover:text-red-600"
+        type="button"
+        class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded text-sand-400 hover:bg-red-50 hover:text-red-600"
         title="Delete"
+        aria-label="Delete idea"
         @click="emit('delete', idea.id)"
       >
         <Icon name="lucide:trash-2" class="h-3.5 w-3.5" />
@@ -101,12 +103,14 @@ function handlePromote() {
     <div class="mt-2 flex items-center gap-2">
       <select
         v-model="selectedDayId"
-        class="block flex-1 rounded-lg border border-sand-300 px-2 py-1 text-xs input-focus"
+        aria-label="Move to day"
+        class="block min-h-11 flex-1 rounded-lg border border-sand-300 px-2 py-1 text-xs input-focus"
       >
         <option v-for="day in days" :key="day.id" :value="day.id">Day {{ day.dayNumber }}</option>
       </select>
       <button
-        class="rounded-lg bg-terra-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-terra-600"
+        type="button"
+        class="inline-flex min-h-11 items-center rounded-lg bg-terra-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-terra-600"
         @click="handlePromote"
       >
         Move

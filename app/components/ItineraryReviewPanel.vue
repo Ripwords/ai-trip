@@ -69,8 +69,8 @@ const severityMeta: Record<
   warning: {
     label: "Warnings",
     icon: "lucide:triangle-alert",
-    badgeClass: "bg-yellow-50 text-yellow-700",
-    iconClass: "text-yellow-600",
+    badgeClass: "bg-terra-50 text-terra-700",
+    iconClass: "text-terra-600",
   },
   suggestion: {
     label: "Suggestions",
@@ -200,7 +200,7 @@ onMounted(() => {
 
       <button
         type="button"
-        class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-terra-500 px-3 text-sm font-medium text-white transition hover:bg-terra-600 disabled:cursor-not-allowed disabled:opacity-60"
+        class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-terra-500 px-3 text-sm font-medium text-white transition hover:bg-terra-600 disabled:cursor-not-allowed disabled:opacity-60"
         :disabled="loading"
         @click="runReview"
       >
@@ -236,6 +236,7 @@ onMounted(() => {
       <select
         v-if="scope === 'day'"
         v-model="selectedDayId"
+        aria-label="Day to review"
         class="h-9 rounded-lg border border-sand-300 bg-white px-3 text-sm text-sand-700 input-focus"
       >
         <option v-for="day in days" :key="day.id" :value="day.id">
@@ -246,6 +247,7 @@ onMounted(() => {
 
     <div
       v-if="error"
+      role="alert"
       class="mt-4 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700"
     >
       {{ error }}
@@ -327,7 +329,7 @@ onMounted(() => {
           <div class="mt-3 flex justify-end">
             <button
               type="button"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-sand-200 bg-white px-3 py-1.5 text-xs font-medium text-sand-700 transition hover:border-terra-300 hover:bg-terra-50 hover:text-terra-700"
+              class="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-sand-200 bg-white px-3 py-1.5 text-xs font-medium text-sand-700 transition hover:border-terra-300 hover:bg-terra-50 hover:text-terra-700"
               @click="emit('fix', finding)"
             >
               <Icon name="lucide:wrench" class="h-3.5 w-3.5" />
