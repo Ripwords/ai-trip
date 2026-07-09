@@ -56,6 +56,31 @@
   font-family: var(--font-sans);
 }
 
+/* Shared focus-visible ring for custom controls. Ring offset uses sand-50 so
+   it adapts in dark mode via the CSS-variable swap. */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    box-shadow:
+      0 0 0 2px var(--color-sand-50),
+      0 0 0 4px var(--color-terra-500);
+  }
+}
+
+/* Respect prefers-reduced-motion globally: neutralize looping/decorative CSS
+   animations (shimmer, pulse, spin) while leaving deliberate state transitions
+   intact. JS-driven motion is gated separately via useReducedMotion(). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ── Dark Mode: Semantic color overrides ─────────────────────────── */
 /* When .dark is on <html>, swap all sand/terra/ocean/forest shades  */
 /* so existing classes like bg-sand-50, text-sand-900 just work.     */

@@ -5,7 +5,7 @@ useHead({
   titleTemplate: "%s %separator %siteName",
   templateParams: {
     siteName: "AI Trip",
-    separator: "—",
+    separator: "·",
   },
 })
 
@@ -26,6 +26,9 @@ useSeoMeta({
   </NuxtLayout>
   <ClientOnly>
     <ConfirmDialog />
+  </ClientOnly>
+  <ClientOnly>
+    <ToastHost />
   </ClientOnly>
 
   <!-- PWA update prompt -->
