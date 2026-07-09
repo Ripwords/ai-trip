@@ -210,7 +210,7 @@ function createMap() {
     zoomControl: true,
     mapTypeControl: false,
     streetViewControl: false,
-    fullscreenControl: true,
+    fullscreenControl: false,
   })
 
   updateMarkers()
@@ -421,21 +421,10 @@ onMounted(() => {
   <div v-if="hasGeocodedActivities || countryCode" class="relative h-full">
     <div ref="mapContainer" class="h-full w-full" />
 
-    <!-- Map mode toggle -->
-    <button
-      type="button"
-      class="map-btn focus-ring absolute right-2 top-2 z-10 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 shadow-md transition"
-      :aria-label="`Map style: ${mapModeLabel}. Tap to change.`"
-      @click="cycleMapMode"
-    >
-      <Icon :name="mapModeIcon" class="h-4 w-4" />
-      <span class="text-xs font-medium">{{ mapModeLabel }}</span>
-    </button>
-
-    <!-- Day legend -->
+    <!-- Day legend (top-left) -->
     <div
       v-if="legendDays.length > 1"
-      class="map-overlay absolute bottom-10 right-2 z-10 max-h-40 overflow-y-auto rounded-xl px-3 py-2 shadow-md"
+      class="map-overlay scrollbar-hide absolute left-2 top-2 z-10 max-h-[calc(100%-5rem)] overflow-y-auto rounded-xl px-3 py-2 shadow-md lg:hidden"
     >
       <div
         v-for="day in legendDays"
@@ -450,43 +439,53 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Category filter -->
-    <div
-      v-if="uniqueTypes.length > 1"
-      class="absolute bottom-2 right-2 z-10 flex max-w-[70%] flex-col items-end gap-1.5"
-    >
-      <!-- Mobile disclosure toggle -->
+    <!-- Top-right controls: map style + category filter (panel drops down) -->
+    <div class="absolute right-2 top-2 z-10 flex flex-col items-end gap-1.5">
       <button
         type="button"
-        class="map-btn focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 shadow-md transition lg:hidden"
-        :aria-expanded="filterSheetOpen"
-        aria-label="Filter places by category"
-        @click="filterSheetOpen = !filterSheetOpen"
+        class="map-btn focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 shadow-md transition"
+        :aria-label="`Map style: ${mapModeLabel}. Tap to change.`"
+        @click="cycleMapMode"
       >
-        <Icon name="lucide:sliders-horizontal" class="h-4 w-4" />
-        <span class="text-xs font-medium">Filters</span>
+        <Icon :name="mapModeIcon" class="h-4 w-4" />
+        <span class="text-xs font-medium">{{ mapModeLabel }}</span>
       </button>
-      <!-- Pills: always shown on desktop, toggled on mobile -->
-      <div class="flex-wrap justify-end gap-1 lg:flex" :class="filterSheetOpen ? 'flex' : 'hidden'">
+
+      <template v-if="uniqueTypes.length > 1">
         <button
-          v-for="type in uniqueTypes"
-          :key="type"
           type="button"
-          class="map-filter-pill focus-ring inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-[11px] font-medium shadow-sm transition"
-          :class="{ 'is-hidden': hiddenTypes.has(type) }"
-          :aria-pressed="!hiddenTypes.has(type)"
-          :aria-label="`${formatType(type)} places${hiddenTypes.has(type) ? ' (hidden)' : ''}`"
-          @click="toggleTypeFilter(type)"
+          class="map-btn focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 shadow-md transition"
+          :aria-expanded="filterSheetOpen"
+          aria-label="Filter places by category"
+          @click="filterSheetOpen = !filterSheetOpen"
         >
-          <span
-            class="inline-block h-2 w-2 rounded-full"
-            :style="{
-              background: hiddenTypes.has(type) ? '#78716c' : markerColors[type] || '#3B82F6',
-            }"
-          />
-          {{ formatType(type) }}
+          <Icon name="lucide:sliders-horizontal" class="h-4 w-4" />
+          <span class="text-xs font-medium">Filters</span>
         </button>
-      </div>
+        <div
+          v-if="filterSheetOpen"
+          class="scrollbar-hide flex max-h-[60vh] w-52 max-w-[75vw] flex-wrap justify-start gap-1 overflow-y-auto rounded-xl border border-sand-200 bg-sand-50/95 p-2 shadow-lg backdrop-blur"
+        >
+          <button
+            v-for="type in uniqueTypes"
+            :key="type"
+            type="button"
+            class="map-filter-pill focus-ring inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition"
+            :class="{ 'is-hidden': hiddenTypes.has(type) }"
+            :aria-pressed="!hiddenTypes.has(type)"
+            :aria-label="`${formatType(type)} places${hiddenTypes.has(type) ? ' (hidden)' : ''}`"
+            @click="toggleTypeFilter(type)"
+          >
+            <span
+              class="inline-block h-1.5 w-1.5 rounded-full"
+              :style="{
+                background: hiddenTypes.has(type) ? '#78716c' : markerColors[type] || '#3B82F6',
+              }"
+            />
+            {{ formatType(type) }}
+          </button>
+        </div>
+      </template>
     </div>
   </div>
 
@@ -525,6 +524,7 @@ onMounted(() => {
 
 .map-filter-pill {
   background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(61, 51, 40, 0.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: #3d3328;
@@ -544,6 +544,7 @@ onMounted(() => {
 
 :global(.dark) .map-filter-pill {
   background: rgba(26, 23, 20, 0.85);
+  border-color: rgba(255, 255, 255, 0.12);
   color: rgba(255, 255, 255, 0.8);
 }
 :global(.dark) .map-filter-pill.is-hidden {
