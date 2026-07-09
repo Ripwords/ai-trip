@@ -93,7 +93,7 @@ onMounted(() => {
             type="button"
             :disabled="signInPending"
             aria-label="Sign in with Google to start planning"
-            class="focus-ring group relative flex items-center gap-2.5 overflow-hidden rounded-xl bg-terra-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all hover:bg-terra-600 hover:shadow-xl hover:shadow-terra-500/30 disabled:cursor-not-allowed disabled:opacity-70"
+            class="focus-ring group relative flex items-center gap-2.5 overflow-hidden rounded-xl bg-terra-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-terra-600 hover:shadow-xl hover:shadow-terra-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
             @click="signInWithGoogle"
           >
             <Icon
@@ -130,10 +130,14 @@ onMounted(() => {
 
           <a
             href="#how-it-works"
-            class="focus-ring inline-flex items-center gap-1.5 rounded-xl px-5 py-3.5 text-sm font-semibold text-sand-700 transition-colors hover:text-terra-600"
+            class="focus-ring group inline-flex items-center gap-2 rounded-full py-2 pl-5 pr-2 text-sm font-semibold text-sand-700 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-terra-600 active:scale-[0.98]"
           >
             See how it works
-            <Icon name="lucide:arrow-down" class="h-4 w-4" aria-hidden="true" />
+            <span
+              class="flex h-8 w-8 items-center justify-center rounded-full bg-sand-100 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-y-0.5 group-hover:bg-terra-100"
+            >
+              <Icon name="lucide:arrow-down" class="h-4 w-4" aria-hidden="true" />
+            </span>
           </a>
         </div>
       </div>
@@ -141,35 +145,44 @@ onMounted(() => {
       <!-- ONE tasteful hero visual, sits just below the fold -->
       <!-- TODO: real screenshot of the trip itinerary detail view (~3:4 portrait) to replace this card -->
       <div class="relative z-10 mx-auto w-full max-w-sm px-6 pb-14">
-        <figure
-          class="rounded-2xl border border-sand-200/80 bg-white p-5 shadow-2xl shadow-sand-900/10"
-        >
-          <figcaption class="flex items-center justify-between">
-            <span class="font-display text-lg text-sand-900">Day 2 in Kyoto</span>
-            <span
-              class="rounded-full bg-sand-100 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sand-500"
-            >
-              Illustrative
-            </span>
-          </figcaption>
-          <ol class="mt-4 space-y-2">
-            <li class="flex items-center gap-3 rounded-xl border border-sand-100 bg-sand-50/60 p-3">
-              <span class="font-mono text-[11px] text-terra-600">9:00</span>
-              <span class="flex-1 text-sm font-medium text-sand-800">Fushimi Inari Taisha</span>
-              <Icon name="lucide:mountain" class="h-4 w-4 text-ocean-500" aria-hidden="true" />
-            </li>
-            <li class="flex items-center gap-3 rounded-xl border border-sand-100 bg-sand-50/60 p-3">
-              <span class="font-mono text-[11px] text-terra-600">12:30</span>
-              <span class="flex-1 text-sm font-medium text-sand-800">Nishiki Market</span>
-              <Icon name="lucide:utensils" class="h-4 w-4 text-terra-500" aria-hidden="true" />
-            </li>
-            <li class="flex items-center gap-3 rounded-xl border border-sand-100 bg-sand-50/60 p-3">
-              <span class="font-mono text-[11px] text-terra-600">15:00</span>
-              <span class="flex-1 text-sm font-medium text-sand-800">Kiyomizu-dera</span>
-              <Icon name="lucide:mountain" class="h-4 w-4 text-ocean-500" aria-hidden="true" />
-            </li>
-          </ol>
-        </figure>
+        <!-- Double-bezel: soft "tray" shell holding an inset "plate" for physical depth -->
+        <div class="rounded-[2rem] bg-sand-100 p-1.5 shadow-2xl shadow-sand-900/10">
+          <figure
+            class="rounded-[calc(2rem-0.375rem)] border border-sand-200/70 bg-white p-5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.65)]"
+          >
+            <figcaption class="flex items-center justify-between">
+              <span class="font-display text-lg text-sand-900">Day 2 in Kyoto</span>
+              <span
+                class="rounded-full bg-sand-100 px-2.5 py-0.5 text-xs font-medium uppercase tracking-wide text-sand-500"
+              >
+                Illustrative
+              </span>
+            </figcaption>
+            <ol class="mt-4 space-y-2">
+              <li
+                class="flex items-center gap-3 rounded-xl border border-sand-100 bg-sand-50/60 p-3"
+              >
+                <span class="font-mono text-xs text-terra-600">9:00</span>
+                <span class="flex-1 text-sm font-medium text-sand-800">Fushimi Inari Taisha</span>
+                <Icon name="lucide:mountain" class="h-4 w-4 text-ocean-500" aria-hidden="true" />
+              </li>
+              <li
+                class="flex items-center gap-3 rounded-xl border border-sand-100 bg-sand-50/60 p-3"
+              >
+                <span class="font-mono text-xs text-terra-600">12:30</span>
+                <span class="flex-1 text-sm font-medium text-sand-800">Nishiki Market</span>
+                <Icon name="lucide:utensils" class="h-4 w-4 text-terra-500" aria-hidden="true" />
+              </li>
+              <li
+                class="flex items-center gap-3 rounded-xl border border-sand-100 bg-sand-50/60 p-3"
+              >
+                <span class="font-mono text-xs text-terra-600">15:00</span>
+                <span class="flex-1 text-sm font-medium text-sand-800">Kiyomizu-dera</span>
+                <Icon name="lucide:mountain" class="h-4 w-4 text-ocean-500" aria-hidden="true" />
+              </li>
+            </ol>
+          </figure>
+        </div>
       </div>
     </section>
 
@@ -180,8 +193,12 @@ onMounted(() => {
       <div class="mx-auto max-w-7xl px-6">
         <div class="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
           <div
-            class="transition-all duration-700"
-            :class="revealed(0) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'"
+            class="transition-all duration-[800ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
+            :class="
+              revealed(0)
+                ? 'opacity-100 translate-y-0 blur-0'
+                : 'opacity-0 translate-y-8 blur-[2px]'
+            "
           >
             <h2 class="font-display text-3xl text-sand-900 sm:text-4xl lg:text-5xl">
               AI drafts your whole itinerary
@@ -220,8 +237,12 @@ onMounted(() => {
 
           <!-- Editorial input/output panel -->
           <div
-            class="transition-all duration-700 delay-200"
-            :class="revealed(0) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'"
+            class="transition-all duration-[800ms] ease-[cubic-bezier(0.32,0.72,0,1)] delay-200"
+            :class="
+              revealed(0)
+                ? 'opacity-100 translate-y-0 blur-0'
+                : 'opacity-0 translate-y-12 blur-[2px]'
+            "
           >
             <div
               class="rounded-2xl border border-sand-200/80 bg-white p-6 shadow-xl shadow-sand-900/5 sm:p-8"
@@ -267,8 +288,10 @@ onMounted(() => {
     <!-- Feature 2: Google Maps Verified (full-bleed centered feature) -->
     <section data-section="1" class="relative overflow-hidden bg-sand-100/50 py-24 sm:py-32">
       <div
-        class="mx-auto max-w-3xl px-6 text-center transition-all duration-700"
-        :class="revealed(1) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'"
+        class="mx-auto max-w-3xl px-6 text-center transition-all duration-[800ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
+        :class="
+          revealed(1) ? 'opacity-100 translate-y-0 blur-0' : 'opacity-0 translate-y-8 blur-[2px]'
+        "
       >
         <h2 class="font-display text-3xl text-sand-900 sm:text-4xl lg:text-5xl">
           We never invent places
@@ -291,7 +314,7 @@ onMounted(() => {
               <div class="flex flex-wrap items-center gap-2">
                 <h3 class="font-semibold text-sand-900">Fushimi Inari Taisha</h3>
                 <span
-                  class="rounded-full bg-ocean-50 px-2.5 py-0.5 text-[10px] font-medium text-ocean-700"
+                  class="rounded-full bg-ocean-50 px-2.5 py-0.5 text-xs font-medium text-ocean-700"
                   >Attraction</span
                 >
               </div>
@@ -310,7 +333,7 @@ onMounted(() => {
                 <span>Free entry</span>
               </div>
               <div
-                class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-forest-50 px-3 py-1 text-[11px] font-medium text-forest-700"
+                class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-forest-50 px-3 py-1 text-xs font-medium text-forest-700"
               >
                 <Icon name="lucide:shield-check" class="h-3 w-3" />
                 Verified via Google Maps
@@ -352,8 +375,12 @@ onMounted(() => {
         <div class="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
           <!-- Briefing surface -->
           <div
-            class="order-2 lg:order-1 transition-all duration-700 delay-200"
-            :class="revealed(2) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'"
+            class="order-2 lg:order-1 transition-all duration-[800ms] ease-[cubic-bezier(0.32,0.72,0,1)] delay-200"
+            :class="
+              revealed(2)
+                ? 'opacity-100 translate-y-0 blur-0'
+                : 'opacity-0 translate-y-12 blur-[2px]'
+            "
           >
             <div
               class="rounded-[1.75rem] border border-sand-200/70 bg-sand-50/80 p-3 shadow-2xl shadow-sand-900/8 backdrop-blur sm:p-4"
@@ -368,7 +395,7 @@ onMounted(() => {
                   <div class="relative z-10 flex h-full flex-col">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p class="text-[11px] font-semibold text-terra-500">Sample briefing</p>
+                        <p class="text-xs font-semibold text-terra-500">Sample briefing</p>
                         <h3
                           class="mt-2 font-display text-3xl leading-none text-sand-900 sm:text-4xl"
                         >
@@ -387,7 +414,7 @@ onMounted(() => {
                       </div>
                     </div>
 
-                    <p class="mt-5 max-w-2xl text-sm leading-6 text-sand-700 sm:text-[15px]">
+                    <p class="mt-5 max-w-2xl text-sm leading-6 text-sand-700 sm:text-base">
                       Flight AX214 departs LHR at 8:40 PM. Departure, document, and stay details are
                       ready.
                     </p>
@@ -466,8 +493,12 @@ onMounted(() => {
 
           <!-- Text -->
           <div
-            class="order-1 lg:order-2 transition-all duration-700"
-            :class="revealed(2) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'"
+            class="order-1 lg:order-2 transition-all duration-[800ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
+            :class="
+              revealed(2)
+                ? 'opacity-100 translate-y-0 blur-0'
+                : 'opacity-0 translate-y-8 blur-[2px]'
+            "
           >
             <h2 class="font-display text-3xl text-sand-900 sm:text-4xl lg:text-5xl">
               Know what needs attention before you fly
@@ -512,8 +543,10 @@ onMounted(() => {
     <section data-section="3" class="relative overflow-hidden bg-sand-100/50 py-24 sm:py-32">
       <div class="mx-auto max-w-7xl px-6">
         <div
-          class="max-w-2xl transition-all duration-700"
-          :class="revealed(3) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'"
+          class="max-w-2xl transition-all duration-[800ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
+          :class="
+            revealed(3) ? 'opacity-100 translate-y-0 blur-0' : 'opacity-0 translate-y-8 blur-[2px]'
+          "
         >
           <h2 class="font-display text-3xl text-sand-900 sm:text-4xl lg:text-5xl">
             Everything else the trip needs
@@ -524,8 +557,10 @@ onMounted(() => {
         </div>
 
         <div
-          class="mt-12 grid gap-4 transition-all duration-700 delay-150 md:grid-cols-3"
-          :class="revealed(3) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'"
+          class="mt-12 grid gap-4 transition-all duration-[800ms] ease-[cubic-bezier(0.32,0.72,0,1)] delay-150 md:grid-cols-3"
+          :class="
+            revealed(3) ? 'opacity-100 translate-y-0 blur-0' : 'opacity-0 translate-y-12 blur-[2px]'
+          "
         >
           <!-- Budget (wide) -->
           <div
@@ -534,7 +569,7 @@ onMounted(() => {
             <div class="flex items-center justify-between">
               <h3 class="font-display text-xl text-sand-900">Stay on budget</h3>
               <span
-                class="rounded-full bg-sand-100 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sand-500"
+                class="rounded-full bg-sand-100 px-2.5 py-0.5 text-xs font-medium uppercase tracking-wide text-sand-500"
                 >Sample trip</span
               >
             </div>
@@ -582,24 +617,19 @@ onMounted(() => {
               Every country lights up as you travel. A dozen or so on this example map.
             </p>
             <div class="mt-4 flex flex-wrap gap-1.5">
-              <span
-                class="rounded-full bg-terra-100 px-2.5 py-1 text-[10px] font-medium text-terra-700"
+              <span class="rounded-full bg-terra-100 px-2.5 py-1 text-xs font-medium text-terra-700"
                 >Japan</span
               >
-              <span
-                class="rounded-full bg-terra-100 px-2.5 py-1 text-[10px] font-medium text-terra-700"
+              <span class="rounded-full bg-terra-100 px-2.5 py-1 text-xs font-medium text-terra-700"
                 >France</span
               >
-              <span
-                class="rounded-full bg-terra-100 px-2.5 py-1 text-[10px] font-medium text-terra-700"
+              <span class="rounded-full bg-terra-100 px-2.5 py-1 text-xs font-medium text-terra-700"
                 >Thailand</span
               >
-              <span
-                class="rounded-full bg-terra-100 px-2.5 py-1 text-[10px] font-medium text-terra-700"
+              <span class="rounded-full bg-terra-100 px-2.5 py-1 text-xs font-medium text-terra-700"
                 >Portugal</span
               >
-              <span
-                class="rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-medium text-sand-500"
+              <span class="rounded-full bg-white/70 px-2.5 py-1 text-xs font-medium text-sand-500"
                 >and more</span
               >
             </div>
@@ -622,15 +652,15 @@ onMounted(() => {
                 <div class="mt-4 flex items-center gap-2">
                   <div class="flex -space-x-1.5">
                     <span
-                      class="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-terra-500 text-[9px] font-bold text-white"
+                      class="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-terra-500 text-[10px] font-bold text-white"
                       >PN</span
                     >
                     <span
-                      class="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-ocean-500 text-[9px] font-bold text-white"
+                      class="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-ocean-500 text-[10px] font-bold text-white"
                       >ML</span
                     >
                     <span
-                      class="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-forest-500 text-[9px] font-bold text-white"
+                      class="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-forest-500 text-[10px] font-bold text-white"
                       >JW</span
                     >
                   </div>
@@ -642,7 +672,7 @@ onMounted(() => {
               <div class="space-y-3 rounded-xl border border-sand-200/60 bg-sand-50 p-4 sm:w-80">
                 <div class="flex items-start gap-2.5">
                   <span
-                    class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ocean-500 text-[8px] font-bold text-white"
+                    class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ocean-500 text-[10px] font-bold text-white"
                     >PN</span
                   >
                   <div>
@@ -657,7 +687,7 @@ onMounted(() => {
                 </div>
                 <div class="flex items-start gap-2.5">
                   <span
-                    class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest-500 text-[8px] font-bold text-white"
+                    class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest-500 text-[10px] font-bold text-white"
                     >ML</span
                   >
                   <div>
@@ -678,27 +708,29 @@ onMounted(() => {
     </section>
 
     <!-- Feature 5: Product truths (stat / number band) -->
-    <section data-section="4" class="relative overflow-hidden bg-sand-900 py-20 sm:py-24">
+    <section data-section="4" class="relative overflow-hidden bg-sand-100 py-20 sm:py-24">
       <div
-        class="mx-auto max-w-6xl px-6 transition-all duration-700"
-        :class="revealed(4) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'"
+        class="mx-auto max-w-6xl px-6 transition-all duration-[800ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
+        :class="
+          revealed(4) ? 'opacity-100 translate-y-0 blur-0' : 'opacity-0 translate-y-8 blur-[2px]'
+        "
       >
         <div class="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p class="font-display text-4xl text-sand-50 sm:text-5xl">Zero</p>
-            <p class="mt-2 text-sm leading-6 text-sand-300">invented places, ever</p>
+            <p class="font-display text-4xl text-sand-900 sm:text-5xl">Zero</p>
+            <p class="mt-2 text-sm leading-6 text-sand-600">invented places, ever</p>
           </div>
           <div>
-            <p class="font-display text-4xl text-sand-50 sm:text-5xl">195+</p>
-            <p class="mt-2 text-sm leading-6 text-sand-300">countries covered via Google Places</p>
+            <p class="font-display text-4xl text-sand-900 sm:text-5xl">195+</p>
+            <p class="mt-2 text-sm leading-6 text-sand-600">countries covered via Google Places</p>
           </div>
           <div>
-            <p class="font-display text-4xl text-sand-50 sm:text-5xl">One tap</p>
-            <p class="mt-2 text-sm leading-6 text-sand-300">to open any stop in Google Maps</p>
+            <p class="font-display text-4xl text-sand-900 sm:text-5xl">One tap</p>
+            <p class="mt-2 text-sm leading-6 text-sand-600">to open any stop in Google Maps</p>
           </div>
           <div>
-            <p class="font-display text-4xl text-sand-50 sm:text-5xl">7 days</p>
-            <p class="mt-2 text-sm leading-6 text-sand-300">before you fly, your briefing lands</p>
+            <p class="font-display text-4xl text-sand-900 sm:text-5xl">7 days</p>
+            <p class="mt-2 text-sm leading-6 text-sand-600">before you fly, your briefing lands</p>
           </div>
         </div>
       </div>
