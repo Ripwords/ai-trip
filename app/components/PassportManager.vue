@@ -282,7 +282,7 @@ function isExpiringSoon(date: string): boolean {
                 @click="saveEdit(passport.id)"
               >
                 <Icon v-if="savingEdit" name="lucide:loader" class="h-3 w-3 animate-spin" />
-                {{ savingEdit ? "Saving…" : "Save" }}
+                {{ savingEdit ? "Saving..." : "Save" }}
               </button>
             </div>
           </div>
@@ -342,7 +342,7 @@ function isExpiringSoon(date: string): boolean {
           @click="addPassport"
         >
           <Icon v-if="adding" name="lucide:loader" class="h-3.5 w-3.5 animate-spin" />
-          {{ adding ? "Adding…" : "Add Passport" }}
+          {{ adding ? "Adding..." : "Add Passport" }}
         </button>
       </div>
     </div>

@@ -118,7 +118,7 @@ async function refreshFromGoogle() {
 </script>
 
 <template>
-  <div class="rounded-2xl bg-sand-100 p-6">
+  <div class="rounded-2xl border border-sand-200 bg-white p-6">
     <h3 class="text-sm font-semibold text-sand-900">Trip Summary</h3>
 
     <div class="mt-4 grid grid-cols-3 gap-4">

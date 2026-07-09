@@ -50,6 +50,19 @@
   --color-forest-700: #305534;
   --color-forest-800: #29442c;
   --color-forest-900: #233825;
+
+  /* Amber: semantic warning / pending. Warm gold, distinct from terra's
+     red-orange so "needs attention" never reads as a primary action. */
+  --color-amber-50: #fdf6e9;
+  --color-amber-100: #f9e8c2;
+  --color-amber-200: #f2d089;
+  --color-amber-300: #e8b04a;
+  --color-amber-400: #d9901a;
+  --color-amber-500: #c07610;
+  --color-amber-600: #a25e0f;
+  --color-amber-700: #814913;
+  --color-amber-800: #653a14;
+  --color-amber-900: #472a10;
 }
 
 * {
@@ -133,6 +146,18 @@
   --color-forest-700: #c2dbc3;
   --color-forest-800: #e0ede0;
   --color-forest-900: #f2f7f2;
+
+  /* Amber */
+  --color-amber-50: #2a1e0a;
+  --color-amber-100: #3d2c0e;
+  --color-amber-200: #653a14;
+  --color-amber-300: #814913;
+  --color-amber-400: #a25e0f;
+  --color-amber-500: #c07610;
+  --color-amber-600: #d9901a;
+  --color-amber-700: #e8b04a;
+  --color-amber-800: #f2d089;
+  --color-amber-900: #f9e8c2;
 
   /* Override white backgrounds used in cards/modals */
   color-scheme: dark;

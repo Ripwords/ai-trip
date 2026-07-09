@@ -80,7 +80,7 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside))
       aria-haspopup="listbox"
       :aria-expanded="isOpen"
       :aria-controls="listboxId"
-      class="flex w-full items-center justify-between rounded-xl border border-sand-300 bg-sand-50 px-3.5 py-2.5 text-left text-sm transition hover:border-sand-400 focus:border-terra-400 focus:outline-none focus:ring-2 focus:ring-terra-400/10"
+      class="focus-ring flex w-full items-center justify-between rounded-xl border border-sand-200 bg-white px-4 py-2.5 text-left text-sm transition hover:border-sand-300"
       @click.stop="isOpen ? (isOpen = false) : open()"
     >
       <span :class="selected ? 'text-sand-900' : 'text-sand-400'">

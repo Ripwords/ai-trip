@@ -106,8 +106,8 @@ const limitReached = computed(() => (props.usageRemaining ?? 1) <= 0)
 
 const placeholder = computed(() => {
   if (limitReached.value) return "Limit reached. Resets next month."
-  if (props.loading) return "Thinking…"
-  return "Ask, discuss, or push back…"
+  if (props.loading) return "Thinking..."
+  return "Ask, discuss, or push back..."
 })
 
 function handleSubmit() {
@@ -207,14 +207,14 @@ function onDismiss(message: ChatMessage, proposal: Proposal) {
 
 const proposalKindMeta: Record<
   Proposal["kind"],
-  { label: string; symbol: string; tone: "terra" | "ocean" | "forest" | "sand" }
+  { label: string; icon: string; tone: "terra" | "ocean" | "forest" | "sand" }
 > = {
-  "add-activities": { label: "Addition", symbol: "+", tone: "terra" },
-  "remove-activities": { label: "Removal", symbol: "−", tone: "sand" },
-  reschedule: { label: "Reschedule", symbol: "↻", tone: "ocean" },
-  "optimize-route": { label: "Route", symbol: "↗", tone: "ocean" },
-  "reorder-activities": { label: "Reorder", symbol: "⇅", tone: "ocean" },
-  "set-accommodation": { label: "Accommodation", symbol: "✦", tone: "forest" },
+  "add-activities": { label: "Addition", icon: "lucide:plus", tone: "terra" },
+  "remove-activities": { label: "Removal", icon: "lucide:minus", tone: "sand" },
+  reschedule: { label: "Reschedule", icon: "lucide:rotate-cw", tone: "ocean" },
+  "optimize-route": { label: "Route", icon: "lucide:arrow-up-right", tone: "ocean" },
+  "reorder-activities": { label: "Reorder", icon: "lucide:arrow-down-up", tone: "ocean" },
+  "set-accommodation": { label: "Accommodation", icon: "lucide:sparkles", tone: "forest" },
 }
 </script>
 
@@ -259,8 +259,8 @@ const proposalKindMeta: Record<
       <div class="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-sand-400/40 md:hidden" />
 
       <header class="mx-auto mt-3 flex w-full max-w-[28rem] items-baseline justify-between px-4">
-        <div class="flex items-baseline gap-2">
-          <span class="font-display text-base italic text-terra-500">✦</span>
+        <div class="flex items-center gap-2">
+          <Icon name="lucide:sparkles" class="h-4 w-4 text-terra-500" />
           <span class="text-[10px] uppercase tracking-[0.22em] text-sand-600">
             From your planner
           </span>
@@ -308,7 +308,7 @@ const proposalKindMeta: Record<
         <!-- Empty state -->
         <div v-if="messages.length === 0" class="flex flex-col gap-3">
           <p class="font-display text-[18px] italic leading-snug text-sand-900">
-            Hi, what's on your mind about this trip?
+            Tell me what to change, or pick a suggestion below.
           </p>
           <p class="text-[11px] text-sand-600">
             Each reply uses 1 of your {{ usageLimit ?? 100 }} monthly credits.
@@ -366,9 +366,9 @@ const proposalKindMeta: Record<
                       class="flex items-center justify-between gap-2 border-b border-dashed border-sand-300/60 px-3 py-1.5"
                     >
                       <div class="flex items-center gap-2">
-                        <span class="dock-stamp" :data-tone="proposalKindMeta[p.kind].tone">{{
-                          proposalKindMeta[p.kind].symbol
-                        }}</span>
+                        <span class="dock-stamp" :data-tone="proposalKindMeta[p.kind].tone">
+                          <Icon :name="proposalKindMeta[p.kind].icon" class="h-3 w-3" />
+                        </span>
                         <span class="text-[10px] uppercase tracking-[0.22em] text-sand-700">
                           {{ proposalKindMeta[p.kind].label }}
                         </span>
@@ -393,7 +393,7 @@ const proposalKindMeta: Record<
                           class="dock-apply"
                           @click="onApply(msg, p)"
                         >
-                          <span class="dock-apply-symbol">✦</span>
+                          <Icon name="lucide:sparkles" class="h-3.5 w-3.5" />
                           <span>{{
                             proposalState(msg, p.id) === "applying" ? "Applying" : "Apply"
                           }}</span>
@@ -421,7 +421,8 @@ const proposalKindMeta: Record<
             class="dock-new-reply"
             @click="scrollToBottom()"
           >
-            ↓ new reply
+            <Icon name="lucide:arrow-down" class="h-3.5 w-3.5" />
+            new reply
           </button>
         </Transition>
       </div>
@@ -461,12 +462,12 @@ const proposalKindMeta: Record<
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
             </span>
-            <span
+            <Icon
               v-else
-              class="font-display text-base italic leading-none text-terra-400"
+              name="lucide:sparkles"
+              class="h-4 w-4 shrink-0 text-terra-400"
               aria-hidden="true"
-              >✦</span
-            >
+            />
             <input
               ref="inputEl"
               :value="input"
@@ -717,13 +718,6 @@ const proposalKindMeta: Record<
   opacity: 0.6;
   cursor: progress;
 }
-.dock-apply-symbol {
-  font-family: var(--font-display);
-  font-style: italic;
-  font-size: 13px;
-  transform: translateY(-1px);
-}
-
 .dock-dismiss {
   font-size: 13px;
   color: var(--color-sand-600);
@@ -786,7 +780,10 @@ const proposalKindMeta: Record<
   position: sticky;
   bottom: 8px;
   margin: 0 auto;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
   padding: 6px 14px;
   border-radius: 9999px;
   background: var(--color-sand-900);

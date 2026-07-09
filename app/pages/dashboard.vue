@@ -121,9 +121,11 @@ const now = ref(new Date())
 let countdownTimer: ReturnType<typeof setInterval> | undefined
 
 onMounted(() => {
+  // Trips are days out and the seconds unit isn't shown, so a 60s tick is
+  // plenty — avoids a needless re-render every second.
   countdownTimer = setInterval(() => {
     now.value = new Date()
-  }, 1000)
+  }, 60_000)
 })
 
 onUnmounted(() => {
@@ -139,8 +141,7 @@ const countdown = computed(() => {
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
   const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-  const seconds = Math.floor((diff % (1000 * 60)) / 1000)
-  return { days, hours, minutes, seconds }
+  return { days, hours, minutes }
 })
 
 const defaultPassport = computed(
@@ -312,13 +313,6 @@ const dashboardBriefing = computed(() =>
             </p>
             <p class="text-[9px] uppercase tracking-wider text-sand-500">m</p>
           </div>
-          <span class="hidden text-sand-300 sm:inline">:</span>
-          <div class="hidden text-center sm:block">
-            <p class="font-display text-sm text-sand-900 sm:text-base">
-              {{ String(countdown.seconds).padStart(2, "0") }}
-            </p>
-            <p class="text-[9px] uppercase tracking-wider text-sand-500">s</p>
-          </div>
         </div>
       </NuxtLink>
     </div>
@@ -326,7 +320,7 @@ const dashboardBriefing = computed(() =>
     <!-- Trips section -->
     <div class="order-5">
       <div class="flex items-center justify-between">
-        <h1 class="font-display text-xl text-sand-900 sm:text-2xl">My Trips</h1>
+        <h1 class="font-display text-2xl text-sand-900 sm:text-3xl">My Trips</h1>
         <NuxtLink
           to="/trips/new"
           class="inline-flex items-center gap-1.5 rounded-xl bg-terra-500 px-3.5 py-2 text-sm font-medium text-white shadow-md shadow-terra-500/15 transition hover:bg-terra-600 hover:shadow-lg hover:shadow-terra-500/20 sm:gap-2 sm:px-5 sm:py-2.5"

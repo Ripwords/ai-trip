@@ -48,8 +48,7 @@ const periodLabel = computed(() =>
   <div class="space-y-6">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-terra-500">Passport</p>
-        <h1 class="mt-1 font-display text-3xl text-sand-900 sm:text-4xl">Travel Passport</h1>
+        <h1 class="font-display text-3xl text-sand-900 sm:text-4xl">Travel Passport</h1>
         <p class="mt-1 text-sm text-sand-600">{{ periodLabel }}</p>
       </div>
 
@@ -98,7 +97,7 @@ const periodLabel = computed(() =>
       <Icon name="lucide:stamp" class="passport-empty-icon h-8 w-8" />
       <h2 class="font-display text-2xl text-sand-900">Your passport is empty</h2>
       <p class="max-w-md text-sm text-sand-600">
-        Add flights or mark countries to start building your travel ledger.
+        Add flights or mark countries to start building your passport.
       </p>
       <div class="mt-2 flex flex-wrap justify-center gap-2">
         <NuxtLink

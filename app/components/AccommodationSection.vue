@@ -192,7 +192,7 @@ defineExpose({
     <!-- No accommodation set -->
     <div
       v-if="!hasAccommodation && !isEditing"
-      class="rounded-2xl border-2 border-dashed border-terra-300 bg-sand-100 p-4"
+      class="rounded-2xl border-2 border-dashed border-ocean-300 bg-sand-100 p-4"
     >
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2 text-sm text-sand-500">

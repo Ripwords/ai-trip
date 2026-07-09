@@ -113,7 +113,7 @@ function handleCheckVisa(country: CountryInfo) {
   <div>
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h1 class="font-display text-3xl text-sand-900">Explore</h1>
+        <h1 class="font-display text-2xl text-sand-900 sm:text-3xl">Explore</h1>
         <p class="mt-1 text-sm text-sand-500">
           Click on a country to mark it as visited or check visa requirements.
         </p>

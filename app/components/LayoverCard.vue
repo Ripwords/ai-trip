@@ -38,11 +38,11 @@ function formatDuration(minutes: number): string {
 const recommendationStyle = computed(() => {
   switch (props.layover.recommendation) {
     case "stay":
-      return "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-400"
+      return "bg-ocean-50 text-ocean-700"
     case "tight":
-      return "bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400"
+      return "bg-amber-50 text-amber-700"
     case "explore":
-      return "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400"
+      return "bg-forest-50 text-forest-700"
   }
 })
 

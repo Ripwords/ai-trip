@@ -144,7 +144,7 @@ function handleSetType(type: VisitType) {
           class="flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition"
           :class="
             visitType === 'want_to_visit'
-              ? 'border-purple-300 bg-purple-50 text-purple-700'
+              ? 'border-forest-300 bg-forest-50 text-forest-700'
               : 'border-sand-200 text-sand-700 hover:border-sand-300 hover:bg-sand-50'
           "
           :disabled="loading"
@@ -265,7 +265,7 @@ function handleSetType(type: VisitType) {
             class="flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center transition"
             :class="
               visitType === 'want_to_visit'
-                ? 'border-purple-300 bg-purple-50 text-purple-700'
+                ? 'border-forest-300 bg-forest-50 text-forest-700'
                 : 'border-sand-200 text-sand-600 hover:bg-sand-50'
             "
             :disabled="loading"
@@ -275,7 +275,7 @@ function handleSetType(type: VisitType) {
               :name="visitType === 'want_to_visit' ? 'lucide:check-circle-2' : 'lucide:circle'"
               class="h-5 w-5"
             />
-            <span class="text-xs font-medium">Wishlist</span>
+            <span class="text-xs font-medium">Want to visit</span>
           </button>
         </div>
 

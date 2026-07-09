@@ -107,10 +107,10 @@ function getBadgeClass(type: string): string {
 }
 
 function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes}min`
+  if (minutes < 60) return `${minutes} min`
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
-  return m ? `${h}h ${m}min` : `${h}h`
+  return m ? `${h}h ${m} min` : `${h}h`
 }
 </script>
 
@@ -154,7 +154,8 @@ function formatDuration(minutes: number): string {
           </button>
         </div>
         <span
-          class="inline-flex items-center rounded-full bg-stone-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-stone-900 ring-1 ring-black/10"
+          class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider"
+          :class="getBadgeClass(activity.type)"
         >
           {{ formatType(activity.type) }}
         </span>

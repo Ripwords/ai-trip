@@ -135,12 +135,12 @@ const destinationCountryName = computed(
 const statusConfig: Record<string, { label: string; color: string; icon: string }> = {
   "visa-free": {
     label: "Visa Free",
-    color: "text-green-600 bg-green-50 border-green-200",
+    color: "text-forest-600 bg-forest-50 border-forest-200",
     icon: "lucide:check-circle",
   },
   "visa-on-arrival": {
     label: "Visa on Arrival",
-    color: "text-blue-600 bg-blue-50 border-blue-200",
+    color: "text-ocean-600 bg-ocean-50 border-ocean-200",
     icon: "lucide:clock",
   },
   evisa: {

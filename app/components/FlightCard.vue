@@ -39,7 +39,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   },
   landed: {
     label: "Landed",
-    color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+    color: "bg-forest-100 text-forest-700",
   },
   cancelled: {
     label: "Cancelled",
@@ -150,7 +150,7 @@ function unlinkTrip() {
     <div class="mt-4 flex items-center gap-3">
       <div class="text-center">
         <p class="font-display text-xl text-sand-900">
-          {{ flight.departureAirport ?? "???" }}
+          {{ flight.departureAirport ?? "-" }}
         </p>
         <p class="text-xs text-sand-600">
           <NuxtTime
@@ -169,7 +169,7 @@ function unlinkTrip() {
       </div>
       <div class="text-center">
         <p class="font-display text-xl text-sand-900">
-          {{ flight.arrivalAirport ?? "???" }}
+          {{ flight.arrivalAirport ?? "-" }}
         </p>
         <p class="text-xs text-sand-600">
           <NuxtTime

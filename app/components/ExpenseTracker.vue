@@ -75,8 +75,8 @@ const budgetPercent = computed(() => {
 })
 
 const progressBarColor = computed(() => {
-  if (budgetPercent.value >= 100) return "bg-terra-600"
-  if (budgetPercent.value >= 80) return "bg-terra-400"
+  if (budgetPercent.value >= 100) return "bg-red-600"
+  if (budgetPercent.value >= 80) return "bg-amber-500"
   return "bg-forest-500"
 })
 
@@ -262,7 +262,7 @@ function getMemberName(userId: string | null): string {
           class="min-h-11 rounded-lg bg-terra-500 px-3 py-2 text-sm font-medium text-white hover:bg-terra-600 disabled:opacity-50"
           @click="saveBudget"
         >
-          {{ savingBudget ? "Saving…" : "Save" }}
+          {{ savingBudget ? "Saving..." : "Save" }}
         </button>
       </div>
 
@@ -270,9 +270,11 @@ function getMemberName(userId: string | null): string {
         <div class="flex items-baseline justify-between">
           <p class="text-sm text-sand-600">
             Total:
-            <span class="font-semibold text-sand-900">{{ formatCurrency(totalExpenses) }}</span>
+            <span class="font-semibold text-sand-900 tabular-nums">
+              {{ formatCurrency(totalExpenses) }}
+            </span>
           </p>
-          <p v-if="budgetNum" class="text-sm text-sand-500">
+          <p v-if="budgetNum" class="text-sm text-sand-500 tabular-nums">
             Budget: {{ formatCurrency(budgetNum) }}
           </p>
         </div>
@@ -285,7 +287,9 @@ function getMemberName(userId: string | null): string {
               :style="{ width: `${Math.min(budgetPercent, 100)}%` }"
             />
           </div>
-          <p class="mt-1 text-xs text-sand-500">{{ budgetPercent.toFixed(0) }}% used</p>
+          <p class="mt-1 text-xs text-sand-500 tabular-nums">
+            {{ budgetPercent.toFixed(0) }}% used
+          </p>
         </div>
       </div>
     </div>
@@ -301,7 +305,7 @@ function getMemberName(userId: string | null): string {
         >
           <span class="text-sand-700">{{ person.name }}</span>
           <span
-            class="font-medium"
+            class="font-medium tabular-nums"
             :class="person.balance > 0 ? 'text-forest-600' : 'text-terra-600'"
           >
             {{ person.balance > 0 ? "is owed" : "owes" }}
@@ -433,7 +437,7 @@ function getMemberName(userId: string | null): string {
             :disabled="submittingExpense"
             class="min-h-11 rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600 disabled:opacity-50"
           >
-            {{ submittingExpense ? "Saving…" : editingExpenseId ? "Update" : "Add" }}
+            {{ submittingExpense ? "Saving..." : editingExpenseId ? "Update" : "Add" }}
           </button>
         </div>
       </form>
@@ -468,7 +472,7 @@ function getMemberName(userId: string | null): string {
             </div>
           </div>
           <div class="flex items-center gap-1.5">
-            <span class="text-sm font-semibold text-sand-900">
+            <span class="text-sm font-semibold text-sand-900 tabular-nums">
               {{ formatCurrency(parseFloat(expense.amount)) }}
             </span>
             <button

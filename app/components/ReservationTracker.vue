@@ -354,7 +354,7 @@ const showEndDate = computed(
               </div>
             </div>
             <div class="flex shrink-0 items-center gap-1.5">
-              <span v-if="r.amount" class="text-sm font-semibold text-sand-900">
+              <span v-if="r.amount" class="text-sm font-semibold text-sand-900 tabular-nums">
                 {{ formatCurrency(r.amount) }}
               </span>
               <button

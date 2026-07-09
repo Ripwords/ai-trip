@@ -78,10 +78,10 @@ function groupByCategory(items: ChecklistItem[]): { category: string; items: Che
 const categoryColors: Record<string, string> = {
   Clothes: "bg-ocean-50 text-ocean-700",
   Toiletries: "bg-terra-50 text-terra-600",
-  Electronics: "bg-yellow-50 text-yellow-700",
+  Electronics: "bg-ocean-50 text-ocean-700",
   Documents: "bg-sand-200 text-sand-700",
   Gear: "bg-forest-50 text-forest-700",
-  Accessories: "bg-purple-50 text-purple-700",
+  Accessories: "bg-terra-50 text-terra-700",
 }
 
 function getCategoryClass(category: string): string {
@@ -367,7 +367,7 @@ function checkedCount(checklist: Checklist): number {
             />
             <button
               type="submit"
-              class="rounded-lg bg-forest-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-forest-600"
+              class="rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600"
             >
               Save
             </button>
@@ -553,7 +553,7 @@ function checkedCount(checklist: Checklist): number {
           <div class="fixed inset-0 bg-black/40" @click="showTemplateModal = false" />
           <div class="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl mx-4">
             <div class="flex items-center justify-between">
-              <h3 class="text-base font-semibold text-sand-900">Load Template</h3>
+              <h3 class="font-display text-lg text-sand-900">Load Template</h3>
               <button
                 class="rounded p-1 text-sand-400 hover:text-sand-600"
                 @click="showTemplateModal = false"
