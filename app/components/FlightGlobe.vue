@@ -11,9 +11,13 @@ import {
   Mesh,
   QuadraticBezierCurve3,
   Color,
+  MeshStandardMaterial,
+  TextureLoader,
+  SRGBColorSpace,
+  RepeatWrapping,
+  ClampToEdgeWrapping,
 } from "three"
 import type { Mesh as ThreeMesh } from "three"
-import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js"
 import { getAirportCoordinates } from "../utils/airport-coordinates"
 import { iataToCountry } from "../utils/iata-to-country"
 
@@ -27,9 +31,12 @@ const props = defineProps<{
   flights: Flight[]
 }>()
 
-// FBX globe: radius=6.414, centered at (4.903, 24.344, 1.078)
-const FBX_CENTER = { x: 4.903, y: 24.344, z: 1.078 }
-const FBX_RADIUS = 6.414
+// Globe radius (kept at the previous FBX globe's scale so flight-arc math is unchanged)
+const GLOBE_RADIUS = 6.414
+// Relief displacement (scaled to this globe's radius) and the radius at which
+// arcs/dots ride so they sit above the tallest displaced terrain.
+const DISP_SCALE = 0.34
+const SURFACE_RADIUS = GLOBE_RADIUS + DISP_SCALE + 0.02
 
 const { isDark } = useDarkMode()
 
@@ -37,17 +44,21 @@ const theme = computed(() =>
   isDark.value
     ? {
         clearColor: "#1a1714",
-        arcColor: "#f07b5a",
-        dotColor: "#f7a48a",
+        // Gentle cool tint — keeps the globe clearly visible while the bright
+        // arcs still stand out (a heavy tint made it read as near-black).
+        globeTint: "#c6ccd4",
+        arcColor: "#ff8a5c",
+        dotColor: "#ffa683",
       }
     : {
         clearColor: "#faf8f5",
-        arcColor: "#d44425",
-        dotColor: "#e85d3a",
+        globeTint: "#dde1e6",
+        arcColor: "#ff6a3c",
+        dotColor: "#ff8a5f",
       },
 )
 
-// --- Convert lat/lng to 3D position on the FBX globe ---
+// --- Convert lat/lng to 3D position on the globe ---
 function latLngToVector3(lat: number, lng: number, radius: number): Vector3 {
   const phi = (90 - lat) * (Math.PI / 180)
   const theta = (lng + 180) * (Math.PI / 180)
@@ -83,13 +94,13 @@ function buildFlightOverlays(): Group {
     const arrCoords = getAirportCoordinates(flight.arrivalAirport)
     if (!depCoords || !arrCoords) continue
 
-    const start = latLngToVector3(depCoords.lat, depCoords.lng, FBX_RADIUS * 1.002)
-    const end = latLngToVector3(arrCoords.lat, arrCoords.lng, FBX_RADIUS * 1.002)
+    const start = latLngToVector3(depCoords.lat, depCoords.lng, SURFACE_RADIUS)
+    const end = latLngToVector3(arrCoords.lat, arrCoords.lng, SURFACE_RADIUS)
 
     // Arc: quadratic bezier elevated above the globe
     const mid = new Vector3().addVectors(start, end).multiplyScalar(0.5)
     const distance = start.distanceTo(end)
-    const arcHeight = FBX_RADIUS + 0.5 + distance * 0.15
+    const arcHeight = GLOBE_RADIUS + 0.5 + distance * 0.15
     const midElevated = mid.normalize().multiplyScalar(arcHeight)
 
     const curve = new QuadraticBezierCurve3(start, midElevated, end)
@@ -103,7 +114,7 @@ function buildFlightOverlays(): Group {
       seen.add(code)
       const coords = getAirportCoordinates(code)
       if (!coords) continue
-      const pos = latLngToVector3(coords.lat, coords.lng, FBX_RADIUS * 1.003)
+      const pos = latLngToVector3(coords.lat, coords.lng, SURFACE_RADIUS)
       const dot = new Mesh(dotGeo, dotMaterial)
       dot.position.set(pos.x, pos.y, pos.z)
       group.add(dot)
@@ -113,28 +124,42 @@ function buildFlightOverlays(): Group {
   return group
 }
 
-// --- Scene group (FBX model + flight overlays) ---
+// --- Scene group (globe + flight overlays) ---
 const sceneGroup = shallowRef<Group | null>(null)
 let flightOverlays: Group | null = null
+let globeMaterial: MeshStandardMaterial | null = null
 
-onMounted(async () => {
-  const loader = new FBXLoader()
-  const fbx = await loader.loadAsync("/models/earth.fbx")
-  fbx.position.set(-FBX_CENTER.x, -FBX_CENTER.y, -FBX_CENTER.z)
-
-  // Convert to unlit material so the globe is fully visible from all angles
-  fbx.traverse((child) => {
-    const mesh = child as ThreeMesh
-    if (mesh.isMesh && mesh.material) {
-      const oldMat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material
-      mesh.material = new MeshBasicMaterial({
-        map: (oldMat as { map?: unknown }).map ?? null,
-      })
-    }
+onMounted(() => {
+  // Realistic Natural Earth globe with 3D relief displacement. A darkening tint
+  // (globeTint) keeps the bright flight arcs legible over land and ocean.
+  const globeGeo = new SphereGeometry(GLOBE_RADIUS, 256, 256)
+  const globeMat = new MeshStandardMaterial({
+    color: new Color(theme.value.globeTint),
+    metalness: 0,
+    roughness: 1,
   })
+  globeMaterial = globeMat
+  const loader = new TextureLoader()
+  loader.load("/textures/earth-natural.jpg", (tex) => {
+    tex.colorSpace = SRGBColorSpace
+    tex.wrapS = RepeatWrapping
+    tex.wrapT = ClampToEdgeWrapping
+    globeMat.map = tex
+    globeMat.needsUpdate = true
+  })
+  loader.load("/textures/earth-topology.png", (tex) => {
+    tex.wrapS = RepeatWrapping
+    tex.wrapT = ClampToEdgeWrapping
+    globeMat.displacementMap = tex
+    globeMat.displacementScale = DISP_SCALE
+    globeMat.bumpMap = tex
+    globeMat.bumpScale = 0.05
+    globeMat.needsUpdate = true
+  })
+  const globe = new Mesh(globeGeo, globeMat)
 
   const group = new Group()
-  group.add(fbx)
+  group.add(globe)
 
   // Add flight arcs/dots
   flightOverlays = buildFlightOverlays()
@@ -154,8 +179,9 @@ watch(
   },
 )
 
-// Update arc/dot colors on theme change
+// Update globe tint + arc/dot colors on theme change
 watch(theme, (t) => {
+  if (globeMaterial) globeMaterial.color.set(t.globeTint)
   if (!flightOverlays) return
   flightOverlays.traverse((child) => {
     if ((child as Line).isLine) {
@@ -176,7 +202,7 @@ const cameraPosition = computed<[number, number, number]>(() => {
       if (!code) continue
       const coords = getAirportCoordinates(code)
       if (!coords) continue
-      positions.push(latLngToVector3(coords.lat, coords.lng, FBX_RADIUS))
+      positions.push(latLngToVector3(coords.lat, coords.lng, GLOBE_RADIUS))
     }
   }
 
@@ -214,7 +240,11 @@ const summaryText = computed(() => {
   >
     <ClientOnly>
       <TresCanvas :alpha="true" :clear-color="theme.clearColor" :antialias="true">
-        <TresPerspectiveCamera :position="cameraPosition" :fov="45" />
+        <TresPerspectiveCamera :position="cameraPosition" :fov="45">
+          <!-- Light parented to the camera so the visible side is always lit
+               (no permanent night side); offset keeps a grazing relief angle. -->
+          <TresDirectionalLight :intensity="0.8" :position="[-6, 5, 4]" />
+        </TresPerspectiveCamera>
 
         <OrbitControls
           :enable-zoom="true"
@@ -227,6 +257,9 @@ const summaryText = computed(() => {
           :max-polar-angle="2.6"
           :enable-damping="true"
         />
+
+        <!-- Ambient fill; the camera-parented directional light does the relief. -->
+        <TresAmbientLight :intensity="0.85" />
 
         <primitive v-if="sceneGroup" :object="sceneGroup" />
       </TresCanvas>

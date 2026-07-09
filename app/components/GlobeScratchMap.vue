@@ -1,30 +1,25 @@
 <script setup lang="ts">
 import { OrbitControls } from "@tresjs/cientos"
 import {
-  BufferGeometry,
-  Float32BufferAttribute,
-  LineBasicMaterial,
-  LineSegments,
   MeshBasicMaterial,
+  MeshStandardMaterial,
   SphereGeometry,
   Mesh,
+  Group,
   Raycaster,
   Vector2,
+  TextureLoader,
   CanvasTexture,
   SRGBColorSpace,
-  Color,
+  AdditiveBlending,
+  RepeatWrapping,
+  ClampToEdgeWrapping,
 } from "three"
 import { feature } from "topojson-client"
 import type { Topology, GeometryCollection } from "topojson-specification"
 import worldTopoJson from "../data/countries-50m.json"
-import { countryByNumeric, type CountryInfo } from "../data/countries"
-import {
-  getCountryFeatures,
-  getCountryCentroid,
-  latLngToVector3,
-  GLOBE_RADIUS,
-  type VisitType,
-} from "../utils/globe-countries"
+import { countryByNumeric, countryByAlpha2, type CountryInfo } from "../data/countries"
+import { latLngToVector3, GLOBE_RADIUS, type VisitType } from "../utils/globe-countries"
 import { geoEquirectangular, geoPath } from "d3-geo"
 
 const props = defineProps<{
@@ -96,44 +91,6 @@ const theme = computed(() =>
 const worldData = worldTopoJson as unknown as Topology
 const countriesGeo = feature(worldData, worldData.objects.countries as GeometryCollection)
 
-// --- Build country border lines as 3D geometry ---
-function buildBorderLines(): LineSegments {
-  const vertices: number[] = []
-
-  for (const feat of countriesGeo.features) {
-    const coords =
-      feat.geometry.type === "Polygon"
-        ? [feat.geometry.coordinates]
-        : feat.geometry.type === "MultiPolygon"
-          ? feat.geometry.coordinates
-          : []
-
-    for (const polygon of coords) {
-      for (const ring of polygon) {
-        for (let i = 0; i < ring.length - 1; i++) {
-          const [lng1, lat1] = ring[i]!
-          const [lng2, lat2] = ring[i + 1]!
-          if (Math.abs(lat1!) > 85 && Math.abs(lat2!) > 85) continue
-          const v1 = latLngToVector3(lat1!, lng1!, GLOBE_RADIUS * 1.001)
-          const v2 = latLngToVector3(lat2!, lng2!, GLOBE_RADIUS * 1.001)
-          vertices.push(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z)
-        }
-      }
-    }
-  }
-
-  const geo = new BufferGeometry()
-  geo.setAttribute("position", new Float32BufferAttribute(vertices, 3))
-
-  const mat = new LineBasicMaterial({
-    color: new Color(theme.value.borderColor),
-    transparent: true,
-    opacity: theme.value.borderOpacity,
-  })
-
-  return new LineSegments(geo, mat)
-}
-
 // --- Equirectangular projection for textures ---
 const TEX_WIDTH = 4096
 const TEX_HEIGHT = 2048
@@ -169,6 +126,33 @@ function renderIdTexture(): HTMLCanvasElement {
     ctx.fillStyle = `rgb(${r},${g},0)`
     ctx.beginPath()
     pathGenerator.context(ctx)(feat.geoFeature)
+    ctx.fill()
+  }
+
+  // Boost clickability of tiny countries (Singapore, Brunei, Hong Kong,
+  // Macao, ...): their fills span only ~1px and the anti-alias guard rejects
+  // them, so give each small country a minimum-radius clickable disc at its
+  // curated centre. Drawn smallest-last so a tiny country wins over a larger
+  // neighbour it sits next to.
+  const MIN_CLICK_RADIUS = 5 // px in the 4096-wide ID texture (~50 km)
+  const smallCountries = allFeatures
+    .map((feat) => {
+      const [[x0, y0], [x1, y1]] = pathGenerator.bounds(feat.geoFeature)
+      return { feat, area: (x1 - x0) * (y1 - y0) }
+    })
+    .filter((c) => Number.isFinite(c.area) && c.area < 400) // < ~20×20 px
+    .toSorted((a, b) => b.area - a.area)
+
+  for (const { feat } of smallCountries) {
+    if (!feat.info) continue
+    const p = projection([feat.info.lng, feat.info.lat])
+    if (!p) continue
+    const id = parseInt(feat.id, 10)
+    const r = ((id + 1) >> 8) & 0xff
+    const g = (id + 1) & 0xff
+    ctx.fillStyle = `rgb(${r},${g},0)`
+    ctx.beginPath()
+    ctx.arc(p[0], p[1], MIN_CLICK_RADIUS, 0, Math.PI * 2)
     ctx.fill()
   }
 
@@ -241,67 +225,154 @@ function resolveCountryFromPoint(
   return countryByNumeric.get(numericId)
 }
 
-// --- Globe color texture (ocean + land + visited status) ---
-function renderGlobeTexture(): CanvasTexture {
+// Relief displacement height (world units added along the surface normal at the
+// tallest peaks). Markers sit just above this so they never sink into mountains.
+const DISP_SCALE = 0.12
+
+// Sample the displacement heightmap so each marker sits just above the ACTUAL
+// local terrain (not floating at the global max-elevation / atmosphere level).
+const HEIGHT_W = 2048
+const HEIGHT_H = 1024
+let heightData: ImageData | null = null
+
+function sampleHeight(lat: number, lng: number): number {
+  if (!heightData) return 0
+  const x = ((Math.floor(((lng + 180) / 360) * HEIGHT_W) % HEIGHT_W) + HEIGHT_W) % HEIGHT_W
+  const y = Math.max(0, Math.min(HEIGHT_H - 1, Math.floor(((90 - lat) / 180) * HEIGHT_H)))
+  return heightData.data[(y * HEIGHT_W + x) * 4]! / 255
+}
+
+// --- Visit markers (glowing dots at each visited country's center) ---
+const markerCoreGeo = new SphereGeometry(0.024, 12, 12)
+const markerGlowGeo = new SphereGeometry(0.055, 16, 16)
+const markersGroup = new Group()
+
+function clearMarkers() {
+  for (const child of markersGroup.children) {
+    const mat = (child as Mesh).material
+    if (mat && !Array.isArray(mat)) (mat as MeshBasicMaterial).dispose()
+  }
+  markersGroup.clear()
+}
+
+function buildMarkers() {
+  clearMarkers()
+  const t = theme.value
+  for (const [alpha2, visitType] of props.visitMap) {
+    const info = countryByAlpha2.get(alpha2)
+    if (!info) continue
+    const { lat, lng } = info
+    const color =
+      visitType === "visited"
+        ? t.visitedColor
+        : visitType === "layover"
+          ? t.layoverColor
+          : t.wantColor
+    const radius = GLOBE_RADIUS + sampleHeight(lat, lng) * DISP_SCALE + 0.012
+    const pos = latLngToVector3(lat, lng, radius)
+
+    const core = new Mesh(markerCoreGeo, new MeshBasicMaterial({ color }))
+    core.position.copy(pos)
+    core.userData.country = info
+    markersGroup.add(core)
+
+    const glow = new Mesh(
+      markerGlowGeo,
+      new MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.35,
+        blending: AdditiveBlending,
+        depthWrite: false,
+      }),
+    )
+    glow.position.copy(pos)
+    glow.userData.country = info
+    markersGroup.add(glow)
+  }
+}
+
+// --- Globe mesh (realistic Natural Earth texture + 3D relief displacement) ---
+const globeGeo = new SphereGeometry(GLOBE_RADIUS, 256, 256)
+const globeMat = new MeshStandardMaterial({ metalness: 0, roughness: 1 })
+const globeMesh = new Mesh(globeGeo, globeMat)
+
+// Invisible smooth sphere used only for raycasting — keeps hover/click fast and
+// independent of the displaced high-poly render geometry (direction, not radius,
+// determines the country, so a smooth sphere resolves clicks correctly).
+const raycastMesh = new Mesh(
+  new SphereGeometry(GLOBE_RADIUS, 48, 48),
+  new MeshBasicMaterial({ visible: false }),
+)
+
+let idCanvas: HTMLCanvasElement | null = null
+
+// Composite subtle country borders onto the Natural Earth colour texture so the
+// lines hug (and displace with) the terrain instead of floating as 3D segments.
+function buildColorTextureWithBorders(img: HTMLImageElement): CanvasTexture {
   const canvas = document.createElement("canvas")
   canvas.width = TEX_WIDTH
   canvas.height = TEX_HEIGHT
   const ctx = canvas.getContext("2d")!
-  const t = theme.value
+  ctx.drawImage(img, 0, 0, TEX_WIDTH, TEX_HEIGHT)
 
-  ctx.fillStyle = t.oceanColor
-  ctx.fillRect(0, 0, TEX_WIDTH, TEX_HEIGHT)
-
-  // Draw each country with visit-status coloring
-  for (const feat of allFeatures) {
-    const alpha2 = feat.info?.alpha2
-    const visitType = alpha2 ? props.visitMap.get(alpha2) : undefined
-
-    if (visitType === "visited") ctx.fillStyle = t.visitedColor
-    else if (visitType === "layover") ctx.fillStyle = t.layoverColor
-    else if (visitType === "want_to_visit") ctx.fillStyle = t.wantColor
-    else ctx.fillStyle = t.landColor
-
-    ctx.beginPath()
-    pathGenerator.context(ctx)(feat.geoFeature)
-    ctx.fill()
-  }
-
-  // Borders on top
-  ctx.strokeStyle = t.borderColor
-  ctx.lineWidth = 1.2
+  // Thin near-black outline at low opacity — reads as a crisp, quiet border.
+  ctx.strokeStyle = "rgba(20, 15, 10, 0.2)"
+  ctx.lineWidth = 1.4
+  ctx.lineJoin = "round"
   for (const feat of allFeatures) {
     ctx.beginPath()
     pathGenerator.context(ctx)(feat.geoFeature)
     ctx.stroke()
   }
 
-  const texture = new CanvasTexture(canvas)
-  texture.colorSpace = SRGBColorSpace
-  return texture
+  const tex = new CanvasTexture(canvas)
+  tex.colorSpace = SRGBColorSpace
+  tex.wrapS = RepeatWrapping
+  tex.wrapT = ClampToEdgeWrapping
+  tex.anisotropy = 4
+  return tex
 }
-
-// --- Globe mesh ---
-const globeGeo = new SphereGeometry(GLOBE_RADIUS, 64, 64)
-const globeMat = new MeshBasicMaterial()
-const globeMesh = new Mesh(globeGeo, globeMat)
-
-const borderLines = buildBorderLines()
-
-let idCanvas: HTMLCanvasElement | null = null
 
 onMounted(() => {
   idCanvas = renderIdTexture()
-  globeMat.map = renderGlobeTexture()
-  globeMat.needsUpdate = true
+  const loader = new TextureLoader()
+  const colorImg = new Image()
+  colorImg.addEventListener("load", () => {
+    globeMat.map = buildColorTextureWithBorders(colorImg)
+    globeMat.needsUpdate = true
+  })
+  colorImg.src = "/textures/earth-natural.jpg"
+  loader.load("/textures/earth-topology.png", (tex) => {
+    tex.wrapS = RepeatWrapping
+    tex.wrapT = ClampToEdgeWrapping
+    globeMat.displacementMap = tex
+    globeMat.displacementScale = DISP_SCALE
+    globeMat.bumpMap = tex
+    globeMat.bumpScale = 0.02
+    globeMat.needsUpdate = true
+  })
+
+  // Read the heightmap pixels so markers can sit on the real terrain, then
+  // rebuild them at their correct heights.
+  const heightImg = new Image()
+  heightImg.addEventListener("load", () => {
+    const c = document.createElement("canvas")
+    c.width = HEIGHT_W
+    c.height = HEIGHT_H
+    const cx = c.getContext("2d", { willReadFrequently: true })!
+    cx.drawImage(heightImg, 0, 0, HEIGHT_W, HEIGHT_H)
+    heightData = cx.getImageData(0, 0, HEIGHT_W, HEIGHT_H)
+    buildMarkers()
+  })
+  heightImg.src = "/textures/earth-topology.png"
+
+  buildMarkers()
 })
 
-// Update when visitMap or theme changes
+// Rebuild markers when visits or theme change
 watch([() => props.visitMap, theme], () => {
-  globeMat.map = renderGlobeTexture()
-  globeMat.needsUpdate = true
-  ;(borderLines.material as LineBasicMaterial).color.set(theme.value.borderColor)
-  ;(borderLines.material as LineBasicMaterial).opacity = theme.value.borderOpacity
+  buildMarkers()
 })
 
 // --- Stats ---
@@ -364,10 +435,17 @@ function raycastCountry(event: MouseEvent): CountryInfo | undefined {
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
 
   raycaster.setFromCamera(pointer, controls.object)
-  const hits = raycaster.intersectObject(globeMesh)
-  const nearest = hits[0]
-  if (!nearest) return undefined
+  const nearest = raycaster.intersectObject(raycastMesh)[0]
 
+  // A highlighted marker dot always selects its own country — as long as it's on
+  // the near side of the globe (closer than the surface hit, not showing through).
+  const markerHit = raycaster.intersectObjects(markersGroup.children, false)[0]
+  if (markerHit && (!nearest || markerHit.distance <= nearest.distance + 0.02)) {
+    const info = markerHit.object.userData.country as CountryInfo | undefined
+    if (info) return info
+  }
+
+  if (!nearest) return undefined
   return resolveCountryFromPoint(nearest.point, idCanvas)
 }
 
@@ -466,15 +544,9 @@ onUnmounted(() => {
 })
 
 // --- Auto-center animation ---
-const countryFeatures = getCountryFeatures()
-
 function animateToCentroid(info: CountryInfo) {
-  const feat = countryFeatures.find((f) => f.info?.alpha2 === info.alpha2)
-  if (!feat) return
-
-  const centroid = getCountryCentroid(feat)
-  const target = latLngToVector3(centroid.lat, centroid.lng, 0)
-  const cameraTarget = latLngToVector3(centroid.lat, centroid.lng, GLOBE_RADIUS)
+  const target = latLngToVector3(info.lat, info.lng, 0)
+  const cameraTarget = latLngToVector3(info.lat, info.lng, GLOBE_RADIUS)
     .normalize()
     .multiplyScalar(5)
 
@@ -510,7 +582,12 @@ function animateToCentroid(info: CountryInfo) {
     <ClientOnly>
       <TresCanvas :alpha="true" :clear-color="theme.clearColor" :antialias="true">
         <!-- Default view: Malaysia (lat 4.2, lng 102) -->
-        <TresPerspectiveCamera :position="[-1.03, 0.37, -4.89]" :fov="45" />
+        <TresPerspectiveCamera :position="[-1.03, 0.37, -4.89]" :fov="45">
+          <!-- Light parented to the camera so the side you're looking at is
+               always lit (no permanent night side); the offset keeps a grazing
+               angle for relief shadows. -->
+          <TresDirectionalLight :intensity="0.75" :position="[-2, 1.5, 1]" />
+        </TresPerspectiveCamera>
 
         <OrbitControls
           ref="controlsRef"
@@ -522,15 +599,22 @@ function animateToCentroid(info: CountryInfo) {
           :enable-damping="true"
         />
 
-        <!-- Globe with land/ocean/visited texture -->
+        <!-- Ambient fill so the whole globe stays visible; the camera-parented
+             directional light above provides the relief shading. -->
+        <TresAmbientLight :intensity="0.8" />
+
+        <!-- Realistic Natural Earth globe with displaced terrain -->
         <primitive :object="globeMesh" />
 
-        <!-- Country borders -->
-        <primitive :object="borderLines" />
+        <!-- Invisible smooth sphere for raycasting -->
+        <primitive :object="raycastMesh" />
+
+        <!-- Glowing visit markers -->
+        <primitive :object="markersGroup" />
 
         <!-- Atmosphere rim -->
         <TresMesh>
-          <TresSphereGeometry :args="[GLOBE_RADIUS * 1.015, 64, 64]" />
+          <TresSphereGeometry :args="[GLOBE_RADIUS * 1.05, 64, 64]" />
           <TresMeshBasicMaterial
             :color="theme.atmosphere"
             :transparent="true"
