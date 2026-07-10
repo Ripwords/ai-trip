@@ -605,6 +605,8 @@ function animateToCentroid(info: CountryInfo) {
           :auto-rotate="false"
           :min-distance="2.5"
           :max-distance="8"
+          :rotate-speed="0.4"
+          :zoom-speed="0.6"
           :enable-damping="true"
         />
 

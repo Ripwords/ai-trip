@@ -256,6 +256,8 @@ const summaryText = computed(() => {
           :max-distance="35"
           :min-polar-angle="0.5"
           :max-polar-angle="2.6"
+          :rotate-speed="0.4"
+          :zoom-speed="0.6"
           :enable-damping="true"
         />
 
