@@ -379,6 +379,32 @@ function resetZoom() {
         @touchend.passive="handleTouchEnd"
         @touchcancel.passive="handleTouchEnd"
       >
+        <defs>
+          <!-- Land silhouette, so terrain grain only touches land (ocean stays smooth) -->
+          <clipPath id="scratch-land-clip">
+            <path v-for="country in staticPaths" :key="country.id" :d="country.d" />
+          </clipPath>
+          <!-- Fractal noise → grayscale relief, blended over land like the globe's bump map -->
+          <filter id="scratch-terrain" x="0" y="0" width="100%" height="100%">
+            <feTurbulence
+              type="fractalNoise"
+              base-frequency="0.011"
+              num-octaves="3"
+              seed="7"
+              stitch-tiles="stitch"
+              result="noise"
+            />
+            <feColorMatrix
+              in="noise"
+              type="matrix"
+              values="0.33 0.33 0.33 0 0
+                      0.33 0.33 0.33 0 0
+                      0.33 0.33 0.33 0 0
+                      0    0    0    0 1"
+            />
+          </filter>
+        </defs>
+
         <!-- Ocean background -->
         <rect width="960" height="600" class="map-ocean" />
 
@@ -411,6 +437,14 @@ function resetZoom() {
             @click="handleClick(country.info)"
             @mouseenter="handleMouseEnter(country.id, country.info)"
             @mouseleave="handleMouseLeave"
+          />
+          <!-- Terrain relief: soft-light noise over land, non-interactive -->
+          <rect
+            width="960"
+            height="600"
+            class="terrain-grain"
+            clip-path="url(#scratch-land-clip)"
+            filter="url(#scratch-terrain)"
           />
         </g>
       </svg>
@@ -535,16 +569,18 @@ function resetZoom() {
 
 /* ── Light Mode ────────────────────────────────────────── */
 .scratch-map {
-  --map-ocean: #dceef5;
-  --map-country: #e6ddd0;
-  --map-country-hover: #d6cab9;
-  --map-visited: #f07b5a;
-  --map-visited-hover: #e85d3a;
-  --map-layover: #7dc3d4;
-  --map-layover-hover: #4aa5b9;
-  --map-want: #6aa06d;
-  --map-want-hover: #4a8450;
-  --map-border: #cfc2b2;
+  --map-ocean: #79aeb0;
+  --map-country: #e6dcbf;
+  --map-country-hover: #f0e7cd;
+  --map-visited: #ec6e4a;
+  --map-visited-hover: #df5a34;
+  --map-layover: #4fa9c2;
+  --map-layover-hover: #3f97b0;
+  --map-want: #7aa35f;
+  --map-want-hover: #658b4b;
+  --map-border: #b3a678;
+  --map-texture: soft-light;
+  --map-texture-opacity: 0.32;
   --map-overlay-bg: rgba(255, 255, 255, 0.92);
   --map-overlay-border: rgba(0, 0, 0, 0.08);
   --map-overlay-text: #3d3328;
@@ -562,16 +598,18 @@ function resetZoom() {
 
 /* ── Dark Mode ─────────────────────────────────────────── */
 :global(.dark) .scratch-map {
-  --map-ocean: #0c1524;
-  --map-country: #1e3044;
-  --map-country-hover: #2a4460;
-  --map-visited: #f07b5a;
-  --map-visited-hover: #f7a48a;
-  --map-layover: #4aa5b9;
+  --map-ocean: #1d3236;
+  --map-country: #4b5040;
+  --map-country-hover: #5b6150;
+  --map-visited: #ec7355;
+  --map-visited-hover: #f4a184;
+  --map-layover: #57a6bd;
   --map-layover-hover: #7dc3d4;
-  --map-want: #6aa06d;
-  --map-want-hover: #96c098;
-  --map-border: #152336;
+  --map-want: #82a874;
+  --map-want-hover: #9bbf90;
+  --map-border: #333829;
+  --map-texture: soft-light;
+  --map-texture-opacity: 0.22;
   --map-overlay-bg: rgba(12, 21, 36, 0.92);
   --map-overlay-border: rgba(255, 255, 255, 0.1);
   --map-overlay-text: #c8d6e5;
@@ -618,6 +656,13 @@ function resetZoom() {
 }
 .map-border {
   stroke: var(--map-border);
+}
+
+/* ── Terrain texture ───────────────────────────────────── */
+.terrain-grain {
+  pointer-events: none;
+  mix-blend-mode: var(--map-texture);
+  opacity: var(--map-texture-opacity);
 }
 
 /* ── Tooltip ─────────────────────────────────────────── */
