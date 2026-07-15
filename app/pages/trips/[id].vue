@@ -281,7 +281,8 @@ async function updateTripField(field: string, value: string) {
 }
 
 const { confirm } = useConfirm()
-const { error: toastError, success: toastSuccess } = useToast()
+const { error: toastError, success: toastSuccess, withAction: toastWithAction } = useToast()
+const { snapshot: snapshotDay, restore: restoreDay } = useDayUndo(tripId)
 
 // Trip flights
 const tripFlightNumber = ref("")
@@ -712,6 +713,13 @@ watch(
   { immediate: true },
 )
 
+const dayLabels = computed<Record<string, string>>(() =>
+  Object.fromEntries((trip.value?.days ?? []).map((d) => [d.id, `Day ${d.dayNumber}`])),
+)
+const activeDayLabel = computed(() =>
+  activeDay.value ? `Day ${activeDay.value.dayNumber}` : "this trip",
+)
+
 const aiInput = ref("")
 const aiMessages = ref<ChatMessage[]>([])
 const aiUsage = ref<{ used: number; limit: number; remaining: number } | null>(null)
@@ -747,6 +755,8 @@ function makeMessageId() {
   return crypto.randomUUID()
 }
 
+let aiAbort: AbortController | null = null
+
 async function handleAiSubmit(text: string) {
   if (!trip.value) return
   const userMsg: ChatMessage = {
@@ -758,6 +768,7 @@ async function handleAiSubmit(text: string) {
   aiMessages.value = [...aiMessages.value, userMsg]
   aiInput.value = ""
   aiChatLoading.value = true
+  aiAbort = new AbortController()
   try {
     const body = {
       messages: aiMessages.value
@@ -769,7 +780,7 @@ async function handleAiSubmit(text: string) {
       message: string
       proposals: Proposal[]
       toolCallSummary: string[]
-    }>(`/api/trips/${tripId}/discuss`, { method: "POST", body })
+    }>(`/api/trips/${tripId}/discuss`, { method: "POST", body, signal: aiAbort.signal })
     const assistant: ChatMessage = {
       id: makeMessageId(),
       role: "assistant",
@@ -781,6 +792,7 @@ async function handleAiSubmit(text: string) {
     }
     aiMessages.value = [...aiMessages.value, assistant]
   } catch (e: unknown) {
+    if (e instanceof Error && e.name === "AbortError") return
     const err: ChatMessage = {
       id: makeMessageId(),
       role: "system",
@@ -792,6 +804,11 @@ async function handleAiSubmit(text: string) {
     aiChatLoading.value = false
     await refreshAiUsage()
   }
+}
+
+function handleAiCancel() {
+  aiAbort?.abort()
+  aiChatLoading.value = false
 }
 
 function setProposalState(
@@ -808,42 +825,114 @@ function setProposalState(
   })
 }
 
-async function handleAiApplyProposal(messageId: string, proposal: Proposal) {
+function friendlyApplyError(e: unknown): string {
+  const msg = e instanceof Error ? e.message : ""
+  if (/409/.test(msg))
+    return "That change no longer fits the day — it may have changed since. Refresh and try again."
+  if (/422/.test(msg)) return "Couldn't find that place on Google Maps."
+  return "Couldn't apply that change. Please try again."
+}
+
+async function applyOneProposal(messageId: string, proposal: Proposal): Promise<boolean> {
+  const day = trip.value?.days.find((d) => d.id === proposal.dayId)
+  if (day)
+    snapshotDay(
+      proposal.dayId,
+      day.activities.map((a) => ({ ...a })),
+    )
   setProposalState(messageId, proposal.id, "applying")
   try {
-    await $fetch(`/api/trips/${tripId}/proposals/apply`, {
-      method: "POST",
-      body: { proposal },
-    })
+    await $fetch(`/api/trips/${tripId}/proposals/apply`, { method: "POST", body: { proposal } })
     setProposalState(messageId, proposal.id, "applied")
-    await refresh()
+    return true
   } catch (e: unknown) {
     setProposalState(messageId, proposal.id, "pending")
-    const err: ChatMessage = {
-      id: makeMessageId(),
-      role: "system",
-      content: e instanceof Error ? e.message : "Apply failed",
-      timestamp: Date.now(),
-    }
-    aiMessages.value = [...aiMessages.value, err]
+    toastError(friendlyApplyError(e))
+    return false
   }
+}
+
+async function handleAiApplyProposal(messageId: string, proposal: Proposal) {
+  if (proposal.kind === "remove-activities") {
+    const ok = await confirm({
+      title: "Remove activities?",
+      message: `This removes ${proposal.payload.activityIds.length} stop(s) from ${dayLabels.value[proposal.dayId] ?? "the day"}. You can undo.`,
+      confirmText: "Remove",
+      destructive: true,
+    })
+    if (!ok) return
+  }
+  const ok = await applyOneProposal(messageId, proposal)
+  await refresh()
+  if (ok) {
+    toastWithAction("Change applied.", {
+      label: "Undo",
+      onClick: () => handleAiUndo(proposal.dayId),
+    })
+  }
+}
+
+async function handleAiApplyGroup(messageId: string, proposals: Proposal[]) {
+  const dayIds = [...new Set(proposals.map((p) => p.dayId))]
+  const hasRemove = proposals.some((p) => p.kind === "remove-activities")
+  if (dayIds.length >= 3 || hasRemove) {
+    const ok = await confirm({
+      title: "Apply all changes?",
+      message: `This applies ${proposals.length} change(s) across ${dayIds.length} day(s). You can undo per day.`,
+      confirmText: "Apply all",
+      destructive: hasRemove,
+    })
+    if (!ok) return
+  }
+  let applied = 0
+  for (const p of proposals) {
+    if (await applyOneProposal(messageId, p)) applied++
+  }
+  await refresh()
+  const failed = proposals.length - applied
+  const changedDays = [...new Set(proposals.map((p) => p.dayId))]
+  toastWithAction(
+    failed === 0
+      ? `Applied ${applied} change(s).`
+      : `Applied ${applied}, ${failed} couldn't be applied.`,
+    { label: "Undo all", onClick: () => changedDays.forEach((d) => handleAiUndo(d)) },
+    failed === 0 ? "success" : "info",
+  )
+}
+
+function handleAiDismissGroup(messageId: string, proposalIds: string[]) {
+  proposalIds.forEach((id) => setProposalState(messageId, id, "dismissed"))
 }
 
 function handleAiDismissProposal(messageId: string, proposalId: string) {
   setProposalState(messageId, proposalId, "dismissed")
 }
 
+async function handleAiUndo(dayId: string) {
+  try {
+    const ok = await restoreDay(dayId)
+    if (ok) {
+      await refresh()
+      toastSuccess("Reverted.")
+    }
+  } catch {
+    toastError("Couldn't undo. Please try again.")
+  }
+}
+
 async function handleQuickFillGaps() {
   if (!activeDay.value) return
+  const dayId = activeDay.value.id
+  snapshotDay(
+    dayId,
+    activeDay.value.activities.map((a) => ({ ...a })),
+  )
   aiMutating.value = true
   try {
-    const data = await $fetch<{ message: string }>(
-      `/api/trips/${tripId}/days/${activeDay.value.id}/ai`,
-      {
-        method: "POST",
-        body: { prompt: "Fill the gaps in this day", intent: "fill_gaps" },
-      },
-    )
+    const data = await $fetch<{ message: string }>(`/api/trips/${tripId}/days/${dayId}/ai`, {
+      method: "POST",
+      body: { prompt: "Fill the gaps in this day", intent: "fill_gaps" },
+    })
     aiMessages.value = [
       ...aiMessages.value,
       {
@@ -854,6 +943,10 @@ async function handleQuickFillGaps() {
       },
     ]
     await refresh()
+    toastWithAction("Gaps filled.", {
+      label: "Undo",
+      onClick: () => handleAiUndo(dayId),
+    })
   } catch (e: unknown) {
     aiMessages.value = [
       ...aiMessages.value,
@@ -872,15 +965,17 @@ async function handleQuickFillGaps() {
 
 async function handleQuickOptimizeRoute() {
   if (!activeDay.value) return
+  const dayId = activeDay.value.id
+  snapshotDay(
+    dayId,
+    activeDay.value.activities.map((a) => ({ ...a })),
+  )
   aiMutating.value = true
   try {
-    const data = await $fetch<{ message: string }>(
-      `/api/trips/${tripId}/days/${activeDay.value.id}/ai`,
-      {
-        method: "POST",
-        body: { prompt: "Optimize the route", intent: "optimize" },
-      },
-    )
+    const data = await $fetch<{ message: string }>(`/api/trips/${tripId}/days/${dayId}/ai`, {
+      method: "POST",
+      body: { prompt: "Optimize the route", intent: "optimize" },
+    })
     aiMessages.value = [
       ...aiMessages.value,
       {
@@ -891,6 +986,10 @@ async function handleQuickOptimizeRoute() {
       },
     ]
     await refresh()
+    toastWithAction("Route optimized.", {
+      label: "Undo",
+      onClick: () => handleAiUndo(dayId),
+    })
   } catch (e: unknown) {
     aiMessages.value = [
       ...aiMessages.value,
@@ -941,6 +1040,14 @@ async function handleGenerateFullItinerary() {
 function handleAiClose() {
   // Just collapse the dock — keep the conversation in memory for when it reopens.
 }
+
+// Clear the AI thread (and any pending proposals) when the trip changes.
+watch(
+  () => tripId,
+  () => {
+    aiMessages.value = []
+  },
+)
 
 async function handleAiClear() {
   const hasPending = aiMessages.value.some((m) =>
@@ -1687,9 +1794,15 @@ async function recomputeSegments(dayId: string) {
       :has-activities="activeDayHasActivities"
       :destination="trip.destination"
       :starters="aiStarters"
+      :day-labels="dayLabels"
+      :active-day-label="activeDayLabel"
       @submit="handleAiSubmit"
       @apply-proposal="handleAiApplyProposal"
       @dismiss-proposal="handleAiDismissProposal"
+      @apply-group="handleAiApplyGroup"
+      @dismiss-group="handleAiDismissGroup"
+      @undo="handleAiUndo"
+      @cancel="handleAiCancel"
       @fill-gaps="handleQuickFillGaps"
       @optimize-route="handleQuickOptimizeRoute"
       @generate-full="handleGenerateFullItinerary"

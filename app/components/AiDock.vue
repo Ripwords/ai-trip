@@ -105,7 +105,7 @@ function expand() {
 }
 
 function collapse() {
-  if (props.loading) return
+  if (props.loading) emit("cancel")
   emit("close")
   expanded.value = false
 }
