@@ -8,20 +8,8 @@ import { searchPlace, getPlaceDetails, getDistanceMatrix } from "./google-maps"
 import { reviewItinerary } from "./itinerary-review"
 import { getTripWithRelations } from "./trips"
 import { proposalSchema, type Proposal } from "./proposals"
+import { resolveTargetDay, resolveTargetDays, type DayRef } from "./proposal-targeting"
 import type { TransportMode } from "../utils/transport"
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function requireActiveDay(ctx: { dayId: string }): { ok: true } | { ok: false; error: string } {
-  if (!ctx.dayId || !UUID_RE.test(ctx.dayId)) {
-    return {
-      ok: false,
-      error:
-        "No active day in this discussion. Ask the user to open the day they want to edit (the chat is scoped to whichever day is currently open in the trip view).",
-    }
-  }
-  return { ok: true }
-}
 
 async function validateActivityIds(
   dayId: string,
@@ -45,7 +33,8 @@ async function validateActivityIds(
 
 export interface TripToolsContext {
   tripId: string
-  dayId: string
+  activeDayId: string
+  days: DayRef[]
   transportMode: TransportMode
   currencyCode: string
 }
@@ -120,7 +109,7 @@ export function createTripTools(ctx: TripToolsContext) {
     inputSchema: z.object({}),
     execute: async () => {
       const day = await db.query.itineraryDays.findFirst({
-        where: eq(itineraryDays.id, ctx.dayId),
+        where: eq(itineraryDays.id, ctx.activeDayId),
         with: {
           activities: { orderBy: (a, { asc }) => [asc(a.sortOrder)] },
           travelSegments: true,
@@ -171,7 +160,9 @@ export function createTripTools(ctx: TripToolsContext) {
       if (!trip) return { error: "trip not found" }
       return reviewItinerary(
         trip,
-        input.scope === "trip" ? { scope: input.scope } : { scope: input.scope, dayId: ctx.dayId },
+        input.scope === "trip"
+          ? { scope: input.scope }
+          : { scope: input.scope, dayId: ctx.activeDayId },
       )
     },
   })
@@ -219,9 +210,11 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
 
   const proposeAddActivities = createTool({
     id: "proposeAddActivities",
-    description: `Suggest adding one or more activities to the ACTIVE day (the one currently open in the trip view — you do not pass a day id, it's implicit). ONLY use after verifying the place via searchPlaces. All costEstimate values MUST be in the trip currency (${ctx.currencyCode}) — do NOT convert to USD.`,
+    description: `Suggest adding one or more activities to the target day. Defaults to the open day; pass \`dayId\` (a \`[day:…]\` id from the trip context) to target another day, or \`dayIds\` to add the same thing to several days (one card per day). ONLY use after verifying the place via searchPlaces. All costEstimate values MUST be in the trip currency (${ctx.currencyCode}) — do NOT convert to USD.`,
     inputSchema: z.object({
       summary: z.string().min(1),
+      dayId: z.string().uuid().optional(),
+      dayIds: z.array(z.string().uuid()).min(1).optional(),
       activities: z.array(
         z.object({
           name: z.string(),
@@ -260,18 +253,23 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
       ),
     }),
     execute: async (input) => {
-      const guard = requireActiveDay(ctx)
-      if (!guard.ok) return guard
-      const proposal: Proposal = {
-        id: randomUUID(),
-        kind: "add-activities",
-        dayId: ctx.dayId,
-        summary: input.summary,
-        payload: { activities: input.activities },
+      const targets = resolveTargetDays(ctx.days, ctx.activeDayId, {
+        dayId: input.dayId,
+        dayIds: input.dayIds,
+      })
+      if (!targets.ok) return { ok: false, error: targets.error }
+      for (const dayId of targets.dayIds) {
+        const proposal: Proposal = {
+          id: randomUUID(),
+          kind: "add-activities",
+          dayId,
+          summary: input.summary,
+          payload: { activities: input.activities },
+        }
+        const validated = proposalSchema.safeParse(proposal)
+        if (!validated.success) return { ok: false, error: validated.error.message }
+        collector.push(validated.data)
       }
-      const validated = proposalSchema.safeParse(proposal)
-      if (!validated.success) return { ok: false, error: validated.error.message }
-      collector.push(validated.data)
       return { ok: true }
     },
   })
@@ -279,20 +277,21 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
   const proposeRemoveActivities = createTool({
     id: "proposeRemoveActivities",
     description:
-      "Suggest removing one or more activities from the ACTIVE day. Pass the bracketed ids from the trip context.",
+      "Suggest removing one or more activities from a day. Pass the bracketed ids from the trip context. Defaults to the open day; pass `dayId` to target another.",
     inputSchema: z.object({
       summary: z.string().min(1),
       activityIds: z.array(z.string()).min(1),
+      dayId: z.string().uuid().optional(),
     }),
     execute: async (input) => {
-      const guard = requireActiveDay(ctx)
-      if (!guard.ok) return guard
-      const idCheck = await validateActivityIds(ctx.dayId, input.activityIds)
+      const target = resolveTargetDay(ctx.days, ctx.activeDayId, input.dayId)
+      if (!target.ok) return { ok: false, error: target.error }
+      const idCheck = await validateActivityIds(target.dayId, input.activityIds)
       if (!idCheck.ok) return idCheck
       const proposal: Proposal = {
         id: randomUUID(),
         kind: "remove-activities",
-        dayId: ctx.dayId,
+        dayId: target.dayId,
         summary: input.summary,
         payload: { activityIds: input.activityIds },
       }
@@ -306,7 +305,7 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
   const proposeReschedule = createTool({
     id: "proposeReschedule",
     description:
-      "Change the start time and/or duration of activities on the ACTIVE day. Pass the bracketed ids from the trip context. estimatedDurationMinutes is activity-only and never includes travel time.",
+      "Change the start time and/or duration of activities on a day. Pass the bracketed ids from the trip context. estimatedDurationMinutes is activity-only and never includes travel time. Defaults to the open day; pass `dayId` to target another.",
     inputSchema: z.object({
       summary: z.string().min(1),
       updates: z.array(
@@ -316,19 +315,20 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
           estimatedDurationMinutes: z.number().int().positive(),
         }),
       ),
+      dayId: z.string().uuid().optional(),
     }),
     execute: async (input) => {
-      const guard = requireActiveDay(ctx)
-      if (!guard.ok) return guard
+      const target = resolveTargetDay(ctx.days, ctx.activeDayId, input.dayId)
+      if (!target.ok) return { ok: false, error: target.error }
       const idCheck = await validateActivityIds(
-        ctx.dayId,
+        target.dayId,
         input.updates.map((u) => u.activityId),
       )
       if (!idCheck.ok) return idCheck
       const proposal: Proposal = {
         id: randomUUID(),
         kind: "reschedule",
-        dayId: ctx.dayId,
+        dayId: target.dayId,
         summary: input.summary,
         payload: { updates: input.updates },
       }
@@ -342,23 +342,24 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
   const proposeReorder = createTool({
     id: "proposeReorder",
     description:
-      "Reorder existing activities on the ACTIVE day. orderedActivityIds is the new sequence using bracketed ids from the trip context. You can list a partial subset (those move to the front in the given order; unlisted activities keep their relative order behind them). Use this when the user wants to rearrange the sequence WITHOUT changing times (combine with proposeReschedule when both are needed).",
+      "Reorder existing activities on a day. orderedActivityIds is the new sequence using bracketed ids from the trip context. You can list a partial subset (those move to the front in the given order; unlisted activities keep their relative order behind them). Use this when the user wants to rearrange the sequence WITHOUT changing times (combine with proposeReschedule when both are needed). Defaults to the open day; pass `dayId` to target another.",
     inputSchema: z.object({
       summary: z.string().min(1),
       orderedActivityIds: z
         .array(z.string())
         .min(1)
         .describe("Activity ids in the new sequence (top of the day first)."),
+      dayId: z.string().uuid().optional(),
     }),
     execute: async (input) => {
-      const guard = requireActiveDay(ctx)
-      if (!guard.ok) return guard
-      const idCheck = await validateActivityIds(ctx.dayId, input.orderedActivityIds)
+      const target = resolveTargetDay(ctx.days, ctx.activeDayId, input.dayId)
+      if (!target.ok) return { ok: false, error: target.error }
+      const idCheck = await validateActivityIds(target.dayId, input.orderedActivityIds)
       if (!idCheck.ok) return idCheck
       const proposal: Proposal = {
         id: randomUUID(),
         kind: "reorder-activities",
-        dayId: ctx.dayId,
+        dayId: target.dayId,
         summary: input.summary,
         payload: { orderedActivityIds: input.orderedActivityIds },
       }
@@ -372,7 +373,7 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
   const proposeSetAccommodation = createTool({
     id: "proposeSetAccommodation",
     description:
-      "Set or change accommodation for the ACTIVE day. Use searchPlaces to verify the venue first.",
+      "Set or change accommodation for a day. Use searchPlaces to verify the venue first. Defaults to the open day; pass `dayId` to target another.",
     inputSchema: z.object({
       summary: z.string().min(1),
       name: z.string(),
@@ -380,14 +381,15 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
       lat: z.number().nullable(),
       lng: z.number().nullable(),
       placeId: z.string().nullable(),
+      dayId: z.string().uuid().optional(),
     }),
     execute: async (input) => {
-      const guard = requireActiveDay(ctx)
-      if (!guard.ok) return guard
+      const target = resolveTargetDay(ctx.days, ctx.activeDayId, input.dayId)
+      if (!target.ok) return { ok: false, error: target.error }
       const proposal: Proposal = {
         id: randomUUID(),
         kind: "set-accommodation",
-        dayId: ctx.dayId,
+        dayId: target.dayId,
         summary: input.summary,
         payload: {
           name: input.name,
