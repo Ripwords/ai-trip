@@ -768,7 +768,8 @@ async function handleAiSubmit(text: string) {
   aiMessages.value = [...aiMessages.value, userMsg]
   aiInput.value = ""
   aiChatLoading.value = true
-  aiAbort = new AbortController()
+  const controller = new AbortController()
+  aiAbort = controller
   try {
     const body = {
       messages: aiMessages.value
@@ -780,7 +781,7 @@ async function handleAiSubmit(text: string) {
       message: string
       proposals: Proposal[]
       toolCallSummary: string[]
-    }>(`/api/trips/${tripId}/discuss`, { method: "POST", body, signal: aiAbort.signal })
+    }>(`/api/trips/${tripId}/discuss`, { method: "POST", body, signal: controller.signal })
     const assistant: ChatMessage = {
       id: makeMessageId(),
       role: "assistant",
@@ -792,7 +793,9 @@ async function handleAiSubmit(text: string) {
     }
     aiMessages.value = [...aiMessages.value, assistant]
   } catch (e: unknown) {
-    if (e instanceof Error && e.name === "AbortError") return
+    // User cancelled — ofetch wraps the abort in a FetchError, so inspect the
+    // controller's own signal rather than the error shape.
+    if (controller.signal.aborted) return
     const err: ChatMessage = {
       id: makeMessageId(),
       role: "system",
@@ -1043,7 +1046,7 @@ function handleAiClose() {
 
 // Clear the AI thread (and any pending proposals) when the trip changes.
 watch(
-  () => tripId,
+  () => route.params.id,
   () => {
     aiMessages.value = []
   },
