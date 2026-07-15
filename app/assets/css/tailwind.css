@@ -51,6 +51,11 @@
   --color-forest-800: #29442c;
   --color-forest-900: #233825;
 
+  /* Red: semantic danger / destructive (e.g. remove-activity proposals). */
+  --color-red-50: #fef2f2;
+  --color-red-200: #fecaca;
+  --color-red-700: #b91c1c;
+
   /* Amber: semantic warning / pending. Warm gold, distinct from terra's
      red-orange so "needs attention" never reads as a primary action. */
   --color-amber-50: #fdf6e9;
@@ -95,7 +100,7 @@
 }
 
 /* ── Dark Mode: Semantic color overrides ─────────────────────────── */
-/* When .dark is on <html>, swap all sand/terra/ocean/forest shades  */
+/* When .dark is on <html>, swap all sand/terra/ocean/forest/red shades */
 /* so existing classes like bg-sand-50, text-sand-900 just work.     */
 
 .dark {
@@ -146,6 +151,11 @@
   --color-forest-700: #c2dbc3;
   --color-forest-800: #e0ede0;
   --color-forest-900: #f2f7f2;
+
+  /* Red: dark surface, mid border, light text (mirrors terra's inversion) */
+  --color-red-50: #2a1414;
+  --color-red-200: #5c2020;
+  --color-red-700: #f7a1a1;
 
   /* Amber */
   --color-amber-50: #2a1e0a;

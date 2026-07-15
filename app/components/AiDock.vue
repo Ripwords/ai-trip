@@ -98,7 +98,10 @@ const newReplyPending = ref(false)
 
 function expand() {
   expanded.value = true
-  nextTick(() => inputEl.value?.focus())
+  // Double tick so this runs strictly AFTER useModalA11y's own open-focus
+  // (which focuses the first focusable node — a header button) so the
+  // text input keeps initial focus on open.
+  nextTick(() => nextTick(() => inputEl.value?.focus()))
 }
 
 function collapse() {
@@ -109,6 +112,7 @@ function collapse() {
 
 // Dialog accessibility: Escape-to-close + focus-restore to the FAB on close.
 const dialogRef = ref<HTMLElement | null>(null)
+const dialogHeadingId = useId()
 useModalA11y(dialogRef, {
   isOpen: () => expanded.value,
   onClose: collapse,
@@ -308,11 +312,12 @@ const proposalKindMeta: Record<
       ref="dialogRef"
       role="dialog"
       aria-modal="true"
-      class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex max-h-[70vh] min-h-[50vh] flex-col rounded-t-[28px] md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:max-h-[calc(100vh-2rem)] md:min-h-0 md:w-[400px] md:rounded-3xl"
+      :aria-labelledby="dialogHeadingId"
+      tabindex="-1"
+      class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex max-h-[70vh] min-h-[50vh] flex-col rounded-t-[28px] focus:outline-none md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:max-h-[calc(100vh-2rem)] md:min-h-0 md:w-[400px] md:rounded-3xl"
       :style="{
         paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
       }"
-      @keydown.esc="collapse"
     >
       <div class="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-sand-400/40 md:hidden" />
 
@@ -320,7 +325,10 @@ const proposalKindMeta: Record<
         <div class="flex items-center gap-2">
           <Icon name="lucide:sparkles" class="h-4 w-4 text-terra-500" />
           <div class="flex flex-col">
-            <span class="text-[10px] uppercase tracking-[0.22em] text-sand-600">
+            <span
+              :id="dialogHeadingId"
+              class="text-[10px] uppercase tracking-[0.22em] text-sand-600"
+            >
               From your planner
             </span>
             <span class="text-[10px] text-sand-500">Editing {{ activeDayLabel }}</span>
@@ -791,14 +799,14 @@ const proposalKindMeta: Record<
   color: var(--color-forest-700);
 }
 .dock-stamp[data-tone="danger"] {
-  background: var(--color-red-50, #fef2f2);
-  border-color: var(--color-red-200, #fecaca);
-  color: var(--color-red-700, #b91c1c);
+  background: var(--color-red-50);
+  border-color: var(--color-red-200);
+  color: var(--color-red-700);
 }
 
 .dock-proposal-danger {
-  background: var(--color-red-50, #fef2f2);
-  border-color: var(--color-red-200, #fecaca);
+  background: var(--color-red-50);
+  border-color: var(--color-red-200);
 }
 
 .dock-day-badge {
