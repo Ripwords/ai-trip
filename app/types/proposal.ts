@@ -5,6 +5,8 @@ export type Proposal =
       kind: "add-activities"
       dayId: string
       summary: string
+      groupId?: string
+      groupLabel?: string
       payload: { activities: unknown[] }
     }
   | {
@@ -12,6 +14,8 @@ export type Proposal =
       kind: "remove-activities"
       dayId: string
       summary: string
+      groupId?: string
+      groupLabel?: string
       payload: { activityIds: string[] }
     }
   | {
@@ -19,6 +23,8 @@ export type Proposal =
       kind: "reschedule"
       dayId: string
       summary: string
+      groupId?: string
+      groupLabel?: string
       payload: {
         updates: { activityId: string; suggestedTime: string; estimatedDurationMinutes: number }[]
       }
@@ -28,6 +34,8 @@ export type Proposal =
       kind: "optimize-route"
       dayId: string
       summary: string
+      groupId?: string
+      groupLabel?: string
       payload: { orderedActivityIds?: string[] }
     }
   | {
@@ -35,6 +43,8 @@ export type Proposal =
       kind: "reorder-activities"
       dayId: string
       summary: string
+      groupId?: string
+      groupLabel?: string
       payload: { orderedActivityIds: string[] }
     }
   | {
@@ -42,6 +52,8 @@ export type Proposal =
       kind: "set-accommodation"
       dayId: string
       summary: string
+      groupId?: string
+      groupLabel?: string
       payload: {
         name: string
         address: string | null

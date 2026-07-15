@@ -47,6 +47,17 @@ function icon(type: ToastType) {
           />
           <p class="flex-1 text-sm text-sand-800">{{ t.message }}</p>
           <button
+            v-if="t.action"
+            type="button"
+            class="focus-ring shrink-0 rounded-lg px-2 py-1 text-sm font-medium text-terra-600 transition hover:text-terra-800"
+            @click="
+              t.action.onClick()
+              dismiss(t.id)
+            "
+          >
+            {{ t.action.label }}
+          </button>
+          <button
             type="button"
             class="focus-ring -m-1 shrink-0 rounded-lg p-1 text-sand-400 transition hover:text-sand-700"
             aria-label="Dismiss notification"
