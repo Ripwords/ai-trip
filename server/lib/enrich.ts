@@ -209,3 +209,21 @@ export async function enrichSingleActivity(
 
   return null
 }
+
+/**
+ * Split enriched activities into those Google could locate (lat AND lng) and
+ * those it could not. Callers must NOT persist `unlocated` — a null-coordinate
+ * activity is invisible on the map and skipped by the segments engine, so
+ * inserting it silently violates the "always validate via Maps" invariant.
+ */
+export function partitionGeocoded<
+  T extends { name: string; lat: number | null; lng: number | null },
+>(activities: T[]): { located: T[]; unlocated: T[] } {
+  const located: T[] = []
+  const unlocated: T[] = []
+  for (const a of activities) {
+    if (a.lat != null && a.lng != null) located.push(a)
+    else unlocated.push(a)
+  }
+  return { located, unlocated }
+}

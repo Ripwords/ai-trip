@@ -143,3 +143,22 @@ describe("enrichItinerary", () => {
     assert.equal(enriched.days[0]?.activities[0]?.lat, 16.1075)
   })
 })
+
+describe("partitionGeocoded", () => {
+  it("separates activities with coordinates from those without", async () => {
+    const { partitionGeocoded } = await import("./enrich")
+    const { located, unlocated } = partitionGeocoded([
+      { name: "Marble Mountains", lat: 16.0, lng: 108.2 },
+      { name: "Coffee at Sơn Trà Marina", lat: null, lng: null },
+      { name: "Han Market", lat: 16.06, lng: null },
+    ])
+    assert.deepEqual(
+      located.map((a) => a.name),
+      ["Marble Mountains"],
+    )
+    assert.deepEqual(
+      unlocated.map((a) => a.name),
+      ["Coffee at Sơn Trà Marina", "Han Market"],
+    )
+  })
+})
