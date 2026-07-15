@@ -1,5 +1,29 @@
-import type { AIItineraryOutput, AIActivity } from "./ai"
+import type { AIActivity } from "./ai"
 import { searchPlace, getPlaceDetails } from "./google-maps"
+
+/**
+ * An activity heading into enrichment. May already carry a place the discuss
+ * agent resolved via searchPlaces (placeId + coords on the proposal payload).
+ * When present these MUST be reused rather than re-searched — see enrichActivity.
+ */
+type EnrichInputActivity = AIActivity & {
+  placeId?: string | null
+  lat?: number | null
+  lng?: number | null
+  address?: string | null
+}
+
+export interface EnrichInput {
+  days: { dayNumber: number; theme: string; activities: EnrichInputActivity[] }[]
+}
+
+/** Google Maps calls, injectable so enrichment can be unit-tested without the API. */
+export interface EnrichDeps {
+  searchPlace: typeof searchPlace
+  getPlaceDetails: typeof getPlaceDetails
+}
+
+const defaultDeps: EnrichDeps = { searchPlace, getPlaceDetails }
 
 interface EnrichedActivity extends AIActivity {
   placeId: string | null
@@ -36,17 +60,39 @@ export interface EnrichedItinerary {
  * subsequent reads come straight from the DB. With KV cache the Details
  * call is also free on repeat for popular places.
  */
-async function enrichActivity(
-  activity: AIActivity,
+export async function enrichActivity(
+  activity: EnrichInputActivity,
   destination: string,
   destinationCoords?: { lat: number; lng: number },
+  deps: EnrichDeps = defaultDeps,
 ): Promise<EnrichedActivity> {
+  // Fast path: the discuss agent already resolved this venue via searchPlaces
+  // and put its placeId on the proposal payload. Reuse it and only backfill
+  // rating/hours/price by placeId. Re-searching would rebuild the query from
+  // the activity's *display* name (e.g. "Coffee at Sơn Trà Marina") biased to
+  // the accommodation — which can miss the real place entirely and drop the
+  // activity as "could not be geocoded".
+  if (activity.placeId) {
+    const details = await deps.getPlaceDetails(activity.placeId).catch(() => null)
+    return {
+      ...activity,
+      placeId: activity.placeId,
+      lat: activity.lat ?? details?.lat ?? null,
+      lng: activity.lng ?? details?.lng ?? null,
+      rating: details?.rating ?? null,
+      address: activity.address ?? details?.formattedAddress ?? null,
+      photos: [],
+      openingHours: details?.openingHours ?? [],
+      priceLevel: details?.priceLevel ?? null,
+    }
+  }
+
   try {
-    const candidates = await searchPlace(`${activity.name} ${destination}`, destinationCoords)
+    const candidates = await deps.searchPlace(`${activity.name} ${destination}`, destinationCoords)
     const topResult = candidates[0]
 
     if (topResult) {
-      const details = await getPlaceDetails(topResult.placeId).catch(() => null)
+      const details = await deps.getPlaceDetails(topResult.placeId).catch(() => null)
 
       return {
         ...activity,
@@ -87,9 +133,10 @@ async function enrichActivity(
  * Batches requests in groups of 5 to respect rate limits.
  */
 export async function enrichItinerary(
-  aiOutput: AIItineraryOutput,
+  aiOutput: EnrichInput,
   destination: string,
   destinationCoords?: { lat: number; lng: number },
+  deps: EnrichDeps = defaultDeps,
 ): Promise<EnrichedItinerary> {
   const enrichedDays: EnrichedDay[] = []
   let enrichmentFailures = 0
@@ -101,7 +148,7 @@ export async function enrichItinerary(
     for (let i = 0; i < day.activities.length; i += batchSize) {
       const batch = day.activities.slice(i, i + batchSize)
       const results = await Promise.all(
-        batch.map((activity) => enrichActivity(activity, destination, destinationCoords)),
+        batch.map((activity) => enrichActivity(activity, destination, destinationCoords, deps)),
       )
       enrichedActivities.push(...results)
     }
