@@ -19,6 +19,29 @@ const INJECTION_PATTERNS = [
 const MAX_INPUT_LENGTH = 5000
 
 /**
+ * Detection-only injection check. Runs the pattern + base64 scan WITHOUT the
+ * whitespace-collapsing transform, so it is safe to run over assistant markdown
+ * (which must survive verbatim). Returns true if the text looks like an attempt
+ * to override instructions.
+ */
+export function detectInjection(text: string): boolean {
+  if (!text) return false
+  if (INJECTION_PATTERNS.some((p) => p.test(text))) return true
+  const base64Matches = text.match(/[A-Za-z0-9+/]{30,}={0,2}/g)
+  if (base64Matches) {
+    for (const match of base64Matches) {
+      try {
+        const decoded = atob(match)
+        if (INJECTION_PATTERNS.some((p) => p.test(decoded))) return true
+      } catch {
+        /* not valid base64 */
+      }
+    }
+  }
+  return false
+}
+
+/**
  * Sanitize user input before passing to LLM.
  * Returns sanitized string or null if input is rejected.
  */
@@ -35,24 +58,8 @@ export function sanitizePromptInput(input: string): string | null {
 
   if (!cleaned) return null
 
-  // Check for injection patterns
-  if (INJECTION_PATTERNS.some((p) => p.test(cleaned))) {
+  if (detectInjection(cleaned)) {
     return null
-  }
-
-  // Check for encoded injection attempts (base64)
-  const base64Matches = cleaned.match(/[A-Za-z0-9+/]{30,}={0,2}/g)
-  if (base64Matches) {
-    for (const match of base64Matches) {
-      try {
-        const decoded = atob(match)
-        if (INJECTION_PATTERNS.some((p) => p.test(decoded))) {
-          return null
-        }
-      } catch {
-        // Not valid base64
-      }
-    }
   }
 
   return cleaned
