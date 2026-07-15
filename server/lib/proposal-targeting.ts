@@ -39,12 +39,13 @@ export function resolveTargetDays(
   opts: { dayId?: string; dayIds?: string[] },
 ): Resolved<{ dayIds: string[] }> | Failed {
   if (opts.dayIds && opts.dayIds.length > 0) {
-    for (const id of opts.dayIds) {
+    const unique = [...new Set(opts.dayIds)]
+    for (const id of unique) {
       if (!days.some((d) => d.id === id)) {
         return { ok: false, error: `Unknown dayId "${id}". Use [day:…] ids from the trip context.` }
       }
     }
-    return { ok: true, dayIds: [...opts.dayIds] }
+    return { ok: true, dayIds: unique }
   }
   const single = resolveTargetDay(days, activeDayId, opts.dayId)
   return single.ok ? { ok: true, dayIds: [single.dayId] } : single

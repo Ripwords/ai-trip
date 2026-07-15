@@ -836,7 +836,10 @@ function friendlyApplyError(e: unknown): string {
   return "Couldn't apply that change. Please try again."
 }
 
-async function applyOneProposal(messageId: string, proposal: Proposal): Promise<boolean> {
+async function applyOneProposal(
+  messageId: string,
+  proposal: Proposal,
+): Promise<{ ok: boolean; message?: string; enrichmentFailures: number }> {
   const day = trip.value?.days.find((d) => d.id === proposal.dayId)
   if (day)
     snapshotDay(
@@ -845,13 +848,16 @@ async function applyOneProposal(messageId: string, proposal: Proposal): Promise<
     )
   setProposalState(messageId, proposal.id, "applying")
   try {
-    await $fetch(`/api/trips/${tripId}/proposals/apply`, { method: "POST", body: { proposal } })
+    const result = await $fetch<{ message?: string; enrichmentFailures?: number }>(
+      `/api/trips/${tripId}/proposals/apply`,
+      { method: "POST", body: { proposal } },
+    )
     setProposalState(messageId, proposal.id, "applied")
-    return true
+    return { ok: true as const, message: result.message, enrichmentFailures: result.enrichmentFailures ?? 0 }
   } catch (e: unknown) {
     setProposalState(messageId, proposal.id, "pending")
     toastError(friendlyApplyError(e))
-    return false
+    return { ok: false as const, message: undefined, enrichmentFailures: 0 }
   }
 }
 
@@ -865,13 +871,13 @@ async function handleAiApplyProposal(messageId: string, proposal: Proposal) {
     })
     if (!ok) return
   }
-  const ok = await applyOneProposal(messageId, proposal)
+  const res = await applyOneProposal(messageId, proposal)
   await refresh()
-  if (ok) {
-    toastWithAction("Change applied.", {
-      label: "Undo",
-      onClick: () => handleAiUndo(proposal.dayId),
-    })
+  if (res.ok) {
+    toastWithAction(
+      res.enrichmentFailures > 0 ? (res.message ?? "Some places couldn't be located.") : "Change applied.",
+      { label: "Undo", onClick: () => handleAiUndo(proposal.dayId) },
+    )
   }
 }
 
@@ -888,16 +894,21 @@ async function handleAiApplyGroup(messageId: string, proposals: Proposal[]) {
     if (!ok) return
   }
   let applied = 0
+  let locateFailures = 0
   for (const p of proposals) {
-    if (await applyOneProposal(messageId, p)) applied++
+    const res = await applyOneProposal(messageId, p)
+    if (res.ok) applied++
+    locateFailures += res.enrichmentFailures
   }
   await refresh()
   const failed = proposals.length - applied
   const changedDays = [...new Set(proposals.map((p) => p.dayId))]
+  const summary =
+    failed === 0 ? `Applied ${applied} change(s).` : `Applied ${applied}, ${failed} couldn't be applied.`
   toastWithAction(
-    failed === 0
-      ? `Applied ${applied} change(s).`
-      : `Applied ${applied}, ${failed} couldn't be applied.`,
+    locateFailures > 0
+      ? `${summary} ${locateFailures} place(s) couldn't be located.`
+      : summary,
     { label: "Undo all", onClick: () => changedDays.forEach((d) => handleAiUndo(d)) },
     failed === 0 ? "success" : "info",
   )

@@ -39,6 +39,12 @@ describe("resolveTargetDays", () => {
   it("falls back to single active day when neither dayId nor dayIds given", () => {
     assert.deepEqual(resolveTargetDays(days, "d2", {}), { ok: true, dayIds: ["d2"] })
   })
+  it("dedupes repeated dayIds", () => {
+    assert.deepEqual(resolveTargetDays(days, "d1", { dayIds: ["d1", "d1", "d3"] }), {
+      ok: true,
+      dayIds: ["d1", "d3"],
+    })
+  })
 })
 
 describe("stampGroup", () => {

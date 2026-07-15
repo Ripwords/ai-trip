@@ -47,7 +47,7 @@ const MAX_CONTEXT_ACTIVITY_LINES = 300
 function buildTripContext(trip: TripWithRelations, focusDayId: string | null): string {
   const lines: string[] = []
   lines.push(
-    `Destination: ${trip.destination}. Dates: ${trip.startDate} → ${trip.endDate}. Trip currency: ${trip.currencyCode || "USD"} (all cost estimates must be in this currency — do NOT convert to USD).`,
+    `Destination: ${escapeCtx(trip.destination)}. Dates: ${trip.startDate} → ${trip.endDate}. Trip currency: ${trip.currencyCode || "USD"} (all cost estimates must be in this currency — do NOT convert to USD).`,
   )
 
   const prefs = trip.preferences
