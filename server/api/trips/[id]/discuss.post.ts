@@ -1,14 +1,16 @@
+import { randomUUID } from "node:crypto"
 import { and, eq } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../../../db"
 import { itineraryDays, trips } from "../../../db/schema"
 import { uuidParamsSchema } from "../../../utils/schemas"
 import { normalizeTransportMode } from "../../../utils/transport"
-import { sanitizePromptInput } from "../../../utils/sanitize"
+import { detectInjection, sanitizePromptInput } from "../../../utils/sanitize"
 import { createDiscussTools } from "../../../lib/ai-tools"
 import { discussAgent } from "../../../lib/discuss-agent"
 import { refundAiCredit } from "../../../utils/ai-limits"
 import { getTripWithRelations } from "../../../lib/trips"
+import { stampGroup } from "../../../lib/proposal-targeting"
 import type { Proposal } from "../../../lib/proposals"
 
 const discussBodySchema = z.object({
@@ -29,10 +31,20 @@ interface ToolSummaryEntry {
   args: Record<string, unknown>
 }
 
-async function buildTripContext(tripId: string, focusDayId: string | null): Promise<string> {
-  const trip = await getTripWithRelations(tripId)
-  if (!trip) return ""
+type TripWithRelations = NonNullable<Awaited<ReturnType<typeof getTripWithRelations>>>
 
+/** Neutralize bracket/id spoofing and control chars in stored free-text (B8). */
+function escapeCtx(s: string): string {
+  return s
+    .replace(/[[\]]/g, "")
+    .replace(/[\x00-\x1F]/g, " ")
+    .slice(0, 120)
+}
+
+// Guard for pathological trips — not the common path.
+const MAX_CONTEXT_ACTIVITY_LINES = 300
+
+function buildTripContext(trip: TripWithRelations, focusDayId: string | null): string {
   const lines: string[] = []
   lines.push(
     `Destination: ${trip.destination}. Dates: ${trip.startDate} → ${trip.endDate}. Trip currency: ${trip.currencyCode || "USD"} (all cost estimates must be in this currency — do NOT convert to USD).`,
@@ -49,44 +61,37 @@ async function buildTripContext(tripId: string, focusDayId: string | null): Prom
     if (parts.length > 0) lines.push(`Preferences: ${parts.join(", ")}.`)
   }
 
+  // Every day, with [day:…] and [act:…] ids, and the OPEN day marked — the
+  // agent's system prompt promises this shape so propose* tools can target
+  // any day (or several) by id without an extra readDay/readTripSummary call.
   const sortedDays = trip.days.toSorted((a, b) => a.dayNumber - b.dayNumber)
-  const focusDay = focusDayId ? sortedDays.find((d) => d.id === focusDayId) : null
 
-  if (focusDay) {
-    const head = `--- Active day: Day ${focusDay.dayNumber} (${focusDay.date})${focusDay.accommodationName ? ` · staying at ${focusDay.accommodationName}` : ""} ---`
-    lines.push(head)
-    if (focusDay.activities.length === 0) {
-      lines.push("  (no activities scheduled yet)")
+  let activityLines = 0
+  let trimmed = false
+  for (const d of sortedDays) {
+    if (trimmed) break
+    const open = d.id === focusDayId ? " · OPEN" : ""
+    lines.push(
+      `--- Day ${d.dayNumber} (${d.date}) [day:${d.id}]${d.accommodationName ? ` · staying at ${escapeCtx(d.accommodationName)}` : ""}${open} ---`,
+    )
+    const acts = d.activities.toSorted((a, b) => a.sortOrder - b.sortOrder)
+    if (acts.length === 0) {
+      lines.push("  (no activities yet)")
     } else {
-      const activitiesSorted = focusDay.activities.toSorted((a, b) => a.sortOrder - b.sortOrder)
-      let hasTransport = false
-      for (const a of activitiesSorted) {
+      for (const a of acts) {
+        if (activityLines >= MAX_CONTEXT_ACTIVITY_LINES) {
+          trimmed = true
+          break
+        }
         const time = a.suggestedTime ?? "??:??"
         const dur = a.estimatedDurationMinutes ? ` (${a.estimatedDurationMinutes}min)` : ""
-        const waypointTag = a.type === "transport" ? " [waypoint, kept for map reference]" : ""
-        if (a.type === "transport") hasTransport = true
-        lines.push(`  • [${a.id}] ${time} ${a.name} — ${a.type}${dur}${waypointTag}`)
-      }
-      if (hasTransport) {
-        lines.push(
-          "  (note: transport-type entries are intentional waypoints, not destinations — do not suggest removing them)",
-        )
+        lines.push(`  • [act:${a.id}] ${time} ${escapeCtx(a.name)} — ${a.type}${dur}`)
+        activityLines++
       }
     }
   }
-
-  // Brief trip-wide outline (other days, names only)
-  const otherDays = sortedDays.filter((d) => d.id !== focusDayId)
-  if (otherDays.length > 0) {
-    lines.push("Other days (overview):")
-    for (const d of otherDays) {
-      const names = d.activities
-        .toSorted((a, b) => a.sortOrder - b.sortOrder)
-        .map((a) => a.name)
-        .slice(0, 8)
-      const tail = d.activities.length > 8 ? ` +${d.activities.length - 8} more` : ""
-      lines.push(`  Day ${d.dayNumber} (${d.date}): ${names.join(", ") || "empty"}${tail}`)
-    }
+  if (trimmed) {
+    lines.push("  (…additional days trimmed)")
   }
 
   return lines.join("\n")
@@ -118,30 +123,33 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const { id } = await getValidatedRouterParams(event, uuidParamsSchema.parse)
 
-  // Consume credit BEFORE running the agent. Refund on agent error.
-  await tryConsumeAiCredit(session.user.id)
-
   const body = await readValidatedBody(event, discussBodySchema.parse)
 
   await requireTripAccess(id, session.user.id, ["owner", "editor"])
 
   const trip = await db.query.trips.findFirst({ where: eq(trips.id, id) })
   if (!trip) {
-    await refundAiCredit(session.user.id)
     throw createError({ statusCode: 404, message: "Trip not found" })
   }
 
-  // Sanitize each message's content (user inputs only — assistant replies are trusted).
+  // Consume credit AFTER auth + body validation + access + existence checks,
+  // so every throw above never needs a refund and every throw below this
+  // point (sanitize rejection, agent failure) refunds correctly.
+  await tryConsumeAiCredit(session.user.id)
+
+  // Reject if ANY message (incl. client-supplied assistant turns) contains an
+  // injection attempt; normalize only user turns (assistant markdown is kept verbatim).
+  if (body.messages.some((m) => detectInjection(m.content))) {
+    await refundAiCredit(session.user.id)
+    throw createError({ statusCode: 400, message: "Message contains disallowed content." })
+  }
   const cleanMessages = body.messages.slice(-20).map((m) => ({
     role: m.role,
     content: m.role === "user" ? (sanitizePromptInput(m.content) ?? "") : m.content,
   }))
   if (cleanMessages.some((m) => m.role === "user" && !m.content)) {
     await refundAiCredit(session.user.id)
-    throw createError({
-      statusCode: 400,
-      message: "Message contains disallowed content.",
-    })
+    throw createError({ statusCode: 400, message: "Message contains disallowed content." })
   }
 
   const transportMode = normalizeTransportMode(trip.preferences?.transportMode)
@@ -158,9 +166,14 @@ export default defineEventHandler(async (event) => {
     if (!day) dayId = null
   }
 
+  // Load the trip with days+activities once — reused for both the injected
+  // trip context and the tools' day list, avoiding a redundant second fetch.
+  const tripForCtx = await getTripWithRelations(id)
+  const days = (tripForCtx?.days ?? []).map((d) => ({ id: d.id, dayNumber: d.dayNumber }))
+
   // Inject trip context into the latest user message so the agent has it on every turn
   // without needing to call read_day / read_trip_summary.
-  const tripContext = await buildTripContext(id, dayId)
+  const tripContext = tripForCtx ? buildTripContext(tripForCtx, dayId) : ""
   if (tripContext) {
     const lastUserIdx = cleanMessages.findLastIndex((m) => m.role === "user")
     if (lastUserIdx >= 0) {
@@ -178,7 +191,8 @@ export default defineEventHandler(async (event) => {
   const tools = createDiscussTools(
     {
       tripId: id,
-      dayId: dayId ?? "",
+      activeDayId: dayId ?? "",
+      days,
       transportMode,
       currencyCode: trip.currencyCode || "USD",
     },
@@ -189,7 +203,7 @@ export default defineEventHandler(async (event) => {
   try {
     const response = await discussAgent.generate(cleanMessages, {
       toolsets: { discuss: tools },
-      maxSteps: 6,
+      maxSteps: 10,
       onStepFinish: (step) => {
         for (const c of step.toolCalls) {
           toolCalls.push({
@@ -215,6 +229,10 @@ export default defineEventHandler(async (event) => {
     .filter((c) => !c.toolId.startsWith("propose"))
     .map(describeToolCall)
 
+  // Stamp a shared groupId across proposals produced in this turn (no-op for a
+  // single proposal) so the client can render multi-day fan-outs as one group.
+  const groupedProposals = stampGroup(proposalCollector, randomUUID())
+
   await logTripAction({
     tripId: id,
     userId: session.user.id,
@@ -229,7 +247,7 @@ export default defineEventHandler(async (event) => {
   return {
     success: true,
     message: assistantText,
-    proposals: proposalCollector,
+    proposals: groupedProposals,
     toolCallSummary,
   }
 })
