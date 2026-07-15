@@ -3,7 +3,7 @@ import { and, asc, eq, inArray } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../db"
 import { activities, itineraryDays } from "../db/schema"
-import { enrichItinerary } from "./enrich"
+import { enrichItinerary, partitionGeocoded } from "./enrich"
 import { computeAndSaveSegments } from "./segments"
 import { getDistanceMatrix } from "./google-maps"
 import { computeSchedule, parseOpeningTime } from "../utils/schedule"
@@ -42,6 +42,10 @@ const baseProposal = z.object({
   id: z.string().uuid(),
   dayId: z.string().uuid(),
   summary: z.string().min(1),
+  // Client-only render metadata for grouping multi-day proposals from one turn.
+  // Ignored by applyProposal.
+  groupId: z.string().uuid().optional(),
+  groupLabel: z.string().optional(),
 })
 
 export const proposalSchema = z.discriminatedUnion("kind", [
@@ -210,24 +214,28 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
     }
 
     case "reschedule": {
-      const results = await Promise.all(
-        proposal.payload.updates.map((u) =>
-          db
+      let matched = 0
+      await db.transaction(async (tx) => {
+        for (const u of proposal.payload.updates) {
+          const rows = await tx
             .update(activities)
             .set({
               suggestedTime: u.suggestedTime,
               estimatedDurationMinutes: u.estimatedDurationMinutes,
             })
             .where(and(eq(activities.id, u.activityId), eq(activities.itineraryDayId, ctx.dayId)))
-            .returning({ id: activities.id }),
-        ),
-      )
-      updated = results.reduce((sum, r) => sum + r.length, 0)
+            .returning({ id: activities.id })
+          matched += rows.length
+        }
+      })
+      updated = matched
       message = `Rescheduled ${updated} activit${updated === 1 ? "y" : "ies"}`
       break
     }
 
     case "add-activities": {
+      let unlocated: { name: string }[] = []
+      let locatedCount = 0
       try {
         const enriched = await enrichItinerary(
           {
@@ -236,9 +244,12 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
           ctx.dayLocation ?? "",
           ctx.destinationCoords,
         )
-        enrichmentFailures = enriched.enrichmentFailures
         const enrichedActivities = enriched.days[0]?.activities ?? []
-        if (enrichedActivities.length > 0) {
+        const { located, unlocated: unlocatedActivities } = partitionGeocoded(enrichedActivities)
+        unlocated = unlocatedActivities
+        locatedCount = located.length
+        enrichmentFailures = unlocated.length
+        if (located.length > 0) {
           const current = await db.query.activities.findMany({
             where: eq(activities.itineraryDayId, ctx.dayId),
             orderBy: [asc(activities.sortOrder)],
@@ -247,7 +258,7 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
           const inserted = await db
             .insert(activities)
             .values(
-              enrichedActivities.map((a, i) => ({
+              located.map((a, i) => ({
                 itineraryDayId: ctx.dayId,
                 name: a.name,
                 placeId: a.placeId,
@@ -298,7 +309,21 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
           })
         }
       }
-      message = `Added ${added} activit${added === 1 ? "y" : "ies"}`
+      // No activity survived geocoding — distinct from the exception case
+      // above, so give a specific, actionable message instead of flipping
+      // the proposal card to "Applied" with nothing added.
+      if (locatedCount === 0) {
+        throw createError({
+          statusCode: 422,
+          message: `Couldn't locate ${unlocated.length === 1 ? "that place" : "any of those places"} on Google Maps. Try a more specific name.`,
+        })
+      }
+      message =
+        unlocated.length > 0
+          ? `Added ${added} · couldn't locate ${unlocated.length} (${unlocated
+              .map((a) => a.name)
+              .join(", ")})`
+          : `Added ${added} activit${added === 1 ? "y" : "ies"}`
       break
     }
 
@@ -421,7 +446,8 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
   if (
     (proposal.kind === "remove-activities" && removed === 0) ||
     (proposal.kind === "reschedule" && updated === 0) ||
-    (proposal.kind === "reorder-activities" && updated === 0)
+    (proposal.kind === "reorder-activities" && updated === 0) ||
+    (proposal.kind === "optimize-route" && !optimized)
   ) {
     throw createError({
       statusCode: 409,

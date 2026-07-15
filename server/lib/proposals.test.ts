@@ -1,6 +1,21 @@
+// proposals.ts transitively imports google-maps.ts (via enrich) and db/index.ts,
+// which register a Nitro auto-import and read DATABASE_URL at module-eval time.
+// Static imports are hoisted and evaluated before any of this file's own
+// top-level statements, so the shim/env-var must be set *and* proposals.ts
+// imported dynamically afterward — see enrich.test.ts for the same pattern.
+;(globalThis as { defineCachedFunction?: unknown }).defineCachedFunction = (fn: unknown) => fn
+// applyProposal throws via the Nitro/h3 auto-import `createError`, also absent
+// in a raw node:test process — shim it the same way.
+;(
+  globalThis as { createError?: (input: { statusCode?: number; message?: string }) => Error }
+).createError = (input) => Object.assign(new Error(input.message ?? ""), input)
+process.env.DATABASE_URL ??= "postgres://user:pass@localhost:5432/db"
+
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { proposalSchema } from "./proposals"
+import type { AIProcessResult } from "./ai"
+
+const { proposalSchema, resultToProposals, applyProposal } = await import("./proposals")
 
 describe("proposalSchema", () => {
   it("accepts an add-activities proposal with a valid payload", () => {
@@ -83,9 +98,6 @@ describe("proposalSchema", () => {
     assert.equal(result.success, true)
   })
 })
-
-import { resultToProposals } from "./proposals"
-import type { AIProcessResult } from "./ai"
 
 const dayFixture = {
   id: "22222222-2222-4222-8222-222222222222",
@@ -203,8 +215,6 @@ describe("resultToProposals", () => {
   })
 })
 
-import { applyProposal } from "./proposals"
-
 describe("applyProposal", () => {
   it("rejects a proposal whose dayId does not match the ctx", async () => {
     await assert.rejects(
@@ -226,5 +236,33 @@ describe("applyProposal", () => {
         ),
       /dayId mismatch/i,
     )
+  })
+})
+
+describe("proposalSchema group metadata", () => {
+  it("accepts optional groupId and groupLabel", () => {
+    const result = proposalSchema.safeParse({
+      id: "11111111-1111-4111-8111-111111111111",
+      kind: "add-activities",
+      dayId: "22222222-2222-4222-8222-222222222222",
+      summary: "Add a cafe",
+      groupId: "33333333-3333-4333-8333-333333333333",
+      groupLabel: "Coffee every morning",
+      payload: {
+        activities: [
+          {
+            name: "Cafe",
+            type: "cafe",
+            description: "coffee",
+            suggestedTime: "09:00",
+            estimatedDurationMinutes: 30,
+            costEstimate: 5,
+            tags: [],
+          },
+        ],
+      },
+    })
+    assert.equal(result.success, true)
+    assert.equal(result.success && result.data.groupId, "33333333-3333-4333-8333-333333333333")
   })
 })
