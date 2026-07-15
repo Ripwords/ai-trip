@@ -25,10 +25,6 @@ describe("discussAgent", () => {
     assert.match(DISCUSS_SYSTEM_PROMPT, /thinking partner/i)
   })
 
-  it("system prompt forbids whole-day reschedules from chat", () => {
-    assert.match(DISCUSS_SYSTEM_PROMPT, /Optimize chip/i)
-  })
-
   it("system prompt tells the agent to use injected trip context as default", () => {
     assert.match(DISCUSS_SYSTEM_PROMPT, /trip context is.*injected/i)
   })
@@ -58,5 +54,14 @@ describe("discussAgent", () => {
     assert.doesNotMatch(DISCUSS_SYSTEM_PROMPT, /\bsearch_places\b/)
     assert.doesNotMatch(DISCUSS_SYSTEM_PROMPT, /\bread_day\b/)
     assert.doesNotMatch(DISCUSS_SYSTEM_PROMPT, /\bweb_search\b/)
+  })
+
+  it("prompt teaches multi-day targeting and ambiguity handling", () => {
+    assert.match(DISCUSS_SYSTEM_PROMPT, /\[day:/) // references the day-id token
+    assert.match(DISCUSS_SYSTEM_PROMPT, /dayIds|multiple days|several days/i)
+    assert.match(DISCUSS_SYSTEM_PROMPT, /ambiguous|which day|clarif/i)
+    // The old hard blocks must be gone:
+    assert.doesNotMatch(DISCUSS_SYSTEM_PROMPT, /you do NOT pass a day id/i)
+    assert.doesNotMatch(DISCUSS_SYSTEM_PROMPT, /ask the user to open that day/i)
   })
 })
