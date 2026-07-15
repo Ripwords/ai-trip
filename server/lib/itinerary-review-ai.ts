@@ -123,7 +123,13 @@ export async function reviewItineraryWithJudgment(
     const { Agent } = await import("@mastra/core/agent")
     const { generateObject } = await import("ai")
 
-    const tools = createTripTools(ctx)
+    const tools = createTripTools({
+      tripId: ctx.tripId,
+      activeDayId: ctx.dayId,
+      days: trip.days.map((d) => ({ id: d.id, dayNumber: d.dayNumber })),
+      transportMode: ctx.transportMode,
+      currencyCode: ctx.currencyCode,
+    })
 
     const reviewAgent = new Agent({
       id: "reviewer",
