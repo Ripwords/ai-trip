@@ -25,6 +25,7 @@
 ## Task 0: Commit the pre-existing enrich fix
 
 **Files:**
+
 - Commit (already-modified): `server/lib/enrich.ts`, `server/lib/enrich.test.ts`
 
 - [ ] **Step 1: Confirm the enrich tests pass**
@@ -44,10 +45,12 @@ git commit -m "fix(enrich): reuse agent-resolved placeId instead of re-searching
 ## Task 1: `detectInjection` — sanitize all chat messages, not just user role (bug B3)
 
 **Files:**
+
 - Modify: `server/utils/sanitize.ts`
 - Test: `server/utils/sanitize.test.ts` (create)
 
 **Interfaces:**
+
 - Produces: `export function detectInjection(text: string): boolean` — true if `text` (or a base64 blob inside it) matches an injection pattern. Pure; no whitespace mutation. `sanitizePromptInput` is refactored to call it but keep its exact existing return contract.
 
 - [ ] **Step 1: Write the failing test**
@@ -128,13 +131,13 @@ export function detectInjection(text: string): boolean {
 Then change the body of `sanitizePromptInput` so its injection checks delegate to `detectInjection` (replace the inline `INJECTION_PATTERNS.some(...)` block at lines 38-56 with a single call):
 
 ```ts
-  if (!cleaned) return null
+if (!cleaned) return null
 
-  if (detectInjection(cleaned)) {
-    return null
-  }
+if (detectInjection(cleaned)) {
+  return null
+}
 
-  return cleaned
+return cleaned
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -154,10 +157,12 @@ git commit -m "feat(sanitize): add detection-only detectInjection for all chat r
 ## Task 2: `proposal-targeting.ts` — resolve/validate target days + group stamping
 
 **Files:**
+
 - Create: `server/lib/proposal-targeting.ts`
 - Test: `server/lib/proposal-targeting.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `interface DayRef { id: string; dayNumber: number }`
   - `resolveTargetDay(days: DayRef[], activeDayId: string, dayId?: string): { ok: true; dayId: string } | { ok: false; error: string }`
@@ -313,10 +318,12 @@ git commit -m "feat(ai): add pure day-targeting + group-stamping helpers"
 ## Task 3: `partitionGeocoded` — never persist null-coordinate activities (bug B4)
 
 **Files:**
+
 - Modify: `server/lib/enrich.ts`
 - Test: `server/lib/enrich.test.ts` (extend — it already shims `defineCachedFunction`)
 
 **Interfaces:**
+
 - Produces: `export function partitionGeocoded<T extends { name: string; lat: number | null; lng: number | null }>(activities: T[]): { located: T[]; unlocated: T[] }`
 
 - [ ] **Step 1: Write the failing test**
@@ -390,10 +397,12 @@ git commit -m "feat(enrich): add partitionGeocoded to gate null-coordinate inser
 ## Task 4: `proposals.ts` — group fields on schema + apply guards (B4, B5, B6)
 
 **Files:**
+
 - Modify: `server/lib/proposals.ts`
 - Test: `server/lib/proposals.test.ts` (extend, for the schema change)
 
 **Interfaces:**
+
 - Consumes: `partitionGeocoded` (Task 3), the `Proposal` union.
 - Produces: `Proposal` gains optional `groupId?: string`, `groupLabel?: string`; `applyProposal` returns the existing `ApplyResult` plus, on `add-activities`, a truthful `enrichmentFailures` count reflecting dropped activities.
 
@@ -445,7 +454,7 @@ Expected: FAIL — schema rejects unknown keys `groupId`/`groupLabel` (Zod strip
 Add after the `safeParse`:
 
 ```ts
-    assert.equal(result.success && result.data.groupId, "33333333-3333-4333-8333-333333333333")
+assert.equal(result.success && result.data.groupId, "33333333-3333-4333-8333-333333333333")
 ```
 
 Re-run — expected FAIL because `groupId` is stripped (undefined) until the schema declares it.
@@ -486,23 +495,23 @@ In `applyProposal`'s `case "add-activities":` block, after `const enriched = awa
 Change the `.insert(activities).values(enrichedActivities.map(...))` to `located.map(...)`, and the `slotNewActivitiesIntoSequence` / `added = inserted.length` logic stays. After the insert block, set the message to reflect partial success:
 
 ```ts
-        message =
-          unlocated.length > 0
-            ? `Added ${added} · couldn't locate ${unlocated.length} (${unlocated
-                .map((a) => a.name)
-                .join(", ")})`
-            : `Added ${added} activit${added === 1 ? "y" : "ies"}`
+message =
+  unlocated.length > 0
+    ? `Added ${added} · couldn't locate ${unlocated.length} (${unlocated
+        .map((a) => a.name)
+        .join(", ")})`
+    : `Added ${added} activit${added === 1 ? "y" : "ies"}`
 ```
 
-(Keep the existing `catch` that throws a 502 when `added === 0` due to an enrichment *exception*; the new path handles the "some/all had no coordinates" case without throwing when at least one inserted. If `located.length === 0`, `added` stays 0 — add an explicit throw so the card doesn't flip to "Applied" with nothing added:)
+(Keep the existing `catch` that throws a 502 when `added === 0` due to an enrichment _exception_; the new path handles the "some/all had no coordinates" case without throwing when at least one inserted. If `located.length === 0`, `added` stays 0 — add an explicit throw so the card doesn't flip to "Applied" with nothing added:)
 
 ```ts
-        if (located.length === 0) {
-          throw createError({
-            statusCode: 422,
-            message: `Couldn't locate ${unlocated.length === 1 ? "that place" : "any of those places"} on Google Maps. Try a more specific name.`,
-          })
-        }
+if (located.length === 0) {
+  throw createError({
+    statusCode: 422,
+    message: `Couldn't locate ${unlocated.length === 1 ? "that place" : "any of those places"} on Google Maps. Try a more specific name.`,
+  })
+}
 ```
 
 Place this check right after computing `{ located, unlocated }`.
@@ -538,18 +547,18 @@ Replace the `case "reschedule":` `Promise.all(...)` body (lines ~212-228) with a
 At the post-switch guard (lines ~421-431), add `set-accommodation` (no-op when nothing changes is fine, but optimize with <2 activities should not read as applied). Extend the condition:
 
 ```ts
-  if (
-    (proposal.kind === "remove-activities" && removed === 0) ||
-    (proposal.kind === "reschedule" && updated === 0) ||
-    (proposal.kind === "reorder-activities" && updated === 0) ||
-    (proposal.kind === "optimize-route" && !optimized)
-  ) {
-    throw createError({
-      statusCode: 409,
-      message:
-        "This proposal references activities that no longer exist on the day. The schedule may have changed since it was suggested — refresh and try again.",
-    })
-  }
+if (
+  (proposal.kind === "remove-activities" && removed === 0) ||
+  (proposal.kind === "reschedule" && updated === 0) ||
+  (proposal.kind === "reorder-activities" && updated === 0) ||
+  (proposal.kind === "optimize-route" && !optimized)
+) {
+  throw createError({
+    statusCode: 409,
+    message:
+      "This proposal references activities that no longer exist on the day. The schedule may have changed since it was suggested — refresh and try again.",
+  })
+}
 ```
 
 - [ ] **Step 8: Typecheck + verify no test regressions**
@@ -571,9 +580,11 @@ git commit -m "fix(proposals): drop unlocated adds, atomic reschedule, honest ze
 ## Task 5: `ai-tools.ts` — day-targeting on propose tools (Feature 1.2/1.3, bug B2)
 
 **Files:**
+
 - Modify: `server/lib/ai-tools.ts`
 
 **Interfaces:**
+
 - Consumes: `resolveTargetDay`, `resolveTargetDays`, `DayRef` (Task 2).
 - Produces: `TripToolsContext` renames `dayId` → `activeDayId` and adds `days: DayRef[]`. Propose tools accept optional `dayId`; `proposeAddActivities` also accepts optional `dayIds`.
 
@@ -702,10 +713,12 @@ git commit -m "feat(ai): let propose tools target any day / multiple days"
 ## Task 6: `discuss-agent.ts` — system-prompt rewrite (scope + ambiguity)
 
 **Files:**
+
 - Modify: `server/lib/discuss-agent.ts`
 - Test: `server/lib/discuss-agent.test.ts` (extend — it asserts prompt substrings)
 
 **Interfaces:**
+
 - Produces: `DISCUSS_SYSTEM_PROMPT` teaches multi-day targeting and the ask-when-ambiguous rule; removes the "you do NOT pass a day id" / "ask the user to open that day" / "no whole-day reschedules from chat" rules.
 
 - [ ] **Step 1: Write the failing prompt test**
@@ -759,9 +772,11 @@ git commit -m "feat(ai): teach discuss agent multi-day scope + ask-when-ambiguou
 ## Task 7: `discuss.post.ts` — credit ordering, all-message sanitize, all-day context, grouping, step cap
 
 **Files:**
+
 - Modify: `server/api/trips/[id]/discuss.post.ts`
 
 **Interfaces:**
+
 - Consumes: `detectInjection` (Task 1), `stampGroup` (Task 2), updated `TripToolsContext` (Task 5).
 - Produces: response `{ success, message, proposals, toolCallSummary }` unchanged in shape; proposals may now carry `groupId` and target multiple days.
 
@@ -774,20 +789,20 @@ Move `await tryConsumeAiCredit(session.user.id)` (currently line ~122, before `r
 Add `import { detectInjection } from "../../../utils/sanitize"` (alongside the existing `sanitizePromptInput` import). Replace the message-cleaning block (lines ~135-145) with:
 
 ```ts
-  // Reject if ANY message (incl. client-supplied assistant turns) contains an
-  // injection attempt; normalize only user turns (assistant markdown is kept verbatim).
-  if (body.messages.some((m) => detectInjection(m.content))) {
-    await refundAiCredit(session.user.id)
-    throw createError({ statusCode: 400, message: "Message contains disallowed content." })
-  }
-  const cleanMessages = body.messages.slice(-20).map((m) => ({
-    role: m.role,
-    content: m.role === "user" ? (sanitizePromptInput(m.content) ?? "") : m.content,
-  }))
-  if (cleanMessages.some((m) => m.role === "user" && !m.content)) {
-    await refundAiCredit(session.user.id)
-    throw createError({ statusCode: 400, message: "Message contains disallowed content." })
-  }
+// Reject if ANY message (incl. client-supplied assistant turns) contains an
+// injection attempt; normalize only user turns (assistant markdown is kept verbatim).
+if (body.messages.some((m) => detectInjection(m.content))) {
+  await refundAiCredit(session.user.id)
+  throw createError({ statusCode: 400, message: "Message contains disallowed content." })
+}
+const cleanMessages = body.messages.slice(-20).map((m) => ({
+  role: m.role,
+  content: m.role === "user" ? (sanitizePromptInput(m.content) ?? "") : m.content,
+}))
+if (cleanMessages.some((m) => m.role === "user" && !m.content)) {
+  await refundAiCredit(session.user.id)
+  throw createError({ statusCode: 400, message: "Message contains disallowed content." })
+}
 ```
 
 (Order: this whole block must sit AFTER the credit consume from Step 1, so the refunds are valid.)
@@ -797,22 +812,22 @@ Add `import { detectInjection } from "../../../utils/sanitize"` (alongside the e
 Rewrite the "Other days (overview)" section (lines ~78-90) so every non-focus day emits its `[day:…]` id and bracketed activity ids, and give the focus-day header a `· OPEN` tag. Replace the `otherDays` block with a loop over ALL sorted days that emits, for each day:
 
 ```ts
-  for (const d of sortedDays) {
-    const open = d.id === focusDayId ? " · OPEN" : ""
-    lines.push(
-      `--- Day ${d.dayNumber} (${d.date}) [day:${d.id}]${d.accommodationName ? ` · staying at ${escapeCtx(d.accommodationName)}` : ""}${open} ---`,
-    )
-    const acts = d.activities.toSorted((a, b) => a.sortOrder - b.sortOrder)
-    if (acts.length === 0) {
-      lines.push("  (no activities yet)")
-    } else {
-      for (const a of acts) {
-        const time = a.suggestedTime ?? "??:??"
-        const dur = a.estimatedDurationMinutes ? ` (${a.estimatedDurationMinutes}min)` : ""
-        lines.push(`  • [act:${a.id}] ${time} ${escapeCtx(a.name)} — ${a.type}${dur}`)
-      }
+for (const d of sortedDays) {
+  const open = d.id === focusDayId ? " · OPEN" : ""
+  lines.push(
+    `--- Day ${d.dayNumber} (${d.date}) [day:${d.id}]${d.accommodationName ? ` · staying at ${escapeCtx(d.accommodationName)}` : ""}${open} ---`,
+  )
+  const acts = d.activities.toSorted((a, b) => a.sortOrder - b.sortOrder)
+  if (acts.length === 0) {
+    lines.push("  (no activities yet)")
+  } else {
+    for (const a of acts) {
+      const time = a.suggestedTime ?? "??:??"
+      const dur = a.estimatedDurationMinutes ? ` (${a.estimatedDurationMinutes}min)` : ""
+      lines.push(`  • [act:${a.id}] ${time} ${escapeCtx(a.name)} — ${a.type}${dur}`)
     }
   }
+}
 ```
 
 Remove the now-duplicated focus-day-only block above it (keep a single unified loop). Add a small escaper near the top of the file for B8 (stored free-text must not read as instructions):
@@ -820,7 +835,10 @@ Remove the now-duplicated focus-day-only block above it (keep a single unified l
 ```ts
 function escapeCtx(s: string): string {
   // Neutralize bracket/id spoofing and control chars in stored free-text.
-  return s.replace(/[\[\]]/g, "").replace(/[\x00-\x1F]/g, " ").slice(0, 120)
+  return s
+    .replace(/[\[\]]/g, "")
+    .replace(/[\x00-\x1F]/g, " ")
+    .slice(0, 120)
 }
 ```
 
@@ -831,18 +849,18 @@ For very large trips, cap total injected activity lines at 300 and append `  (�
 Where `createDiscussTools({ tripId, dayId: dayId ?? "", ... }, ...)` is built (lines ~178-186), fetch the day list (reuse the trip already loaded in `buildTripContext`; if not in scope there, call `getTripWithRelations(id)` once and reuse for both). Build:
 
 ```ts
-  const tripForCtx = await getTripWithRelations(id)
-  const days = (tripForCtx?.days ?? []).map((d) => ({ id: d.id, dayNumber: d.dayNumber }))
-  const tools = createDiscussTools(
-    {
-      tripId: id,
-      activeDayId: dayId ?? "",
-      days,
-      transportMode,
-      currencyCode: trip.currencyCode || "USD",
-    },
-    proposalCollector,
-  )
+const tripForCtx = await getTripWithRelations(id)
+const days = (tripForCtx?.days ?? []).map((d) => ({ id: d.id, dayNumber: d.dayNumber }))
+const tools = createDiscussTools(
+  {
+    tripId: id,
+    activeDayId: dayId ?? "",
+    days,
+    transportMode,
+    currencyCode: trip.currencyCode || "USD",
+  },
+  proposalCollector,
+)
 ```
 
 (If `buildTripContext` already fetched the trip, thread that value through instead of a second fetch.)
@@ -852,7 +870,7 @@ Where `createDiscussTools({ tripId, dayId: dayId ?? "", ... }, ...)` is built (l
 Add `import { stampGroup } from "../../../lib/proposal-targeting"` and `import { randomUUID } from "node:crypto"`. Change `maxSteps: 6` → `maxSteps: 10`. After the agent returns and before building the response, stamp the collector:
 
 ```ts
-  const groupedProposals = stampGroup(proposalCollector, randomUUID())
+const groupedProposals = stampGroup(proposalCollector, randomUUID())
 ```
 
 Return `proposals: groupedProposals` instead of `proposalCollector`.
@@ -878,9 +896,11 @@ git commit -m "feat(ai): multi-day context+targeting, credit ordering, all-messa
 ## Task 8: Client types + toast action button (Feature 2.4 infra)
 
 **Files:**
+
 - Modify: `app/types/proposal.ts`, `app/composables/useToast.ts`, `app/components/ToastHost.vue`
 
 **Interfaces:**
+
 - Produces: client `Proposal` mirrors `groupId?`/`groupLabel?`. `useToast().notify(message, type?, duration?, action?)` where `action?: { label: string; onClick: () => void }`; `Toast` gains optional `action`.
 
 - [ ] **Step 1: Mirror the group fields on the client Proposal type**
@@ -920,14 +940,14 @@ export interface Toast {
 ```
 
 ```ts
-  function notify(message: string, type: ToastType = "info", duration = 4000, action?: ToastAction) {
-    const id = nextId++
-    toasts.value.push({ id, message, type, action })
-    if (import.meta.client && duration > 0) {
-      window.setTimeout(() => dismiss(id), duration)
-    }
-    return id
+function notify(message: string, type: ToastType = "info", duration = 4000, action?: ToastAction) {
+  const id = nextId++
+  toasts.value.push({ id, message, type, action })
+  if (import.meta.client && duration > 0) {
+    window.setTimeout(() => dismiss(id), duration)
   }
+  return id
+}
 ```
 
 Add a convenience returned from `useToast()`:
@@ -942,12 +962,15 @@ Add a convenience returned from `useToast()`:
 In `ToastHost.vue`, between the message `<p>` and the dismiss button, add:
 
 ```vue
-          <button
-            v-if="t.action"
-            type="button"
-            class="focus-ring shrink-0 rounded-lg px-2 py-1 text-sm font-medium text-terra-600 transition hover:text-terra-800"
-            @click="t.action.onClick(); dismiss(t.id)"
-          >
+<button
+  v-if="t.action"
+  type="button"
+  class="focus-ring shrink-0 rounded-lg px-2 py-1 text-sm font-medium text-terra-600 transition hover:text-terra-800"
+  @click="
+    t.action.onClick()
+    dismiss(t.id)
+  "
+>
             {{ t.action.label }}
           </button>
 ```
@@ -969,10 +992,12 @@ git commit -m "feat(ui): toast action button + group fields on client proposal t
 ## Task 9: `useDayUndo` — snapshot a day + restore it (Feature 2.4)
 
 **Files:**
+
 - Create: `app/composables/useDayUndo.ts`
 - Test: `app/composables/useDayUndo.test.ts` (pure snapshot builder only)
 
 **Interfaces:**
+
 - Produces:
   - `buildDaySnapshot(activities): ActivitySnapshot[]` — maps loaded activity rows to the shape `restore.post.ts` expects.
   - `useDayUndo(tripId)` → `{ snapshot(dayId, activities), restore(dayId) }` where `snapshot` stores a snapshot and `restore` POSTs it to `/api/trips/[id]/days/[dayId]/restore`.
@@ -1116,9 +1141,11 @@ git commit -m "feat(ui): useDayUndo — per-day snapshot + restore"
 ## Task 10: `AiDock.vue` — scope badges, grouped Apply-all, destructive styling, ghost-card fix, a11y
 
 **Files:**
+
 - Modify: `app/components/AiDock.vue`
 
 **Interfaces:**
+
 - Consumes: `Proposal` with `groupId`, `dayId`.
 - Produces new emits: `applyGroup: [messageId: string, proposals: Proposal[]]`, `dismissGroup: [messageId: string, proposalIds: string[]]`. New prop: `dayLabels: Record<string, string>` (dayId → "Day 3"). New prop `activeDayLabel: string` for the scope hint.
 
@@ -1255,7 +1282,11 @@ function onApplyGroup(message: ChatMessage, g: ProposalGroup) {
   emit("applyGroup", message.id, g.proposals)
 }
 function onDismissGroup(message: ChatMessage, g: ProposalGroup) {
-  emit("dismissGroup", message.id, g.proposals.map((p) => p.id))
+  emit(
+    "dismissGroup",
+    message.id,
+    g.proposals.map((p) => p.id),
+  )
 }
 ```
 
@@ -1298,7 +1329,7 @@ Update the `proposalKindMeta` type union to include `"danger"`.
 In the `<header>`, under the "From your planner" label, add a scope line:
 
 ```vue
-        <span class="text-[10px] text-sand-500">Editing {{ activeDayLabel }}</span>
+<span class="text-[10px] text-sand-500">Editing {{ activeDayLabel }}</span>
 ```
 
 - [ ] **Step 5: a11y — Esc to close, focus restore, mobile dialog role (F9)**
@@ -1321,9 +1352,11 @@ git commit -m "feat(ai-dock): grouped multi-day proposals, scope badges, destruc
 ## Task 11: `trips/[id].vue` — Apply-all orchestration, confirm, undo, cancel, error copy
 
 **Files:**
+
 - Modify: `app/pages/trips/[id].vue`
 
 **Interfaces:**
+
 - Consumes: `useDayUndo` (Task 9), `useConfirm`, `useToast().withAction`, AiDock's new emits (`applyGroup`, `dismissGroup`, `undo`, `cancel`), `dayLabels`/`activeDayLabel` props.
 
 - [ ] **Step 1: Wire the new composables + dock props**
@@ -1355,7 +1388,8 @@ Rewrite `handleAiApplyProposal` to snapshot the target day before mutating, conf
 ```ts
 function friendlyApplyError(e: unknown): string {
   const msg = e instanceof Error ? e.message : ""
-  if (/409/.test(msg)) return "That change no longer fits the day — it may have changed since. Refresh and try again."
+  if (/409/.test(msg))
+    return "That change no longer fits the day — it may have changed since. Refresh and try again."
   if (/422/.test(msg)) return "Couldn't find that place on Google Maps."
   return "Couldn't apply that change. Please try again."
 }
@@ -1419,7 +1453,9 @@ async function handleAiApplyGroup(messageId: string, proposals: Proposal[]) {
   const failed = proposals.length - applied
   const changedDays = [...new Set(proposals.map((p) => p.dayId))]
   toastWithAction(
-    failed === 0 ? `Applied ${applied} change(s).` : `Applied ${applied}, ${failed} couldn't be applied.`,
+    failed === 0
+      ? `Applied ${applied} change(s).`
+      : `Applied ${applied}, ${failed} couldn't be applied.`,
     { label: "Undo all", onClick: () => changedDays.forEach((d) => handleAiUndo(d)) },
     failed === 0 ? "success" : "info",
   )
@@ -1483,9 +1519,12 @@ watch(
 For `handleQuickFillGaps` / `handleQuickOptimizeRoute`, snapshot the active day before the POST and add an Undo toast after success:
 
 ```ts
-  if (activeDay.value) snapshotDay(activeDay.value.id, activeDay.value.activities)
-  // …after refresh():
-  toastWithAction("Route optimized.", { label: "Undo", onClick: () => handleAiUndo(activeDay.value!.id) })
+if (activeDay.value) snapshotDay(activeDay.value.id, activeDay.value.activities)
+// …after refresh():
+toastWithAction("Route optimized.", {
+  label: "Undo",
+  onClick: () => handleAiUndo(activeDay.value!.id),
+})
 ```
 
 (Adjust the message string per chip: "Gaps filled." / "Route optimized.")
@@ -1511,6 +1550,7 @@ git commit -m "feat(ai-dock): apply-all orchestration, confirm, undo, cancel, fr
 ## Task 12: Remove dead code (F8)
 
 **Files:**
+
 - Delete: `app/composables/useAiPromptSuggestions.ts`
 
 - [ ] **Step 1: Confirm no imports remain**
@@ -1537,6 +1577,7 @@ git commit -m "chore(ai): remove dead useAiPromptSuggestions composable"
 node --import tsx --test server/utils/sanitize.test.ts server/lib/proposal-targeting.test.ts server/lib/enrich.test.ts server/lib/discuss-agent.test.ts app/composables/useDayUndo.test.ts
 DATABASE_URL="postgres://u:p@localhost:5432/db" node --import tsx --test server/lib/proposals.test.ts
 ```
+
 Expected: all PASS.
 
 - [ ] **Step 2: Lint + format**
@@ -1545,6 +1586,7 @@ Expected: all PASS.
 npx oxlint server/ app/
 npx oxfmt --check .
 ```
+
 Expected: clean (run `npx oxfmt --write .` if formatting drifts, then re-commit).
 
 - [ ] **Step 3: Typecheck (scoped to touched files)**
@@ -1555,6 +1597,7 @@ Expected: no output. (Pre-existing unrelated errors in `AddActivityModal.vue`, `
 - [ ] **Step 4: End-to-end acceptance (`verify` skill), one pass over the acceptance list**
 
 Drive the app and confirm each spec behavior in one session:
+
 - "add coffee every morning" → grouped per-day cards, badges, Apply-all, one Undo-all toast that reverts all days.
 - "add a bar to day 3" while day 1 open → single card badged "Day 3", applies to day 3.
 - ambiguous "move dinner later" (multi-day) → clarifying question, no cards.
@@ -1579,4 +1622,7 @@ git commit -m "chore(ai): lint/format/verify pass for scope-targeting feature"
 - **`ctx.dayId` → `ctx.activeDayId`** touches `readDay`, `runReview`, and all propose tools in `ai-tools.ts`; grep for `ctx.dayId` after Task 5 to be sure none remain.
 - **Do not change** `days/[dayId]/ai.post.ts` mutation behavior — quick chips stay instant by decision; only the client adds snapshot+undo around them.
 - **Segments + activity log** are recomputed per-apply inside `applyProposal`; Apply-all's per-card loop already gets this for each day for free.
+
+```
+
 ```

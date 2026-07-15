@@ -8,7 +8,7 @@
 
 The AI chat ("discuss" dock) is hard-wired to a single ambient **active day**. A three-way review surfaced two classes of problem:
 
-1. **Scope is stuck on one day.** Propose tools bake in `ctx.dayId`; non-active days carry no ids in the injected context; the system prompt actively *forbids* targeting another day or the whole trip ("ask the user to open that day"). Users asking "add coffee every morning" or "fix Day 4" get bounced with "open Day X first." This is the friction in the reference transcript.
+1. **Scope is stuck on one day.** Propose tools bake in `ctx.dayId`; non-active days carry no ids in the injected context; the system prompt actively _forbids_ targeting another day or the whole trip ("ask the user to open that day"). Users asking "add coffee every morning" or "fix Day 4" get bounced with "open Day X first." This is the friction in the reference transcript.
 2. **Confirmation & correctness gaps.** No visible undo (the `/restore` endpoint exists but is unwired), destructive removes look identical to adds and apply on one click, proposals don't clear/relabel on day-switch, a dead Cancel button, raw error strings surfaced to users, a credit charged before auth, a sanitizer bypass, and activities inserted with null coordinates while reporting success.
 
 ## Goals
@@ -26,13 +26,13 @@ The AI chat ("discuss" dock) is hard-wired to a single ambient **active day**. A
 
 ## Decisions (from brainstorming)
 
-| Decision | Choice |
-| --- | --- |
-| Packaging | One combined implementation plan (bugs + feature). |
-| Multi-day proposal model | **Per-day cards, grouped with an "Apply all"** header. |
-| Confirmation behaviors | All four: ask-when-ambiguous, scope badge, confirm destructive/bulk, visible Undo. |
-| Apply-all orchestration | **Client-side sequential**, best-effort, reusing the existing single-proposal apply endpoint. No batch endpoint. |
-| Quick chips | **Keep instant**, add snapshot + visible Undo. Not routed through propose→apply. |
+| Decision                 | Choice                                                                                                           |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Packaging                | One combined implementation plan (bugs + feature).                                                               |
+| Multi-day proposal model | **Per-day cards, grouped with an "Apply all"** header.                                                           |
+| Confirmation behaviors   | All four: ask-when-ambiguous, scope badge, confirm destructive/bulk, visible Undo.                               |
+| Apply-all orchestration  | **Client-side sequential**, best-effort, reusing the existing single-proposal apply endpoint. No batch endpoint. |
+| Quick chips              | **Keep instant**, add snapshot + visible Undo. Not routed through propose→apply.                                 |
 
 ## Architecture overview
 
@@ -91,9 +91,13 @@ Today `buildTripContext` renders the focus day's activities with `[uuid]` ids an
 New helper in `ai-tools.ts`:
 
 ```ts
-function resolveTargetDay(ctx, dayId?: string): { ok: true; dayId: string } | { ok: false; error: string } {
+function resolveTargetDay(
+  ctx,
+  dayId?: string,
+): { ok: true; dayId: string } | { ok: false; error: string } {
   const target = dayId ?? ctx.activeDayId
-  if (!target) return { ok: false, error: "No day in scope. Ask the user which day (or 'all days')." }
+  if (!target)
+    return { ok: false, error: "No day in scope. Ask the user which day (or 'all days')." }
   if (!ctx.days.some((d) => d.id === target)) {
     return { ok: false, error: `Unknown dayId ${target}. Use a [day:…] id from the trip context.` }
   }
@@ -134,6 +138,7 @@ Prompt behavior only (2.4 above). The agent already can return prose with an emp
 Proposals returned in one turn are grouped **client-side** by a shared `groupId`. To group without a schema change, the discuss response groups proposals that share the agent's summarizing turn: add an optional `groupId?: string` and `groupLabel?: string` to the `Proposal` type (client-render metadata only; ignored by `applyProposal`). The agent doesn't set these — `discuss.post.ts` assigns a single `groupId` to all proposals produced in one response and a `groupLabel` derived from the assistant summary. (Simplest correct grouping: all proposals from one turn = one group. A single-day turn renders as today.)
 
 `AiDock.vue`:
+
 - Each card shows a **scope badge** from `proposal.dayId` → "Day N" (looked up in loaded trip data).
 - When a group has ≥2 proposals, render a group header — "Applies to N days" — with **Apply all** and **Dismiss all**.
 - Per-card **Apply / Dismiss** unchanged.
@@ -141,9 +146,10 @@ Proposals returned in one turn are grouped **client-side** by a shared `groupId`
 ### 2.3 Confirm destructive / bulk
 
 Reuse `useConfirm({ destructive: true })`:
+
 - Before applying any `remove-activities` proposal.
 - Before an **Apply all** whose group spans ≥3 days or contains any removal.
-Copy example: "Remove 3 stops from Day 2? You can undo this." Single additive applies do not confirm (avoid nagging).
+  Copy example: "Remove 3 stops from Day 2? You can undo this." Single additive applies do not confirm (avoid nagging).
 
 ### 2.4 Visible Undo (wire the dormant `/restore`)
 
@@ -158,6 +164,7 @@ Copy example: "Remove 3 stops from Day 2? You can undo this." Single additive ap
 ## Feature 3 — Apply-all orchestration (client-side sequential)
 
 `handleApplyGroup(group)`:
+
 1. If confirm needed (2.3), confirm once for the group.
 2. For each proposal in order: snapshot its day → set card `applying` → POST `/proposals/apply` → set `applied`/`error`. Continue on failure (best-effort).
 3. After the loop, one `refresh()`. Show a summary toast: "Applied 3 of 4 · 1 couldn't be located" when partial, with Undo covering the days that changed.
@@ -209,6 +216,7 @@ No new endpoint, no cross-day transaction. Undo is per-day (a per-day snapshot m
 ## Testing (TDD — red first, per project convention)
 
 Server (`node --import tsx --test`, shim Nitro auto-imports as in `enrich.test.ts`):
+
 - `resolveTargetDay`: uses provided day, validates trip membership, rejects other-trip/unknown day, falls back to active day, errors when neither.
 - `dayIds` expansion → N proposals with correct per-day `dayId`.
 - B4: add branch drops null-coord activities and reports the count.
@@ -231,9 +239,11 @@ Client: component tests are not established in this repo; cover client orchestra
 ## File summary
 
 **New**
+
 - Tests: `server/lib/ai-tools.test.ts` additions (or new `resolve-target-day.test.ts`), `proposals.test.ts` additions, `sanitize.test.ts`, `discuss.post` grouping test.
 
 **Modified — server**
+
 - `server/api/trips/[id]/discuss.post.ts` — credit ordering (B1), `detectInjection` over all messages (B3), all-day context injection (F1.1), pass `days`/`activeDayId` + assign `groupId` (2.2), `maxSteps` 10.
 - `server/lib/ai-tools.ts` — `resolveTargetDay`, optional `dayId`/`dayIds` on propose tools, ctx `days`/`activeDayId`.
 - `server/lib/discuss-agent.ts` — system-prompt rewrite (scope + ambiguity).
@@ -241,10 +251,12 @@ Client: component tests are not established in this repo; cover client orchestra
 - `server/utils/sanitize.ts` — export `detectInjection`.
 
 **Modified — client**
+
 - `app/pages/trips/[id].vue` — snapshot/undo wiring, Apply-all orchestration, Cancel/AbortController (F1), clear-on-trip-switch (F2), friendly errors (F6).
 - `app/components/AiDock.vue` — scope badges, grouped header + Apply-all/Dismiss-all, destructive styling + confirm (F4), ghost-card fix (F5), Cancel wiring (F1), a11y (F9), scope hint (F7).
 - `app/composables/useToast.ts` + `app/components/ToastHost.vue` — optional action button (2.4).
 - Delete `app/composables/useAiPromptSuggestions.ts` (F8).
 
 **Unchanged**
+
 - `server/api/trips/[id]/days/[dayId]/restore.post.ts` (now consumed by the client), `review.post.ts`, all schema/migration files, `days/[dayId]/ai.post.ts` quick-chip behavior (instant, decision).

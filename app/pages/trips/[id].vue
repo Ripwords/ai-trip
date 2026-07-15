@@ -853,7 +853,11 @@ async function applyOneProposal(
       { method: "POST", body: { proposal } },
     )
     setProposalState(messageId, proposal.id, "applied")
-    return { ok: true as const, message: result.message, enrichmentFailures: result.enrichmentFailures ?? 0 }
+    return {
+      ok: true as const,
+      message: result.message,
+      enrichmentFailures: result.enrichmentFailures ?? 0,
+    }
   } catch (e: unknown) {
     setProposalState(messageId, proposal.id, "pending")
     toastError(friendlyApplyError(e))
@@ -875,7 +879,9 @@ async function handleAiApplyProposal(messageId: string, proposal: Proposal) {
   await refresh()
   if (res.ok) {
     toastWithAction(
-      res.enrichmentFailures > 0 ? (res.message ?? "Some places couldn't be located.") : "Change applied.",
+      res.enrichmentFailures > 0
+        ? (res.message ?? "Some places couldn't be located.")
+        : "Change applied.",
       { label: "Undo", onClick: () => handleAiUndo(proposal.dayId) },
     )
   }
@@ -904,11 +910,11 @@ async function handleAiApplyGroup(messageId: string, proposals: Proposal[]) {
   const failed = proposals.length - applied
   const changedDays = [...new Set(proposals.map((p) => p.dayId))]
   const summary =
-    failed === 0 ? `Applied ${applied} change(s).` : `Applied ${applied}, ${failed} couldn't be applied.`
+    failed === 0
+      ? `Applied ${applied} change(s).`
+      : `Applied ${applied}, ${failed} couldn't be applied.`
   toastWithAction(
-    locateFailures > 0
-      ? `${summary} ${locateFailures} place(s) couldn't be located.`
-      : summary,
+    locateFailures > 0 ? `${summary} ${locateFailures} place(s) couldn't be located.` : summary,
     { label: "Undo all", onClick: () => changedDays.forEach((d) => handleAiUndo(d)) },
     failed === 0 ? "success" : "info",
   )
