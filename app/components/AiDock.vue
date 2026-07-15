@@ -70,6 +70,8 @@ const props = defineProps<{
   hasActivities: boolean
   destination: string
   starters: string[]
+  dayLabels: Record<string, string>
+  activeDayLabel: string
 }>()
 
 const emit = defineEmits<{
@@ -78,6 +80,9 @@ const emit = defineEmits<{
   cancel: []
   applyProposal: [messageId: string, proposal: Proposal]
   dismissProposal: [messageId: string, proposalId: string]
+  applyGroup: [messageId: string, proposals: Proposal[]]
+  dismissGroup: [messageId: string, proposalIds: string[]]
+  undo: [dayId: string]
   fillGaps: []
   optimizeRoute: []
   generateFull: []
@@ -101,6 +106,13 @@ function collapse() {
   emit("close")
   expanded.value = false
 }
+
+// Dialog accessibility: Escape-to-close + focus-restore to the FAB on close.
+const dialogRef = ref<HTMLElement | null>(null)
+useModalA11y(dialogRef, {
+  isOpen: () => expanded.value,
+  onClose: collapse,
+})
 
 const limitReached = computed(() => (props.usageRemaining ?? 1) <= 0)
 
@@ -203,14 +215,56 @@ function onDismiss(message: ChatMessage, proposal: Proposal) {
   emit("dismissProposal", message.id, proposal.id)
 }
 
+// ── Proposal grouping (proposals from one chat turn sharing a groupId) ──
+
+interface ProposalGroup {
+  key: string
+  proposals: Proposal[]
+  dayIds: string[]
+}
+
+function proposalGroups(msg: ChatMessage): ProposalGroup[] {
+  const out: ProposalGroup[] = []
+  const byGroup = new Map<string, Proposal[]>()
+  for (const p of msg.proposals ?? []) {
+    const key = p.groupId ?? `single:${p.id}`
+    const arr = byGroup.get(key) ?? []
+    arr.push(p)
+    byGroup.set(key, arr)
+  }
+  for (const [key, proposals] of byGroup) {
+    out.push({ key, proposals, dayIds: [...new Set(proposals.map((p) => p.dayId))] })
+  }
+  return out
+}
+
+function dayBadge(p: Proposal): string {
+  return props.dayLabels[p.dayId] ?? "This day"
+}
+
+function groupPending(msg: ChatMessage, g: ProposalGroup): boolean {
+  return g.proposals.some((p) => proposalState(msg, p.id) === "pending")
+}
+
+function onApplyGroup(message: ChatMessage, g: ProposalGroup) {
+  emit("applyGroup", message.id, g.proposals)
+}
+function onDismissGroup(message: ChatMessage, g: ProposalGroup) {
+  emit(
+    "dismissGroup",
+    message.id,
+    g.proposals.map((p) => p.id),
+  )
+}
+
 // ── Proposal kind metadata (mirror the earlier dock design) ─────────
 
 const proposalKindMeta: Record<
   Proposal["kind"],
-  { label: string; icon: string; tone: "terra" | "ocean" | "forest" | "sand" }
+  { label: string; icon: string; tone: "terra" | "ocean" | "forest" | "sand" | "danger" }
 > = {
   "add-activities": { label: "Addition", icon: "lucide:plus", tone: "terra" },
-  "remove-activities": { label: "Removal", icon: "lucide:minus", tone: "sand" },
+  "remove-activities": { label: "Removal", icon: "lucide:minus", tone: "danger" },
   reschedule: { label: "Reschedule", icon: "lucide:rotate-cw", tone: "ocean" },
   "optimize-route": { label: "Route", icon: "lucide:arrow-up-right", tone: "ocean" },
   "reorder-activities": { label: "Reorder", icon: "lucide:arrow-down-up", tone: "ocean" },
@@ -251,19 +305,26 @@ const proposalKindMeta: Record<
   <Transition name="sheet-up">
     <div
       v-if="expanded"
+      ref="dialogRef"
+      role="dialog"
+      aria-modal="true"
       class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex max-h-[70vh] min-h-[50vh] flex-col rounded-t-[28px] md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:max-h-[calc(100vh-2rem)] md:min-h-0 md:w-[400px] md:rounded-3xl"
       :style="{
         paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
       }"
+      @keydown.esc="collapse"
     >
       <div class="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-sand-400/40 md:hidden" />
 
       <header class="mx-auto mt-3 flex w-full max-w-[28rem] items-baseline justify-between px-4">
         <div class="flex items-center gap-2">
           <Icon name="lucide:sparkles" class="h-4 w-4 text-terra-500" />
-          <span class="text-[10px] uppercase tracking-[0.22em] text-sand-600">
-            From your planner
-          </span>
+          <div class="flex flex-col">
+            <span class="text-[10px] uppercase tracking-[0.22em] text-sand-600">
+              From your planner
+            </span>
+            <span class="text-[10px] text-sand-500">Editing {{ activeDayLabel }}</span>
+          </div>
         </div>
         <div class="flex items-baseline gap-3">
           <span
@@ -354,55 +415,85 @@ const proposalKindMeta: Record<
               </div>
               <div class="dock-assistant-body" v-html="renderMarkdown(msg.content)" />
 
-              <!-- Inline proposal cards -->
-              <ul v-if="msg.proposals?.length" class="mt-1 flex list-none flex-col gap-2 p-0">
-                <li v-for="p in msg.proposals" :key="p.id" class="dock-proposal">
-                  <template v-if="proposalState(msg, p.id) === 'applied'">
-                    <span class="dock-applied-stamp">Applied</span>
-                  </template>
-                  <template v-else-if="proposalState(msg, p.id) === 'dismissed'" />
-                  <template v-else>
-                    <div
-                      class="flex items-center justify-between gap-2 border-b border-dashed border-sand-300/60 px-3 py-1.5"
-                    >
-                      <div class="flex items-center gap-2">
-                        <span class="dock-stamp" :data-tone="proposalKindMeta[p.kind].tone">
-                          <Icon :name="proposalKindMeta[p.kind].icon" class="h-3 w-3" />
-                        </span>
-                        <span class="text-[10px] uppercase tracking-[0.22em] text-sand-700">
-                          {{ proposalKindMeta[p.kind].label }}
-                        </span>
+              <!-- Inline proposal cards, grouped by chat-turn groupId -->
+              <div v-for="g in proposalGroups(msg)" :key="g.key" class="mt-1 flex flex-col gap-2">
+                <div
+                  v-if="g.proposals.length > 1 && groupPending(msg, g)"
+                  class="flex items-center justify-between px-1"
+                >
+                  <span class="text-[10px] uppercase tracking-[0.22em] text-sand-600">
+                    Applies to {{ g.dayIds.length }} day{{ g.dayIds.length === 1 ? "" : "s" }}
+                  </span>
+                  <div class="flex items-center gap-2">
+                    <button type="button" class="dock-dismiss" @click="onDismissGroup(msg, g)">
+                      Dismiss all
+                    </button>
+                    <button type="button" class="dock-apply" @click="onApplyGroup(msg, g)">
+                      <Icon name="lucide:sparkles" class="h-3.5 w-3.5" />
+                      <span>Apply all</span>
+                    </button>
+                  </div>
+                </div>
+
+                <ul class="flex list-none flex-col gap-2 p-0">
+                  <li
+                    v-for="p in g.proposals"
+                    v-show="proposalState(msg, p.id) !== 'dismissed'"
+                    :key="p.id"
+                    class="dock-proposal"
+                  >
+                    <template v-if="proposalState(msg, p.id) === 'applied'">
+                      <span class="dock-applied-stamp">Applied</span>
+                      <button type="button" class="dock-undo" @click="emit('undo', p.dayId)">
+                        Undo
+                      </button>
+                    </template>
+                    <template v-else>
+                      <div
+                        class="flex items-center justify-between gap-2 border-b border-dashed border-sand-300/60 px-3 py-1.5"
+                        :class="p.kind === 'remove-activities' ? 'dock-proposal-danger' : ''"
+                      >
+                        <div class="flex items-center gap-2">
+                          <span class="dock-stamp" :data-tone="proposalKindMeta[p.kind].tone">
+                            <Icon :name="proposalKindMeta[p.kind].icon" class="h-3 w-3" />
+                          </span>
+                          <span class="text-[10px] uppercase tracking-[0.22em] text-sand-700">
+                            {{ proposalKindMeta[p.kind].label }}
+                          </span>
+                        </div>
+                        <span class="dock-day-badge">{{ dayBadge(p) }}</span>
                       </div>
-                    </div>
-                    <div class="px-3 pb-2.5 pt-2">
-                      <h4 class="font-display text-[16px] leading-snug text-sand-900">
-                        {{ p.summary }}
-                      </h4>
-                      <div class="mt-2 flex items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          class="dock-dismiss"
-                          :disabled="proposalState(msg, p.id) === 'applying'"
-                          @click="onDismiss(msg, p)"
-                        >
-                          Dismiss
-                        </button>
-                        <button
-                          type="button"
-                          :disabled="proposalState(msg, p.id) === 'applying'"
-                          class="dock-apply"
-                          @click="onApply(msg, p)"
-                        >
-                          <Icon name="lucide:sparkles" class="h-3.5 w-3.5" />
-                          <span>{{
-                            proposalState(msg, p.id) === "applying" ? "Applying" : "Apply"
-                          }}</span>
-                        </button>
+                      <div class="px-3 pb-2.5 pt-2">
+                        <h4 class="font-display text-[16px] leading-snug text-sand-900">
+                          {{ p.summary }}
+                        </h4>
+                        <div class="mt-2 flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            class="dock-dismiss"
+                            :disabled="proposalState(msg, p.id) === 'applying'"
+                            @click="onDismiss(msg, p)"
+                          >
+                            Dismiss
+                          </button>
+                          <button
+                            type="button"
+                            :disabled="proposalState(msg, p.id) === 'applying'"
+                            class="dock-apply"
+                            :class="p.kind === 'remove-activities' ? 'dock-apply-danger' : ''"
+                            @click="onApply(msg, p)"
+                          >
+                            <Icon name="lucide:sparkles" class="h-3.5 w-3.5" />
+                            <span>{{
+                              proposalState(msg, p.id) === "applying" ? "Applying" : "Apply"
+                            }}</span>
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  </template>
-                </li>
-              </ul>
+                    </template>
+                  </li>
+                </ul>
+              </div>
             </div>
           </li>
         </ul>
@@ -699,6 +790,35 @@ const proposalKindMeta: Record<
   border-color: var(--color-forest-200);
   color: var(--color-forest-700);
 }
+.dock-stamp[data-tone="danger"] {
+  background: var(--color-red-50, #fef2f2);
+  border-color: var(--color-red-200, #fecaca);
+  color: var(--color-red-700, #b91c1c);
+}
+
+.dock-proposal-danger {
+  background: var(--color-red-50, #fef2f2);
+  border-color: var(--color-red-200, #fecaca);
+}
+
+.dock-day-badge {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--color-sand-600);
+  background: var(--color-sand-100);
+  border: 1px solid var(--color-sand-200);
+  border-radius: 9999px;
+  padding: 1px 8px;
+}
+
+.dock-undo {
+  margin: 0 12px 8px;
+  font-size: 13px;
+  color: var(--color-terra-600);
+  min-height: 32px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 .dock-apply {
   display: inline-flex;
@@ -717,6 +837,9 @@ const proposalKindMeta: Record<
 .dock-apply:disabled {
   opacity: 0.6;
   cursor: progress;
+}
+.dock-apply-danger {
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
 }
 .dock-dismiss {
   font-size: 13px;
