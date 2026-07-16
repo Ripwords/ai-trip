@@ -10,6 +10,10 @@ import { getDistanceMatrix } from "../../../../../lib/google-maps"
 import { sanitizePromptInput } from "../../../../../utils/sanitize"
 import { normalizeTransportMode } from "../../../../../utils/transport"
 import { guardCostEstimate } from "../../../../../lib/cost-guard"
+import {
+  normalizeSuggestedTime,
+  clampDurationMinutes,
+} from "../../../../../lib/normalize-ai-output"
 
 const aiBodySchema = z.object({
   prompt: z.string().min(1).max(2000),
@@ -299,8 +303,10 @@ export default defineEventHandler(async (event) => {
               priceLevel: activity.priceLevel,
               openingHours: activity.openingHours,
               photos: activity.photos,
-              suggestedTime: activity.suggestedTime,
-              estimatedDurationMinutes: activity.estimatedDurationMinutes,
+              suggestedTime: normalizeSuggestedTime(activity.suggestedTime),
+              estimatedDurationMinutes:
+                clampDurationMinutes(activity.estimatedDurationMinutes) ??
+                activity.estimatedDurationMinutes,
               costEstimate: guardedCosts[index] ?? null,
               tags: activity.tags,
               sortOrder: maxSort + 1 + index,

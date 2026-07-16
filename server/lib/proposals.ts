@@ -11,6 +11,7 @@ import { computeSchedule, parseOpeningTime } from "../utils/schedule"
 import { logTripAction } from "../utils/trip-access"
 import type { TransportMode } from "../utils/transport"
 import type { AIProcessResult } from "./ai"
+import { normalizeSuggestedTime, clampDurationMinutes } from "./normalize-ai-output"
 
 const aiActivityPayloadSchema = z.object({
   name: z.string(),
@@ -287,8 +288,9 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
                 priceLevel: a.priceLevel,
                 openingHours: a.openingHours,
                 photos: a.photos,
-                suggestedTime: a.suggestedTime,
-                estimatedDurationMinutes: a.estimatedDurationMinutes,
+                suggestedTime: normalizeSuggestedTime(a.suggestedTime),
+                estimatedDurationMinutes:
+                  clampDurationMinutes(a.estimatedDurationMinutes) ?? a.estimatedDurationMinutes,
                 costEstimate: guardedCosts[i] ?? null,
                 tags: a.tags,
                 sortOrder: maxSort + 1 + i,
