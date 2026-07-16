@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ToastType } from "../composables/useToast"
+import type { Toast, ToastType } from "../composables/useToast"
 
 const { toasts, dismiss } = useToast()
 
@@ -7,6 +7,13 @@ function icon(type: ToastType) {
   if (type === "success") return "lucide:check-circle"
   if (type === "error") return "lucide:alert-circle"
   return "lucide:info"
+}
+
+// Named handler: an inline multi-statement @click gets reformatted into
+// newline-separated statements the Vue template parser can't parse.
+function runAction(t: Toast) {
+  t.action?.onClick()
+  dismiss(t.id)
 }
 </script>
 
@@ -50,10 +57,7 @@ function icon(type: ToastType) {
             v-if="t.action"
             type="button"
             class="focus-ring shrink-0 rounded-lg px-2 py-1 text-sm font-medium text-terra-600 transition hover:text-terra-800"
-            @click="
-              t.action.onClick()
-              dismiss(t.id)
-            "
+            @click="runAction(t)"
           >
             {{ t.action.label }}
           </button>
