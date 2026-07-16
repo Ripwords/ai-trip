@@ -146,7 +146,7 @@ Severity calibration (apply consistently — the UI surfaces these levels differ
 
 Soft-signal rule:
 - Trip preferences (pace, interests, transportMode, budget) often come from form defaults the traveler never actively picked. Do NOT raise a finding off a single soft signal alone — pace-mismatch and interest-mismatch require evidence in the schedule itself, not just a preference value. When in doubt, downgrade severity or skip the finding.`,
-      model: getModel("research"),
+      model: getModel("discuss"),
       tools: {
         searchPlaces: tools.searchPlaces,
         getPlaceDetails: tools.getPlaceDetails,

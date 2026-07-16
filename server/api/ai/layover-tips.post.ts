@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { generateText, Output, stepCountIs } from "ai"
 import { google } from "@ai-sdk/google"
+import { getModel } from "../../lib/ai-config"
 import { sanitizePromptInput } from "../../utils/sanitize"
 
 const bodySchema = z.object({
@@ -23,7 +24,7 @@ const layoverTipsSchema = z.object({
 
 const generateLayoverTips = defineCachedFunction(
   async (airport: string, durationHours: number, visaStatus: string, timeOfDay: string) => {
-    const model = google("gemini-3.1-flash-lite")
+    const model = getModel("research")
 
     const requiresAirportOnly = visaStatus === "visa_required" || visaStatus === "visa-required"
 

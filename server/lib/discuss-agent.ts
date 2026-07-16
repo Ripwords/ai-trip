@@ -42,6 +42,6 @@ export const discussAgent = new Agent({
   id: "discuss",
   name: "Trip Discussion Partner",
   instructions: DISCUSS_SYSTEM_PROMPT,
-  model: getModel("research"),
+  model: getModel("discuss"),
   tools: {},
 })
