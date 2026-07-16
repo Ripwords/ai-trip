@@ -9,7 +9,7 @@ if (!connectionString) {
 }
 
 const isNeonRemote = connectionString.includes("neon.tech")
-const useLocalProxy = !isNeonRemote && import.meta.dev
+const useLocalProxy = !isNeonRemote && (import.meta.dev || process.env.LOCAL_PG_PROXY === "1")
 
 if (useLocalProxy) {
   neonConfig.wsProxy = (host) => `${host}:5433/v1`
