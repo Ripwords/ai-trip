@@ -12,6 +12,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Trip not found" })
   }
 
+  // Diagnostic: per-day activity counts, to confirm what the client actually
+  // receives (does the added activity come back on its day?).
+  console.log(
+    `[trip.get] id=${id} days=${trip.days.length} counts=${trip.days
+      .map((d) => `${d.id.slice(0, 8)}#${d.dayNumber}:${d.activities.length}`)
+      .join(",")}`,
+  )
+
   // shareToken is owner-only — anyone else holding it can mint /shared/<token>.
   return {
     ...trip,
