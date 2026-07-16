@@ -51,7 +51,7 @@ export const AI_MODELS = {
   100-prompt/month per-user cap.
 - Model id note: the design originally named `gemini-3.1-flash`, which does
   NOT exist — verified against the Generative Language API ListModels
-  endpoint on 2026-07-16 (the 3.1 generation only shipped a flash-*lite*
+  endpoint on 2026-07-16 (the 3.1 generation only shipped a flash-_lite_
   text tier). `gemini-3.5-flash` is the stable GA flash tier and was
   smoke-tested successfully; the floating `gemini-flash-latest` alias and
   `-preview` ids were rejected for pinning.
