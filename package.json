@@ -1,6 +1,8 @@
 {
   "name": "ai-trip",
   "private": true,
+  "license": "MIT",
+  "author": "Teoh Jia Jing",
   "type": "module",
   "scripts": {
     "build": "nuxt build",

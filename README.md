@@ -351,4 +351,4 @@ Each user gets **100 AI prompts per month**, tracked atomically to prevent over-
 
 ## License
 
-Private project. All rights reserved.
+[MIT](LICENSE) © Teoh Jia Jing
