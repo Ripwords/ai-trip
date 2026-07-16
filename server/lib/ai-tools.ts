@@ -10,6 +10,7 @@ import { getTripWithRelations } from "./trips"
 import { proposalSchema, type Proposal } from "./proposals"
 import { resolveTargetDay, resolveTargetDays, type DayRef } from "./proposal-targeting"
 import type { TransportMode } from "../utils/transport"
+import { costAnchorHint } from "./currency-context"
 
 async function validateActivityIds(
   dayId: string,
@@ -177,7 +178,10 @@ export function createTripTools(ctx: TripToolsContext) {
   }
 }
 
-interface DiscussToolsContext extends TripToolsContext {}
+interface DiscussToolsContext extends TripToolsContext {
+  /** Live USD→trip-currency rate for cost anchors; null degrades to static hints. */
+  usdRate: number | null
+}
 
 export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal[]) {
   const trip = createTripTools(ctx)
@@ -238,12 +242,7 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
             .int()
             .positive()
             .describe("Time spent AT the venue only; never includes travel time."),
-          costEstimate: z
-            .number()
-            .min(0)
-            .describe(
-              `Cost per visit in ${ctx.currencyCode}. Use whole units for zero-decimal currencies (JPY/KRW/VND/IDR/TWD).`,
-            ),
+          costEstimate: z.number().min(0).describe(costAnchorHint(ctx.currencyCode, ctx.usdRate)),
           tags: z.array(z.string()),
           placeId: z.string().nullable().optional(),
           lat: z.number().nullable().optional(),

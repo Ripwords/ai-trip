@@ -38,6 +38,7 @@ function activeCtx() {
     ],
     transportMode: "walking" as const,
     currencyCode: "USD",
+    usdRate: null,
   }
 }
 
@@ -49,6 +50,7 @@ function noDayCtx() {
     days: [],
     transportMode: "walking" as const,
     currencyCode: "USD",
+    usdRate: null,
   }
 }
 

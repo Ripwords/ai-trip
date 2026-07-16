@@ -7,6 +7,7 @@ import { uuidParamsSchema } from "../../../utils/schemas"
 import { normalizeTransportMode } from "../../../utils/transport"
 import { detectInjection, sanitizePromptInput } from "../../../utils/sanitize"
 import { createDiscussTools } from "../../../lib/ai-tools"
+import { getExchangeRate } from "../../../utils/exchange-rate"
 import { discussAgent } from "../../../lib/discuss-agent"
 import { refundAiCredit } from "../../../utils/ai-limits"
 import { getTripWithRelations } from "../../../lib/trips"
@@ -188,6 +189,8 @@ export default defineEventHandler(async (event) => {
   const proposalCollector: Proposal[] = []
   const toolCalls: ToolSummaryEntry[] = []
 
+  const usdRate = await getExchangeRate("USD", trip.currencyCode || "USD")
+
   const tools = createDiscussTools(
     {
       tripId: id,
@@ -195,6 +198,7 @@ export default defineEventHandler(async (event) => {
       days,
       transportMode,
       currencyCode: trip.currencyCode || "USD",
+      usdRate,
     },
     proposalCollector,
   )
