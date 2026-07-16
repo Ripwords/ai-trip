@@ -94,10 +94,18 @@ errors only, not schema-validation failures — this wrapper covers both.)
 - `clampDurationMinutes(d: number | null | undefined): number | null` —
   integers clamped to [5, 720]; non-finite returns `null`.
 
-Applied inside `processUserRequest` (on `newActivities`, `updates`, and
-`orderedActivities` before returning — one seam covers all day-AI paths) and
-in `applyProposal`'s `add-activities` case (review-judgment proposals are not
-schema-constrained on time format the way discuss propose-tools are).
+Applied in two places, split by type shape:
+
+- `updates` and `orderedActivities` are normalized inside `processUserRequest`
+  before returning (entries whose time normalizes to `null` are dropped —
+  a time-update with a garbage time is useless; durations are clamped).
+- `newActivities` are normalized at the two persistence points (day-AI insert
+  and `applyProposal`'s `add-activities` insert), alongside the Phase 1 cost
+  guard — `AIActivity.suggestedTime` is a required `string` in the in-flight
+  type, and only the DB columns are nullable, so `null` can only appear at
+  the DB boundary. (Review-judgment proposals are not schema-constrained on
+  time format the way discuss propose-tools are, so the applyProposal seam
+  matters.)
 
 **3c. Discuss credit-refund gap.** In
 `server/api/trips/[id]/discuss.post.ts`, the span between
