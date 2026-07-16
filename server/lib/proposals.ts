@@ -4,6 +4,7 @@ import { z } from "zod"
 import { db } from "../db"
 import { activities, itineraryDays } from "../db/schema"
 import { enrichItinerary, partitionGeocoded } from "./enrich"
+import { guardCostEstimate } from "./cost-guard"
 import { computeAndSaveSegments } from "./segments"
 import { getDistanceMatrix } from "./google-maps"
 import { computeSchedule, parseOpeningTime } from "../utils/schedule"
@@ -168,6 +169,8 @@ export interface ApplyContext {
   dayId: string
   userId: string
   transportMode: TransportMode
+  /** Trip currency for cost-estimate validation on add-activities. */
+  currencyCode: string
   /** Optional bias for enrichment when adding activities. */
   dayLocation?: string
   /** Optional coordinates for place-search bias during enrichment. */
@@ -258,6 +261,16 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
             orderBy: [asc(activities.sortOrder)],
           })
           const maxSort = current.length > 0 ? Math.max(...current.map((a) => a.sortOrder)) : -1
+          const guardedCosts = await Promise.all(
+            located.map((a) =>
+              guardCostEstimate({
+                costEstimate: a.costEstimate,
+                type: a.type,
+                placeId: a.placeId,
+                currencyCode: ctx.currencyCode,
+              }),
+            ),
+          )
           const inserted = await db
             .insert(activities)
             .values(
@@ -276,7 +289,7 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
                 photos: a.photos,
                 suggestedTime: a.suggestedTime,
                 estimatedDurationMinutes: a.estimatedDurationMinutes,
-                costEstimate: a.costEstimate.toString(),
+                costEstimate: guardedCosts[i] ?? null,
                 tags: a.tags,
                 sortOrder: maxSort + 1 + i,
               })),

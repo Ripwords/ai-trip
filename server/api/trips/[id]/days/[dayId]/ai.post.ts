@@ -9,6 +9,7 @@ import { computeAndSaveSegments } from "../../../../../lib/segments"
 import { getDistanceMatrix } from "../../../../../lib/google-maps"
 import { sanitizePromptInput } from "../../../../../utils/sanitize"
 import { normalizeTransportMode } from "../../../../../utils/transport"
+import { guardCostEstimate } from "../../../../../lib/cost-guard"
 
 const aiBodySchema = z.object({
   prompt: z.string().min(1).max(2000),
@@ -273,6 +274,17 @@ export default defineEventHandler(async (event) => {
               ? Math.max(...currentActivities.map((a) => a.sortOrder))
               : -1
 
+          const guardedCosts = await Promise.all(
+            enrichedActivities.map((a) =>
+              guardCostEstimate({
+                costEstimate: a.costEstimate,
+                type: a.type,
+                placeId: a.placeId,
+                currencyCode: trip.currencyCode || "USD",
+              }),
+            ),
+          )
+
           await db.insert(activities).values(
             enrichedActivities.map((activity, index) => ({
               itineraryDayId: dayId,
@@ -289,7 +301,7 @@ export default defineEventHandler(async (event) => {
               photos: activity.photos,
               suggestedTime: activity.suggestedTime,
               estimatedDurationMinutes: activity.estimatedDurationMinutes,
-              costEstimate: activity.costEstimate.toString(),
+              costEstimate: guardedCosts[index] ?? null,
               tags: activity.tags,
               sortOrder: maxSort + 1 + index,
             })),

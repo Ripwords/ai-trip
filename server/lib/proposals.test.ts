@@ -232,6 +232,7 @@ describe("applyProposal", () => {
             dayId: "22222222-2222-4222-8222-222222222222",
             userId: "u1",
             transportMode: "walking",
+            currencyCode: "USD",
           },
         ),
       /dayId mismatch/i,
