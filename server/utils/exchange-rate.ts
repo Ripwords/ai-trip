@@ -12,8 +12,9 @@ const _getExchangeRate = defineCachedFunction(
       if (!Number.isFinite(response.rate) || response.rate <= 0) return null
       return response.rate
     } catch {
-      // Frankfurter doesn't support some currencies (e.g. TWD, VND). Treat
-      // any failure as "unknown rate" — callers should fall back gracefully.
+      // Treat any failure (network error, unsupported currency pair) as
+      // "unknown rate" — callers must fall back gracefully instead of
+      // storing a garbage number.
       return null
     }
   },

@@ -1,30 +1,22 @@
 import { z } from "zod"
+import { getExchangeRate } from "../utils/exchange-rate"
 
 const querySchema = z.object({
   from: z.string().length(3),
   to: z.string().length(3),
 })
 
-const _getRate = defineCachedFunction(
-  async (_event: unknown, from: string, to: string): Promise<number> => {
-    const response = await $fetch<{ rate: number }>(
-      `https://api.frankfurter.dev/v2/rate/${from}/${to}`,
-    )
-    return response.rate
-  },
-  {
-    maxAge: 60 * 60 * 6, // 6 hours — exchange rates don't change that fast
-    name: "exchangeRate",
-    getKey: (_event: unknown, from: string, to: string) => `${from}-${to}`,
-  },
-)
-
 export default defineEventHandler(async (event) => {
   await requireAuth(event)
   const { from, to } = await getValidatedQuery(event, querySchema.parse)
 
-  if (from === to) return { rate: 1 }
-
-  const rate = await _getRate(null, from, to)
+  // getExchangeRate handles from === to (rate 1), caching (6h), and validation.
+  const rate = await getExchangeRate(from, to)
+  if (rate == null) {
+    throw createError({
+      statusCode: 502,
+      message: "Could not fetch exchange rate. Please try again.",
+    })
+  }
   return { rate }
 })
