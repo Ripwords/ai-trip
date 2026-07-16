@@ -32,10 +32,10 @@ cost control. Current state:
 
 ```ts
 export const AI_MODELS = {
-  default: "gemini-3.1-flash", // structured planning (generateObject handlers)
+  default: "gemini-3.5-flash", // structured planning (generateObject handlers)
   research: "gemini-3.1-flash-lite", // web-search grounding agent
   classify: "gemini-3.1-flash-lite",
-  discuss: "gemini-3.1-flash", // user-facing chat + review judgment
+  discuss: "gemini-3.5-flash", // user-facing chat + review judgment
 } as const
 ```
 
@@ -49,8 +49,14 @@ export const AI_MODELS = {
   registry consistency, no behavior change.
 - Cost: flash is ~2-4× lite per token; volume is bounded by the existing
   100-prompt/month per-user cap.
+- Model id note: the design originally named `gemini-3.1-flash`, which does
+  NOT exist — verified against the Generative Language API ListModels
+  endpoint on 2026-07-16 (the 3.1 generation only shipped a flash-*lite*
+  text tier). `gemini-3.5-flash` is the stable GA flash tier and was
+  smoke-tested successfully; the floating `gemini-flash-latest` alias and
+  `-preview` ids were rejected for pinning.
 - The implementation plan includes a one-off smoke test that calls
-  `gemini-3.1-flash` through the project's AI SDK setup (using the dev API
+  `gemini-3.5-flash` through the project's AI SDK setup (using the dev API
   key) to validate the model id before the registry change lands.
 
 ### 2. Research caching

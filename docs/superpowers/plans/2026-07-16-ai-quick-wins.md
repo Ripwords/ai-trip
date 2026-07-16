@@ -24,10 +24,12 @@
 ### Task 1: Retry-once wrapper
 
 **Files:**
+
 - Create: `server/lib/retry.ts`
 - Create: `server/lib/retry.test.ts`
 
 **Interfaces:**
+
 - Produces: `withOneRetry<T>(label: string, fn: () => Promise<T>): Promise<T>` — Task 3 wraps the six `generateObject` calls with it.
 
 - [ ] **Step 1: Write the failing test**
@@ -116,10 +118,12 @@ git commit -m "feat(ai): retry-once wrapper for structured generation calls"
 ### Task 2: AI output normalization helpers
 
 **Files:**
+
 - Create: `server/lib/normalize-ai-output.ts`
 - Create: `server/lib/normalize-ai-output.test.ts`
 
 **Interfaces:**
+
 - Produces: `normalizeSuggestedTime(t: string | null | undefined): string | null` and `clampDurationMinutes(d: number | null | undefined): number | null` — Task 3 wires them.
 
 - [ ] **Step 1: Write the failing test**
@@ -221,11 +225,13 @@ git commit -m "feat(ai): normalize AI-produced times and durations"
 ### Task 3: Wire retry + normalization into the AI paths
 
 **Files:**
+
 - Modify: `server/lib/ai.ts` (six `generateObject` call sites; end of `processUserRequest`)
 - Modify: `server/api/trips/[id]/days/[dayId]/ai.post.ts` (insert values)
 - Modify: `server/lib/proposals.ts` (`add-activities` insert values)
 
 **Interfaces:**
+
 - Consumes: `withOneRetry` (Task 1), `normalizeSuggestedTime`/`clampDurationMinutes` (Task 2).
 - Produces: no new exports; `processUserRequest` return shape is unchanged (entries may be dropped/normalized).
 
@@ -268,27 +274,27 @@ import { normalizeSuggestedTime, clampDurationMinutes } from "./normalize-ai-out
 In `processUserRequest`, immediately before the final `logger.info("=== DONE ===", ...)` block, add:
 
 ```typescript
-  // Normalize AI-produced times/durations before they reach any DB write.
-  // Entries whose time can't be parsed are dropped — a time-update with a
-  // garbage time is useless. Durations are clamped to [5, 720] minutes.
-  result.updates = result.updates.flatMap((u) => {
-    const time = normalizeSuggestedTime(u.suggestedTime)
-    if (!time) return []
-    return [
-      {
-        ...u,
-        suggestedTime: time,
-        estimatedDurationMinutes:
-          clampDurationMinutes(u.estimatedDurationMinutes) ?? u.estimatedDurationMinutes,
-      },
-    ]
+// Normalize AI-produced times/durations before they reach any DB write.
+// Entries whose time can't be parsed are dropped — a time-update with a
+// garbage time is useless. Durations are clamped to [5, 720] minutes.
+result.updates = result.updates.flatMap((u) => {
+  const time = normalizeSuggestedTime(u.suggestedTime)
+  if (!time) return []
+  return [
+    {
+      ...u,
+      suggestedTime: time,
+      estimatedDurationMinutes:
+        clampDurationMinutes(u.estimatedDurationMinutes) ?? u.estimatedDurationMinutes,
+    },
+  ]
+})
+if (result.orderedActivities) {
+  result.orderedActivities = result.orderedActivities.flatMap((o) => {
+    const time = normalizeSuggestedTime(o.suggestedTime)
+    return time ? [{ ...o, suggestedTime: time }] : []
   })
-  if (result.orderedActivities) {
-    result.orderedActivities = result.orderedActivities.flatMap((o) => {
-      const time = normalizeSuggestedTime(o.suggestedTime)
-      return time ? [{ ...o, suggestedTime: time }] : []
-    })
-  }
+}
 ```
 
 - [ ] **Step 3: Normalize new activities at the day-AI insert**
@@ -360,11 +366,13 @@ git commit -m "fix(ai): retry structured generation once and normalize times/dur
 ### Task 4: Research caching
 
 **Files:**
+
 - Create: `server/lib/ai-cache.ts`
 - Create: `server/lib/ai-cache.test.ts`
 - Modify: `server/lib/ai.ts` (`doResearch`)
 
 **Interfaces:**
+
 - Produces: `researchCacheKey(destination: string, userContext?: string): string` and `isCacheableResearch(value: unknown): boolean`.
 
 - [ ] **Step 1: Write the failing test**
@@ -437,7 +445,10 @@ import { createHash } from "node:crypto"
 export function researchCacheKey(destination: string, userContext?: string): string {
   const dest = destination.toLowerCase().trim()
   const ctx = (userContext ?? "").toLowerCase().trim()
-  const slug = dest.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48)
+  const slug = dest
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 48)
   const hash = createHash("sha256").update(`${dest}::${ctx}`).digest("hex").slice(0, 16)
   return `${slug}-${hash}`
 }
@@ -502,24 +513,26 @@ git commit -m "feat(ai): cache the web-research pass per destination+context for
 ### Task 5: Model registry promotion
 
 **Files:**
+
 - Modify: `server/lib/ai-config.ts`
 - Modify: `server/lib/discuss-agent.ts` (model line)
 - Modify: `server/lib/itinerary-review-ai.ts` (model line)
 - Modify: `server/api/ai/layover-tips.post.ts` (model line + import)
 
 **Interfaces:**
+
 - Produces: `AI_MODELS` gains a `discuss` key; `getModel("discuss")` becomes valid. No other signature changes.
 
 - [ ] **Step 1: Smoke-test the model id against the real API**
 
-The registry change is pointless if `gemini-3.1-flash` isn't a valid model id. Write this throwaway script to the session scratchpad directory (NOT the repo) as `smoke-flash.ts`:
+The registry change is pointless if `gemini-3.5-flash` isn't a valid model id. Write this throwaway script to the session scratchpad directory (NOT the repo) as `smoke-flash.ts`:
 
 ```typescript
 import { generateText } from "ai"
 import { google } from "@ai-sdk/google"
 
 const { text } = await generateText({
-  model: google("gemini-3.1-flash"),
+  model: google("gemini-3.5-flash"),
   prompt: "Reply with exactly: ok",
 })
 console.log("MODEL OK:", JSON.stringify(text.trim()))
@@ -546,10 +559,10 @@ Replace the `AI_MODELS` const in `server/lib/ai-config.ts` with:
  * flash-lite for cost.
  */
 export const AI_MODELS = {
-  default: "gemini-3.1-flash",
+  default: "gemini-3.5-flash",
   research: "gemini-3.1-flash-lite",
   classify: "gemini-3.1-flash-lite",
-  discuss: "gemini-3.1-flash",
+  discuss: "gemini-3.5-flash",
 } as const
 ```
 
@@ -578,7 +591,7 @@ Expected: all tests PASS, lint/format clean
 
 ```bash
 git add server/lib/ai-config.ts server/lib/discuss-agent.ts server/lib/itinerary-review-ai.ts server/api/ai/layover-tips.post.ts
-git commit -m "feat(ai): promote planning and discuss models to gemini-3.1-flash"
+git commit -m "feat(ai): promote planning and discuss models to gemini-3.5-flash"
 ```
 
 ---
@@ -586,9 +599,11 @@ git commit -m "feat(ai): promote planning and discuss models to gemini-3.1-flash
 ### Task 6: Close the discuss credit-refund gap
 
 **Files:**
+
 - Modify: `server/api/trips/[id]/discuss.post.ts`
 
 **Interfaces:**
+
 - Consumes: existing `refundAiCredit` (already imported in the file). No new exports.
 
 - [ ] **Step 1: Wrap the post-consume span**
@@ -609,21 +624,21 @@ Steps 3–6 currently have NO refund on throw — a DB/infra error there burns t
 - Wrap everything from the injection check down to (and including) the `createDiscussTools` call in:
 
 ```typescript
-  let tools: ReturnType<typeof createDiscussTools>
-  let cleanMessages: { role: "user" | "assistant"; content: string }[]
-  // …plus the other locals the later code needs (proposalCollector, toolCalls)
-  // declared before the try so they stay in scope after it.
-  try {
-    // injection check (throws 400, no inline refund)
-    // sanitize + empty-content check (throws 400, no inline refund)
-    // transportMode, dayId validation, getTripWithRelations, context injection,
-    // getExchangeRate, createDiscussTools — all unchanged, just moved inside
-  } catch (e) {
-    // Anything that throws after the credit was consumed and before the agent
-    // ran refunds exactly once. The agent call below has its own try/catch.
-    await refundAiCredit(session.user.id)
-    throw e
-  }
+let tools: ReturnType<typeof createDiscussTools>
+let cleanMessages: { role: "user" | "assistant"; content: string }[]
+// …plus the other locals the later code needs (proposalCollector, toolCalls)
+// declared before the try so they stay in scope after it.
+try {
+  // injection check (throws 400, no inline refund)
+  // sanitize + empty-content check (throws 400, no inline refund)
+  // transportMode, dayId validation, getTripWithRelations, context injection,
+  // getExchangeRate, createDiscussTools — all unchanged, just moved inside
+} catch (e) {
+  // Anything that throws after the credit was consumed and before the agent
+  // ran refunds exactly once. The agent call below has its own try/catch.
+  await refundAiCredit(session.user.id)
+  throw e
+}
 ```
 
 Concretely: declare the locals that outlive the block (`cleanMessages`, `dayId`, `transportMode`, `days`, `proposalCollector`, `toolCalls`, `tools`) before the `try`, assign them inside it, and keep the existing agent-generate try/catch (with its refund + friendly-message return) after the block, unchanged. Preserve all existing logic and comments — this is a control-flow relocation, not a rewrite. Update the comment above `tryConsumeAiCredit` (which currently claims "every throw below this point ... refunds correctly") to say the refund is handled by the wrap below.
