@@ -249,6 +249,9 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
         unlocated = unlocatedActivities
         locatedCount = located.length
         enrichmentFailures = unlocated.length
+        console.log(
+          `[apply:add] dayId=${ctx.dayId} input=${proposal.payload.activities.length} withPlaceId=${proposal.payload.activities.filter((a) => a.placeId).length} located=${located.length} unlocated=${unlocated.length}`,
+        )
         if (located.length > 0) {
           const current = await db.query.activities.findMany({
             where: eq(activities.itineraryDayId, ctx.dayId),
@@ -455,6 +458,12 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
         "This proposal references activities that no longer exist on the day. The schedule may have changed since it was suggested — refresh and try again.",
     })
   }
+
+  // Diagnostic: surface the apply outcome in runtime logs (the success path
+  // otherwise logs nothing, making "nothing got added" hard to diagnose).
+  console.log(
+    `[apply] kind=${proposal.kind} dayId=${ctx.dayId} added=${added} removed=${removed} updated=${updated} optimized=${optimized} enrichFailures=${enrichmentFailures}`,
+  )
 
   // Recompute segments after any mutation that changed activities or accommodation.
   await computeAndSaveSegments(ctx.dayId, ctx.transportMode)

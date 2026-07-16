@@ -233,6 +233,13 @@ export default defineEventHandler(async (event) => {
   // single proposal) so the client can render multi-day fan-outs as one group.
   const groupedProposals = stampGroup(proposalCollector, randomUUID())
 
+  // Diagnostic: what the agent proposed and which day each targets.
+  console.log(
+    `[discuss] activeDay=${dayId ?? "none"} proposals=[${groupedProposals
+      .map((p) => `${p.kind}@${p.dayId}`)
+      .join(", ")}]`,
+  )
+
   await logTripAction({
     tripId: id,
     userId: session.user.id,
