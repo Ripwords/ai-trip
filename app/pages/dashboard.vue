@@ -17,21 +17,10 @@ useSeoMeta({
   description: "Your travel overview — trips, stats, and upcoming adventures.",
 })
 
-// SSR the dashboard data so the page renders populated on first paint (no
-// empty/skeleton flash). These are blocking useFetch (not lazy), so Nuxt
-// awaits them during SSR and embeds the result in the payload. Forward the
-// session cookie so the server-side fetch is authenticated — plain useFetch
-// does not reliably carry the session on the server (see auth.global.ts,
-// which uses useRequestFetch for the same reason).
-const reqHeaders = useRequestHeaders(["cookie"])
-const { data: trips, status, refresh } = useFetch("/api/trips", { headers: reqHeaders })
-const { data: upcomingFlights } = useFetch("/api/flights", { headers: reqHeaders })
-const { data: visitedCountries } = useFetch<PassportVisitedCountry[]>("/api/visited-countries", {
-  headers: reqHeaders,
-})
-const { data: passports } = useFetch<DashboardPassport[]>("/api/user/passports/summary", {
-  headers: reqHeaders,
-})
+const { data: trips, status, refresh } = useLazyFetch("/api/trips")
+const { data: upcomingFlights } = useLazyFetch("/api/flights")
+const { data: visitedCountries } = useLazyFetch<PassportVisitedCountry[]>("/api/visited-countries")
+const { data: passports } = useLazyFetch<DashboardPassport[]>("/api/user/passports/summary")
 
 const { confirm } = useConfirm()
 
