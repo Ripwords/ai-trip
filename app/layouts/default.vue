@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { authClient } from "../lib/auth-client"
 
-const { data: session } = await authClient.useSession(useFetch)
+// This layout serves `/`, which is cached by a shared ISR edge cache that
+// ignores cookies: whatever one request renders is replayed to every visitor.
+// The session must therefore never be fetched during SSR here — a logged-in
+// visitor triggering a revalidation would have their session (or a transient
+// upstream error page) baked into the cached payload for everyone. Client-only.
+const clientOnlyUseFetch = ((request: string, opts?: Record<string, unknown>) =>
+  useFetch(request, { ...opts, server: false })) as typeof useFetch
+const { data: session } = await authClient.useSession(clientOnlyUseFetch)
 const isLoggedIn = computed(() => !!session.value?.user)
 const { cycle, modeIcon, modeLabel } = useDarkMode()
 

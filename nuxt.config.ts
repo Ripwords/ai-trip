@@ -294,11 +294,13 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
-    // Landing page is static marketing content — only changes on deploy.
-    // `isr: true` caches indefinitely at the edge and only revalidates when
-    // a new deploy ships. Authenticated visitors still get redirected to
-    // /dashboard by the client-side auth middleware after hydration.
-    "/": { isr: true },
+    // Landing page is static marketing content. `isr: 600` caches it at the
+    // edge for 10 minutes; do NOT use `isr: true` — on Vercel that cache
+    // survives deploys indefinitely, so a single bad render (e.g. an upstream
+    // error page captured into the payload) would be served to every visitor
+    // forever. Authenticated visitors get redirected to /dashboard by the
+    // client-side auth middleware after hydration.
+    "/": { isr: 600 },
     "/api/places/search": {
       security: {
         rateLimiter: { tokensPerInterval: 60, interval: 60000 },
