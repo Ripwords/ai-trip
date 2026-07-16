@@ -139,6 +139,11 @@ export default defineNuxtConfig({
   // PWA Configuration
   pwa: {
     registerType: "autoUpdate",
+    // TEMPORARY kill-switch: ships a service worker that unregisters itself and
+    // clears all caches on every client, to recover browsers stranded on a
+    // stale cached worker (broken CSS / stale JS). Remove to re-enable the PWA
+    // once clients have recovered.
+    selfDestroying: true,
     pwaAssets: {
       config: true,
       includeHtmlHeadLinks: true,
