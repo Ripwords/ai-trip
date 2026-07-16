@@ -134,74 +134,87 @@ export default defineEventHandler(async (event) => {
   }
 
   // Consume credit AFTER auth + body validation + access + existence checks,
-  // so every throw above never needs a refund and every throw below this
-  // point (sanitize rejection, agent failure) refunds correctly.
+  // so every throw above never needs a refund. Every throw below this point
+  // is refunded exactly once by the try/catch wrap immediately below (or by
+  // the agent generate call's own try/catch, further down).
   await tryConsumeAiCredit(session.user.id)
 
-  // Reject if ANY message (incl. client-supplied assistant turns) contains an
-  // injection attempt; normalize only user turns (assistant markdown is kept verbatim).
-  if (body.messages.some((m) => detectInjection(m.content))) {
-    await refundAiCredit(session.user.id)
-    throw createError({ statusCode: 400, message: "Message contains disallowed content." })
-  }
-  const cleanMessages = body.messages.slice(-20).map((m) => ({
-    role: m.role,
-    content: m.role === "user" ? (sanitizePromptInput(m.content) ?? "") : m.content,
-  }))
-  if (cleanMessages.some((m) => m.role === "user" && !m.content)) {
-    await refundAiCredit(session.user.id)
-    throw createError({ statusCode: 400, message: "Message contains disallowed content." })
-  }
+  let tools: ReturnType<typeof createDiscussTools>
+  let cleanMessages: { role: "user" | "assistant"; content: string }[]
+  let dayId: string | null
+  let transportMode: ReturnType<typeof normalizeTransportMode>
+  let days: { id: string; dayNumber: number }[]
+  let proposalCollector: Proposal[]
+  let toolCalls: ToolSummaryEntry[]
+  try {
+    // Reject if ANY message (incl. client-supplied assistant turns) contains an
+    // injection attempt; normalize only user turns (assistant markdown is kept verbatim).
+    if (body.messages.some((m) => detectInjection(m.content))) {
+      throw createError({ statusCode: 400, message: "Message contains disallowed content." })
+    }
+    cleanMessages = body.messages.slice(-20).map((m) => ({
+      role: m.role,
+      content: m.role === "user" ? (sanitizePromptInput(m.content) ?? "") : m.content,
+    }))
+    if (cleanMessages.some((m) => m.role === "user" && !m.content)) {
+      throw createError({ statusCode: 400, message: "Message contains disallowed content." })
+    }
 
-  const transportMode = normalizeTransportMode(trip.preferences?.transportMode)
+    transportMode = normalizeTransportMode(trip.preferences?.transportMode)
 
-  // Defense-in-depth: validateActivityIds inside the AI tools already cross-checks
-  // dayId, but block a cross-trip dayId at the boundary so it never reaches the
-  // tool context or buildTripContext.
-  let dayId: string | null = body.dayId ?? null
-  if (dayId) {
-    const day = await db.query.itineraryDays.findFirst({
-      where: and(eq(itineraryDays.id, dayId), eq(itineraryDays.tripId, id)),
-      columns: { id: true },
-    })
-    if (!day) dayId = null
-  }
+    // Defense-in-depth: validateActivityIds inside the AI tools already cross-checks
+    // dayId, but block a cross-trip dayId at the boundary so it never reaches the
+    // tool context or buildTripContext.
+    dayId = body.dayId ?? null
+    if (dayId) {
+      const day = await db.query.itineraryDays.findFirst({
+        where: and(eq(itineraryDays.id, dayId), eq(itineraryDays.tripId, id)),
+        columns: { id: true },
+      })
+      if (!day) dayId = null
+    }
 
-  // Load the trip with days+activities once — reused for both the injected
-  // trip context and the tools' day list, avoiding a redundant second fetch.
-  const tripForCtx = await getTripWithRelations(id)
-  const days = (tripForCtx?.days ?? []).map((d) => ({ id: d.id, dayNumber: d.dayNumber }))
+    // Load the trip with days+activities once — reused for both the injected
+    // trip context and the tools' day list, avoiding a redundant second fetch.
+    const tripForCtx = await getTripWithRelations(id)
+    days = (tripForCtx?.days ?? []).map((d) => ({ id: d.id, dayNumber: d.dayNumber }))
 
-  // Inject trip context into the latest user message so the agent has it on every turn
-  // without needing to call read_day / read_trip_summary.
-  const tripContext = tripForCtx ? buildTripContext(tripForCtx, dayId) : ""
-  if (tripContext) {
-    const lastUserIdx = cleanMessages.findLastIndex((m) => m.role === "user")
-    if (lastUserIdx >= 0) {
-      const original = cleanMessages[lastUserIdx]!
-      cleanMessages[lastUserIdx] = {
-        role: original.role,
-        content: `[Trip context — current state of the user's plan]\n${tripContext}\n\n[User]\n${original.content}`,
+    // Inject trip context into the latest user message so the agent has it on every turn
+    // without needing to call read_day / read_trip_summary.
+    const tripContext = tripForCtx ? buildTripContext(tripForCtx, dayId) : ""
+    if (tripContext) {
+      const lastUserIdx = cleanMessages.findLastIndex((m) => m.role === "user")
+      if (lastUserIdx >= 0) {
+        const original = cleanMessages[lastUserIdx]!
+        cleanMessages[lastUserIdx] = {
+          role: original.role,
+          content: `[Trip context — current state of the user's plan]\n${tripContext}\n\n[User]\n${original.content}`,
+        }
       }
     }
+
+    proposalCollector = []
+    toolCalls = []
+
+    const usdRate = await getExchangeRate("USD", trip.currencyCode || "USD")
+
+    tools = createDiscussTools(
+      {
+        tripId: id,
+        activeDayId: dayId ?? "",
+        days,
+        transportMode,
+        currencyCode: trip.currencyCode || "USD",
+        usdRate,
+      },
+      proposalCollector,
+    )
+  } catch (e) {
+    // Anything that throws after the credit was consumed and before the agent
+    // ran refunds exactly once here. The agent call below has its own try/catch.
+    await refundAiCredit(session.user.id)
+    throw e
   }
-
-  const proposalCollector: Proposal[] = []
-  const toolCalls: ToolSummaryEntry[] = []
-
-  const usdRate = await getExchangeRate("USD", trip.currencyCode || "USD")
-
-  const tools = createDiscussTools(
-    {
-      tripId: id,
-      activeDayId: dayId ?? "",
-      days,
-      transportMode,
-      currencyCode: trip.currencyCode || "USD",
-      usdRate,
-    },
-    proposalCollector,
-  )
 
   let assistantText = ""
   try {
