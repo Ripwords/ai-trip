@@ -1663,6 +1663,7 @@ async function recomputeSegments(dayId: string) {
 
               <!-- Activities for this day -->
               <DaySection
+                :key="activeDay.id"
                 v-show="!aiMutating"
                 :day="activeDay"
                 :trip-id="tripId"

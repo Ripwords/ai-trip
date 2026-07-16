@@ -78,9 +78,11 @@ const isDragging = ref(false)
 watch(
   () => props.day.activities,
   (newActivities) => {
-    localActivities.value = [...newActivities]
+    // Don't clobber the local order mid-drag; otherwise keep the rendered list
+    // (localActivities drives the <draggable>) in sync with the source of truth.
+    if (!isDragging.value) localActivities.value = [...newActivities]
   },
-  { deep: true },
+  { deep: true, immediate: true },
 )
 
 async function handleDragEnd() {
