@@ -138,7 +138,7 @@ export default defineNuxtConfig({
 
   // PWA Configuration
   pwa: {
-    registerType: "prompt",
+    registerType: "autoUpdate",
     pwaAssets: {
       config: true,
       includeHtmlHeadLinks: true,

@@ -22,8 +22,8 @@ describe("PWA launch shell", () => {
     )
   })
 
-  it("uses prompt-based service worker updates and avoids precaching Apple startup images", () => {
-    assert.match(nuxtConfigSource, /registerType:\s*"prompt"/)
+  it("uses auto-update service worker updates and avoids precaching Apple startup images", () => {
+    assert.match(nuxtConfigSource, /registerType:\s*"autoUpdate"/)
     assert.match(
       nuxtConfigSource,
       /globIgnores:\s*\[[\s\S]*?"\*\*\/apple-splash-\*\.png"[\s\S]*?\]/,
