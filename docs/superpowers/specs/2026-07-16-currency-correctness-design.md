@@ -79,6 +79,7 @@ stored:
   accepted (never null everything because Frankfurter is down).
 
 Wire the guard at the two persistence points:
+
 - `server/api/trips/[id]/days/[dayId]/ai.post.ts` (~line 292, day-AI inserts)
 - `server/lib/proposals.ts` (~line 279, `applyProposal` inserts — covers both
   discuss-agent and itinerary-review proposals)

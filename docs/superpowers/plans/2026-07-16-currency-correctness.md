@@ -27,12 +27,14 @@
 The `ZERO_DECIMAL_CURRENCIES` set is copy-pasted in `app/composables/useCurrencyFormat.ts:4`, `server/lib/cost-from-place.ts:6`, and `server/lib/ai.ts:41`. Create one shared module and point the first two at it (`ai.ts`'s copy is deleted in Task 3).
 
 **Files:**
+
 - Create: `shared/utils/currency.ts`
 - Create: `shared/utils/currency.test.ts`
 - Modify: `app/composables/useCurrencyFormat.ts:1-4`
 - Modify: `server/lib/cost-from-place.ts:1-11`
 
 **Interfaces:**
+
 - Produces: `ZERO_DECIMAL_CURRENCIES: Set<string>`, `currencyDecimals(code: string): 0 | 2`, `formatCurrencyAmount(amount: number, code: string): string` (DB-ready numeric string, e.g. `"1500"` for JPY, `"12.50"` for USD). Tasks 3 and 4 import these.
 
 - [ ] **Step 1: Write the failing test**
@@ -42,9 +44,8 @@ The `ZERO_DECIMAL_CURRENCIES` set is copy-pasted in `app/composables/useCurrency
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 
-const { ZERO_DECIMAL_CURRENCIES, currencyDecimals, formatCurrencyAmount } = await import(
-  "./currency"
-)
+const { ZERO_DECIMAL_CURRENCIES, currencyDecimals, formatCurrencyAmount } =
+  await import("./currency")
 
 describe("currencyDecimals", () => {
   it("returns 0 for zero-decimal currencies regardless of case", () => {
@@ -149,11 +150,13 @@ git commit -m "refactor(currency): single shared zero-decimal currency module"
 The endpoint's money-update SQL moves into `server/lib/convert-trip-currency.ts` with an injected transaction handle (repo pattern: deps injection, see `enrich.ts`). The new lib adds the missing `reservations.amount` conversion. The endpoint keeps its row-lock/409 concurrency check and switches its raw `$fetch` to the cached, validated `getExchangeRate`.
 
 **Files:**
+
 - Create: `server/lib/convert-trip-currency.ts`
 - Create: `server/lib/convert-trip-currency.test.ts`
 - Modify: `server/api/trips/[id]/convert-currency.post.ts`
 
 **Interfaces:**
+
 - Consumes: `getExchangeRate(from: string, to: string): Promise<number | null>` from `server/utils/exchange-rate.ts`.
 - Produces: `convertTripMoney(tx: Tx, tripId: string, rate: number, toCurrency: string): Promise<void>` and `type Tx` (drizzle transaction handle).
 
@@ -385,6 +388,7 @@ git commit -m "fix(currency): convert reservation amounts on trip currency chang
 Replace the static price hints in `buildCurrencyCtx` with anchors computed from a live USD→trip-currency rate, in a new dedicated module (keeps it unit-testable without importing the Mastra-heavy `ai.ts`). Thread the rate through `processUserRequest` (day AI) and `createDiscussTools` (discuss agent).
 
 **Files:**
+
 - Create: `server/lib/currency-context.ts`
 - Create: `server/lib/currency-context.test.ts`
 - Modify: `server/lib/ai.ts` (delete lines 40–50; `handleAdd`/`handleFillGaps` params; `processUserRequest`)
@@ -393,6 +397,7 @@ Replace the static price hints in `buildCurrencyCtx` with anchors computed from 
 - Modify: `server/lib/ai-tools.test.ts` (ctx fixtures at lines ~40, ~51 gain `usdRate: null`)
 
 **Interfaces:**
+
 - Consumes: `ZERO_DECIMAL_CURRENCIES` (Task 1), `getExchangeRate` (existing).
 - Produces: `buildCurrencyCtx(currencyCode: string | undefined, usdRate: number | null): string` and `costAnchorHint(currencyCode: string, usdRate: number | null): string`. `DiscussToolsContext` gains required `usdRate: number | null`.
 
@@ -493,10 +498,7 @@ function localAmount(usd: number, usdRate: number): string {
  * currency. With a live USD rate, injects concrete local price anchors so the
  * model never does FX mental math; without one, falls back to static hints.
  */
-export function buildCurrencyCtx(
-  currencyCode: string | undefined,
-  usdRate: number | null,
-): string {
+export function buildCurrencyCtx(currencyCode: string | undefined, usdRate: number | null): string {
   const code = (currencyCode || "USD").toUpperCase()
   const isZeroDecimal = ZERO_DECIMAL_CURRENCIES.has(code)
 
@@ -543,7 +545,7 @@ import { getExchangeRate } from "../utils/exchange-rate"
 3. In `handleAdd`'s params type, below `currencyCode: string`, add:
 
 ```typescript
-    usdRate: number | null
+usdRate: number | null
 ```
 
 and change its `system:` line to:
@@ -557,9 +559,9 @@ and change its `system:` line to:
 5. In `processUserRequest`, after the `safeDestination` block (`params = { ...params, destination: safeDestination }`), add:
 
 ```typescript
-  // Live USD→trip-currency rate for prompt anchors. Null degrades to static
-  // hints inside buildCurrencyCtx — never blocks generation.
-  const usdRate = await getExchangeRate("USD", params.currencyCode)
+// Live USD→trip-currency rate for prompt anchors. Null degrades to static
+// hints inside buildCurrencyCtx — never blocks generation.
+const usdRate = await getExchangeRate("USD", params.currencyCode)
 ```
 
 6. Pass `usdRate` in all three `handleAdd`/`handleFillGaps` call sites (`add` case, `modify` case step 2, `fill_gaps` case):
@@ -603,19 +605,19 @@ import { getExchangeRate } from "../../../utils/exchange-rate"
 2. Just before the `createDiscussTools` call (~line 191), fetch the rate and pass it in the ctx:
 
 ```typescript
-  const usdRate = await getExchangeRate("USD", trip.currencyCode || "USD")
+const usdRate = await getExchangeRate("USD", trip.currencyCode || "USD")
 
-  const tools = createDiscussTools(
-    {
-      tripId: id,
-      activeDayId: dayId ?? "",
-      days,
-      transportMode,
-      currencyCode: trip.currencyCode || "USD",
-      usdRate,
-    },
-    proposalCollector,
-  )
+const tools = createDiscussTools(
+  {
+    tripId: id,
+    activeDayId: dayId ?? "",
+    days,
+    transportMode,
+    currencyCode: trip.currencyCode || "USD",
+    usdRate,
+  },
+  proposalCollector,
+)
 ```
 
 - [ ] **Step 8: Update ai-tools test fixtures**
@@ -645,6 +647,7 @@ git commit -m "fix(ai): FX-anchored currency context so cost estimates use the r
 Validate every AI cost estimate before it reaches the DB: convert to USD-equivalent, check per-type bounds, fall back to Google price data (`deriveCostFromPlace`), else store `null`. Wire at both insert points.
 
 **Files:**
+
 - Create: `server/lib/cost-guard.ts`
 - Create: `server/lib/cost-guard.test.ts`
 - Modify: `server/api/trips/[id]/days/[dayId]/ai.post.ts:276-296`
@@ -653,6 +656,7 @@ Validate every AI cost estimate before it reaches the DB: convert to USD-equival
 - Modify: `server/lib/proposals.test.ts` (any `applyProposal` ctx literal gains `currencyCode: "USD"`)
 
 **Interfaces:**
+
 - Consumes: `getExchangeRate` (existing), `deriveCostFromPlace(placeId: string, tripCurrency: string): Promise<string | null>` (existing), `formatCurrencyAmount` (Task 1).
 - Produces: `guardCostEstimate(input: { costEstimate: number; type: string; placeId: string | null; currencyCode: string }, deps?: CostGuardDeps): Promise<string | null>`. `ApplyContext` gains required `currencyCode: string`.
 
@@ -841,16 +845,16 @@ import { guardCostEstimate } from "../../../../../lib/cost-guard"
 Then, inside the `if (enrichedActivities.length > 0) {` block (~line 266), before the `db.insert(activities).values(` call, add:
 
 ```typescript
-          const guardedCosts = await Promise.all(
-            enrichedActivities.map((a) =>
-              guardCostEstimate({
-                costEstimate: a.costEstimate,
-                type: a.type,
-                placeId: a.placeId,
-                currencyCode: trip.currencyCode || "USD",
-              }),
-            ),
-          )
+const guardedCosts = await Promise.all(
+  enrichedActivities.map((a) =>
+    guardCostEstimate({
+      costEstimate: a.costEstimate,
+      type: a.type,
+      placeId: a.placeId,
+      currencyCode: trip.currencyCode || "USD",
+    }),
+  ),
+)
 ```
 
 and change the insert's cost line (`costEstimate: activity.costEstimate.toString(),`) to:
@@ -872,23 +876,23 @@ import { guardCostEstimate } from "./cost-guard"
 2. In `ApplyContext` (line 166), below `transportMode: TransportMode`, add:
 
 ```typescript
-  /** Trip currency for cost-estimate validation on add-activities. */
-  currencyCode: string
+/** Trip currency for cost-estimate validation on add-activities. */
+currencyCode: string
 ```
 
 3. In the `case "add-activities":` block, inside `if (located.length > 0) {`, before the `db.insert(activities)` call, add:
 
 ```typescript
-          const guardedCosts = await Promise.all(
-            located.map((a) =>
-              guardCostEstimate({
-                costEstimate: a.costEstimate,
-                type: a.type,
-                placeId: a.placeId,
-                currencyCode: ctx.currencyCode,
-              }),
-            ),
-          )
+const guardedCosts = await Promise.all(
+  located.map((a) =>
+    guardCostEstimate({
+      costEstimate: a.costEstimate,
+      type: a.type,
+      placeId: a.placeId,
+      currencyCode: ctx.currencyCode,
+    }),
+  ),
+)
 ```
 
 and change `costEstimate: a.costEstimate.toString(),` to:
@@ -932,10 +936,12 @@ git commit -m "fix(ai): reject implausible AI cost estimates before they reach t
 `server/api/exchange-rate.get.ts` has its own uncached-validation copy of the FX fetcher with a colliding cache name. Replace with the shared util; clean up the outdated Frankfurter-coverage comment.
 
 **Files:**
+
 - Modify: `server/api/exchange-rate.get.ts` (full rewrite, shrinks to ~15 lines)
 - Modify: `server/utils/exchange-rate.ts:14-16` (comment only)
 
 **Interfaces:**
+
 - Consumes: `getExchangeRate` (existing). Response shape `{ rate: number }` is unchanged for the frontend.
 
 Note: the spec lists an endpoint test ("returns rate from the shared util; 502 on null"), but this repo has no `defineEventHandler` test harness and all existing tests target libs/utils. The rate logic being tested already lives in the shared util; building an endpoint harness for a 15-line handler is out of scope (YAGNI). The 502 path is covered by the runtime spot-check in Task 6.
@@ -974,9 +980,9 @@ export default defineEventHandler(async (event) => {
 In `server/utils/exchange-rate.ts`, replace the comment at lines 14–16:
 
 ```typescript
-      // Treat any failure (network error, unsupported currency pair) as
-      // "unknown rate" — callers must fall back gracefully instead of
-      // storing a garbage number.
+// Treat any failure (network error, unsupported currency pair) as
+// "unknown rate" — callers must fall back gracefully instead of
+// storing a garbage number.
 ```
 
 (The old text claimed Frankfurter lacks TWD/VND — verified 2026-07-16 that `api.frankfurter.dev/v2` covers them.)
@@ -1015,6 +1021,7 @@ Expected: `nuxt build` succeeds (catches Vue template compile errors typecheck m
 - [ ] **Step 4: Runtime spot-check (if a local dev environment is available)**
 
 With the local docker DB (`bun run docker:dev`) and seeded data (`bun run db:seed-test`):
+
 1. Open a trip → Settings → change currency (e.g. USD→EUR) → confirm activities, expenses, budget, **and reservations** all change together.
 2. Change it back and confirm values round-trip to roughly the originals.
 3. Ask the day AI to add an activity on a JPY-currency trip → confirm the stored `costEstimate` is a plausible whole-yen amount.

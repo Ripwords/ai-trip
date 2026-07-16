@@ -243,14 +243,14 @@ After the refactor, `ai.post.ts` becomes thin: it routes between `mode: "plan"` 
 
 Today's `plannerAgent` has only `webSearchTool`. Add the following tools (Mastra `createTool`, defined in `server/lib/ai-tools.ts`):
 
-| Tool id             | Wraps                                                         | Input                                                        | Output                                                                  |
+| Tool id | Wraps | Input | Output |
 | ------------------- | ------------------------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------- | ----------------------- |
-| `search_places`     | `searchPlace` in `server/lib/google-maps.ts`                  | `{ query: string, near?: {lat, lng}, type?: string }`        | `{ candidates: Place[] }`                                               |
-| `get_place_details` | new — `placeDetails(placeId)` to be added in `google-maps.ts` | `{ placeId: string }`                                        | `{ name, address, openingHours, rating, priceLevel, photos }`           |
-| `get_distance`      | `getDistanceMatrix`                                           | `{ from: {lat, lng}, to: {lat, lng}, mode?: TransportMode }` | `{ durationSeconds, distanceMeters }`                                   |
-| `read_day`          | `db.query.itineraryDays.findFirst({ with: activities })`      | `{ dayId: string }`                                          | day record with activities, accommodation, travel segments              |
-| `read_trip_summary` | `getTripWithRelations`                                        | `{ tripId: string }`                                         | trimmed view: destination, dates, prefs, per-day activity names + types |
-| `run_review`        | `reviewItinerary`                                             | `{ scope: "day"                                              | "trip", dayId?: string }`                                               | `ItineraryReviewResult` |
+| `search_places` | `searchPlace` in `server/lib/google-maps.ts` | `{ query: string, near?: {lat, lng}, type?: string }` | `{ candidates: Place[] }` |
+| `get_place_details` | new — `placeDetails(placeId)` to be added in `google-maps.ts` | `{ placeId: string }` | `{ name, address, openingHours, rating, priceLevel, photos }` |
+| `get_distance` | `getDistanceMatrix` | `{ from: {lat, lng}, to: {lat, lng}, mode?: TransportMode }` | `{ durationSeconds, distanceMeters }` |
+| `read_day` | `db.query.itineraryDays.findFirst({ with: activities })` | `{ dayId: string }` | day record with activities, accommodation, travel segments |
+| `read_trip_summary` | `getTripWithRelations` | `{ tripId: string }` | trimmed view: destination, dates, prefs, per-day activity names + types |
+| `run_review` | `reviewItinerary` | `{ scope: "day"                                              | "trip", dayId?: string }` | `ItineraryReviewResult` |
 
 Tools are registered on `plannerAgent`. Tool calls are bounded with `stopWhen: stepCountIs(4)` to cap latency and credit cost (4 picked because: 1 review + 1 read_day + 2 search_places / get_distance covers the heaviest planning loop we expect; revisit if traces show truncation).
 
