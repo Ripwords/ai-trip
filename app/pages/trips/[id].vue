@@ -878,10 +878,14 @@ async function handleAiApplyProposal(messageId: string, proposal: Proposal) {
   const res = await applyOneProposal(messageId, proposal)
   await refresh()
   if (res.ok) {
+    // Take the user to the day that changed — a proposal can target a day
+    // other than the one on screen, so otherwise the apply looks like a no-op.
+    if (proposal.dayId !== activeDayId.value) activeDayId.value = proposal.dayId
+    const dayLabel = dayLabels.value[proposal.dayId] ?? "the day"
     toastWithAction(
       res.enrichmentFailures > 0
         ? (res.message ?? "Some places couldn't be located.")
-        : "Change applied.",
+        : `Applied to ${dayLabel}.`,
       { label: "Undo", onClick: () => handleAiUndo(proposal.dayId) },
     )
   }
@@ -901,22 +905,34 @@ async function handleAiApplyGroup(messageId: string, proposals: Proposal[]) {
   }
   let applied = 0
   let locateFailures = 0
+  const changedDayIds = new Set<string>()
   for (const p of proposals) {
     const res = await applyOneProposal(messageId, p)
-    if (res.ok) applied++
+    if (res.ok) {
+      applied++
+      changedDayIds.add(p.dayId)
+    }
     locateFailures += res.enrichmentFailures
   }
   await refresh()
+  const changedDays = [...changedDayIds]
+  // If the day on screen wasn't one that changed, jump to a changed day so
+  // the additions are actually visible instead of looking like nothing happened.
+  if (changedDays.length && !changedDays.includes(activeDayId.value ?? "")) {
+    activeDayId.value = changedDays[0]!
+  }
   const failed = proposals.length - applied
-  const changedDays = [...new Set(proposals.map((p) => p.dayId))]
+  const dayNames = changedDays.map((d) => dayLabels.value[d] ?? "a day").join(", ")
   const summary =
-    failed === 0
-      ? `Applied ${applied} change(s).`
-      : `Applied ${applied}, ${failed} couldn't be applied.`
+    applied === 0
+      ? "Nothing could be applied."
+      : failed === 0
+        ? `Applied across ${dayNames}.`
+        : `Applied ${applied} (${dayNames}); ${failed} couldn't be applied.`
   toastWithAction(
     locateFailures > 0 ? `${summary} ${locateFailures} place(s) couldn't be located.` : summary,
     { label: "Undo all", onClick: () => changedDays.forEach((d) => handleAiUndo(d)) },
-    failed === 0 ? "success" : "info",
+    applied > 0 && failed === 0 ? "success" : "info",
   )
 }
 
