@@ -37,5 +37,22 @@ export default defineNuxtRouteMiddleware(async (to) => {
     isServer: import.meta.server,
   })
 
-  if (target) return navigateTo(target)
+  if (!target) return
+
+  // Never navigate while Vue is still hydrating: the router would swap routes
+  // before mount, making Vue hydrate the target page's vnodes against the
+  // current page's server-rendered DOM. Dev builds detect and repair the
+  // mismatches ("Hydration completed but contains mismatches"); production
+  // builds skip that recovery and leave a corrupted, half-rendered page
+  // (landing hero grafted into the dashboard, blank content). Defer the
+  // redirect until hydration has finished instead.
+  const nuxtApp = useNuxtApp()
+  if (import.meta.client && nuxtApp.isHydrating) {
+    nuxtApp.hooks.hookOnce("app:suspense:resolve", () => {
+      navigateTo(target)
+    })
+    return
+  }
+
+  return navigateTo(target)
 })
