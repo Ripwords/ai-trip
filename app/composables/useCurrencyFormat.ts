@@ -1,7 +1,5 @@
 import type { MaybeRefOrGetter } from "vue"
-
-// ISO 4217 currencies that don't use minor units (cents/subdivisions).
-const ZERO_DECIMAL_CURRENCIES = new Set(["JPY", "KRW", "VND", "IDR", "TWD", "CLP", "ISK", "HUF"])
+import { ZERO_DECIMAL_CURRENCIES } from "#shared/utils/currency"
 
 export interface FormatOptions {
   /** Drop fractional digits even for currencies that normally use them (e.g. trip-summary headline numbers). */
