@@ -11,6 +11,7 @@ import { buildCurrencyCtx } from "./currency-context"
 import { getExchangeRate } from "../utils/exchange-rate"
 import { withOneRetry } from "./retry"
 import { normalizeSuggestedTime, clampDurationMinutes } from "./normalize-ai-output"
+import { researchCacheKey, isCacheableResearch } from "./ai-cache"
 
 // ── Schemas ──────────────────────────────────────────────────────────
 
@@ -236,28 +237,44 @@ const mastra = new Mastra({
 
 // ── Research Helper ──────────────────────────────────────────────────
 
-async function doResearch(destination: string, userContext?: string): Promise<string> {
-  logger.info("[research] Searching for", { destination })
-  try {
-    const agent = mastra.getAgent("planner")
-    const response = await agent.generate(
-      `Search the web for local hidden gems, authentic restaurants, and traveler recommendations in ${destination}.${userContext ? ` Focus on: ${userContext}` : ""}`,
-    )
-    logger.info("[research] Done", { length: response.text.length })
-    // If sanitization rejects the result (injection pattern / over-length), drop
-    // the whole research block — falling back to raw text would forward a
-    // potentially-poisoned web payload straight into the next generateObject.
-    const sanitizedResults = sanitizePromptInput(response.text)
-    if (!sanitizedResults) {
-      logger.warn("[research] Sanitization dropped results, proceeding without research")
-      return ""
+// Cached: the research pass is the slowest step of every add/fill/accommodation
+// request, and full-itinerary generation repeats near-identical research per
+// day. 24h TTL; failures (empty string) are never cached so a transient web
+// failure can't stick (see Phase 1 FX-cache lesson).
+const doResearch = defineCachedFunction(
+  async (destination: string, userContext?: string): Promise<string> => {
+    logger.info("[research] Searching for", { destination })
+    try {
+      const agent = mastra.getAgent("planner")
+      const response = await agent.generate(
+        `Search the web for local hidden gems, authentic restaurants, and traveler recommendations in ${destination}.${userContext ? ` Focus on: ${userContext}` : ""}`,
+      )
+      logger.info("[research] Done", { length: response.text.length })
+      // If sanitization rejects the result (injection pattern / over-length), drop
+      // the whole research block — falling back to raw text would forward a
+      // potentially-poisoned web payload straight into the next generateObject.
+      const sanitizedResults = sanitizePromptInput(response.text)
+      if (!sanitizedResults) {
+        logger.warn("[research] Sanitization dropped results, proceeding without research")
+        return ""
+      }
+      return `<research_results source="web_search" destination="${destination}">\n${sanitizedResults}\n</research_results>`
+    } catch (e) {
+      logger.error("[research] Web search failed, proceeding without research", {
+        error: String(e),
+      })
+      return "" // Graceful degradation — AI will use training data instead
     }
-    return `<research_results source="web_search" destination="${destination}">\n${sanitizedResults}\n</research_results>`
-  } catch (e) {
-    logger.error("[research] Web search failed, proceeding without research", { error: String(e) })
-    return "" // Graceful degradation — AI will use training data instead
-  }
-}
+  },
+  {
+    maxAge: 60 * 60 * 24,
+    name: "aiResearch",
+    group: "ai",
+    getKey: (destination: string, userContext?: string) =>
+      researchCacheKey(destination, userContext),
+    validate: (entry: { value: string }) => isCacheableResearch(entry.value),
+  },
+)
 
 // ── Handlers per Intent ──────────────────────────────────────────────
 
