@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNotNull, sql } from "drizzle-orm"
-import { db } from "../db"
+import type { db } from "../db"
 import { trips, activities, expenses, reservations, itineraryDays } from "../db/schema"
 
 /** Drizzle transaction handle, structurally (also satisfied by `db` itself). */

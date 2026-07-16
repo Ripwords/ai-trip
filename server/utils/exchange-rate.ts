@@ -11,10 +11,11 @@ const _getExchangeRate = defineCachedFunction(
       )
       if (!Number.isFinite(response.rate) || response.rate <= 0) return null
       return response.rate
-    } catch {
+    } catch (e) {
       // Treat any failure (network error, unsupported currency pair) as
       // "unknown rate" — callers must fall back gracefully instead of
       // storing a garbage number.
+      console.warn(`[fx] rate fetch failed for ${from}->${to}:`, e)
       return null
     }
   },
@@ -24,6 +25,8 @@ const _getExchangeRate = defineCachedFunction(
     group: "fx",
     getKey: (_event: unknown, from: string, to: string) =>
       `${from.toUpperCase()}_${to.toUpperCase()}`,
+    // Never cache failures — a transient FX error must not stick for 6h.
+    validate: (entry) => entry.value != null,
   },
 )
 
