@@ -272,7 +272,7 @@ const doResearch = defineCachedFunction(
     group: "ai",
     getKey: (destination: string, userContext?: string) =>
       researchCacheKey(destination, userContext),
-    validate: (entry: { value: string }) => isCacheableResearch(entry.value),
+    validate: (entry: { value?: string }) => isCacheableResearch(entry.value),
   },
 )
 
