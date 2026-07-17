@@ -192,6 +192,36 @@ describe("useGenerateFullItinerary", () => {
     assert.equal(running.value, false)
   })
 
+  it("processes days in ascending dayNumber order regardless of input order", async () => {
+    const reversedDays = [
+      { id: "d3", dayNumber: 3, activities: [] },
+      { id: "d2", dayNumber: 2, activities: [] },
+      { id: "d1", dayNumber: 1, activities: [] },
+    ]
+    const { run } = useGenerateFullItinerary("t1")
+    await run(reversedDays, 10)
+    const dayAiCalls = calls.filter((c) => c.url.includes("/days/")).map((c) => c.url)
+    assert.deepEqual(dayAiCalls, [
+      "/api/trips/t1/days/d1/ai",
+      "/api/trips/t1/days/d2/ai",
+      "/api/trips/t1/days/d3/ai",
+    ])
+  })
+
+  it("sets totalDays from the plan before the outline fetch resolves", async () => {
+    let totalDaysDuringOutlineFetch: number | undefined
+    const state = useGenerateFullItinerary("t1")
+    fetchImpl = async (url) => {
+      if (url.endsWith("/generate-outline")) {
+        totalDaysDuringOutlineFetch = state.totalDays.value
+        return outlineResponse
+      }
+      return { ok: true }
+    }
+    await state.run(days, 10)
+    assert.equal(totalDaysDuringOutlineFetch, 2)
+  })
+
   it("exposes progress: total days and a themed label per day", async () => {
     const labels: string[] = []
     fetchImpl = async (url) => {

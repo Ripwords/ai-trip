@@ -45,7 +45,12 @@ export function useGenerateFullItinerary(tripId: string) {
   }
 
   async function run(days: DayWithActivities[], aiRemaining?: number): Promise<boolean> {
-    const emptyDays = days.filter((d) => d.activities.length === 0)
+    // Sorted ascending so the loop below is in day order by construction: each
+    // day persists before the next starts, and the day AI's own cross-day
+    // dedup depends on seeing what came before.
+    const emptyDays = days
+      .filter((d) => d.activities.length === 0)
+      .toSorted((a, b) => a.dayNumber - b.dayNumber)
     const plan = planGenerationRun(emptyDays.length, aiRemaining)
     if (plan.mode === "none") return false
 
@@ -56,69 +61,75 @@ export function useGenerateFullItinerary(tripId: string) {
     noticeMessage.value = ""
     currentDayIndex.value = 0
     currentDayLabel.value = ""
+    // Set from the plan up front so progress UI never renders "Day 1 of 0"
+    // while the outline fetch (which can take several seconds) is in flight.
+    totalDays.value = plan.dayCount
 
-    // Outline is best-effort: any failure — including a 200 with zero usable
-    // days — downgrades to generic prompts rather than blocking generation.
-    let outlineByDayId = new Map<string, OutlineDayEntry>()
-    let avoidRepeats: string[] = []
-    if (plan.mode === "outline") {
-      try {
-        const res = await $fetch<OutlineResponse>(`/api/trips/${tripId}/generate-outline`, {
-          method: "POST",
-          body: {},
-        })
-        if (res.outline.days.length === 0) {
-          noticeMessage.value = OUTLINE_FALLBACK_NOTICE
-        } else {
-          outlineByDayId = new Map(res.outline.days.map((d) => [d.dayId, d]))
-          avoidRepeats = res.outline.avoidRepeats
-        }
-      } catch {
-        noticeMessage.value = OUTLINE_FALLBACK_NOTICE
-      }
-    }
-
-    // Sequential and in day order on purpose: each day persists before the next
-    // starts, so the day AI's own cross-day dedup sees what came before.
-    const targets = emptyDays.slice(0, plan.dayCount)
-    totalDays.value = targets.length
-    const failed: number[] = []
-
-    for (let i = 0; i < targets.length; i++) {
-      const day = targets[i]!
-      const entry = outlineByDayId.get(day.id)
-      currentDayIndex.value = i
-      currentDayLabel.value = entry
-        ? `Day ${day.dayNumber} — ${entry.theme}`
-        : `Day ${day.dayNumber}`
-
-      const prompt = entry ? buildDayPromptFromOutline(entry, avoidRepeats) : GENERIC_PROMPT
-      try {
-        await generateDay(day.id, prompt)
-      } catch (e) {
-        // A 400 means the outline-derived prompt tripped the server's prompt
-        // sanitizer — retry the day once with the plain prompt.
-        if (statusOf(e) === 400 && prompt !== GENERIC_PROMPT) {
-          try {
-            await generateDay(day.id, GENERIC_PROMPT)
-            continue
-          } catch {
-            failed.push(day.dayNumber)
-            continue
+    try {
+      // Outline is best-effort: any failure — including a 200 with zero usable
+      // days — downgrades to generic prompts rather than blocking generation.
+      let outlineByDayId = new Map<string, OutlineDayEntry>()
+      let avoidRepeats: string[] = []
+      if (plan.mode === "outline") {
+        try {
+          const res = await $fetch<OutlineResponse>(`/api/trips/${tripId}/generate-outline`, {
+            method: "POST",
+            body: {},
+          })
+          if (res.outline.days.length === 0) {
+            noticeMessage.value = OUTLINE_FALLBACK_NOTICE
+          } else {
+            outlineByDayId = new Map(res.outline.days.map((d) => [d.dayId, d]))
+            avoidRepeats = res.outline.avoidRepeats
           }
+        } catch {
+          noticeMessage.value = OUTLINE_FALLBACK_NOTICE
         }
-        failed.push(day.dayNumber)
       }
-    }
 
-    if (failed.length > 0) {
-      const dayList = failed.join(", ")
-      errorMessage.value = `Generated ${targets.length - failed.length} of ${targets.length} days. Day ${dayList} failed — try again manually.`
-    }
+      // Sequential and in day order on purpose: each day persists before the next
+      // starts, so the day AI's own cross-day dedup sees what came before.
+      const targets = emptyDays.slice(0, plan.dayCount)
+      totalDays.value = targets.length
+      const failed: number[] = []
 
-    currentDayLabel.value = ""
-    running.value = false
-    return true
+      for (let i = 0; i < targets.length; i++) {
+        const day = targets[i]!
+        const entry = outlineByDayId.get(day.id)
+        currentDayIndex.value = i
+        currentDayLabel.value = entry
+          ? `Day ${day.dayNumber} — ${entry.theme}`
+          : `Day ${day.dayNumber}`
+
+        const prompt = entry ? buildDayPromptFromOutline(entry, avoidRepeats) : GENERIC_PROMPT
+        try {
+          await generateDay(day.id, prompt)
+        } catch (e) {
+          // A 400 means the outline-derived prompt tripped the server's prompt
+          // sanitizer — retry the day once with the plain prompt.
+          if (statusOf(e) === 400 && prompt !== GENERIC_PROMPT) {
+            try {
+              await generateDay(day.id, GENERIC_PROMPT)
+              continue
+            } catch {
+              failed.push(day.dayNumber)
+              continue
+            }
+          }
+          failed.push(day.dayNumber)
+        }
+      }
+
+      if (failed.length > 0) {
+        const dayList = failed.join(", ")
+        errorMessage.value = `Generated ${targets.length - failed.length} of ${targets.length} days. Day ${dayList} failed — try again manually.`
+      }
+
+      currentDayLabel.value = ""
+      return true
+    } finally {
+      running.value = false
+    }
   }
 
   return {
