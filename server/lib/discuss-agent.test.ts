@@ -65,6 +65,19 @@ describe("discussAgent", () => {
     assert.doesNotMatch(DISCUSS_SYSTEM_PROMPT, /ask the user to open that day/i)
   })
 
+  it("prompt teaches geographic route awareness and backtracking avoidance", () => {
+    assert.match(DISCUSS_SYSTEM_PROMPT, /backtrack/i)
+    assert.match(DISCUSS_SYSTEM_PROMPT, /geograph/i)
+    // Cluster nearby stops / keep a coherent path.
+    assert.match(DISCUSS_SYSTEM_PROMPT, /cluster|nearby|coherent|zig-?zag/i)
+    // Verify with getDistance only when a proposal hinges on travel time
+    // (stays inside the step budget rather than checking every reorder).
+    assert.match(
+      DISCUSS_SYSTEM_PROMPT,
+      /getDistance[^.]*only when|only when[^.]*getDistance|hinges/i,
+    )
+  })
+
   it("prompt steers whole-trip generation asks away from exhaustive in-chat research", () => {
     assert.match(DISCUSS_SYSTEM_PROMPT, /Generate full itinerary/i)
     assert.match(DISCUSS_SYSTEM_PROMPT, /budget.*steps|step budget|running low/i)
