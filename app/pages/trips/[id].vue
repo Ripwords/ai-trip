@@ -4,6 +4,7 @@ import type { Proposal } from "~/types/proposal"
 import type { ReviewFinding } from "~/types/review"
 import type { ChatMessage } from "~/components/AiDock.vue"
 import { countryByAlpha2 } from "~/data/countries"
+import { parseSseFrames } from "../../utils/sse-parse"
 
 definePageMeta({ layout: "app" })
 
@@ -723,6 +724,12 @@ const activeDayLabel = computed(() =>
 const aiInput = ref("")
 const aiMessages = ref<ChatMessage[]>([])
 const aiUsage = ref<{ used: number; limit: number; remaining: number } | null>(null)
+// A discuss turn is step-metered (more than 1 credit on a research-heavy
+// turn); no UI surfaces the per-turn cost yet, but it must not be silently
+// dropped off the `done` event either — keep the last value around for when
+// it is. `aiUsage` (refreshed after every turn) already reflects the
+// aggregate effect of this number.
+const lastDiscussCreditsUsed = ref<number | null>(null)
 
 const {
   run: runFullItinerary,
@@ -780,46 +787,137 @@ async function handleAiSubmit(text: string) {
   aiChatLoading.value = true
   const controller = new AbortController()
   aiAbort = controller
+
+  // The assistant bubble is appended EMPTY and mutated as events arrive — that
+  // is what makes tool lines and text appear live.
+  const assistantId = makeMessageId()
+  aiMessages.value = [
+    ...aiMessages.value,
+    {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      toolCallSummary: [],
+      timestamp: Date.now(),
+    },
+  ]
+
+  const patch = (fn: (m: ChatMessage) => ChatMessage) => {
+    aiMessages.value = aiMessages.value.map((m) => (m.id === assistantId ? fn(m) : m))
+  }
+
   try {
     const body = {
       messages: aiMessages.value
         // Drop empty turns: a historical empty assistant message (from the
         // pre-fix silent-reply bug) would fail the server's content min(1)
-        // validation and brick the chat for every subsequent send.
+        // validation and brick the chat for every subsequent send. The
+        // just-appended streaming placeholder is empty too, so this also keeps
+        // it out of its own request.
         .filter((m) => (m.role === "user" || m.role === "assistant") && m.content.trim().length > 0)
         .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
       dayId: activeDay.value?.id,
     }
-    const data = await $fetch<{
-      message: string
-      proposals: Proposal[]
-      toolCallSummary: string[]
-    }>(`/api/trips/${tripId}/discuss`, { method: "POST", body, signal: controller.signal })
-    const assistant: ChatMessage = {
-      id: makeMessageId(),
-      role: "assistant",
-      content: data.message,
-      toolCallSummary: data.toolCallSummary,
-      proposals: data.proposals,
-      proposalStates: Object.fromEntries(data.proposals.map((p) => [p.id, "pending" as const])),
-      timestamp: Date.now(),
+
+    const res = await fetch(`/api/trips/${tripId}/discuss`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+
+    if (!res.ok || !res.body) {
+      // Pre-flight rejection (429 limit, 400 injection) — no stream was opened.
+      const detail = await res.json().catch(() => null)
+      throw new Error(
+        (detail as { message?: string } | null)?.message ?? "AI is unavailable right now",
+      )
     }
-    aiMessages.value = [...aiMessages.value, assistant]
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ""
+    let streamError = ""
+
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const { frames, rest } = parseSseFrames(buf)
+      buf = rest
+
+      for (const frame of frames) {
+        const payload: unknown = JSON.parse(frame.data)
+        if (frame.event === "tool") {
+          const { line } = payload as { line: string }
+          patch((m) => ({ ...m, toolCallSummary: [...(m.toolCallSummary ?? []), line] }))
+        } else if (frame.event === "text") {
+          const { delta } = payload as { delta: string }
+          patch((m) => ({ ...m, content: m.content + delta }))
+        } else if (frame.event === "done") {
+          const donePayload = payload as {
+            message: string
+            proposals: Proposal[]
+            toolCallSummary: string[]
+            creditsUsed: number
+          }
+          lastDiscussCreditsUsed.value = donePayload.creditsUsed
+          patch((m) => ({
+            ...m,
+            content: donePayload.message,
+            toolCallSummary: donePayload.toolCallSummary,
+            proposals: donePayload.proposals,
+            proposalStates: Object.fromEntries(
+              donePayload.proposals.map((p) => [p.id, "pending" as const]),
+            ),
+          }))
+        } else if (frame.event === "error") {
+          streamError = (payload as { message: string }).message
+        }
+      }
+    }
+
+    if (streamError) {
+      aiMessages.value = [
+        ...aiMessages.value,
+        {
+          id: makeMessageId(),
+          role: "system",
+          content: streamError,
+          timestamp: Date.now(),
+        },
+      ]
+    }
   } catch (e: unknown) {
-    // User cancelled — ofetch wraps the abort in a FetchError, so inspect the
-    // controller's own signal rather than the error shape.
-    if (controller.signal.aborted) return
-    const err: ChatMessage = {
-      id: makeMessageId(),
-      role: "system",
-      content: e instanceof Error ? e.message : "AI failed",
-      timestamp: Date.now(),
+    // User cancelled — keep whatever already streamed, add no error line.
+    if (controller.signal.aborted) {
+      dropEmptyAssistant(assistantId)
+      return
     }
-    aiMessages.value = [...aiMessages.value, err]
+    dropEmptyAssistant(assistantId)
+    aiMessages.value = [
+      ...aiMessages.value,
+      {
+        id: makeMessageId(),
+        role: "system",
+        content: e instanceof Error ? e.message : "AI failed",
+        timestamp: Date.now(),
+      },
+    ]
   } finally {
     aiChatLoading.value = false
     await refreshAiUsage()
   }
+}
+
+/**
+ * Remove the streaming placeholder if it never received anything. An empty
+ * assistant bubble renders as a blank row and is dead weight in the history.
+ */
+function dropEmptyAssistant(id: string) {
+  aiMessages.value = aiMessages.value.filter(
+    (m) => m.id !== id || m.content.trim().length > 0 || (m.proposals?.length ?? 0) > 0,
+  )
 }
 
 function handleAiCancel() {
