@@ -15,7 +15,7 @@ of what is happening.
 
 The endpoint already builds a `toolCallSummary` ("searched Google Maps for
 'ramen Shinjuku'", "checked travel time between two stops") and `AiDock.vue`
-already renders it — but only *retrospectively*, attached to the finished
+already renders it — but only _retrospectively_, attached to the finished
 message. The words describing the work exist; they just arrive after the work
 is over.
 
@@ -32,13 +32,13 @@ correctness, which this work touches directly):
 - `refundAiCredit`'s docstring (`server/utils/ai-limits.ts:71`) claims it is
   "Safe to call multiple times if a single consume succeeded." It is not: the
   SQL is `GREATEST(count - 1, 0)`, so two calls on one consume mint the user a
-  free credit. Separately, `ai.post.ts:38` consumes the credit *before* its
+  free credit. Separately, `ai.post.ts:38` consumes the credit _before_ its
   auth/existence checks, so a 403/404 burns a credit — the other two AI
   endpoints deliberately consume after those checks and comment on it.
 
 ## Decisions (from brainstorming)
 
-- **Full streaming**, not one or the other: live tool progress *and*
+- **Full streaming**, not one or the other: live tool progress _and_
   token-by-token text.
 - **Proposals arrive at the end**, on the final event — not as they are
   emitted. The `propose*` tools fire during the tool loop, so `proposalCollector`
@@ -69,7 +69,7 @@ correctness, which this work touches directly):
 - Tool visibility: `fullStream`/`onChunk` emit a typed union
   (`@mastra/core/dist/stream/types.d.ts:769`). The decisive event is
   **`tool-call`** — it carries the full `{ toolCallId, toolName, args }` and
-  fires *before* the tool executes, which is what makes "searching Google Maps
+  fires _before_ the tool executes, which is what makes "searching Google Maps
   for 'X'…" possible. (`tool-call-input-streaming-start` carries only a
   toolName and is not enough; `tool-result`/`tool-error` come too late.)
 - `h3@1.15.11` ships `createEventStream(event)` → `push()` / `onClosed()` /
@@ -125,7 +125,9 @@ const result = await discussAgent.stream(cleanMessages, {
   maxSteps: 10,
   abortSignal: controller.signal,
 })
-for await (const chunk of result.fullStream) { /* map + push */ }
+for await (const chunk of result.fullStream) {
+  /* map + push */
+}
 ```
 
 Iterate `fullStream` **once** and switch on `chunk.type`, rather than mixing
@@ -137,17 +139,17 @@ Iterate `fullStream` **once** and switch on `chunk.type`, rather than mixing
 Discriminators confirmed present in the installed union: **`'tool-call'`**
 (payload `ToolCallPayload` — fires before execution, carries the args),
 **`'text-delta'`**, plus `'error'`, `'abort'` and `'finish'`. Everything else in
-the union (workflow-*, network-*, reasoning-*, background-task-*) maps to
+the union (workflow-_, network-_, reasoning-_, background-task-_) maps to
 nothing.
 
 **Wire protocol — four events:**
 
-| Event | Payload | Source |
-|---|---|---|
-| `tool` | `{ line: string }` | `'tool-call'` chunks → the existing `describeToolCall()`, filtering `propose*` exactly as `toolCallSummary` does today |
-| `text` | `{ delta: string }` | `'text-delta'` chunks |
-| `done` | `{ message, proposals, toolCallSummary }` | `fallbackDiscussMessage()` for `message`; `stampGroup(proposalCollector, randomUUID())` for `proposals` |
-| `error` | `{ message: string }` | in-stream failure (the stream is already 200; this is the only way to report) |
+| Event   | Payload                                   | Source                                                                                                                 |
+| ------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `tool`  | `{ line: string }`                        | `'tool-call'` chunks → the existing `describeToolCall()`, filtering `propose*` exactly as `toolCallSummary` does today |
+| `text`  | `{ delta: string }`                       | `'text-delta'` chunks                                                                                                  |
+| `done`  | `{ message, proposals, toolCallSummary }` | `fallbackDiscussMessage()` for `message`; `stampGroup(proposalCollector, randomUUID())` for `proposals`                |
+| `error` | `{ message: string }`                     | in-stream failure (the stream is already 200; this is the only way to report)                                          |
 
 The existing `logTripAction` audit write stays, after the turn completes.
 
@@ -169,16 +171,16 @@ async function refundOnce() {
 
 Track `streamedAny = textDeltaCount > 0 || proposalCollector.length > 0`.
 
-| Exit | Refunds |
-|---|---|
-| Any pre-flight throw (before consume) | 0 |
-| Throw after consume, before stream opens (existing wrap) | 1 |
-| Agent throws mid-stream, `streamedAny === false` | 1, then `error` event |
-| Agent throws mid-stream, `streamedAny === true` | 0, then `error` event (partial text kept) |
-| Client disconnects, `streamedAny === false` | 1 (abort the agent) |
-| Client disconnects, `streamedAny === true` | 0 (abort the agent) |
-| Clean finish, `fallbackDiscussMessage().shouldRefund` | 1 |
-| Clean finish with text or proposals | 0 |
+| Exit                                                     | Refunds                                   |
+| -------------------------------------------------------- | ----------------------------------------- |
+| Any pre-flight throw (before consume)                    | 0                                         |
+| Throw after consume, before stream opens (existing wrap) | 1                                         |
+| Agent throws mid-stream, `streamedAny === false`         | 1, then `error` event                     |
+| Agent throws mid-stream, `streamedAny === true`          | 0, then `error` event (partial text kept) |
+| Client disconnects, `streamedAny === false`              | 1 (abort the agent)                       |
+| Client disconnects, `streamedAny === true`               | 0 (abort the agent)                       |
+| Clean finish, `fallbackDiscussMessage().shouldRefund`    | 1                                         |
+| Clean finish with text or proposals                      | 0                                         |
 
 No path may refund twice. The implementation must include an explicit
 enumeration of every exit, as `generate-outline.post.ts` did in Phase 3.
