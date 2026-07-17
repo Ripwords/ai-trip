@@ -724,6 +724,16 @@ const aiInput = ref("")
 const aiMessages = ref<ChatMessage[]>([])
 const aiUsage = ref<{ used: number; limit: number; remaining: number } | null>(null)
 
+const {
+  run: runFullItinerary,
+  running: generatingItinerary,
+  currentDayIndex: generatingDayIndex,
+  totalDays: generatingDayTotal,
+  currentDayLabel: generatingDayLabel,
+  errorMessage: generateErrorMessage,
+  noticeMessage: generateNoticeMessage,
+} = useGenerateFullItinerary(tripId)
+
 async function refreshAiUsage() {
   try {
     aiUsage.value = await $fetch("/api/ai/usage")
@@ -1048,14 +1058,26 @@ async function handleQuickOptimizeRoute() {
 async function handleGenerateFullItinerary() {
   aiMutating.value = true
   try {
-    const { run } = useGenerateFullItinerary(tripId)
-    await run(sortedDays.value, aiUsage.value?.remaining ?? undefined)
+    const didRun = await runFullItinerary(sortedDays.value, aiUsage.value?.remaining ?? undefined)
+    if (!didRun) return
+
+    if (generateNoticeMessage.value) {
+      aiMessages.value = [
+        ...aiMessages.value,
+        {
+          id: makeMessageId(),
+          role: "system",
+          content: generateNoticeMessage.value,
+          timestamp: Date.now(),
+        },
+      ]
+    }
     aiMessages.value = [
       ...aiMessages.value,
       {
         id: makeMessageId(),
         role: "system",
-        content: "Generated full itinerary.",
+        content: generateErrorMessage.value || "Generated full itinerary.",
         timestamp: Date.now(),
       },
     ]
@@ -1821,6 +1843,32 @@ async function recomputeSegments(dayId: string) {
       @change-currency="handleCurrencyChange"
       @trip-info-saved="handleTripUpdated"
     />
+
+    <Transition
+      enter-active-class="transition duration-200"
+      enter-from-class="opacity-0 translate-y-1"
+      leave-active-class="transition duration-150"
+      leave-to-class="opacity-0 translate-y-1"
+    >
+      <div
+        v-if="generatingItinerary"
+        class="pointer-events-none fixed left-1/2 top-20 z-[80] -translate-x-1/2 md:top-auto md:bottom-28"
+        role="status"
+        aria-live="polite"
+      >
+        <div
+          class="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm text-sand-800 shadow-lg ring-1 ring-black/5"
+        >
+          <span class="size-2 animate-pulse rounded-full bg-terra-500" />
+          <span class="truncate max-w-[70vw]">
+            Generating {{ generatingDayLabel || `day ${generatingDayIndex + 1}` }}
+            <span class="opacity-60"
+              >({{ generatingDayIndex + 1 }} of {{ generatingDayTotal }})</span
+            >
+          </span>
+        </div>
+      </div>
+    </Transition>
 
     <!-- AI dock -->
     <AiDock

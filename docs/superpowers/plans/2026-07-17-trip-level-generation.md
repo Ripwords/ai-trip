@@ -29,12 +29,15 @@
 Pure, client-side, no Nuxt/network. Turns one outline entry + the global avoid-list into the prompt string sent to the day-AI endpoint.
 
 **Files:**
+
 - Create: `app/utils/outline-prompt.ts`
 - Test: `app/utils/outline-prompt.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces:
+
   ```ts
   export interface OutlineDayEntry {
     dayId: string
@@ -45,11 +48,9 @@ Pure, client-side, no Nuxt/network. Turns one outline entry + the global avoid-l
     guidance: string
   }
   export const MAX_DAY_PROMPT_CHARS = 1900
-  export function buildDayPromptFromOutline(
-    entry: OutlineDayEntry,
-    avoidRepeats: string[],
-  ): string
+  export function buildDayPromptFromOutline(entry: OutlineDayEntry, avoidRepeats: string[]): string
   ```
+
   `OutlineDayEntry` is the client-side input contract for this pure function and is reused by Task 5's composable and Task 6's progress label.
 
 - [ ] **Step 1: Write the failing test**
@@ -87,10 +88,7 @@ describe("buildDayPromptFromOutline", () => {
   })
 
   it("omits empty sections cleanly (no dangling labels or double spaces)", () => {
-    const bare = buildDayPromptFromOutline(
-      { ...entry, mustInclude: [], guidance: "" },
-      [],
-    )
+    const bare = buildDayPromptFromOutline({ ...entry, mustInclude: [], guidance: "" }, [])
     assert.doesNotMatch(bare, /Include if/)
     assert.doesNotMatch(bare, /Do NOT include/)
     assert.doesNotMatch(bare, /\s{2,}/)
@@ -100,10 +98,7 @@ describe("buildDayPromptFromOutline", () => {
   it("stays within the cap with 100 long avoid entries, dropping whole entries", () => {
     const avoid = Array.from({ length: 100 }, (_, i) => `A Very Long Venue Name Number ${i}`)
     const prompt = buildDayPromptFromOutline(entry, avoid)
-    assert.ok(
-      prompt.length <= MAX_DAY_PROMPT_CHARS,
-      `prompt was ${prompt.length} chars`,
-    )
+    assert.ok(prompt.length <= MAX_DAY_PROMPT_CHARS, `prompt was ${prompt.length} chars`)
     // Never truncates mid-name: every avoid entry present appears in full.
     const listed = prompt.split("Do NOT include: ")[1] ?? ""
     for (const name of listed.replace(/\.$/, "").split(", ")) {
@@ -172,7 +167,13 @@ function flatten(s: string): string {
   return s.replace(/\s+/g, " ").trim()
 }
 
-function compose(theme: string, focusArea: string, guidance: string, mustInclude: string[], avoid: string[]): string {
+function compose(
+  theme: string,
+  focusArea: string,
+  guidance: string,
+  mustInclude: string[],
+  avoid: string[],
+): string {
   const parts: string[] = [`Plan this day as: ${theme}.`]
   if (focusArea) parts.push(`Concentrate around ${focusArea}.`)
   if (guidance) parts.push(guidance)
@@ -229,10 +230,12 @@ git commit -m "feat(ai): add per-day prompt builder for trip outlines"
 Pure decision function: given the number of empty days and the user's remaining AI credits, decide whether to spend a credit on the outline, how many days to attempt, and what the confirm dialog says.
 
 **Files:**
+
 - Create: `app/utils/generation-plan.ts`
 - Test: `app/utils/generation-plan.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces:
   ```ts
@@ -249,6 +252,7 @@ Pure decision function: given the number of empty days and the user's remaining 
   ```
 
 Branch rules (from the spec):
+
 - `emptyDayCount === 0` → `{ mode: "none" }`.
 - `aiRemaining` undefined (unknown) or `>= emptyDayCount + 1` → `outline`, all empty days.
 - `1 <= aiRemaining < emptyDayCount + 1` → `generic` (don't burn a scarce credit on planning), `dayCount = min(aiRemaining, emptyDayCount)`.
@@ -396,13 +400,16 @@ git commit -m "feat(ai): add credit-aware plan for full-itinerary generation"
 One `generateObject` call that plans every empty day together. Uses the same context builders the day AI uses, which are currently module-private in `server/lib/ai.ts` and must be exported.
 
 **Files:**
+
 - Create: `server/lib/trip-outline.ts`
 - Modify: `server/lib/ai.ts` (export `formatPreferences`, `buildTripNotesCtx`, `buildSavedIdeasCtx`, `getDayOfWeek` — add the `export` keyword to the four existing declarations at lines 142, 192, 199, 213; change nothing else)
 - Test: `server/lib/trip-outline.test.ts`
 
 **Interfaces:**
+
 - Consumes: `withOneRetry(label, fn)` from `./retry`; `getModel()` from `./ai-config`; `TripPreferences` from `../db/schema/trips`; the four newly-exported helpers from `./ai`.
 - Produces:
+
   ```ts
   export interface TripOutlineInput {
     destination: string
@@ -447,6 +454,7 @@ One `generateObject` call that plans every empty day together. Uses the same con
     deps?: TripOutlineDeps,
   ): Promise<TripOutline>
   ```
+
   Task 4's endpoint calls `buildTripOutline(input)` with no deps and returns its `TripOutline` verbatim. `dayId` is mapped from `dayNumber` **inside this lib** (the model only ever sees/returns `dayNumber`), so the client never guesses.
 
 - [ ] **Step 1: Write the failing test**
@@ -856,14 +864,17 @@ git commit -m "feat(ai): add trip-level outline planning lib"
 Assembles the outline input from the DB, spends exactly 1 AI credit, returns the outline. Persists nothing.
 
 **Files:**
+
 - Create: `server/api/trips/[id]/generate-outline.post.ts`
 - Reference (do not modify): `server/api/trips/[id]/discuss.post.ts` (credit/refund wrap), `server/api/trips/[id]/days/[dayId]/ai.post.ts` (saved-ideas + day loading)
 
 **Interfaces:**
+
 - Consumes: `buildTripOutline`, `TripOutlineInput` from `../../../lib/trip-outline`; `getTripFlightsForUser({ tripId, userId })` from `../../../lib/trip-flights`; `getTripWithRelations(id)` from `../../../lib/trips`; auto-imported server utils `requireAuth`, `requireTripAccess`, `tryConsumeAiCredit`, `logTripAction`; `refundAiCredit` from `../../../utils/ai-limits`.
 - Produces: `POST /api/trips/[id]/generate-outline` → `{ outline: TripOutline }` where `TripOutline` is `{ days: { dayId, dayNumber, theme, focusArea, mustInclude, guidance }[], avoidRepeats: string[] }`. Task 5's composable consumes exactly this shape.
 
 **Notes for the implementer:**
+
 - Nitro auto-imports everything under `server/utils/`, which is why `requireAuth`/`tryConsumeAiCredit` appear unimported in `discuss.post.ts`. `refundAiCredit` is imported explicitly there — match that.
 - **Order matters:** auth → params → access → trip exists → empty-day check (400) → **then** `tryConsumeAiCredit`. Every throw before the consume needs no refund; every throw after it is refunded exactly once by the `try/catch` wrap.
 - `flights.departureTime` / `arrivalTime` are `timestamp` columns → `Date | null` in TS. Convert with `?.toISOString() ?? null`. Never use `as`.
@@ -977,26 +988,29 @@ git commit -m "feat(ai): add trip outline endpoint"
 `useGenerateFullItinerary` gains the outline path, resilient per-day failure handling, and progress state.
 
 **Files:**
+
 - Modify (full rewrite): `app/composables/useGenerateFullItinerary.ts`
 - Reference: `app/utils/generation-plan.ts` (Task 2), `app/utils/outline-prompt.ts` (Task 1)
 
 **Interfaces:**
+
 - Consumes: `planGenerationRun` / `GenerationPlan` from `../utils/generation-plan`; `buildDayPromptFromOutline` / `OutlineDayEntry` from `../utils/outline-prompt`; `useConfirm()` (auto-imported, returns `{ confirm }`).
 - Produces:
   ```ts
   export function useGenerateFullItinerary(tripId: string): {
     run: (days: DayWithActivities[], aiRemaining?: number) => Promise<boolean>
     running: Ref<boolean>
-    currentDayIndex: Ref<number>   // 0-based index into the days being generated
+    currentDayIndex: Ref<number> // 0-based index into the days being generated
     totalDays: Ref<number>
-    currentDayLabel: Ref<string>   // "Day 3 — Old-town temples & street food"
+    currentDayLabel: Ref<string> // "Day 3 — Old-town temples & street food"
     errorMessage: Ref<string>
-    noticeMessage: Ref<string>     // e.g. outline fell back to generic prompts
+    noticeMessage: Ref<string> // e.g. outline fell back to generic prompts
   }
   ```
   `DayWithActivities` stays `{ id: string; dayNumber: number; activities: { id: string }[] }`. Task 6's page binds these refs.
 
 **Behavior contract:**
+
 1. Plan the run with `planGenerationRun(emptyDays.length, aiRemaining)`; `mode: "none"` → return `false`. Show that plan's confirm; cancel → return `false`.
 2. Outline mode: `POST /api/trips/${tripId}/generate-outline`. **Any** failure (429/502/400/network) → set `noticeMessage` and fall back to generic prompts. Generation never blocks on the outline.
 3. Loop the first `plan.dayCount` empty days **sequentially, in day order** — earlier days persist first so the day-AI's own cross-day dedup sees them. Never parallelize.
@@ -1151,7 +1165,10 @@ describe("useGenerateFullItinerary", () => {
     }
     const { run, errorMessage, running } = useGenerateFullItinerary("t1")
     assert.equal(await run(days, 10), true)
-    assert.ok(calls.some((c) => c.url.endsWith("/days/d3/ai")), "day 3 must still run")
+    assert.ok(
+      calls.some((c) => c.url.endsWith("/days/d3/ai")),
+      "day 3 must still run",
+    )
     assert.match(errorMessage.value, /Day 1/)
     assert.equal(running.value, false)
   })
@@ -1266,7 +1283,9 @@ export function useGenerateFullItinerary(tripId: string) {
       const day = targets[i]!
       const entry = outlineByDayId.get(day.id)
       currentDayIndex.value = i
-      currentDayLabel.value = entry ? `Day ${day.dayNumber} — ${entry.theme}` : `Day ${day.dayNumber}`
+      currentDayLabel.value = entry
+        ? `Day ${day.dayNumber} — ${entry.theme}`
+        : `Day ${day.dayNumber}`
 
       const prompt = entry ? buildDayPromptFromOutline(entry, avoidRepeats) : GENERIC_PROMPT
       try {
@@ -1331,13 +1350,15 @@ git commit -m "feat(ai): guide full-itinerary generation with a trip outline"
 Surface the loop's progress and its notice/failure messages. No AiDock redesign.
 
 **Files:**
+
 - Modify: `app/pages/trips/[id].vue` — `handleGenerateFullItinerary` (~line 1048) and the template
 
 **Interfaces:**
+
 - Consumes: `useGenerateFullItinerary(tripId)` → `{ run, running, currentDayIndex, totalDays, currentDayLabel, errorMessage, noticeMessage }` from Task 5.
 - Produces: nothing downstream.
 
-**Notes:** the page currently constructs the composable *inside* `handleGenerateFullItinerary` and destructures only `run`, so its refs can't reach the template. Hoist the construction to setup scope (module top-level of `<script setup>`, next to the other composable calls) and keep only the `run(...)` call in the handler.
+**Notes:** the page currently constructs the composable _inside_ `handleGenerateFullItinerary` and destructures only `run`, so its refs can't reach the template. Hoist the construction to setup scope (module top-level of `<script setup>`, next to the other composable calls) and keep only the `run(...)` call in the handler.
 
 - [ ] **Step 1: Hoist the composable and wire its messages**
 
@@ -1442,6 +1463,7 @@ Expected: all pass. `nuxt build` is the gate that catches Vue template compile e
 - [ ] **Step 4: Runtime spot-check**
 
 Boot the app against the local docker DB with a forged session cookie (see the local-repro recipe), open a trip with ≥2 empty days, and click "Generate full itinerary". Confirm:
+
 - the confirm dialog says "uses N+1 AI prompts (1 to plan the trip, 1 per day)",
 - the pill shows a themed label ("Generating Day 1 — …") and advances,
 - `POST /generate-outline` returns `{ outline: { days, avoidRepeats } }` and each `days/[dayId]/ai` body carries the themed prompt,
