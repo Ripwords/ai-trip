@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { and, eq } from "drizzle-orm"
+import { createEventStream } from "h3"
+import type { AssistantModelMessage, UserModelMessage } from "ai"
 import { z } from "zod"
 import { db } from "../../../db"
 import { itineraryDays, trips } from "../../../db/schema"
@@ -18,7 +20,7 @@ import { creditsForSteps, MAX_DISCUSS_STEPS, STEPS_PER_CREDIT } from "../../../u
 import { getTripWithRelations } from "../../../lib/trips"
 import { stampGroup } from "../../../lib/proposal-targeting"
 import type { Proposal } from "../../../lib/proposals"
-import { describeToolCall, type ToolSummaryEntry } from "../../../lib/discuss-stream"
+import { mapChunk } from "../../../lib/discuss-stream"
 
 const discussBodySchema = z.object({
   messages: z
@@ -118,13 +120,32 @@ export default defineEventHandler(async (event) => {
   // the agent generate call's own try/catch, further down).
   await tryConsumeAiCredit(session.user.id)
 
+  // A discuss turn is step-metered: 1 credit up front, the remainder charged at
+  // the end by creditsForSteps(stepsUsed). BOTH primitives are non-idempotent —
+  // refundAiCredit is GREATEST(count-1,0) (double refund = free credit) and
+  // chargeExtraAiCredits is promptCount + extra (double charge = double bill).
+  // Streaming adds settle paths (pre-stream throw, mid-stream throw, client
+  // disconnect, clean finish), so every one of them goes through this guard.
+  let settled = false
+  /** Settle the turn exactly once: refund if the user got nothing, else meter. */
+  async function settleCredits(streamedAny: boolean, steps: number): Promise<number> {
+    if (settled) return 0
+    settled = true
+    if (!streamedAny) {
+      await refundAiCredit(session.user.id)
+      return 0
+    }
+    const creditsUsed = creditsForSteps(steps)
+    await chargeExtraAiCredits(session.user.id, creditsUsed - 1)
+    return creditsUsed
+  }
+
   let tools: ReturnType<typeof createDiscussTools>
   let cleanMessages: { role: "user" | "assistant"; content: string }[]
   let dayId: string | null
   let transportMode: ReturnType<typeof normalizeTransportMode>
   let days: { id: string; dayNumber: number }[]
   let proposalCollector: Proposal[]
-  let toolCalls: ToolSummaryEntry[]
   try {
     // Reject if ANY message (incl. client-supplied assistant turns) contains an
     // injection attempt; normalize only user turns (assistant markdown is kept verbatim).
@@ -173,7 +194,6 @@ export default defineEventHandler(async (event) => {
     }
 
     proposalCollector = []
-    toolCalls = []
 
     const usdRate = await getExchangeRate("USD", trip.currencyCode || "USD")
 
@@ -191,117 +211,146 @@ export default defineEventHandler(async (event) => {
   } catch (e) {
     // Anything that throws after the credit was consumed and before the agent
     // ran refunds exactly once here. The agent call below has its own try/catch.
-    await refundAiCredit(session.user.id)
+    await settleCredits(false, 0)
     throw e
   }
 
-  let assistantText = ""
-  let stepsUsed = 0
-  try {
-    const response = await discussAgent.generate(cleanMessages, {
-      toolsets: { discuss: tools },
-      maxSteps: MAX_DISCUSS_STEPS,
-      // The step budget used to be a guillotine: if the final step happened to be
-      // a tool call, the loop stopped with response.text === "" and the user got
-      // nothing but an apology. Two overrides fix that:
-      //
-      //  1. On the last permitted step, strip the toolset. With no tools to call,
-      //     the model has no choice but to spend that step writing a reply — so
-      //     hitting the ceiling now degrades to a partial answer, never silence.
-      //  2. Otherwise, tell the model what it has left and what it costs. The
-      //     system prompt asks it to wind down when "running low on steps", which
-      //     it could never honour before — it has no view of its own step count.
-      //     Returning a plain string is a valid `Instructions`; it re-states the
-      //     agent's own prompt verbatim plus a runtime note, so nothing is lost.
-      prepareStep: ({ stepNumber }) => {
-        const remaining = MAX_DISCUSS_STEPS - stepNumber
-        if (remaining <= 1) return { activeTools: [] }
-        return {
-          instructions: `${DISCUSS_SYSTEM_PROMPT}
+  const controller = new AbortController()
+  const stream = createEventStream(event)
 
-[Runtime] You have ${remaining} tool-call steps left this turn. Every ${STEPS_PER_CREDIT} steps costs the user one AI credit from a small monthly allowance, so treat searching as spending their money: research only what you will actually propose. On your last step the tools are removed and you must write your reply, so wind down before then.`,
-        }
-      },
-      onStepFinish: (step) => {
-        stepsUsed++
-        for (const c of step.toolCalls) {
-          toolCalls.push({
-            toolId: c.payload.toolName,
-            args: (c.payload.args as Record<string, unknown>) ?? {},
-          })
-        }
-      },
-    })
-    assistantText = response.text
-  } catch (e) {
-    console.error("[discuss] agent failed:", e)
-    await refundAiCredit(session.user.id)
-    return {
-      success: true,
-      message: "Sorry — I couldn't think that through right now. Try again in a moment.",
-      proposals: [],
-      toolCallSummary: [],
-    }
-  }
-
-  // The agent can exhaust its step budget on tool calls and finish with no
-  // text. Never return an empty message — it renders as nothing and, once
-  // echoed back in the history, fails the content min(1) validation and
-  // bricks the chat. Refund when the user got neither text nor proposals.
-  const finalReply = fallbackDiscussMessage(assistantText, proposalCollector.length)
-  let creditsUsed = 0
-  if (finalReply.shouldRefund) {
-    // The user got nothing — hand back the up-front credit and bill nothing for
-    // the steps. `prepareStep` makes this path near-unreachable now (the last
-    // step is always text), but it stays as the backstop for a model that
-    // returns empty text for some other reason.
-    await refundAiCredit(session.user.id)
-  } else {
-    // Meter what the turn actually cost. One credit was taken up front, so only
-    // the remainder is charged here. Ordinary chat stays at 1 credit; a research
-    // binge like a whole-trip fill pays its way.
-    creditsUsed = creditsForSteps(stepsUsed)
-    await chargeExtraAiCredits(session.user.id, creditsUsed - 1)
-  }
-  assistantText = finalReply.message
-
-  const toolCallSummary = toolCalls
-    .filter((c) => !c.toolId.startsWith("propose"))
-    .map(describeToolCall)
-
-  // Stamp a shared groupId across proposals produced in this turn (no-op for a
-  // single proposal) so the client can render multi-day fan-outs as one group.
-  const groupedProposals = stampGroup(proposalCollector, randomUUID())
-
-  // Diagnostic: what the agent proposed and which day each targets.
-  console.log(
-    `[discuss] activeDay=${dayId ?? "none"} proposals=[${groupedProposals
-      .map((p) => `${p.kind}@${p.dayId}`)
-      .join(", ")}]`,
-  )
-
-  await logTripAction({
-    tripId: id,
-    userId: session.user.id,
-    action: "ai_discuss",
-    description: `AI discuss: ${assistantText.slice(0, 200)}`,
-    metadata: {
-      proposalCount: proposalCollector.length,
-      toolCalls: toolCalls.map((c) => c.toolId),
-      stepsUsed,
-      creditsUsed,
-    },
+  // Client disconnect (tab closed, Cancel pressed) aborts the agent so a
+  // cancelled turn stops burning model tokens — and, because the turn is
+  // step-metered, stops running up the user's bill. Before this, cancelling
+  // only aborted the client fetch; the server ran to completion and charged.
+  stream.onClosed(() => {
+    controller.abort()
   })
 
-  return {
-    success: true,
-    message: assistantText,
-    proposals: groupedProposals,
-    toolCallSummary,
-    // What this turn actually billed (0 when refunded). Returned so the chat can
-    // tell the user when a heavy turn cost more than the usual single credit —
-    // silent multi-credit charges would be a nasty surprise against a 100/month
-    // allowance. No UI consumes this yet.
-    creditsUsed,
-  }
+  let streamedText = ""
+  let stepsUsed = 0
+  const toolLines: string[] = []
+
+  // Pushed in the background; the handler returns stream.send() immediately.
+  void (async () => {
+    try {
+      // Mastra's MessageListInput is a union of discriminated message shapes
+      // (role: 'user' XOR role: 'assistant', not role: 'user' | 'assistant').
+      // cleanMessages unifies `role` into one literal-union field across every
+      // element, which the type checker can't match to that union even though
+      // each element is individually a valid CoreMessage — so re-narrow it here
+      // per element instead of widening the whole array to `any`/a cast.
+      const agentMessages: (UserModelMessage | AssistantModelMessage)[] = cleanMessages.map(
+        (m): UserModelMessage | AssistantModelMessage =>
+          m.role === "user"
+            ? { role: "user", content: m.content }
+            : { role: "assistant", content: m.content },
+      )
+
+      const result = await discussAgent.stream(agentMessages, {
+        toolsets: { discuss: tools },
+        maxSteps: MAX_DISCUSS_STEPS,
+        // The step budget used to be a guillotine: if the final step happened to be
+        // a tool call, the loop stopped with response.text === "" and the user got
+        // nothing but an apology. Two overrides fix that:
+        //
+        //  1. On the last permitted step, strip the toolset. With no tools to call,
+        //     the model has no choice but to spend that step writing a reply — so
+        //     hitting the ceiling now degrades to a partial answer, never silence.
+        //  2. Otherwise, tell the model what it has left and what it costs. The
+        //     system prompt asks it to wind down when "running low on steps", which
+        //     it could never honour before — it has no view of its own step count.
+        //     Returning a plain string is a valid `Instructions`; it re-states the
+        //     agent's own prompt verbatim plus a runtime note, so nothing is lost.
+        prepareStep: ({ stepNumber }) => {
+          const remaining = MAX_DISCUSS_STEPS - stepNumber
+          if (remaining <= 1) return { activeTools: [] }
+          return {
+            instructions: `${DISCUSS_SYSTEM_PROMPT}
+
+[Runtime] You have ${remaining} tool-call steps left this turn. Every ${STEPS_PER_CREDIT} steps costs the user one AI credit from a small monthly allowance, so treat searching as spending their money: research only what you will actually propose. On your last step the tools are removed and you must write your reply, so wind down before then.`,
+          }
+        },
+        abortSignal: controller.signal,
+      })
+
+      for await (const chunk of result.fullStream) {
+        if (chunk.type === "step-finish") stepsUsed++
+        const mapped = mapChunk(chunk)
+        if (!mapped) continue
+        if (mapped.type === "tool") {
+          toolLines.push(mapped.line)
+          await stream.push({ event: "tool", data: JSON.stringify({ line: mapped.line }) })
+        } else {
+          streamedText += mapped.delta
+          await stream.push({ event: "text", data: JSON.stringify({ delta: mapped.delta }) })
+        }
+      }
+
+      // The user got value iff they saw text or got proposals. Existing
+      // fallbackDiscussMessage rule, extended to streaming.
+      const streamedAny = streamedText.length > 0 || proposalCollector.length > 0
+
+      if (controller.signal.aborted) {
+        // Metered even when cancelled: those steps were really spent.
+        await settleCredits(streamedAny, stepsUsed)
+        await stream.close()
+        return
+      }
+
+      const final = fallbackDiscussMessage(streamedText, proposalCollector.length)
+      // shouldRefund === !streamedAny in practice; pass streamedAny so the
+      // settle rule has ONE definition.
+      const creditsUsed = await settleCredits(streamedAny, stepsUsed)
+
+      const groupedProposals = stampGroup(proposalCollector, randomUUID())
+
+      await stream.push({
+        event: "done",
+        data: JSON.stringify({
+          message: final.message,
+          proposals: groupedProposals,
+          toolCallSummary: toolLines,
+          creditsUsed,
+        }),
+      })
+
+      console.log(
+        `[discuss] activeDay=${dayId ?? "none"} proposals=[${groupedProposals
+          .map((p) => `${p.kind}@${p.dayId}`)
+          .join(", ")}]`,
+      )
+
+      await logTripAction({
+        tripId: id,
+        userId: session.user.id,
+        action: "ai_discuss",
+        description: `AI discuss: ${final.message.slice(0, 200)}`,
+        metadata: {
+          proposalCount: proposalCollector.length,
+          toolCalls: toolLines.length,
+          stepsUsed,
+          creditsUsed,
+        },
+      })
+
+      await stream.close()
+    } catch (e) {
+      console.error("[discuss] agent failed:", e)
+      const streamedAny = streamedText.length > 0 || proposalCollector.length > 0
+      await settleCredits(streamedAny, stepsUsed)
+      // A client disconnect surfaces here as an abort error; the socket is
+      // already gone, so pushing would throw.
+      if (!controller.signal.aborted) {
+        await stream.push({
+          event: "error",
+          data: JSON.stringify({
+            message: "Sorry — I couldn't think that through right now. Try again in a moment.",
+          }),
+        })
+      }
+      await stream.close()
+    }
+  })()
+
+  return stream.send()
 })
