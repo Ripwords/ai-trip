@@ -7,7 +7,7 @@ trip-level generation shipped)
 
 ## Problem
 
-`POST /api/trips/[id]/discuss` runs a Mastra agent with `maxSteps: 10` and
+`POST /api/trips/[id]/discuss` runs a Mastra agent with a 30-step ceiling and
 returns one JSON blob only after the whole tool-calling loop finishes — web
 searches, Places lookups, distance checks included. The user watches an
 animated-dots placeholder ("Thinking...") for the entire turn with no signal
@@ -50,12 +50,50 @@ correctness, which this work touches directly):
 - **Refund only if nothing streamed.** No text AND no proposals → refund.
   Anything delivered → charged. This extends the existing
   `fallbackDiscussMessage` rule verbatim rather than inventing a second one.
+  "Charged" means **metered by steps**, per the existing pricing below — not a
+  flat credit.
 - **Transport: SSE via h3's `createEventStream`** (approach A). NDJSON over a
   raw `ReadableStream` (approach B) is the named fallback — same four events,
   different framing — if the `@experimental` API or Vercel buffering bites.
 - **Scope:** streaming + the two credit-correctness defects above. Chat
   persistence stays out, as ruled by the Phase 2 / AI-chat-rework specs ("No
   chat history / persistence… No new database tables").
+
+## Existing behaviour that MUST be preserved
+
+Three things in the current endpoint are load-bearing and easy to lose in a
+rewrite. An earlier draft of this spec mis-described the endpoint and would have
+deleted all three; they are recorded here so that cannot happen again.
+
+- **`maxSteps: MAX_DISCUSS_STEPS` (30, from `server/utils/ai-credit-cost.ts`).**
+  This is a *runaway guard, not a UX budget* — its own docstring explains it is
+  sized against Vercel's 300s function limit, because if the process is killed
+  mid-flight the endpoint's refund never runs and the user is charged for
+  nothing. Do not lower it.
+- **`prepareStep`.** On the last permitted step it returns `{ activeTools: [] }`,
+  stripping the toolset so the model *must* spend that step writing a reply —
+  hitting the ceiling degrades to a partial answer instead of silence. On every
+  other step it re-states `DISCUSS_SYSTEM_PROMPT` verbatim plus a runtime note
+  telling the model how many steps remain and that every `STEPS_PER_CREDIT`
+  steps costs the user a credit. This is what makes the system prompt's "wind
+  down when running low on steps" instruction honourable at all, and it is what
+  makes `fallbackDiscussMessage`'s refund path "near-unreachable". It was added
+  by commit `15ddaa9` to fix exactly the empty-reply bug this phase must not
+  reintroduce. `prepareStep` is on `AgentExecutionOptionsBase`, so `stream()`
+  accepts it unchanged.
+- **Step-metered billing.** A discuss turn does NOT cost a flat credit.
+  `STEPS_PER_CREDIT = 8`; `creditsForSteps(steps)` brackets the cost
+  (`max(1, ceil(min(steps, 30) / 8))`) so ordinary chat stays at 1 credit and a
+  research binge pays its way. One credit is taken up front by
+  `tryConsumeAiCredit`, and the remainder is charged at the end via
+  `chargeExtraAiCredits(userId, creditsUsed - 1)`. The turn's `creditsUsed` is
+  returned to the client (no UI consumes it yet, but the field exists so a heavy
+  turn can be surfaced rather than silently charged against a 100/month
+  allowance).
+
+`stepsUsed` is currently counted in `onStepFinish`. Under streaming it is
+counted from `'step-finish'` chunks on `fullStream` — verified present in the
+installed chunk union.
 
 ## Feasibility (verified against installed versions)
 
@@ -148,41 +186,63 @@ nothing.
 | ------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `tool`  | `{ line: string }`                        | `'tool-call'` chunks → the existing `describeToolCall()`, filtering `propose*` exactly as `toolCallSummary` does today |
 | `text`  | `{ delta: string }`                       | `'text-delta'` chunks                                                                                                  |
-| `done`  | `{ message, proposals, toolCallSummary }` | `fallbackDiscussMessage()` for `message`; `stampGroup(proposalCollector, randomUUID())` for `proposals`                |
+| `done`  | `{ message, proposals, toolCallSummary, creditsUsed }` | `fallbackDiscussMessage()` for `message`; `stampGroup(proposalCollector, randomUUID())` for `proposals`; `creditsUsed` from the settle step below — it replaces the field the JSON response returns today |
 | `error` | `{ message: string }`                     | in-stream failure (the stream is already 200; this is the only way to report)                                          |
 
-The existing `logTripAction` audit write stays, after the turn completes.
+`maxSteps: MAX_DISCUSS_STEPS` and `prepareStep` are passed to `stream()`
+unchanged from the current `generate()` call. The existing `logTripAction` audit
+write stays, after the turn completes, and keeps its `stepsUsed`/`creditsUsed`
+metadata.
 
 ### 2. Credit accounting
 
-Streaming multiplies the refund paths — pre-flight throw, mid-stream throw,
-client disconnect, empty-reply fallback — from two to four, all inside one
-handler. Since `refundAiCredit` is **not** idempotent (`GREATEST(count-1, 0)`),
-every path must route through one guard:
+Every post-consume exit must **settle** the turn exactly once — settling is
+either a refund or a metered charge. Streaming takes the settle paths from two
+to four (pre-stream throw, mid-stream throw, client disconnect, clean finish),
+all inside one handler.
+
+Both settle primitives are **non-idempotent**: `refundAiCredit` is
+`GREATEST(count - 1, 0)`, so a double refund mints a free credit; and
+`chargeExtraAiCredits` is `promptCount + extra`, so a double charge bills the
+user twice. A guard covering only refunds would therefore be insufficient — one
+guard covers both:
 
 ```ts
-let refunded = false
-async function refundOnce() {
-  if (refunded) return
-  refunded = true
-  await refundAiCredit(session.user.id)
+let settled = false
+/** Settle the turn exactly once: refund if the user got nothing, else meter. */
+async function settleCredits(streamedAny: boolean, stepsUsed: number): Promise<number> {
+  if (settled) return 0
+  settled = true
+  if (!streamedAny) {
+    await refundAiCredit(session.user.id)
+    return 0
+  }
+  const creditsUsed = creditsForSteps(stepsUsed)
+  await chargeExtraAiCredits(session.user.id, creditsUsed - 1)
+  return creditsUsed
 }
 ```
 
-Track `streamedAny = textDeltaCount > 0 || proposalCollector.length > 0`.
+Track `streamedAny = streamedText.length > 0 || proposalCollector.length > 0`
+and `stepsUsed` (incremented on each `'step-finish'` chunk).
 
-| Exit                                                     | Refunds                                   |
-| -------------------------------------------------------- | ----------------------------------------- |
-| Any pre-flight throw (before consume)                    | 0                                         |
-| Throw after consume, before stream opens (existing wrap) | 1                                         |
-| Agent throws mid-stream, `streamedAny === false`         | 1, then `error` event                     |
-| Agent throws mid-stream, `streamedAny === true`          | 0, then `error` event (partial text kept) |
-| Client disconnects, `streamedAny === false`              | 1 (abort the agent)                       |
-| Client disconnects, `streamedAny === true`               | 0 (abort the agent)                       |
-| Clean finish, `fallbackDiscussMessage().shouldRefund`    | 1                                         |
-| Clean finish with text or proposals                      | 0                                         |
+"Charged" always means metered — the steps were really spent, so a turn the user
+cancelled after 20 steps still costs what those steps cost. This preserves the
+existing pricing rather than inventing a second, cheaper rule for streamed turns.
 
-No path may refund twice. The implementation must include an explicit
+| Exit                                                     | Settles as                                        |
+| -------------------------------------------------------- | ------------------------------------------------- |
+| Any pre-flight throw (before consume)                    | nothing (no credit taken yet)                     |
+| Throw after consume, before stream opens (existing wrap) | refund — `settleCredits(false, 0)`                |
+| Agent throws mid-stream, `streamedAny === false`         | refund, then `error` event                        |
+| Agent throws mid-stream, `streamedAny === true`          | metered, then `error` event (partial text kept)   |
+| Client disconnects, `streamedAny === false`              | refund (abort the agent)                          |
+| Client disconnects, `streamedAny === true`               | metered (abort the agent)                         |
+| Clean finish, `fallbackDiscussMessage().shouldRefund`    | refund (`creditsUsed = 0`)                        |
+| Clean finish with text or proposals                      | metered → `creditsUsed` rides the `done` event    |
+
+No path may settle twice — not a double refund, not a double charge, and never
+a refund AND a charge for one turn. The implementation must include an explicit
 enumeration of every exit, as `generate-outline.post.ts` did in Phase 3.
 
 Client disconnect must abort the agent server-side via the `abortSignal`, so a
