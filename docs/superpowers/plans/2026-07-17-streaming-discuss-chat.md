@@ -28,7 +28,7 @@
 | `server/lib/discuss-stream.test.ts` (new)       | Unit tests for the above with injected fake chunks.                                                                                                              |
 | `app/utils/sse-parse.ts` (new)                  | Pure: `parseSseFrames(buffer)` → `{ frames, rest }`. Handles frames split mid-JSON across network reads.                                                         |
 | `app/utils/sse-parse.test.ts` (new)             | Unit tests for the parser.                                                                                                                                       |
-| `server/api/trips/[id]/discuss.post.ts`         | Streams via `createEventStream`; owns the `settleCredits` guard.                                                                                                    |
+| `server/api/trips/[id]/discuss.post.ts`         | Streams via `createEventStream`; owns the `settleCredits` guard.                                                                                                 |
 | `app/pages/trips/[id].vue`                      | `handleAiSubmit` reads the stream and mutates the assistant message.                                                                                             |
 | `server/lib/ai.ts`                              | Workstream 2: rethrow instead of swallowing.                                                                                                                     |
 | `server/utils/ai-limits.ts`                     | Workstream 3: correct the false docstring.                                                                                                                       |
@@ -657,16 +657,16 @@ Expected: clean for `discuss.post.ts`. Fix any error with real types — never `
 
 Enumerate EVERY exit from this handler in your report: each throw site (including throws inside awaited calls and inside the catch) and each successful completion. For each, state how it settles. It must be exactly:
 
-| Exit | Settles as |
-| --- | --- |
-| Any pre-flight throw (before `tryConsumeAiCredit`) | nothing (no credit taken) |
-| Throw after consume, before the stream opens (existing wrap) | refund — `settleCredits(false, 0)` |
-| Agent throws mid-stream, nothing streamed | refund |
-| Agent throws mid-stream, text or proposals already sent | metered |
-| Client disconnects, nothing streamed | refund |
-| Client disconnects, text or proposals already sent | metered |
-| Clean finish, nothing streamed (`shouldRefund`) | refund, `creditsUsed = 0` |
-| Clean finish with text or proposals | metered → `creditsUsed` on the `done` event |
+| Exit                                                         | Settles as                                  |
+| ------------------------------------------------------------ | ------------------------------------------- |
+| Any pre-flight throw (before `tryConsumeAiCredit`)           | nothing (no credit taken)                   |
+| Throw after consume, before the stream opens (existing wrap) | refund — `settleCredits(false, 0)`          |
+| Agent throws mid-stream, nothing streamed                    | refund                                      |
+| Agent throws mid-stream, text or proposals already sent      | metered                                     |
+| Client disconnects, nothing streamed                         | refund                                      |
+| Client disconnects, text or proposals already sent           | metered                                     |
+| Clean finish, nothing streamed (`shouldRefund`)              | refund, `creditsUsed = 0`                   |
+| Clean finish with text or proposals                          | metered → `creditsUsed` on the `done` event |
 
 **No path may settle twice** — not a double refund, not a double charge, and never a refund AND a charge for one turn. State explicitly why the pre-stream wrap and the in-stream catch cannot both fire for one request. Confirm `settleCredits` is the ONLY route to `refundAiCredit` AND `chargeExtraAiCredits` in the file:
 
