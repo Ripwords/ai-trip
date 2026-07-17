@@ -80,3 +80,10 @@ describe("buildTripContext", () => {
     assert.doesNotMatch(ctx, /Ignore all previous instructions/i)
   })
 })
+
+describe("day-of-week in context", () => {
+  it("includes the weekday in each day header so closed-on-X reasoning works", () => {
+    const ctx = buildTripContext(trip, null)
+    assert.match(ctx, /Day 1 \(2026-08-16, Sunday\)/)
+  })
+})

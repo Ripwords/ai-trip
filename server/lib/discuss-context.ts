@@ -3,6 +3,7 @@ import {
   buildFlightsCtx,
   buildSavedIdeasCtx,
   buildTripNotesCtx,
+  getDayOfWeek,
   type FlightPromptInput,
 } from "./ai"
 
@@ -78,7 +79,7 @@ export function buildTripContext(
     if (trimmed) break
     const open = d.id === focusDayId ? " · OPEN" : ""
     lines.push(
-      `--- Day ${d.dayNumber} (${d.date}) [day:${d.id}]${d.accommodationName ? ` · staying at ${escapeCtx(d.accommodationName)}` : ""}${open} ---`,
+      `--- Day ${d.dayNumber} (${d.date}, ${getDayOfWeek(d.date)}) [day:${d.id}]${d.accommodationName ? ` · staying at ${escapeCtx(d.accommodationName)}` : ""}${open} ---`,
     )
     const acts = d.activities.toSorted((a, b) => a.sortOrder - b.sortOrder)
     if (acts.length === 0) {
