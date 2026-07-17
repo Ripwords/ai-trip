@@ -124,29 +124,12 @@ export function createTripTools(ctx: TripToolsContext) {
   const readTripSummary = createTool({
     id: "readTripSummary",
     description:
-      "Read a trimmed view of the entire trip: destination, dates, preferences, and per-day activity names + times.",
+      "Read a trimmed view of the entire trip: destination, dates, preferences, and per-day activity names, times, and coordinates.",
     inputSchema: z.object({}),
     execute: async () => {
       const trip = await getTripWithRelations(ctx.tripId)
       if (!trip) return { error: "trip not found" }
-      return {
-        destination: trip.destination,
-        startDate: trip.startDate,
-        endDate: trip.endDate,
-        preferences: trip.preferences,
-        days: trip.days.map((d) => ({
-          id: d.id,
-          dayNumber: d.dayNumber,
-          date: d.date,
-          accommodation: d.accommodationName,
-          activities: d.activities.map((a) => ({
-            name: a.name,
-            type: a.type,
-            time: a.suggestedTime,
-            duration: a.estimatedDurationMinutes,
-          })),
-        })),
-      }
+      return summarizeTripForAgent(trip)
     },
   })
 
@@ -192,6 +175,53 @@ export function createTripTools(ctx: TripToolsContext) {
     readDay,
     readTripSummary,
     runReview,
+  }
+}
+
+/**
+ * Trimmed trip view for agent tools. Keeps lat/lng per activity — the discuss
+ * ROUTE CHECK needs locations for days other than the open one (readDay covers
+ * the open day with full rows), and getDistance is unusable without coords.
+ */
+export function summarizeTripForAgent(trip: {
+  destination: string
+  startDate: string
+  endDate: string
+  preferences: unknown
+  days: {
+    id: string
+    dayNumber: number
+    date: string
+    accommodationName: string | null
+    activities: {
+      name: string
+      type: string
+      suggestedTime: string | null
+      estimatedDurationMinutes: number | null
+      lat: number | null
+      lng: number | null
+    }[]
+  }[]
+}) {
+  return {
+    destination: trip.destination,
+    startDate: trip.startDate,
+    endDate: trip.endDate,
+    preferences: trip.preferences,
+    days: trip.days.map((d) => ({
+      id: d.id,
+      dayNumber: d.dayNumber,
+      date: d.date,
+      accommodation: d.accommodationName,
+      activities: d.activities.map((a) => ({
+        name: a.name,
+        type: a.type,
+        time: a.suggestedTime,
+        duration: a.estimatedDurationMinutes,
+        lat: a.lat,
+        lng: a.lng,
+      })),
+    })),
   }
 }
 

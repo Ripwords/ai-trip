@@ -218,3 +218,38 @@ describe("createDiscussTools", () => {
     assert.equal(collector.length, 0)
   })
 })
+
+describe("summarizeTripForAgent", () => {
+  it("keeps activity coordinates so route checks work on non-open days", async () => {
+    const { summarizeTripForAgent } = await import("./ai-tools")
+    const summary = summarizeTripForAgent({
+      destination: "Da Nang",
+      startDate: "2026-08-16",
+      endDate: "2026-08-18",
+      preferences: null,
+      days: [
+        {
+          id: "d1",
+          dayNumber: 1,
+          date: "2026-08-16",
+          accommodationName: "Four Seasons",
+          activities: [
+            {
+              name: "Marble Mountains",
+              type: "attraction",
+              suggestedTime: "10:00",
+              estimatedDurationMinutes: 120,
+              lat: 16.0,
+              lng: 108.26,
+            },
+          ],
+        },
+      ],
+    })
+    const activity = summary.days[0]?.activities[0]
+    assert.equal(activity?.lat, 16.0)
+    assert.equal(activity?.lng, 108.26)
+    assert.equal(activity?.name, "Marble Mountains")
+    assert.equal(summary.days[0]?.accommodation, "Four Seasons")
+  })
+})
