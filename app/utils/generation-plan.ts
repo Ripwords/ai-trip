@@ -20,8 +20,9 @@ export type GenerationPlan =
 export function planGenerationRun(emptyDayCount: number, aiRemaining?: number): GenerationPlan {
   // Normalize inputs to ensure non-negative integers. Non-finite values are
   // treated as missing/unknown to prevent broken iteration counts and messages.
-  let normalizedDayCount = Number.isFinite(emptyDayCount) ? Math.floor(emptyDayCount) : NaN
-  normalizedDayCount = Math.max(0, normalizedDayCount)
+  const normalizedDayCount = Number.isFinite(emptyDayCount)
+    ? Math.max(0, Math.floor(emptyDayCount))
+    : 0
 
   if (normalizedDayCount === 0) return { mode: "none" }
 

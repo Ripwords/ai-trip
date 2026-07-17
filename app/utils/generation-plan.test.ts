@@ -94,4 +94,19 @@ describe("planGenerationRun", () => {
     const message = plan.mode === "outline" ? plan.confirm.message : ""
     assert.doesNotMatch(message, /2\.7/)
   })
+
+  it("returns mode none for NaN emptyDayCount", () => {
+    const plan = planGenerationRun(NaN, undefined)
+    assert.deepEqual(plan, { mode: "none" })
+  })
+
+  it("returns mode none for Infinity emptyDayCount", () => {
+    const plan = planGenerationRun(Infinity, 5)
+    assert.deepEqual(plan, { mode: "none" })
+  })
+
+  it("returns mode none for -Infinity emptyDayCount", () => {
+    const plan = planGenerationRun(-Infinity, 5)
+    assert.deepEqual(plan, { mode: "none" })
+  })
 })
