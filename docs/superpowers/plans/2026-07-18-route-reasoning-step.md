@@ -24,10 +24,12 @@
 ### Task 1: ROUTE LOGIC block in SCHEDULE_RULES
 
 **Files:**
+
 - Modify: `server/lib/ai.ts:86` (the `SCHEDULE_RULES` const — export it, add block)
 - Test: `server/lib/ai.test.ts` (new file)
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `export const SCHEDULE_RULES: string` from `server/lib/ai.ts`, now containing a `ROUTE LOGIC` section. Tasks 2's test file appends to `server/lib/ai.test.ts` created here.
 
@@ -96,10 +98,12 @@ git commit -m "feat(ai): add dedicated ROUTE LOGIC step to SCHEDULE_RULES"
 ### Task 2: routeReasoning field, first in the four generation schemas
 
 **Files:**
+
 - Modify: `server/lib/ai.ts` (schemas section ~line 16-45; handlers `handleAdd` ~line 336, `handleFillGaps` ~line 447, `handleOptimize` ~line 508, `handleReschedule` ~line 553)
 - Test: `server/lib/ai.test.ts` (append)
 
 **Interfaces:**
+
 - Consumes: `aiActivitySchema` (existing, unexported — stays unexported), `SCHEDULE_RULES` export from Task 1.
 - Produces: `export const addResultSchema`, `export const fillGapsResultSchema`, `export const optimizeResultSchema`, `export const rescheduleResultSchema` from `server/lib/ai.ts` — each a `z.object` whose first key is `routeReasoning: z.string()`. Handler return types are UNCHANGED (`routeReasoning` is logged, never returned).
 
@@ -227,10 +231,12 @@ git commit -m "feat(ai): require first-position routeReasoning in day generation
 ### Task 3: Inter-day route guidance + routeReasoning in the trip outline
 
 **Files:**
+
 - Modify: `server/lib/trip-outline.ts` (schema ~line 49, `buildPrompt` Rules ~line 143-150, logging after `raw` in `buildTripOutline` ~line 187)
 - Test: `server/lib/trip-outline.test.ts` (append tests; extend `rawOutline` fixture)
 
 **Interfaces:**
+
 - Consumes: existing `buildTripOutline(input, deps)` with `deps.generate` injection, existing `rawOutline()` fixture and `input` fixture in the test file.
 - Produces: `export const outlineSchema` from `server/lib/trip-outline.ts` with first key `routeReasoning: z.string()`; `TripOutlineRaw` (inferred) therefore gains `routeReasoning: string`. `TripOutline`/`TripOutlineDay` (the returned types) are UNCHANGED.
 
@@ -338,10 +344,12 @@ git commit -m "feat(ai): add inter-day route guidance and routeReasoning to trip
 ### Task 4: ROUTE CHECK step in the discuss prompt
 
 **Files:**
+
 - Modify: `server/lib/discuss-agent.ts` (insert block into `DISCUSS_SYSTEM_PROMPT`, after the `CRITICAL — scope.` paragraph ~line 33, before the `When scope is AMBIGUOUS` paragraph ~line 35)
 - Test: `server/lib/discuss-agent.test.ts` (append)
 
 **Interfaces:**
+
 - Consumes: `DISCUSS_SYSTEM_PROMPT` export (existing).
 - Produces: nothing new — prompt content only.
 

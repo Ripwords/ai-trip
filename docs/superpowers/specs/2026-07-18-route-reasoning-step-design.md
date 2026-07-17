@@ -15,7 +15,7 @@ Root cause: no prompt in the pipeline tells the model to reason about route orde
 `SCHEDULE_RULES` (server/lib/ai.ts) covers waking hours, meals, durations, and the day
 blueprint — nothing about geography. The trip-outline prompt (server/lib/trip-outline.ts)
 assigns areas to days without inter-day route guidance. The discuss agent
-(server/lib/discuss-agent.ts) is told *what* to propose but never to check route
+(server/lib/discuss-agent.ts) is told _what_ to propose but never to check route
 implications before proposing. The only route-aware call, `handleOptimize`, runs solely
 when the user explicitly asks to optimize.
 
