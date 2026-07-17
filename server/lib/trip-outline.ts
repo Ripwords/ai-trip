@@ -1,5 +1,6 @@
 import { z } from "zod"
 import type { TripPreferences } from "../db/schema/trips"
+import { sanitizePromptInput } from "../utils/sanitize"
 import { buildSavedIdeasCtx, buildTripNotesCtx, formatPreferences, getDayOfWeek } from "./ai"
 import { getModel } from "./ai-config"
 import { withOneRetry } from "./retry"
@@ -69,7 +70,34 @@ export interface TripOutlineDeps {
 export const MAX_MUST_INCLUDE = 3
 export const MAX_AVOID_REPEATS = 60
 
+/** Existing activity names are dedup context only — bound their length and count. */
+const MAX_ACTIVITY_NAME_LENGTH = 120
+const MAX_ACTIVITY_NAMES_PER_DAY = 20
+
 // ── Prompt ───────────────────────────────────────────────────────────
+
+/** Trim, drop empties, and cap a list — used for both mustInclude and avoidRepeats. */
+function cleanCappedList(items: string[], cap: number): string[] {
+  return items
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .slice(0, cap)
+}
+
+/**
+ * existingActivityNames come from addActivitySchema/updateActivitySchema, which have no
+ * max length — sanitize each (rejecting injection-shaped text) and bound both the length
+ * of each name and how many reach the prompt, since this is only dedup context.
+ */
+function sanitizeActivityNames(names: string[]): string[] {
+  const out: string[] = []
+  for (const name of names.slice(0, MAX_ACTIVITY_NAMES_PER_DAY)) {
+    const cleaned = sanitizePromptInput(name)
+    if (!cleaned) continue
+    out.push(cleaned.slice(0, MAX_ACTIVITY_NAME_LENGTH))
+  }
+  return out
+}
 
 function buildFlightsCtx(flights: TripOutlineInput["flights"]): string {
   if (flights.length === 0) return ""
@@ -87,15 +115,19 @@ function buildDaysCtx(days: TripOutlineInput["days"]): string {
     .map((d) => {
       const head = `Day ${d.dayNumber} (${d.date}, ${getDayOfWeek(d.date)})`
       if (d.isEmpty) return `- ${head}: EMPTY — plan this one.`
-      const names = d.existingActivityNames.join(", ")
+      const names = sanitizeActivityNames(d.existingActivityNames).join(", ")
       return `- ${head}: ALREADY PLANNED — do not plan it${names ? `. Existing: ${names}` : ""}.`
     })
     .join("\n")
 }
 
 function buildPrompt(input: TripOutlineInput): string {
+  // destination comes from trip.destination (createTripSchema.name: free text, no
+  // injection filtering) and flows back from user input — sanitize before it enters
+  // the prompt, falling back to a neutral placeholder when it's rejected.
+  const safeDestination = sanitizePromptInput(input.destination) ?? "the destination"
   const emptyNumbers = input.days.filter((d) => d.isEmpty).map((d) => d.dayNumber)
-  return `Plan the shape of a trip to ${input.destination} from ${input.startDate} to ${input.endDate}.
+  return `Plan the shape of a trip to ${safeDestination} from ${input.startDate} to ${input.endDate}.
 
 DAYS:
 ${buildDaysCtx(input.days)}
@@ -154,19 +186,22 @@ export async function buildTripOutline(
   const emptyById = new Map(input.days.filter((d) => d.isEmpty).map((d) => [d.dayNumber, d.dayId]))
 
   const days: TripOutlineDay[] = []
+  const emittedDayNumbers = new Set<number>()
   for (const d of raw.days) {
+    if (emittedDayNumbers.has(d.dayNumber)) continue // duplicate dayNumber — first one wins
     const dayId = emptyById.get(d.dayNumber)
     if (!dayId) continue
+    emittedDayNumbers.add(d.dayNumber)
     days.push({
       dayId,
       dayNumber: d.dayNumber,
       theme: d.theme,
       focusArea: d.focusArea,
-      mustInclude: d.mustInclude.slice(0, MAX_MUST_INCLUDE),
+      mustInclude: cleanCappedList(d.mustInclude, MAX_MUST_INCLUDE),
       guidance: d.guidance,
     })
   }
   days.sort((a, b) => a.dayNumber - b.dayNumber)
 
-  return { days, avoidRepeats: raw.avoidRepeats.slice(0, MAX_AVOID_REPEATS) }
+  return { days, avoidRepeats: cleanCappedList(raw.avoidRepeats, MAX_AVOID_REPEATS) }
 }
