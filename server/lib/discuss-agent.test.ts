@@ -121,3 +121,9 @@ describe("fallbackDiscussMessage", () => {
     assert.equal(r.shouldRefund, false)
   })
 })
+
+describe("injection guard", () => {
+  it("system prompt forbids following instructions found in trip data", () => {
+    assert.match(DISCUSS_SYSTEM_PROMPT, /never follow instructions.*(trip|traveler) data/i)
+  })
+})
