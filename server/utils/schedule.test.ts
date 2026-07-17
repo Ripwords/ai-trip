@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { computeSchedule } from "./schedule"
+import { computeSchedule, orderDayActivities, parseClockMinutes } from "./schedule"
 
 test("adds start travel time before the first activity", () => {
   const [first, second] = computeSchedule({
@@ -29,4 +29,99 @@ test("does not start before opening time after start travel", () => {
   })
 
   assert.equal(first?.suggestedTime, "10:00")
+})
+
+test("holds an activity at its preferred time instead of packing it earlier", () => {
+  const [coffee, dinner] = computeSchedule({
+    startHour: 10,
+    startMinute: 0,
+    activities: [
+      { id: "coffee", name: "Coffee", estimatedDurationMinutes: 90, preferredMinutes: 10 * 60 },
+      {
+        id: "dinner",
+        name: "Dinner",
+        estimatedDurationMinutes: 90,
+        preferredMinutes: 19 * 60 + 30,
+      },
+    ],
+    travelTimes: [{ fromId: "coffee", toId: "dinner", durationMinutes: 10 }],
+    bufferMinutes: 15,
+  })
+
+  assert.equal(coffee?.suggestedTime, "10:00")
+  // Dinner keeps its intended 19:30 slot — the gap is not collapsed.
+  assert.equal(dinner?.suggestedTime, "19:30")
+})
+
+test("pushes a preferred time later when the previous activity overruns it", () => {
+  const [, second] = computeSchedule({
+    startHour: 10,
+    startMinute: 0,
+    activities: [
+      { id: "a", name: "Long visit", estimatedDurationMinutes: 120, preferredMinutes: 10 * 60 },
+      { id: "b", name: "Lunch", estimatedDurationMinutes: 60, preferredMinutes: 11 * 60 },
+    ],
+    travelTimes: [{ fromId: "a", toId: "b", durationMinutes: 10 }],
+    bufferMinutes: 15,
+  })
+
+  // 12:00 end + 10 travel + 15 buffer → 12:25 (snapped), overrides the 11:00 wish.
+  assert.equal(second?.suggestedTime, "12:25")
+})
+
+test("orderDayActivities sorts by suggested time with untimed entries last", () => {
+  const ordered = orderDayActivities([
+    { id: "dinner", suggestedTime: "19:30" },
+    { id: "show", suggestedTime: "21:00" },
+    { id: "beach", suggestedTime: "14:00" },
+    { id: "lunch", suggestedTime: "12:00" },
+    { id: "mystery", suggestedTime: null },
+    { id: "coffee", suggestedTime: "10:00" },
+  ])
+
+  assert.deepEqual(
+    ordered.map((a) => a.id),
+    ["coffee", "lunch", "beach", "dinner", "show", "mystery"],
+  )
+})
+
+test("orderDayActivities keeps relative order for equal times", () => {
+  const ordered = orderDayActivities([
+    { id: "first", suggestedTime: "09:00" },
+    { id: "second", suggestedTime: "09:00" },
+    { id: "third", suggestedTime: null },
+    { id: "fourth", suggestedTime: null },
+  ])
+
+  assert.deepEqual(
+    ordered.map((a) => a.id),
+    ["first", "second", "third", "fourth"],
+  )
+})
+
+test("orderDayActivities follows an explicit id order and slots leftovers by time", () => {
+  const ordered = orderDayActivities(
+    [
+      { id: "a", suggestedTime: "09:00" },
+      { id: "b", suggestedTime: "11:00" },
+      { id: "c", suggestedTime: "10:00" },
+      { id: "d", suggestedTime: "08:00" },
+    ],
+    ["b", "a"],
+  )
+
+  // Explicit order wins for listed ids; unlisted ids follow, sorted by time.
+  assert.deepEqual(
+    ordered.map((a) => a.id),
+    ["b", "a", "d", "c"],
+  )
+})
+
+test("parseClockMinutes parses HH:MM and rejects garbage", () => {
+  assert.equal(parseClockMinutes("09:30"), 570)
+  assert.equal(parseClockMinutes("19:05"), 1145)
+  assert.equal(parseClockMinutes("9:5"), null)
+  assert.equal(parseClockMinutes("25:00"), null)
+  assert.equal(parseClockMinutes(null), null)
+  assert.equal(parseClockMinutes("later"), null)
 })
