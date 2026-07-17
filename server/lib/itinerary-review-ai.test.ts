@@ -80,3 +80,11 @@ describe("REVIEWER_SYSTEM_PROMPT", () => {
     assert.match(REVIEWER_SYSTEM_PROMPT, /never.*remov/i)
   })
 })
+
+describe("REVIEWER_SYSTEM_PROMPT duration convention", () => {
+  it("states that durations are venue-time only, excluding travel", async () => {
+    const { REVIEWER_SYSTEM_PROMPT } = await import("./itinerary-review-ai")
+    assert.match(REVIEWER_SYSTEM_PROMPT, /time AT the venue/i)
+    assert.match(REVIEWER_SYSTEM_PROMPT, /travel.*not included|not include.*travel/i)
+  })
+})

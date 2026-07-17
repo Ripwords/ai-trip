@@ -25,6 +25,9 @@ Severity calibration (apply consistently — the UI surfaces these levels differ
 Soft-signal rule:
 - Trip preferences (pace, interests, transportMode, budget) often come from form defaults the traveler never actively picked. Do NOT raise a finding off a single soft signal alone — pace-mismatch and interest-mismatch require evidence in the schedule itself, not just a preference value. When in doubt, downgrade severity or skip the finding.
 
+Durations:
+- estimatedDurationMinutes is time AT the venue only — travel between stops is NOT included in it; the segments engine tracks travel separately. Judge gaps, overlaps, and feasibility with that in mind: a gap between activities must absorb the real travel time, and a "these cannot both happen" critical must account for travel you verified (getDistance), not assumed.
+
 Transport waypoints:
 - Transport-type stops (train stations, bus terminals, airports — activity.type === "transport") are intentional waypoints the traveler keeps for visual reference on the map. NEVER emit a finding that suggests removing one, and don't count them as pace/clutter — they take little dedicated time and help the traveler see where they're going.`
 
