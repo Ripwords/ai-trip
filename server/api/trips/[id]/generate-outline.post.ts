@@ -76,6 +76,7 @@ export default defineEventHandler(async (event) => {
         date: d.date,
         isEmpty: d.activities.length === 0,
         existingActivityNames: d.activities.map((a) => a.name),
+        accommodationName: d.accommodationName,
       })),
       flights: flights.map((f) => ({
         departureAirport: f.departureAirport,

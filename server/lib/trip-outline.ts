@@ -21,6 +21,8 @@ export interface TripOutlineInput {
     isEmpty: boolean
     /** Non-empty days only: feeds dedup + cross-day coherence. */
     existingActivityNames: string[]
+    /** Where the traveler sleeps that night — the day's strongest geographic anchor. */
+    accommodationName?: string | null
   }[]
   flights: {
     departureAirport: string | null
@@ -116,7 +118,9 @@ function buildFlightsCtx(flights: TripOutlineInput["flights"]): string {
 function buildDaysCtx(days: TripOutlineInput["days"]): string {
   return days
     .map((d) => {
-      const head = `Day ${d.dayNumber} (${d.date}, ${getDayOfWeek(d.date)})`
+      const stay = d.accommodationName ? sanitizePromptInput(d.accommodationName) : null
+      const staySuffix = stay ? `, staying at ${stay.slice(0, MAX_ACTIVITY_NAME_LENGTH)}` : ""
+      const head = `Day ${d.dayNumber} (${d.date}, ${getDayOfWeek(d.date)}${staySuffix})`
       if (d.isEmpty) return `- ${head}: EMPTY — plan this one.`
       const names = sanitizeActivityNames(d.existingActivityNames).join(", ")
       return `- ${head}: ALREADY PLANNED — do not plan it${names ? `. Existing: ${names}` : ""}.`
@@ -154,7 +158,8 @@ Rules:
 - avoidRepeats must list every already-planned activity name above plus every place you put in mustInclude, so no day duplicates them.
 - Plan themes and areas only — do NOT invent specific venue names beyond the saved ideas and famous, well-known landmarks. Exact venues are chosen later.
 - Sequence the days' focus areas as ONE geographic arc across the trip — never make the traveler double back to an area they already covered on an earlier day.
-- Put en-route sights on the day the traveler actually travels past them (a stop between two cities belongs on the transfer day, not on a day that turns it into a dedicated round trip).`
+- Put en-route sights on the day the traveler actually travels past them (a stop between two cities belongs on the transfer day, not on a day that turns it into a dedicated round trip).
+- Anchor each day's focusArea near where the traveler sleeps that night when an accommodation is listed — the day should start and end within easy reach of it.`
 }
 
 const SYSTEM = `You are a local travel expert planning the arc of a whole trip: themes, areas, and pacing across days — not individual venues.
