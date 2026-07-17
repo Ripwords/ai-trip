@@ -18,6 +18,7 @@ import { creditsForSteps, MAX_DISCUSS_STEPS, STEPS_PER_CREDIT } from "../../../u
 import { getTripWithRelations } from "../../../lib/trips"
 import { stampGroup } from "../../../lib/proposal-targeting"
 import type { Proposal } from "../../../lib/proposals"
+import { describeToolCall, type ToolSummaryEntry } from "../../../lib/discuss-stream"
 
 const discussBodySchema = z.object({
   messages: z
@@ -31,11 +32,6 @@ const discussBodySchema = z.object({
     .max(40),
   dayId: z.string().uuid().optional(),
 })
-
-interface ToolSummaryEntry {
-  toolId: string
-  args: Record<string, unknown>
-}
 
 type TripWithRelations = NonNullable<Awaited<ReturnType<typeof getTripWithRelations>>>
 
@@ -101,28 +97,6 @@ function buildTripContext(trip: TripWithRelations, focusDayId: string | null): s
   }
 
   return lines.join("\n")
-}
-
-function describeToolCall(entry: ToolSummaryEntry): string {
-  const args = entry.args
-  switch (entry.toolId) {
-    case "readDay":
-      return "checked the day's schedule"
-    case "readTripSummary":
-      return "reviewed your trip"
-    case "searchPlaces":
-      return `searched Google Maps for '${String(args.query ?? "").slice(0, 80)}'`
-    case "getPlaceDetails":
-      return "looked up venue details"
-    case "getDistance":
-      return "checked travel time between two stops"
-    case "webSearch":
-      return `searched the web for '${String(args.query ?? "").slice(0, 80)}'`
-    case "runReview":
-      return "ran a structural check on the itinerary"
-    default:
-      return entry.toolId
-  }
 }
 
 export default defineEventHandler(async (event) => {
