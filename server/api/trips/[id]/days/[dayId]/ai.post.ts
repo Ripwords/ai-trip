@@ -3,7 +3,8 @@ import { z } from "zod"
 import { db } from "../../../../../db"
 import { trips, itineraryDays, activities, tripIdeas } from "../../../../../db/schema"
 import { dayIdParamsSchema } from "../../../../../utils/schemas"
-import { processUserRequest } from "../../../../../lib/ai"
+import { processUserRequest, type FlightPromptInput } from "../../../../../lib/ai"
+import { getTripFlightsForUser } from "../../../../../lib/trip-flights"
 import { enrichItinerary } from "../../../../../lib/enrich"
 import { computeAndSaveSegments } from "../../../../../lib/segments"
 import { getDistanceMatrix } from "../../../../../lib/google-maps"
@@ -107,6 +108,23 @@ export default defineEventHandler(async (event) => {
       }
     : null
 
+  // Flight context — landing/departure times shape what fits on this day.
+  // Degrades to "no flights" on failure rather than blocking the request.
+  let flights: FlightPromptInput[] = []
+  try {
+    const flightRows = await getTripFlightsForUser({ tripId: id, userId: session.user.id })
+    flights = flightRows.map((f) => ({
+      departureAirport: f.departureAirport,
+      arrivalAirport: f.arrivalAirport,
+      departureTimeUtc: f.departureTime?.toISOString() ?? null,
+      arrivalTimeUtc: f.arrivalTime?.toISOString() ?? null,
+      departureTimeLocal: f.departureTimeLocal,
+      arrivalTimeLocal: f.arrivalTimeLocal,
+    }))
+  } catch (e: unknown) {
+    console.error("[ai.post] Flight context unavailable, proceeding without:", e)
+  }
+
   // Derive day location from activities/accommodation
   let dayLocation = trip.destination
   const addresses = day.activities.map((a) => a.address).filter((a): a is string => !!a)
@@ -151,6 +169,7 @@ export default defineEventHandler(async (event) => {
       otherDayActivities,
       tripNotes: trip.tripNotes,
       savedIdeas: savedIdeasRows,
+      flights,
     })
   } catch (e: unknown) {
     console.error("[ai.post] AI processing failed:", e)
@@ -339,39 +358,34 @@ export default defineEventHandler(async (event) => {
       .where(eq(itineraryDays.id, dayId))
   }
 
-  // Handle AI-determined activity order (from optimize intent)
-  if (result.orderedActivities?.length) {
-    const currentActivities = await db.query.activities.findMany({
-      where: eq(activities.itineraryDayId, dayId),
-      orderBy: [asc(activities.sortOrder)],
-    })
-
-    await Promise.all(
-      result.orderedActivities.map(async (ordered, i) => {
-        const match = currentActivities.find(
-          (a) => a.name.toLowerCase().trim() === ordered.name.toLowerCase().trim(),
-        )
-        if (match) {
-          await db
-            .update(activities)
-            .set({ sortOrder: i, suggestedTime: ordered.suggestedTime })
-            .where(eq(activities.id, match.id))
-        }
-      }),
-    )
-    optimized = true
-  }
-
-  // Handle route optimization
-  if (result.shouldOptimize && !result.orderedActivities?.length) {
+  // Recompute a coherent schedule whenever the AI changed the day. One pass
+  // covers both shapes: `orderedActivities` (optimize) supplies an explicit
+  // visit order plus intended times, matched by activity id; add/modify/
+  // fill_gaps just need the day re-sorted by time-of-day (new activities were
+  // appended at the end of sortOrder regardless of their times). computeSchedule
+  // then resolves overlaps and travel gaps WITHOUT pulling activities away from
+  // their intended slots — a 19:30 dinner stays an evening dinner.
+  if (result.shouldOptimize || result.orderedActivities?.length) {
     const allDayActivities = await db.query.activities.findMany({
       where: eq(activities.itineraryDayId, dayId),
       orderBy: [asc(activities.sortOrder)],
     })
 
     if (allDayActivities.length >= 2) {
-      // Get travel times
-      const geoActivities = allDayActivities.filter((a) => a.lat != null && a.lng != null)
+      const aiTimeById = new Map(
+        (result.orderedActivities ?? []).map((o) => [o.id, o.suggestedTime]),
+      )
+      const merged = allDayActivities.map((a) => ({
+        ...a,
+        suggestedTime: aiTimeById.get(a.id) ?? a.suggestedTime,
+      }))
+      const ordered = orderDayActivities(
+        merged,
+        result.orderedActivities?.map((o) => o.id),
+      )
+
+      // Travel times between consecutive geo-located activities in the new order
+      const geoActivities = ordered.filter((a) => a.lat != null && a.lng != null)
       const travelTimes: { fromId: string; toId: string; durationMinutes: number }[] = []
 
       if (geoActivities.length >= 2) {
@@ -395,25 +409,19 @@ export default defineEventHandler(async (event) => {
       }
 
       // Compute schedule
-      const dayDate = day.date
       let startHour = 9
       let startMinute = 0
       let startTravelTimeMinutes = 0
-      const times = allDayActivities
-        .map((a) => a.suggestedTime)
-        .filter((t): t is string => !!t)
-        .map((t) => {
-          const m = t.match(/^(\d{1,2}):(\d{2})/)
-          return m ? parseInt(m[1]!) * 60 + parseInt(m[2]!) : null
-        })
+      const intendedTimes = ordered
+        .map((a) => parseClockMinutes(a.suggestedTime))
         .filter((m): m is number => m !== null)
-      const earliestActivityMinutes = times.length > 0 ? Math.min(...times) : null
+      const earliestActivityMinutes = intendedTimes.length > 0 ? Math.min(...intendedTimes) : null
       if (earliestActivityMinutes != null) {
         startHour = Math.floor(earliestActivityMinutes / 60)
         startMinute = earliestActivityMinutes % 60
       }
 
-      const firstActivity = allDayActivities.find((a) => a.lat != null && a.lng != null)
+      const firstActivity = ordered.find((a) => a.lat != null && a.lng != null)
       if (startLocation?.lat != null && startLocation.lng != null && firstActivity) {
         try {
           const matrix = await getDistanceMatrix(
@@ -435,13 +443,14 @@ export default defineEventHandler(async (event) => {
       }
 
       const schedule = computeSchedule({
-        activities: allDayActivities.map((a) => ({
+        activities: ordered.map((a) => ({
           id: a.id,
           name: a.name,
           estimatedDurationMinutes: a.estimatedDurationMinutes,
           lat: a.lat,
           lng: a.lng,
-          openingMinutes: parseOpeningTime(a.openingHours, dayDate),
+          openingMinutes: parseOpeningTime(a.openingHours, day.date),
+          preferredMinutes: parseClockMinutes(a.suggestedTime),
         })),
         travelTimes,
         startHour,
@@ -460,6 +469,23 @@ export default defineEventHandler(async (event) => {
       )
       optimized = true
     }
+  }
+
+  // Reschedule rewrites times without reordering rows — keep the display order
+  // (sortOrder) in sync with the new times so the day reads top-to-bottom.
+  if (result.intent === "reschedule" && updatedCount > 0) {
+    const currentActivities = await db.query.activities.findMany({
+      where: eq(activities.itineraryDayId, dayId),
+      orderBy: [asc(activities.sortOrder)],
+    })
+    const ordered = orderDayActivities(currentActivities)
+    await Promise.all(
+      ordered.flatMap((a, i) =>
+        a.sortOrder === i
+          ? []
+          : [db.update(activities).set({ sortOrder: i }).where(eq(activities.id, a.id))],
+      ),
+    )
   }
 
   // Recompute segments

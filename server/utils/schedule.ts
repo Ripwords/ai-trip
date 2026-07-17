@@ -2,9 +2,11 @@ interface ScheduleActivity {
   id: string
   name: string
   estimatedDurationMinutes: number | null
-  lat: number | null
-  lng: number | null
+  lat?: number | null
+  lng?: number | null
   openingMinutes?: number | null
+  /** Intended start (minutes since midnight) — the slot the AI/traveler picked. */
+  preferredMinutes?: number | null
 }
 
 interface TravelTime {
@@ -29,6 +31,9 @@ interface ScheduledActivity {
  * 4. A buffer of `bufferMinutes` (default 15) is added between activities
  * 5. If an activity has `openingMinutes`, the start time is pushed forward
  *    to at least that time (won't schedule before a place opens)
+ * 6. If an activity has `preferredMinutes`, it never starts earlier than that —
+ *    intentional gaps (a 19:30 dinner after a 14:00 beach) survive instead of
+ *    being packed back-to-back
  *
  * This ensures no overlaps regardless of what the AI suggested.
  */
@@ -65,6 +70,12 @@ export function computeSchedule(params: {
       const travelMinutes = travel ? Math.ceil(travel.durationMinutes) : 0
       currentMinutes += travelMinutes + bufferMinutes
       currentMinutes = Math.ceil(currentMinutes / 5) * 5
+    }
+
+    // Never start before the intended slot — pushing later (overlap/travel)
+    // is fine, pulling an evening activity into the morning is not.
+    if (activity.preferredMinutes != null && currentMinutes < activity.preferredMinutes) {
+      currentMinutes = activity.preferredMinutes
     }
 
     // If activity has opening hours, don't schedule before it opens
@@ -128,6 +139,44 @@ export function parseOpeningTime(
   if (period === "AM" && hours === 12) hours = 0
 
   return hours * 60 + minutes
+}
+
+/** Parses a strict "HH:MM" clock time to minutes since midnight, or null. */
+export function parseClockMinutes(time: string | null | undefined): number | null {
+  if (!time) return null
+  const m = time.trim().match(/^(\d{1,2}):(\d{2})$/)
+  if (!m) return null
+  const hours = parseInt(m[1]!, 10)
+  const minutes = parseInt(m[2]!, 10)
+  if (hours > 23 || minutes > 59) return null
+  return hours * 60 + minutes
+}
+
+/**
+ * Orders a day's activities into a display/schedule order.
+ *
+ * Without `explicitOrderIds`: stable sort by suggested time, untimed entries
+ * after all timed ones. With `explicitOrderIds` (e.g. an AI-optimized order):
+ * listed ids come first in that order, anything unlisted follows sorted by time
+ * — so a partial ordering can never strand an activity with a stale slot.
+ */
+export function orderDayActivities<T extends { id: string; suggestedTime: string | null }>(
+  activities: T[],
+  explicitOrderIds?: string[],
+): T[] {
+  const byTime = (list: T[]): T[] =>
+    list
+      .map((a, i) => ({ a, i, t: parseClockMinutes(a.suggestedTime) ?? Number.POSITIVE_INFINITY }))
+      .toSorted((x, y) => x.t - y.t || x.i - y.i)
+      .map((x) => x.a)
+
+  if (!explicitOrderIds?.length) return byTime(activities)
+
+  const byId = new Map(activities.map((a) => [a.id, a]))
+  const head = explicitOrderIds.map((id) => byId.get(id)).filter((a): a is T => a != null)
+  const headIds = new Set(head.map((a) => a.id))
+  const rest = byTime(activities.filter((a) => !headIds.has(a.id)))
+  return [...head, ...rest]
 }
 
 function minutesToTime(totalMinutes: number): string {
