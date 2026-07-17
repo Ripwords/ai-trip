@@ -364,10 +364,7 @@ const proposalKindMeta: Record<
       <header class="mx-auto mt-3 flex w-full max-w-[28rem] items-baseline justify-between px-4">
         <div class="flex items-center gap-2">
           <Icon name="lucide:sparkles" class="h-4 w-4 text-terra-500" />
-          <span
-            :id="dialogHeadingId"
-            class="text-[10px] uppercase tracking-[0.22em] text-sand-600"
-          >
+          <span :id="dialogHeadingId" class="text-[10px] uppercase tracking-[0.22em] text-sand-600">
             From your planner
           </span>
         </div>
@@ -455,7 +452,12 @@ const proposalKindMeta: Record<
               <div v-if="msg.toolCallSummary?.length" class="flex flex-col gap-0.5">
                 <p v-for="(line, i) in msg.toolCallSummary" :key="i" class="dock-tool-line">
                   <Icon name="lucide:eye" class="dock-tool-icon" />
-                  <span :class="['dock-tool-text', { 'dock-tool-text--active': isActiveToolLine(msg, i) }]">
+                  <span
+                    :class="[
+                      'dock-tool-text',
+                      { 'dock-tool-text--active': isActiveToolLine(msg, i) },
+                    ]"
+                  >
                     {{ line }}
                   </span>
                 </p>

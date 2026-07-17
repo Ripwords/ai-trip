@@ -18,6 +18,7 @@ whole-trip requests included), so pinning a single day in the header is misleadi
 moment a request spans days.
 
 **What.**
+
 - Delete the subtitle `<span>` in `AiDock.vue`; header keeps only "FROM YOUR PLANNER".
 - Remove the now-unused `activeDayLabel` prop from `AiDock` and the
   `:active-day-label` binding + `activeDayLabel` computed in `trips/[id].vue`
@@ -35,6 +36,7 @@ subtle animation makes the "AI is working" moment feel alive, matching the compo
 existing motion vocabulary (`dotPulse`, `fab-pop`, `sheet-up`, `BorderBeam`).
 
 **What (frontend only, `AiDock.vue`).**
+
 - Each new line **fades + slides in** on arrival (CSS keyframe via keyed `v-for` /
   `TransitionGroup`).
 - Within the **currently-streaming** message, only the **last** line (the in-flight
@@ -56,6 +58,7 @@ model should always weigh route geography — as in the user's Marble Mountains 
 where doubling back to the airport was needless backtracking.
 
 **What (prompt text only).** Add a "Route & geography" section:
+
 - Always factor geographic flow into adds / reorders / reschedules — cluster nearby
   stops, keep a coherent path, avoid backtracking / zig-zag / needless doubling back.
 - **Proactively** flag obvious backtracking in the open day even when unasked — one
