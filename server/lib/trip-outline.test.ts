@@ -5,6 +5,7 @@ import {
   buildTripOutline,
   MAX_AVOID_REPEATS,
   MAX_MUST_INCLUDE,
+  outlineSchema,
   type TripOutlineInput,
   type TripOutlineRaw,
 } from "./trip-outline"
@@ -42,6 +43,8 @@ const input: TripOutlineInput = {
 
 function rawOutline(overrides: Partial<TripOutlineRaw> = {}): TripOutlineRaw {
   return {
+    routeReasoning:
+      "Day 1 lands late so it stays near Gion; day 3 arcs through Higashiyama without doubling back.",
     days: [
       {
         dayNumber: 1,
@@ -314,5 +317,32 @@ describe("buildTripOutline", () => {
     })
     assert.deepEqual(outline.days[0]?.mustInclude, ["A", "B", "C"])
     assert.deepEqual(outline.avoidRepeats, ["Real Venue"])
+  })
+})
+
+describe("route reasoning", () => {
+  it("outline schema requires routeReasoning as its first property", () => {
+    assert.equal(Object.keys(outlineSchema.shape)[0], "routeReasoning")
+    assert.equal(outlineSchema.shape.routeReasoning.safeParse(undefined).success, false)
+  })
+
+  it("outline prompt sequences areas as an arc and places en-route sights on transfer days", async () => {
+    let seenPrompt = ""
+    await buildTripOutline(input, {
+      generate: async (args) => {
+        seenPrompt = args.prompt
+        return rawOutline()
+      },
+    })
+    assert.match(seenPrompt, /double back/i)
+    assert.match(seenPrompt, /en-route|on the way/i)
+  })
+
+  it("routeReasoning never leaks into the returned outline", async () => {
+    const outline = await buildTripOutline(input, { generate: async () => rawOutline() })
+    assert.ok(!("routeReasoning" in outline))
+    for (const day of outline.days) {
+      assert.ok(!("routeReasoning" in day))
+    }
   })
 })
