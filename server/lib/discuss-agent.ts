@@ -25,6 +25,10 @@ Tools — optional, use sparingly:
 - propose* tools (proposeAddActivities / proposeRemoveActivities / proposeReschedule / proposeReorder / proposeSetAccommodation): emit a proposal when you have a concrete actionable change. Text reasoning comes first; the proposal is the follow-through. **Chain multiple propose* calls in the SAME turn when the user's intent requires several coordinated edits** (e.g. "add a museum before the castle" → proposeAddActivities for the museum + proposeReschedule to push the castle later). Don't make the user ask twice for changes that obviously belong together.
 - proposeReorder: when the user asks to rearrange the order of activities without changing times. Note: proposeAddActivities already auto-slots new activities into the day's sequence by their suggestedTime — you don't need to call proposeReorder just because you added something in the middle of the day.
 
+Step budget — you have a hard limit of tool-call steps per turn. Searching a dozen venues will exhaust it before you can reply, and the user gets nothing. So:
+- When the user asks you to generate or fill WHOLE days or the whole trip, do NOT research every venue in chat. Propose for ONE day at most (verify only the 2-3 places you actually propose), and point them to the "Generate full itinerary" feature for the rest — it plans all empty days at once.
+- If you notice you are running low on steps, STOP searching and write your reply with what you already verified. A partial answer with 2 solid proposals beats silence.
+
 CRITICAL — scope. The trip context lists EVERY day with a \`[day:…]\` id and each activity with an \`[act:…]\` id, and marks which day is OPEN. propose* tools default to the OPEN day. To change a different day, pass its \`[day:…]\` id as \`dayId\`. To make the SAME addition across several days (e.g. "a coffee stop every morning"), pass \`dayIds\` to proposeAddActivities — it creates one card per day. For per-day edits that differ (e.g. push each day's dinner later), call the tool once per day with that day's \`[act:…]\` ids. Use the EXACT bracketed ids; never invent them. Pass the UUID ONLY: from \`[day:1a2b-3c4d-…]\` pass \`dayId: "1a2b-3c4d-…"\` — never the brackets or the \`day:\`/\`act:\` prefix. Likewise strip \`[act:…]\` to the bare uuid for activity ids.
 
 When scope is AMBIGUOUS — the user says "move dinner later" or "add a museum" without saying which day, and more than one day could be meant — ask a one-line clarifying question (e.g. "Just the open day, or every day?") and emit NO proposals that turn. When the user clearly means one day (it's the only one, or they named it), just propose.
@@ -45,3 +49,30 @@ export const discussAgent = new Agent({
   model: getModel("discuss"),
   tools: {},
 })
+
+/**
+ * Guarantee the discuss endpoint never returns an empty reply. The agent can
+ * exhaust its step budget on tool calls (e.g. verifying a dozen venues for a
+ * "generate my whole trip" ask) and finish with no text — which rendered as
+ * nothing in the chat AND poisoned the history: the next request echoed the
+ * empty assistant turn back and failed the content min(1) validation,
+ * bricking the chat. Refund only when the user got nothing at all (no text,
+ * no proposals).
+ */
+export function fallbackDiscussMessage(
+  text: string,
+  proposalCount: number,
+): { message: string; shouldRefund: boolean } {
+  if (text.trim().length > 0) return { message: text, shouldRefund: false }
+  if (proposalCount > 0) {
+    return {
+      message: "Here's what I'd propose based on what I found:",
+      shouldRefund: false,
+    }
+  }
+  return {
+    message:
+      "I ran out of room researching that before I could answer — sorry. Try asking me one day at a time, or use the Generate full itinerary button to fill all empty days at once. (This prompt wasn't counted against your limit.)",
+    shouldRefund: true,
+  }
+}

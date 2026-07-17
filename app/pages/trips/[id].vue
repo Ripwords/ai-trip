@@ -773,7 +773,10 @@ async function handleAiSubmit(text: string) {
   try {
     const body = {
       messages: aiMessages.value
-        .filter((m) => m.role === "user" || m.role === "assistant")
+        // Drop empty turns: a historical empty assistant message (from the
+        // pre-fix silent-reply bug) would fail the server's content min(1)
+        // validation and brick the chat for every subsequent send.
+        .filter((m) => (m.role === "user" || m.role === "assistant") && m.content.trim().length > 0)
         .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
       dayId: activeDay.value?.id,
     }

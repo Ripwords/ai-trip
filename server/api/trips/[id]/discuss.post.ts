@@ -8,7 +8,7 @@ import { normalizeTransportMode } from "../../../utils/transport"
 import { detectInjection, sanitizePromptInput } from "../../../utils/sanitize"
 import { createDiscussTools } from "../../../lib/ai-tools"
 import { getExchangeRate } from "../../../utils/exchange-rate"
-import { discussAgent } from "../../../lib/discuss-agent"
+import { discussAgent, fallbackDiscussMessage } from "../../../lib/discuss-agent"
 import { refundAiCredit } from "../../../utils/ai-limits"
 import { getTripWithRelations } from "../../../lib/trips"
 import { stampGroup } from "../../../lib/proposal-targeting"
@@ -241,6 +241,16 @@ export default defineEventHandler(async (event) => {
       toolCallSummary: [],
     }
   }
+
+  // The agent can exhaust its step budget on tool calls and finish with no
+  // text. Never return an empty message — it renders as nothing and, once
+  // echoed back in the history, fails the content min(1) validation and
+  // bricks the chat. Refund when the user got neither text nor proposals.
+  const finalReply = fallbackDiscussMessage(assistantText, proposalCollector.length)
+  if (finalReply.shouldRefund) {
+    await refundAiCredit(session.user.id)
+  }
+  assistantText = finalReply.message
 
   const toolCallSummary = toolCalls
     .filter((c) => !c.toolId.startsWith("propose"))

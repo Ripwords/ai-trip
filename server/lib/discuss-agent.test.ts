@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { DISCUSS_SYSTEM_PROMPT, discussAgent } from "./discuss-agent"
+import { DISCUSS_SYSTEM_PROMPT, discussAgent, fallbackDiscussMessage } from "./discuss-agent"
 
 describe("discussAgent", () => {
   it("is a Mastra agent with id 'discuss'", () => {
@@ -63,5 +63,38 @@ describe("discussAgent", () => {
     // The old hard blocks must be gone:
     assert.doesNotMatch(DISCUSS_SYSTEM_PROMPT, /you do NOT pass a day id/i)
     assert.doesNotMatch(DISCUSS_SYSTEM_PROMPT, /ask the user to open that day/i)
+  })
+
+  it("prompt steers whole-trip generation asks away from exhaustive in-chat research", () => {
+    assert.match(DISCUSS_SYSTEM_PROMPT, /Generate full itinerary/i)
+    assert.match(DISCUSS_SYSTEM_PROMPT, /budget.*steps|step budget|running low/i)
+  })
+})
+
+describe("fallbackDiscussMessage", () => {
+  it("passes a non-empty reply through untouched with no refund", () => {
+    const r = fallbackDiscussMessage("Here's my take on Day 3.", 0)
+    assert.equal(r.message, "Here's my take on Day 3.")
+    assert.equal(r.shouldRefund, false)
+  })
+
+  it("replaces an empty reply with no proposals by a helpful fallback and refunds", () => {
+    const r = fallbackDiscussMessage("", 0)
+    assert.ok(r.message.length > 0)
+    assert.match(r.message, /one day at a time|Generate full itinerary/i)
+    assert.equal(r.shouldRefund, true)
+  })
+
+  it("treats a whitespace-only reply as empty", () => {
+    const r = fallbackDiscussMessage("  \n ", 0)
+    assert.ok(r.message.trim().length > 0)
+    assert.equal(r.shouldRefund, true)
+  })
+
+  it("introduces proposals without a refund when text is empty but proposals exist", () => {
+    const r = fallbackDiscussMessage("", 2)
+    assert.ok(r.message.length > 0)
+    assert.match(r.message, /propos/i)
+    assert.equal(r.shouldRefund, false)
   })
 })
