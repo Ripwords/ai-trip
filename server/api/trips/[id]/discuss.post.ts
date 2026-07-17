@@ -18,6 +18,9 @@ import {
 import { chargeExtraAiCredits, refundAiCredit } from "../../../utils/ai-limits"
 import { creditsForSteps, MAX_DISCUSS_STEPS, STEPS_PER_CREDIT } from "../../../utils/ai-credit-cost"
 import { getTripWithRelations } from "../../../lib/trips"
+import { buildTripContext } from "../../../lib/discuss-context"
+import { getTripFlightsForUser } from "../../../lib/trip-flights"
+import type { FlightPromptInput } from "../../../lib/ai"
 import { stampGroup } from "../../../lib/proposal-targeting"
 import type { Proposal } from "../../../lib/proposals"
 import { mapChunk, toSseFrame } from "../../../lib/discuss-stream"
@@ -35,71 +38,8 @@ const discussBodySchema = z.object({
   dayId: z.string().uuid().optional(),
 })
 
-type TripWithRelations = NonNullable<Awaited<ReturnType<typeof getTripWithRelations>>>
-
-/** Neutralize bracket/id spoofing and control chars in stored free-text (B8). */
-function escapeCtx(s: string): string {
-  return s
-    .replace(/[[\]]/g, "")
-    .replace(/[\x00-\x1F]/g, " ")
-    .slice(0, 120)
-}
-
-// Guard for pathological trips — not the common path.
-const MAX_CONTEXT_ACTIVITY_LINES = 300
-
-function buildTripContext(trip: TripWithRelations, focusDayId: string | null): string {
-  const lines: string[] = []
-  lines.push(
-    `Destination: ${escapeCtx(trip.destination)}. Dates: ${trip.startDate} → ${trip.endDate}. Trip currency: ${trip.currencyCode || "USD"} (all cost estimates must be in this currency — do NOT convert to USD).`,
-  )
-
-  const prefs = trip.preferences
-  if (prefs) {
-    const parts: string[] = []
-    if (prefs.pace) parts.push(`pace=${prefs.pace}`)
-    if (prefs.budget) parts.push(`budget=${prefs.budget}`)
-    if (prefs.interests?.length) parts.push(`interests=${prefs.interests.join(",")}`)
-    if (prefs.travelStyle?.length) parts.push(`style=${prefs.travelStyle.join(",")}`)
-    if (prefs.transportMode) parts.push(`transport=${prefs.transportMode}`)
-    if (parts.length > 0) lines.push(`Preferences: ${parts.join(", ")}.`)
-  }
-
-  // Every day, with [day:…] and [act:…] ids, and the OPEN day marked — the
-  // agent's system prompt promises this shape so propose* tools can target
-  // any day (or several) by id without an extra readDay/readTripSummary call.
-  const sortedDays = trip.days.toSorted((a, b) => a.dayNumber - b.dayNumber)
-
-  let activityLines = 0
-  let trimmed = false
-  for (const d of sortedDays) {
-    if (trimmed) break
-    const open = d.id === focusDayId ? " · OPEN" : ""
-    lines.push(
-      `--- Day ${d.dayNumber} (${d.date}) [day:${d.id}]${d.accommodationName ? ` · staying at ${escapeCtx(d.accommodationName)}` : ""}${open} ---`,
-    )
-    const acts = d.activities.toSorted((a, b) => a.sortOrder - b.sortOrder)
-    if (acts.length === 0) {
-      lines.push("  (no activities yet)")
-    } else {
-      for (const a of acts) {
-        if (activityLines >= MAX_CONTEXT_ACTIVITY_LINES) {
-          trimmed = true
-          break
-        }
-        const time = a.suggestedTime ?? "??:??"
-        const dur = a.estimatedDurationMinutes ? ` (${a.estimatedDurationMinutes}min)` : ""
-        lines.push(`  • [act:${a.id}] ${time} ${escapeCtx(a.name)} — ${a.type}${dur}`)
-        activityLines++
-      }
-    }
-  }
-  if (trimmed) {
-    lines.push("  (…additional days trimmed)")
-  }
-
-  return lines.join("\n")
-}
+// buildTripContext lives in lib/discuss-context so it can be unit-tested
+// (this endpoint module can't be imported outside Nitro).
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -186,9 +126,26 @@ export default defineEventHandler(async (event) => {
     const tripForCtx = await getTripWithRelations(id)
     days = (tripForCtx?.days ?? []).map((d) => ({ id: d.id, dayNumber: d.dayNumber }))
 
+    // Flight context — arrival/departure times bound what the agent may schedule
+    // on those days. Degrades to "no flights" on failure rather than blocking.
+    let flights: FlightPromptInput[] = []
+    try {
+      const flightRows = await getTripFlightsForUser({ tripId: id, userId: session.user.id })
+      flights = flightRows.map((f) => ({
+        departureAirport: f.departureAirport,
+        arrivalAirport: f.arrivalAirport,
+        departureTimeUtc: f.departureTime?.toISOString() ?? null,
+        arrivalTimeUtc: f.arrivalTime?.toISOString() ?? null,
+        departureTimeLocal: f.departureTimeLocal,
+        arrivalTimeLocal: f.arrivalTimeLocal,
+      }))
+    } catch (e: unknown) {
+      console.error("[discuss.post] Flight context unavailable, proceeding without:", e)
+    }
+
     // Inject trip context into the latest user message so the agent has it on every turn
     // without needing to call read_day / read_trip_summary.
-    const tripContext = tripForCtx ? buildTripContext(tripForCtx, dayId) : ""
+    const tripContext = tripForCtx ? buildTripContext(tripForCtx, dayId, flights) : ""
     if (tripContext) {
       const lastUserIdx = cleanMessages.findLastIndex((m) => m.role === "user")
       if (lastUserIdx >= 0) {
