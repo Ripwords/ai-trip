@@ -10,6 +10,7 @@ import { getDistanceMatrix } from "../../../../../lib/google-maps"
 import { sanitizePromptInput } from "../../../../../utils/sanitize"
 import { normalizeTransportMode } from "../../../../../utils/transport"
 import { guardCostEstimate } from "../../../../../lib/cost-guard"
+import { refundAiCredit } from "../../../../../utils/ai-limits"
 import {
   normalizeSuggestedTime,
   clampDurationMinutes,
@@ -39,6 +40,8 @@ export default defineEventHandler(async (event) => {
   // Sanitize prompt
   const prompt = sanitizePromptInput(rawPrompt)
   if (!prompt) {
+    // The credit was consumed above, before we could validate the prompt — give it back.
+    await refundAiCredit(session.user.id)
     throw createError({
       statusCode: 400,
       message:
@@ -148,7 +151,6 @@ export default defineEventHandler(async (event) => {
     })
   } catch (e: unknown) {
     console.error("[ai.post] AI processing failed:", e)
-    const { refundAiCredit } = await import("../../../../../utils/ai-limits")
     await refundAiCredit(session.user.id)
     throw createError({
       statusCode: 502,
