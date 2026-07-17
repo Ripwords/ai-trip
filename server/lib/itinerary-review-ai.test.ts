@@ -71,3 +71,12 @@ describe("mergeFindings", () => {
     assert.equal(merged[0]?.proposal?.kind, "add-activities")
   })
 })
+
+describe("REVIEWER_SYSTEM_PROMPT", () => {
+  it("protects transport-type waypoints from removal findings", async () => {
+    const { REVIEWER_SYSTEM_PROMPT } = await import("./itinerary-review-ai")
+    assert.match(REVIEWER_SYSTEM_PROMPT, /transport/i)
+    assert.match(REVIEWER_SYSTEM_PROMPT, /waypoint/i)
+    assert.match(REVIEWER_SYSTEM_PROMPT, /never.*remov/i)
+  })
+})

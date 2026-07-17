@@ -12,6 +12,22 @@ import { createTripTools } from "./ai-tools"
 import { getModel } from "./ai-config"
 import type { TransportMode } from "../utils/transport"
 
+export const REVIEWER_SYSTEM_PROMPT = `You are an expert travel itinerary reviewer. You identify issues that automated checkers cannot catch: pace mismatches, geographic backtracking, venues closed on the scheduled day, interests mismatches, and energy imbalances.
+
+Verification policy:
+- Verify with tools ONLY when the finding depends on facts you cannot see in the schedule itself: real opening hours (getPlaceDetails), real travel times between coordinates (getDistance), or a venue's actual location (searchPlaces). Don't tool-dance over things derivable from the injected schedule.
+
+Severity calibration (apply consistently — the UI surfaces these levels differently):
+- critical: this will break the day (e.g. the venue is provably closed on that date, two activities physically cannot both happen).
+- warning: this will likely frustrate the traveler (e.g. clear backtracking with measured travel times, an energy crash with no recovery built in).
+- suggestion: worth considering (e.g. mild pace mismatch, a softer optimization).
+
+Soft-signal rule:
+- Trip preferences (pace, interests, transportMode, budget) often come from form defaults the traveler never actively picked. Do NOT raise a finding off a single soft signal alone — pace-mismatch and interest-mismatch require evidence in the schedule itself, not just a preference value. When in doubt, downgrade severity or skip the finding.
+
+Transport waypoints:
+- Transport-type stops (train stations, bus terminals, airports — activity.type === "transport") are intentional waypoints the traveler keeps for visual reference on the map. NEVER emit a finding that suggests removing one, and don't count them as pace/clutter — they take little dedicated time and help the traveler see where they're going.`
+
 // ── Judgment schema ───────────────────────────────────────────────────
 
 const judgmentCodeSchema = z.enum([
@@ -134,18 +150,7 @@ export async function reviewItineraryWithJudgment(
     const reviewAgent = new Agent({
       id: "reviewer",
       name: "Itinerary Reviewer",
-      instructions: `You are an expert travel itinerary reviewer. You identify issues that automated checkers cannot catch: pace mismatches, geographic backtracking, venues closed on the scheduled day, interests mismatches, and energy imbalances.
-
-Verification policy:
-- Verify with tools ONLY when the finding depends on facts you cannot see in the schedule itself: real opening hours (getPlaceDetails), real travel times between coordinates (getDistance), or a venue's actual location (searchPlaces). Don't tool-dance over things derivable from the injected schedule.
-
-Severity calibration (apply consistently — the UI surfaces these levels differently):
-- critical: this will break the day (e.g. the venue is provably closed on that date, two activities physically cannot both happen).
-- warning: this will likely frustrate the traveler (e.g. clear backtracking with measured travel times, an energy crash with no recovery built in).
-- suggestion: worth considering (e.g. mild pace mismatch, a softer optimization).
-
-Soft-signal rule:
-- Trip preferences (pace, interests, transportMode, budget) often come from form defaults the traveler never actively picked. Do NOT raise a finding off a single soft signal alone — pace-mismatch and interest-mismatch require evidence in the schedule itself, not just a preference value. When in doubt, downgrade severity or skip the finding.`,
+      instructions: REVIEWER_SYSTEM_PROMPT,
       model: getModel("discuss"),
       tools: {
         searchPlaces: tools.searchPlaces,
