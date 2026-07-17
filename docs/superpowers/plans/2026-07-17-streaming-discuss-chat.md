@@ -16,7 +16,7 @@
 - **Tests are `node:test` + `node:assert/strict`**, run with `bun test <path>`. There is **no** `bun run test` script — always pass the file path.
 - **Formatting/lint gate:** `bun run check` (oxfmt + oxlint) must pass before each commit. It prints ~14 **pre-existing** warnings in files you are not touching (`no-underscore-dangle`, `no-unassigned-import`, `no-map-spread`) — expected, not yours to fix; just ensure it exits 0 and your files add none.
 - **`bun run build` must pass** before the branch is done. KNOWN PRE-EXISTING FAILURE, do not chase: it fails at the very end at Nitro's output-copy/trace step with `ENAMETOOLONG` from a deeply-nested `better-auth`/`@better-auth/telemetry` circular dep (macOS path limit). Compilation succeeding before that point is a PASS.
-- **AI credit accounting is the critical property of this branch.** Users pay real money. `refundAiCredit` is **NOT idempotent** — its SQL is `GREATEST(count - 1, 0)`, so two calls on one consume mint a free credit. Every refund path must route through a single `refundOnce()` guard. Every task touching a credit path must produce an explicit exit/refund enumeration.
+- **AI credit accounting is the critical property of this branch.** Users pay real money. A discuss turn is **step-metered**, NOT a flat credit: `creditsForSteps(stepsUsed)` (`STEPS_PER_CREDIT = 8`, bracketed, capped at `MAX_DISCUSS_STEPS = 30`), with 1 credit taken up front and the remainder charged via `chargeExtraAiCredits`. BOTH primitives are **non-idempotent** — `refundAiCredit` is `GREATEST(count - 1, 0)` (double refund = free credit) and `chargeExtraAiCredits` is `promptCount + extra` (double charge = double bill). Every post-consume exit must therefore **settle exactly once** through a single `settleCredits()` guard: refund if the user got nothing, else meter. Every task touching a credit path must produce an explicit exit/settle enumeration.
 - **Never persist chat history.** No new DB tables, no migrations (ruled out by the earlier AI-chat specs).
 - A pre-commit hook runs `oxlint --fix && oxfmt --write .` and may reformat your files — expected.
 
@@ -28,7 +28,7 @@
 | `server/lib/discuss-stream.test.ts` (new)       | Unit tests for the above with injected fake chunks.                                                                                                              |
 | `app/utils/sse-parse.ts` (new)                  | Pure: `parseSseFrames(buffer)` → `{ frames, rest }`. Handles frames split mid-JSON across network reads.                                                         |
 | `app/utils/sse-parse.test.ts` (new)             | Unit tests for the parser.                                                                                                                                       |
-| `server/api/trips/[id]/discuss.post.ts`         | Streams via `createEventStream`; owns the `refundOnce` guard.                                                                                                    |
+| `server/api/trips/[id]/discuss.post.ts`         | Streams via `createEventStream`; owns the `settleCredits` guard.                                                                                                    |
 | `app/pages/trips/[id].vue`                      | `handleAiSubmit` reads the stream and mutates the assistant message.                                                                                             |
 | `server/lib/ai.ts`                              | Workstream 2: rethrow instead of swallowing.                                                                                                                     |
 | `server/utils/ai-limits.ts`                     | Workstream 3: correct the false docstring.                                                                                                                       |
@@ -483,172 +483,200 @@ The credit-critical task. **No test harness** (repo convention for endpoints) �
 - Produces: `POST /api/trips/[id]/discuss` now returns `text/event-stream` with four events. Task 4's client consumes exactly this:
   - `event: tool` → `{ line: string }`
   - `event: text` → `{ delta: string }`
-  - `event: done` → `{ message: string, proposals: Proposal[], toolCallSummary: string[] }`
+  - `event: done` → `{ message: string, proposals: Proposal[], toolCallSummary: string[], creditsUsed: number }`
   - `event: error` → `{ message: string }`
 
 **Verified API facts (do not re-derive):**
 
 - `createEventStream(event, opts?)` returns an `EventStream` with `push(msg: EventStreamMessage): Promise<void>` where `EventStreamMessage = { id?, event?, retry?, data: string }`, plus `onClosed(cb)`, `close()`, and `send()`. **The handler must `return stream.send()`** and do the pushing from a background async IIFE — that is h3's documented pattern (`h3/dist/index.d.ts:1244-1312`). `createEventStream` is marked `@experimental`; if it misbehaves, the spec's named fallback is NDJSON over a raw `ReadableStream` (same four events, different framing) — escalate before switching.
-- `discussAgent.stream(messages, options)` accepts the SAME `AgentExecutionOptionsBase` the current `generate()` call uses — `toolsets`, `maxSteps` — plus `abortSignal?: AbortSignal`. It returns `Promise<MastraModelOutput>`; `.fullStream` is a `ReadableStream<ChunkType>` you can `for await` over. Do NOT use `streamLegacy()`/`generateLegacy()` (deprecated AI-SDK-v4 path).
+- `discussAgent.stream(messages, options)` accepts the SAME `AgentExecutionOptionsBase` the current `generate()` call uses — `toolsets`, `maxSteps`, **`prepareStep`** — plus `abortSignal?: AbortSignal`. It returns `Promise<MastraModelOutput>`; `.fullStream` is a `ReadableStream<ChunkType>` you can `for await` over. Do NOT use `streamLegacy()`/`generateLegacy()` (deprecated AI-SDK-v4 path).
+- A **`'step-finish'`** chunk exists in the installed union — that is how `stepsUsed` is counted now that `onStepFinish` is gone. Verified present in `@mastra/core/dist/stream/types.d.ts`.
 
 **THE ORDERING RULE — read before touching anything:** everything above the current `discussAgent.generate(...)` call (line ~221) stays exactly where it is. That whole pre-flight — auth, body validation, injection check, sanitize, access, trip 404, day cross-trip check, context build, `getExchangeRate`, tools, `tryConsumeAiCredit`, and the existing refund `try/catch` — must run BEFORE `createEventStream`, because once a byte ships with a 200 no 4xx/5xx can follow. Do not "tidy" any of it.
 
-- [ ] **Step 1: Add the refundOnce guard and route the existing wrap through it**
+- [ ] **Step 1: Add the settleCredits guard and route the existing wrap through it**
 
-`refundAiCredit` is NOT idempotent (`GREATEST(count-1,0)`), and streaming takes the refund paths from two to four in one handler. Immediately after `await tryConsumeAiCredit(session.user.id)` (line ~140), add:
+A discuss turn is **step-metered**, not a flat credit. Both settle primitives are non-idempotent, so a double refund mints a free credit AND a double charge double-bills. Immediately after `await tryConsumeAiCredit(session.user.id)` (line ~140), add:
 
 ```ts
-// refundAiCredit is NOT idempotent — its SQL is GREATEST(count - 1, 0), so two
-// calls on a single consume mint the user a free credit. Streaming multiplies
-// the refund paths (pre-stream throw, mid-stream throw, client disconnect,
-// empty-reply fallback), so every one of them routes through this guard.
-let refunded = false
-async function refundOnce(): Promise<void> {
-  if (refunded) return
-  refunded = true
-  await refundAiCredit(session.user.id)
+// A discuss turn is step-metered: 1 credit up front, the remainder charged at
+// the end by creditsForSteps(stepsUsed). BOTH primitives are non-idempotent —
+// refundAiCredit is GREATEST(count-1,0) (double refund = free credit) and
+// chargeExtraAiCredits is promptCount + extra (double charge = double bill).
+// Streaming adds settle paths (pre-stream throw, mid-stream throw, client
+// disconnect, clean finish), so every one of them goes through this guard.
+let settled = false
+/** Settle the turn exactly once: refund if the user got nothing, else meter. */
+async function settleCredits(streamedAny: boolean, steps: number): Promise<number> {
+  if (settled) return 0
+  settled = true
+  if (!streamedAny) {
+    await refundAiCredit(session.user.id)
+    return 0
+  }
+  const creditsUsed = creditsForSteps(steps)
+  await chargeExtraAiCredits(session.user.id, creditsUsed - 1)
+  return creditsUsed
 }
 ```
 
-Then, in the EXISTING pre-stream `catch` (line ~212-217), replace `await refundAiCredit(session.user.id)` with `await refundOnce()`. Leave its comment and `throw e` alone.
+Then, in the EXISTING pre-stream `catch` (line ~212-217), replace `await refundAiCredit(session.user.id)` with `await settleCredits(false, 0)` — nothing streamed and no steps ran, so it refunds. Leave its comment and `throw e` alone.
 
 - [ ] **Step 2: Replace the generate call with the stream**
 
-Delete the whole existing block from `let assistantText = ""` (line ~219) through the end of the handler (the `return { success: true, ... }` at ~281-287), and replace with:
+Delete the block from `let assistantText = ""` / `let stepsUsed = 0` (line ~198) through the end of the handler (the `return { success: true, ... }`), and replace with the code below.
+
+**PRESERVE, do not simplify — all three are load-bearing and were nearly lost once already:**
+
+- `maxSteps: MAX_DISCUSS_STEPS` (30). A runaway guard sized against Vercel's 300s limit, NOT a UX budget. If the process is killed mid-flight the settle never runs and the user is charged for nothing. Do not lower it.
+- `prepareStep`. Copy it **verbatim** from the current `generate()` call, including its long explanatory comment and the `[Runtime]` instruction string. On the last step it returns `{ activeTools: [] }` so the model must write a reply — that is the entire fix commit `15ddaa9` shipped, and deleting it reintroduces the empty-reply bug.
+- Step-metered billing via `settleCredits`. `stepsUsed` now comes from `'step-finish'` chunks instead of `onStepFinish`.
 
 ```ts
-const controller = new AbortController()
-const stream = createEventStream(event)
+  const controller = new AbortController()
+  const stream = createEventStream(event)
 
-// Client disconnect (tab closed, Cancel pressed) aborts the agent so a
-// cancelled turn stops burning model tokens. Before this, cancelling only
-// aborted the client fetch — the server ran to completion and the credit
-// stayed spent.
-stream.onClosed(() => {
-  controller.abort()
-})
+  // Client disconnect (tab closed, Cancel pressed) aborts the agent so a
+  // cancelled turn stops burning model tokens — and, because the turn is
+  // step-metered, stops running up the user's bill. Before this, cancelling
+  // only aborted the client fetch; the server ran to completion and charged.
+  stream.onClosed(() => {
+    controller.abort()
+  })
 
-let streamedText = ""
-const toolLines: string[] = []
+  let streamedText = ""
+  let stepsUsed = 0
+  const toolLines: string[] = []
 
-// Pushed in the background; the handler returns stream.send() immediately.
-void (async () => {
-  try {
-    const result = await discussAgent.stream(cleanMessages, {
-      toolsets: { discuss: tools },
-      maxSteps: 10,
-      abortSignal: controller.signal,
-    })
+  // Pushed in the background; the handler returns stream.send() immediately.
+  void (async () => {
+    try {
+      const result = await discussAgent.stream(cleanMessages, {
+        toolsets: { discuss: tools },
+        maxSteps: MAX_DISCUSS_STEPS,
+        prepareStep: /* copy the existing prepareStep VERBATIM, comment included */,
+        abortSignal: controller.signal,
+      })
 
-    for await (const chunk of result.fullStream) {
-      const mapped = mapChunk(chunk)
-      if (!mapped) continue
-      if (mapped.type === "tool") {
-        toolLines.push(mapped.line)
-        await stream.push({ event: "tool", data: JSON.stringify({ line: mapped.line }) })
-      } else {
-        streamedText += mapped.delta
-        await stream.push({ event: "text", data: JSON.stringify({ delta: mapped.delta }) })
+      for await (const chunk of result.fullStream) {
+        if (chunk.type === "step-finish") stepsUsed++
+        const mapped = mapChunk(chunk)
+        if (!mapped) continue
+        if (mapped.type === "tool") {
+          toolLines.push(mapped.line)
+          await stream.push({ event: "tool", data: JSON.stringify({ line: mapped.line }) })
+        } else {
+          streamedText += mapped.delta
+          await stream.push({ event: "text", data: JSON.stringify({ delta: mapped.delta }) })
+        }
       }
-    }
 
-    // The user got value iff they saw text or got proposals. This is the
-    // existing fallbackDiscussMessage rule, extended to streaming.
-    const streamedAny = streamedText.length > 0 || proposalCollector.length > 0
+      // The user got value iff they saw text or got proposals. Existing
+      // fallbackDiscussMessage rule, extended to streaming.
+      const streamedAny = streamedText.length > 0 || proposalCollector.length > 0
 
-    if (controller.signal.aborted) {
-      if (!streamedAny) await refundOnce()
-      await stream.close()
-      return
-    }
+      if (controller.signal.aborted) {
+        // Metered even when cancelled: those steps were really spent.
+        await settleCredits(streamedAny, stepsUsed)
+        await stream.close()
+        return
+      }
 
-    const final = fallbackDiscussMessage(streamedText, proposalCollector.length)
-    if (final.shouldRefund) await refundOnce()
+      const final = fallbackDiscussMessage(streamedText, proposalCollector.length)
+      // shouldRefund === !streamedAny in practice; pass streamedAny so the
+      // settle rule has ONE definition.
+      const creditsUsed = await settleCredits(streamedAny, stepsUsed)
 
-    const groupedProposals = stampGroup(proposalCollector, randomUUID())
+      const groupedProposals = stampGroup(proposalCollector, randomUUID())
 
-    await stream.push({
-      event: "done",
-      data: JSON.stringify({
-        message: final.message,
-        proposals: groupedProposals,
-        toolCallSummary: toolLines,
-      }),
-    })
-
-    console.log(
-      `[discuss] activeDay=${dayId ?? "none"} proposals=[${groupedProposals
-        .map((p) => `${p.kind}@${p.dayId}`)
-        .join(", ")}]`,
-    )
-
-    await logTripAction({
-      tripId: id,
-      userId: session.user.id,
-      action: "ai_discuss",
-      description: `AI discuss: ${final.message.slice(0, 200)}`,
-      metadata: {
-        proposalCount: proposalCollector.length,
-        toolCalls: toolLines.length,
-      },
-    })
-
-    await stream.close()
-  } catch (e) {
-    console.error("[discuss] agent failed:", e)
-    const streamedAny = streamedText.length > 0 || proposalCollector.length > 0
-    if (!streamedAny) await refundOnce()
-    // A client disconnect surfaces here as an abort error; the socket is
-    // already gone, so pushing would throw.
-    if (!controller.signal.aborted) {
       await stream.push({
-        event: "error",
+        event: "done",
         data: JSON.stringify({
-          message: "Sorry — I couldn't think that through right now. Try again in a moment.",
+          message: final.message,
+          proposals: groupedProposals,
+          toolCallSummary: toolLines,
+          creditsUsed,
         }),
       })
+
+      console.log(
+        `[discuss] activeDay=${dayId ?? "none"} proposals=[${groupedProposals
+          .map((p) => `${p.kind}@${p.dayId}`)
+          .join(", ")}]`,
+      )
+
+      await logTripAction({
+        tripId: id,
+        userId: session.user.id,
+        action: "ai_discuss",
+        description: `AI discuss: ${final.message.slice(0, 200)}`,
+        metadata: {
+          proposalCount: proposalCollector.length,
+          toolCalls: toolLines.length,
+          stepsUsed,
+          creditsUsed,
+        },
+      })
+
+      await stream.close()
+    } catch (e) {
+      console.error("[discuss] agent failed:", e)
+      const streamedAny = streamedText.length > 0 || proposalCollector.length > 0
+      await settleCredits(streamedAny, stepsUsed)
+      // A client disconnect surfaces here as an abort error; the socket is
+      // already gone, so pushing would throw.
+      if (!controller.signal.aborted) {
+        await stream.push({
+          event: "error",
+          data: JSON.stringify({
+            message: "Sorry — I couldn't think that through right now. Try again in a moment.",
+          }),
+        })
+      }
+      await stream.close()
     }
-    await stream.close()
-  }
-})()
+  })()
 
-return stream.send()
+  return stream.send()
 ```
 
-Fix the imports at the top of the file. After this rewrite the endpoint no longer calls `describeToolCall` itself (`mapChunk` does it) and no longer builds `ToolSummaryEntry` values, so **Task 1 Step 5's import is replaced**, not extended:
+Imports: ADD `createEventStream` from `h3` and `mapChunk` from `../../../lib/discuss-stream`; REMOVE the `describeToolCall`/`ToolSummaryEntry` import Task 1 added (the streaming endpoint never calls it — `mapChunk` does). KEEP the existing `chargeExtraAiCredits`/`refundAiCredit` and `creditsForSteps`/`MAX_DISCUSS_STEPS`/`STEPS_PER_CREDIT` imports — they are all still used.
 
-```ts
-import { createEventStream } from "h3"
-import { mapChunk } from "../../../lib/discuss-stream"
-```
+Notes:
 
-Notes for the implementer:
-
-- The `toolCalls: ToolSummaryEntry[]` collector, its `let` declaration, and the whole `onStepFinish` callback are deleted — `toolLines` replaces them, already filtered and described by `mapChunk`. `describeToolCall` and `ToolSummaryEntry` must disappear from this file's imports entirely (oxlint will flag them as unused otherwise); they live on in `discuss-stream.ts` and are still exercised by Task 1's tests.
-- The old `toolCallSummary` was built as `toolCalls.filter((c) => !c.toolId.startsWith("propose")).map(describeToolCall)`. `mapChunk` now applies both the `propose*` filter and `describeToolCall`, so `toolLines` is already the finished list — do not filter or map it again.
-- `logTripAction`'s `metadata.toolCalls` was an array of tool ids; it is now a count. That is a deliberate simplification — `mapChunk` deliberately discards the raw ids. If you would rather keep the array, collect the ids alongside `toolLines`; either is acceptable, but say which you did in your report.
+- Delete the `toolCalls: ToolSummaryEntry[]` collector, its `let`, and the `onStepFinish` callback. `toolLines` replaces them; `mapChunk` already applies both the `propose*` filter and `describeToolCall`, so do not filter or map it again.
+- `logTripAction`'s `metadata.toolCalls` was an id array and is now a count — a deliberate simplification (`mapChunk` discards raw ids). `stepsUsed`/`creditsUsed` metadata stay. Say in your report which you did.
+- `creditsUsed` moves from the JSON response body onto the `done` event. No UI consumes it yet; the field must not be dropped.
 
 - [ ] **Step 3: Typecheck**
 
 Run: `bunx nuxi typecheck`
 Expected: clean for `discuss.post.ts`. Fix any error with real types — never `any`, never a cast to silence the chunk union.
 
-- [ ] **Step 4: Produce the exit/refund enumeration — this is the deliverable**
+- [ ] **Step 4: Produce the exit/settle enumeration — this is the deliverable**
 
-Enumerate EVERY exit from this handler in your report: each throw site (including throws inside awaited calls and inside the catch) and each successful return. For each, state how many refunds fire. It must be exactly:
+Enumerate EVERY exit from this handler in your report: each throw site (including throws inside awaited calls and inside the catch) and each successful completion. For each, state how it settles. It must be exactly:
 
-| Exit                                                           | Refunds |
-| -------------------------------------------------------------- | ------- |
-| Any pre-flight throw (before `tryConsumeAiCredit`)             | 0       |
-| Throw after consume, before the stream opens (existing wrap)   | 1       |
-| Agent throws mid-stream, nothing streamed                      | 1       |
-| Agent throws mid-stream, text or proposals already sent        | 0       |
-| Client disconnects, nothing streamed                           | 1       |
-| Client disconnects, text or proposals already sent             | 0       |
-| Clean finish, `fallbackDiscussMessage().shouldRefund === true` | 1       |
-| Clean finish with text or proposals                            | 0       |
+| Exit | Settles as |
+| --- | --- |
+| Any pre-flight throw (before `tryConsumeAiCredit`) | nothing (no credit taken) |
+| Throw after consume, before the stream opens (existing wrap) | refund — `settleCredits(false, 0)` |
+| Agent throws mid-stream, nothing streamed | refund |
+| Agent throws mid-stream, text or proposals already sent | metered |
+| Client disconnects, nothing streamed | refund |
+| Client disconnects, text or proposals already sent | metered |
+| Clean finish, nothing streamed (`shouldRefund`) | refund, `creditsUsed = 0` |
+| Clean finish with text or proposals | metered → `creditsUsed` on the `done` event |
 
-**No path may fire 2.** State explicitly why the pre-stream wrap and the in-stream catch cannot both fire for one request, and confirm `refundOnce` is the only route to `refundAiCredit` in the file (`grep -n "refundAiCredit" server/api/trips/\[id\]/discuss.post.ts` — expect exactly the import, the guard body, and nothing else).
+**No path may settle twice** — not a double refund, not a double charge, and never a refund AND a charge for one turn. State explicitly why the pre-stream wrap and the in-stream catch cannot both fire for one request. Confirm `settleCredits` is the ONLY route to `refundAiCredit` AND `chargeExtraAiCredits` in the file:
+
+```bash
+grep -n "refundAiCredit\|chargeExtraAiCredits" "server/api/trips/[id]/discuss.post.ts"
+```
+
+Expect only the import line and the two calls inside `settleCredits`. Paste the output in your report.
+
+Also confirm by reading: `maxSteps` is still `MAX_DISCUSS_STEPS`, `prepareStep` is byte-identical to the pre-Task-3 version, and `stepsUsed` increments on `'step-finish'`.
 
 - [ ] **Step 5: Commit**
 
