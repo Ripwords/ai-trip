@@ -8,8 +8,13 @@ import { normalizeTransportMode } from "../../../utils/transport"
 import { detectInjection, sanitizePromptInput } from "../../../utils/sanitize"
 import { createDiscussTools } from "../../../lib/ai-tools"
 import { getExchangeRate } from "../../../utils/exchange-rate"
-import { discussAgent, fallbackDiscussMessage } from "../../../lib/discuss-agent"
-import { refundAiCredit } from "../../../utils/ai-limits"
+import {
+  DISCUSS_SYSTEM_PROMPT,
+  discussAgent,
+  fallbackDiscussMessage,
+} from "../../../lib/discuss-agent"
+import { chargeExtraAiCredits, refundAiCredit } from "../../../utils/ai-limits"
+import { creditsForSteps, MAX_DISCUSS_STEPS, STEPS_PER_CREDIT } from "../../../utils/ai-credit-cost"
 import { getTripWithRelations } from "../../../lib/trips"
 import { stampGroup } from "../../../lib/proposal-targeting"
 import type { Proposal } from "../../../lib/proposals"
@@ -217,11 +222,34 @@ export default defineEventHandler(async (event) => {
   }
 
   let assistantText = ""
+  let stepsUsed = 0
   try {
     const response = await discussAgent.generate(cleanMessages, {
       toolsets: { discuss: tools },
-      maxSteps: 10,
+      maxSteps: MAX_DISCUSS_STEPS,
+      // The step budget used to be a guillotine: if the final step happened to be
+      // a tool call, the loop stopped with response.text === "" and the user got
+      // nothing but an apology. Two overrides fix that:
+      //
+      //  1. On the last permitted step, strip the toolset. With no tools to call,
+      //     the model has no choice but to spend that step writing a reply — so
+      //     hitting the ceiling now degrades to a partial answer, never silence.
+      //  2. Otherwise, tell the model what it has left and what it costs. The
+      //     system prompt asks it to wind down when "running low on steps", which
+      //     it could never honour before — it has no view of its own step count.
+      //     Returning a plain string is a valid `Instructions`; it re-states the
+      //     agent's own prompt verbatim plus a runtime note, so nothing is lost.
+      prepareStep: ({ stepNumber }) => {
+        const remaining = MAX_DISCUSS_STEPS - stepNumber
+        if (remaining <= 1) return { activeTools: [] }
+        return {
+          instructions: `${DISCUSS_SYSTEM_PROMPT}
+
+[Runtime] You have ${remaining} tool-call steps left this turn. Every ${STEPS_PER_CREDIT} steps costs the user one AI credit from a small monthly allowance, so treat searching as spending their money: research only what you will actually propose. On your last step the tools are removed and you must write your reply, so wind down before then.`,
+        }
+      },
       onStepFinish: (step) => {
+        stepsUsed++
         for (const c of step.toolCalls) {
           toolCalls.push({
             toolId: c.payload.toolName,
@@ -247,8 +275,19 @@ export default defineEventHandler(async (event) => {
   // echoed back in the history, fails the content min(1) validation and
   // bricks the chat. Refund when the user got neither text nor proposals.
   const finalReply = fallbackDiscussMessage(assistantText, proposalCollector.length)
+  let creditsUsed = 0
   if (finalReply.shouldRefund) {
+    // The user got nothing — hand back the up-front credit and bill nothing for
+    // the steps. `prepareStep` makes this path near-unreachable now (the last
+    // step is always text), but it stays as the backstop for a model that
+    // returns empty text for some other reason.
     await refundAiCredit(session.user.id)
+  } else {
+    // Meter what the turn actually cost. One credit was taken up front, so only
+    // the remainder is charged here. Ordinary chat stays at 1 credit; a research
+    // binge like a whole-trip fill pays its way.
+    creditsUsed = creditsForSteps(stepsUsed)
+    await chargeExtraAiCredits(session.user.id, creditsUsed - 1)
   }
   assistantText = finalReply.message
 
@@ -275,6 +314,8 @@ export default defineEventHandler(async (event) => {
     metadata: {
       proposalCount: proposalCollector.length,
       toolCalls: toolCalls.map((c) => c.toolId),
+      stepsUsed,
+      creditsUsed,
     },
   })
 
@@ -283,5 +324,10 @@ export default defineEventHandler(async (event) => {
     message: assistantText,
     proposals: groupedProposals,
     toolCallSummary,
+    // What this turn actually billed (0 when refunded). Returned so the chat can
+    // tell the user when a heavy turn cost more than the usual single credit —
+    // silent multi-credit charges would be a nasty surprise against a 100/month
+    // allowance. No UI consumes this yet.
+    creditsUsed,
   }
 })

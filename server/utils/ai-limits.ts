@@ -67,6 +67,27 @@ export async function tryConsumeAiCredit(userId: string): Promise<boolean> {
 }
 
 /**
+ * Charge additional credits for a turn that has ALREADY done the work, on top of
+ * the single credit `tryConsumeAiCredit` took up front.
+ *
+ * Unlike `tryConsumeAiCredit` this cannot refuse: the Gemini and Places calls are
+ * already spent, so rejecting here would give the work away for free. It therefore
+ * has no `setWhere` guard and may carry a user past MONTHLY_LIMIT — a heavy final
+ * turn can land them at e.g. 103/100. That is intended and self-correcting: the
+ * next `tryConsumeAiCredit` sees promptCount >= limit and throws 429.
+ *
+ * `extra` is the count BEYOND the credit already consumed. Non-positive is a no-op.
+ */
+export async function chargeExtraAiCredits(userId: string, extra: number): Promise<void> {
+  if (!Number.isFinite(extra) || extra <= 0) return
+  const month = getCurrentMonth()
+  await db
+    .update(aiUsage)
+    .set({ promptCount: sql`${aiUsage.promptCount} + ${Math.floor(extra)}`, updatedAt: new Date() })
+    .where(and(eq(aiUsage.userId, userId), eq(aiUsage.month, month)))
+}
+
+/**
  * Refund one AI credit. Use after a planning step fails and no work was committed.
  * Does NOT go below zero. Safe to call multiple times if a single consume succeeded.
  */
