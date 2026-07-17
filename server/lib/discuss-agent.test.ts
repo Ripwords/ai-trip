@@ -34,6 +34,16 @@ describe("discussAgent", () => {
     assert.match(DISCUSS_SYSTEM_PROMPT, /form defaults/i)
   })
 
+  it("system prompt has a dedicated route check before proposing changes", () => {
+    assert.match(DISCUSS_SYSTEM_PROMPT, /ROUTE CHECK/)
+    assert.match(DISCUSS_SYSTEM_PROMPT, /before any propose\* call/i)
+    assert.match(DISCUSS_SYSTEM_PROMPT, /double back/i)
+  })
+
+  it("route check pushes back when the user's own request would backtrack", () => {
+    assert.match(DISCUSS_SYSTEM_PROMPT, /user's own request would create the backtracking/i)
+  })
+
   it("system prompt references tools by their actual camelCase ids", () => {
     // Guard against drift back to snake_case names that don't match createDiscussTools.
     const camelTools = [
