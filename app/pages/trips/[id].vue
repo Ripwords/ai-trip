@@ -724,12 +724,6 @@ const activeDayLabel = computed(() =>
 const aiInput = ref("")
 const aiMessages = ref<ChatMessage[]>([])
 const aiUsage = ref<{ used: number; limit: number; remaining: number } | null>(null)
-// A discuss turn is step-metered (more than 1 credit on a research-heavy
-// turn); no UI surfaces the per-turn cost yet, but it must not be silently
-// dropped off the `done` event either — keep the last value around for when
-// it is. `aiUsage` (refreshed after every turn) already reflects the
-// aggregate effect of this number.
-const lastDiscussCreditsUsed = ref<number | null>(null)
 
 const {
   run: runFullItinerary,
@@ -861,7 +855,6 @@ async function handleAiSubmit(text: string) {
             toolCallSummary: string[]
             creditsUsed: number
           }
-          lastDiscussCreditsUsed.value = donePayload.creditsUsed
           patch((m) => ({
             ...m,
             content: donePayload.message,
@@ -878,6 +871,7 @@ async function handleAiSubmit(text: string) {
     }
 
     if (streamError) {
+      dropEmptyAssistant(assistantId)
       aiMessages.value = [
         ...aiMessages.value,
         {

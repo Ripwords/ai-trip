@@ -19,10 +19,25 @@ function ensureDomPurifyHook() {
   domPurifyHookRegistered = true
 }
 
-function renderMarkdown(content: string): string {
+// Streaming replaces `aiMessages.value` once per `text` delta (~per token),
+// which changes the prop array identity and re-runs the whole `v-for` render
+// function — so an unmemoized parse+sanitize here becomes O(tokens *
+// messages) instead of O(messages). Cache keyed by message id (not by the
+// content string) so a message that is still streaming — whose content
+// changes every token — overwrites its OWN single cache entry instead of
+// growing the cache by one per token. Bounded with simple oldest-first
+// eviction (Map preserves insertion order) so a very long session still
+// can't grow this unboundedly.
+const MARKDOWN_CACHE_LIMIT = 50
+const markdownCache = new Map<string, { content: string; html: string }>()
+
+function renderMarkdown(id: string, content: string): string {
+  const cached = markdownCache.get(id)
+  if (cached && cached.content === content) return cached.html
+
   ensureDomPurifyHook()
   const html = marked.parse(content, { async: false }) as string
-  return DOMPurify.sanitize(html, {
+  const sanitized = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
       "p",
       "br",
@@ -46,6 +61,13 @@ function renderMarkdown(content: string): string {
     ],
     ALLOWED_ATTR: ["href", "title", "target", "rel"],
   })
+
+  markdownCache.set(id, { content, html: sanitized })
+  if (markdownCache.size > MARKDOWN_CACHE_LIMIT) {
+    const oldestKey = markdownCache.keys().next().value
+    if (oldestKey !== undefined) markdownCache.delete(oldestKey)
+  }
+  return sanitized
 }
 
 export type ChatRole = "user" | "assistant" | "system"
@@ -421,7 +443,7 @@ const proposalKindMeta: Record<
                   {{ line }}
                 </p>
               </div>
-              <div class="dock-assistant-body" v-html="renderMarkdown(msg.content)" />
+              <div class="dock-assistant-body" v-html="renderMarkdown(msg.id, msg.content)" />
 
               <!-- Inline proposal cards, grouped by chat-turn groupId -->
               <div v-for="g in proposalGroups(msg)" :key="g.key" class="mt-1 flex flex-col gap-2">
