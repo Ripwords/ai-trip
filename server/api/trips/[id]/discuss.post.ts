@@ -244,6 +244,16 @@ export default defineEventHandler(async (event) => {
   event.node.res.on("close", () => {
     controller.abort()
   })
+  // `res 'close'` is edge-triggered and is NOT redelivered to a listener attached
+  // after it fired. The client can disconnect during pre-flight (auth, body
+  // validation, trip lookup, credit consume, tools setup), which all runs before
+  // this point — a cold route made that a real 400ms window, and a turn whose
+  // abort was missed runs to completion and bills the user for work they
+  // dismissed. Checking the current state right after subscribing closes the gap:
+  // already-closed => abort now; closes later => the listener fires.
+  if (event.node.res.destroyed) {
+    controller.abort()
+  }
 
   let streamedText = ""
   let stepsUsed = 0
