@@ -22,17 +22,17 @@
 
 ## File Structure
 
-| File | Responsibility |
-|---|---|
-| `server/lib/discuss-stream.ts` (new) | Pure: `describeToolCall` (moved here) + `mapChunk` (Mastra chunk → stream event). Single source of truth so the live line and the persisted summary can't drift. |
-| `server/lib/discuss-stream.test.ts` (new) | Unit tests for the above with injected fake chunks. |
-| `app/utils/sse-parse.ts` (new) | Pure: `parseSseFrames(buffer)` → `{ frames, rest }`. Handles frames split mid-JSON across network reads. |
-| `app/utils/sse-parse.test.ts` (new) | Unit tests for the parser. |
-| `server/api/trips/[id]/discuss.post.ts` | Streams via `createEventStream`; owns the `refundOnce` guard. |
-| `app/pages/trips/[id].vue` | `handleAiSubmit` reads the stream and mutates the assistant message. |
-| `server/lib/ai.ts` | Workstream 2: rethrow instead of swallowing. |
-| `server/utils/ai-limits.ts` | Workstream 3: correct the false docstring. |
-| `server/api/trips/[id]/days/[dayId]/ai.post.ts` | Workstream 3: consume the credit after all validation. |
+| File                                            | Responsibility                                                                                                                                                   |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server/lib/discuss-stream.ts` (new)            | Pure: `describeToolCall` (moved here) + `mapChunk` (Mastra chunk → stream event). Single source of truth so the live line and the persisted summary can't drift. |
+| `server/lib/discuss-stream.test.ts` (new)       | Unit tests for the above with injected fake chunks.                                                                                                              |
+| `app/utils/sse-parse.ts` (new)                  | Pure: `parseSseFrames(buffer)` → `{ frames, rest }`. Handles frames split mid-JSON across network reads.                                                         |
+| `app/utils/sse-parse.test.ts` (new)             | Unit tests for the parser.                                                                                                                                       |
+| `server/api/trips/[id]/discuss.post.ts`         | Streams via `createEventStream`; owns the `refundOnce` guard.                                                                                                    |
+| `app/pages/trips/[id].vue`                      | `handleAiSubmit` reads the stream and mutates the assistant message.                                                                                             |
+| `server/lib/ai.ts`                              | Workstream 2: rethrow instead of swallowing.                                                                                                                     |
+| `server/utils/ai-limits.ts`                     | Workstream 3: correct the false docstring.                                                                                                                       |
+| `server/api/trips/[id]/days/[dayId]/ai.post.ts` | Workstream 3: consume the credit after all validation.                                                                                                           |
 
 ---
 
@@ -63,7 +63,7 @@ Pure, server-side, no network. Moves `describeToolCall` out of the endpoint so b
   export type DiscussStreamEvent = { type: "tool"; line: string } | { type: "text"; delta: string }
   export function mapChunk(chunk: StreamChunkLike): DiscussStreamEvent | null
   ```
-  Task 3 imports `mapChunk` and `describeToolCall`.
+  Task 1 Step 5 has the endpoint import `describeToolCall` + `ToolSummaryEntry` (it still calls `generate()` at that point). Task 3 then REPLACES that import with `mapChunk` alone, because the streaming endpoint never calls `describeToolCall` directly — `mapChunk` does. After Task 3, `describeToolCall`'s only consumers are `mapChunk` and this task's tests.
 
 **Verified facts (do not re-derive):** the installed `@mastra/core@1.50.1` chunk union (`dist/stream/types.d.ts`) uses `{ type, payload }` shape. Discriminators: `'tool-call'` with `ToolCallPayload = { toolCallId, toolName, args?, … }` (fires BEFORE execution — this is what makes the live line possible) and `'text-delta'` with `TextDeltaPayload = { id, text }`. Everything else in the union (`'workflow-*'`, `'reasoning-*'`, `'step-start'`, `'finish'`, …) maps to nothing. `mapChunk` types its input structurally rather than importing Mastra's deep chunk type — that keeps it unit-testable and avoids `any`.
 
@@ -140,7 +140,10 @@ describe("describeToolCall", () => {
       describeToolCall({ toolId: "webSearch", args: { query: "festival dates" } }),
       "searched the web for 'festival dates'",
     )
-    assert.equal(describeToolCall({ toolId: "getPlaceDetails", args: {} }), "looked up venue details")
+    assert.equal(
+      describeToolCall({ toolId: "getPlaceDetails", args: {} }),
+      "looked up venue details",
+    )
     assert.equal(
       describeToolCall({ toolId: "runReview", args: {} }),
       "ran a structural check on the itinerary",
@@ -215,7 +218,9 @@ export interface StreamChunkLike {
 
 export type DiscussStreamEvent = { type: "tool"; line: string } | { type: "text"; delta: string }
 
-function asToolCallPayload(p: unknown): { toolName: string; args?: Record<string, unknown> } | null {
+function asToolCallPayload(
+  p: unknown,
+): { toolName: string; args?: Record<string, unknown> } | null {
   if (typeof p !== "object" || p === null) return null
   const { toolName, args } = p as { toolName?: unknown; args?: unknown }
   if (typeof toolName !== "string") return null
@@ -350,9 +355,7 @@ describe("parseSseFrames", () => {
     assert.equal(first.rest, 'event: done\ndata: {"message":"hel')
 
     const second = parseSseFrames(first.rest + 'lo","proposals":[]}\n\n')
-    assert.deepEqual(second.frames, [
-      { event: "done", data: '{"message":"hello","proposals":[]}' },
-    ])
+    assert.deepEqual(second.frames, [{ event: "done", data: '{"message":"hello","proposals":[]}' }])
     assert.equal(second.rest, "")
     assert.deepEqual(JSON.parse(second.frames[0]!.data), { message: "hello", proposals: [] })
   })
@@ -514,102 +517,102 @@ Then, in the EXISTING pre-stream `catch` (line ~212-217), replace `await refundA
 Delete the whole existing block from `let assistantText = ""` (line ~219) through the end of the handler (the `return { success: true, ... }` at ~281-287), and replace with:
 
 ```ts
-  const controller = new AbortController()
-  const stream = createEventStream(event)
+const controller = new AbortController()
+const stream = createEventStream(event)
 
-  // Client disconnect (tab closed, Cancel pressed) aborts the agent so a
-  // cancelled turn stops burning model tokens. Before this, cancelling only
-  // aborted the client fetch — the server ran to completion and the credit
-  // stayed spent.
-  stream.onClosed(() => {
-    controller.abort()
-  })
+// Client disconnect (tab closed, Cancel pressed) aborts the agent so a
+// cancelled turn stops burning model tokens. Before this, cancelling only
+// aborted the client fetch — the server ran to completion and the credit
+// stayed spent.
+stream.onClosed(() => {
+  controller.abort()
+})
 
-  let streamedText = ""
-  const toolLines: string[] = []
+let streamedText = ""
+const toolLines: string[] = []
 
-  // Pushed in the background; the handler returns stream.send() immediately.
-  void (async () => {
-    try {
-      const result = await discussAgent.stream(cleanMessages, {
-        toolsets: { discuss: tools },
-        maxSteps: 10,
-        abortSignal: controller.signal,
-      })
+// Pushed in the background; the handler returns stream.send() immediately.
+void (async () => {
+  try {
+    const result = await discussAgent.stream(cleanMessages, {
+      toolsets: { discuss: tools },
+      maxSteps: 10,
+      abortSignal: controller.signal,
+    })
 
-      for await (const chunk of result.fullStream) {
-        const mapped = mapChunk(chunk)
-        if (!mapped) continue
-        if (mapped.type === "tool") {
-          toolLines.push(mapped.line)
-          await stream.push({ event: "tool", data: JSON.stringify({ line: mapped.line }) })
-        } else {
-          streamedText += mapped.delta
-          await stream.push({ event: "text", data: JSON.stringify({ delta: mapped.delta }) })
-        }
+    for await (const chunk of result.fullStream) {
+      const mapped = mapChunk(chunk)
+      if (!mapped) continue
+      if (mapped.type === "tool") {
+        toolLines.push(mapped.line)
+        await stream.push({ event: "tool", data: JSON.stringify({ line: mapped.line }) })
+      } else {
+        streamedText += mapped.delta
+        await stream.push({ event: "text", data: JSON.stringify({ delta: mapped.delta }) })
       }
+    }
 
-      // The user got value iff they saw text or got proposals. This is the
-      // existing fallbackDiscussMessage rule, extended to streaming.
-      const streamedAny = streamedText.length > 0 || proposalCollector.length > 0
+    // The user got value iff they saw text or got proposals. This is the
+    // existing fallbackDiscussMessage rule, extended to streaming.
+    const streamedAny = streamedText.length > 0 || proposalCollector.length > 0
 
-      if (controller.signal.aborted) {
-        if (!streamedAny) await refundOnce()
-        await stream.close()
-        return
-      }
+    if (controller.signal.aborted) {
+      if (!streamedAny) await refundOnce()
+      await stream.close()
+      return
+    }
 
-      const final = fallbackDiscussMessage(streamedText, proposalCollector.length)
-      if (final.shouldRefund) await refundOnce()
+    const final = fallbackDiscussMessage(streamedText, proposalCollector.length)
+    if (final.shouldRefund) await refundOnce()
 
-      const groupedProposals = stampGroup(proposalCollector, randomUUID())
+    const groupedProposals = stampGroup(proposalCollector, randomUUID())
 
+    await stream.push({
+      event: "done",
+      data: JSON.stringify({
+        message: final.message,
+        proposals: groupedProposals,
+        toolCallSummary: toolLines,
+      }),
+    })
+
+    console.log(
+      `[discuss] activeDay=${dayId ?? "none"} proposals=[${groupedProposals
+        .map((p) => `${p.kind}@${p.dayId}`)
+        .join(", ")}]`,
+    )
+
+    await logTripAction({
+      tripId: id,
+      userId: session.user.id,
+      action: "ai_discuss",
+      description: `AI discuss: ${final.message.slice(0, 200)}`,
+      metadata: {
+        proposalCount: proposalCollector.length,
+        toolCalls: toolLines.length,
+      },
+    })
+
+    await stream.close()
+  } catch (e) {
+    console.error("[discuss] agent failed:", e)
+    const streamedAny = streamedText.length > 0 || proposalCollector.length > 0
+    if (!streamedAny) await refundOnce()
+    // A client disconnect surfaces here as an abort error; the socket is
+    // already gone, so pushing would throw.
+    if (!controller.signal.aborted) {
       await stream.push({
-        event: "done",
+        event: "error",
         data: JSON.stringify({
-          message: final.message,
-          proposals: groupedProposals,
-          toolCallSummary: toolLines,
+          message: "Sorry — I couldn't think that through right now. Try again in a moment.",
         }),
       })
-
-      console.log(
-        `[discuss] activeDay=${dayId ?? "none"} proposals=[${groupedProposals
-          .map((p) => `${p.kind}@${p.dayId}`)
-          .join(", ")}]`,
-      )
-
-      await logTripAction({
-        tripId: id,
-        userId: session.user.id,
-        action: "ai_discuss",
-        description: `AI discuss: ${final.message.slice(0, 200)}`,
-        metadata: {
-          proposalCount: proposalCollector.length,
-          toolCalls: toolLines.length,
-        },
-      })
-
-      await stream.close()
-    } catch (e) {
-      console.error("[discuss] agent failed:", e)
-      const streamedAny = streamedText.length > 0 || proposalCollector.length > 0
-      if (!streamedAny) await refundOnce()
-      // A client disconnect surfaces here as an abort error; the socket is
-      // already gone, so pushing would throw.
-      if (!controller.signal.aborted) {
-        await stream.push({
-          event: "error",
-          data: JSON.stringify({
-            message: "Sorry — I couldn't think that through right now. Try again in a moment.",
-          }),
-        })
-      }
-      await stream.close()
     }
-  })()
+    await stream.close()
+  }
+})()
 
-  return stream.send()
+return stream.send()
 ```
 
 Fix the imports at the top of the file. After this rewrite the endpoint no longer calls `describeToolCall` itself (`mapChunk` does it) and no longer builds `ToolSummaryEntry` values, so **Task 1 Step 5's import is replaced**, not extended:
@@ -634,16 +637,16 @@ Expected: clean for `discuss.post.ts`. Fix any error with real types — never `
 
 Enumerate EVERY exit from this handler in your report: each throw site (including throws inside awaited calls and inside the catch) and each successful return. For each, state how many refunds fire. It must be exactly:
 
-| Exit | Refunds |
-|---|---|
-| Any pre-flight throw (before `tryConsumeAiCredit`) | 0 |
-| Throw after consume, before the stream opens (existing wrap) | 1 |
-| Agent throws mid-stream, nothing streamed | 1 |
-| Agent throws mid-stream, text or proposals already sent | 0 |
-| Client disconnects, nothing streamed | 1 |
-| Client disconnects, text or proposals already sent | 0 |
-| Clean finish, `fallbackDiscussMessage().shouldRefund === true` | 1 |
-| Clean finish with text or proposals | 0 |
+| Exit                                                           | Refunds |
+| -------------------------------------------------------------- | ------- |
+| Any pre-flight throw (before `tryConsumeAiCredit`)             | 0       |
+| Throw after consume, before the stream opens (existing wrap)   | 1       |
+| Agent throws mid-stream, nothing streamed                      | 1       |
+| Agent throws mid-stream, text or proposals already sent        | 0       |
+| Client disconnects, nothing streamed                           | 1       |
+| Client disconnects, text or proposals already sent             | 0       |
+| Clean finish, `fallbackDiscussMessage().shouldRefund === true` | 1       |
+| Clean finish with text or proposals                            | 0       |
 
 **No path may fire 2.** State explicitly why the pre-stream wrap and the in-stream catch cannot both fire for one request, and confirm `refundOnce` is the only route to `refundAiCredit` in the file (`grep -n "refundAiCredit" server/api/trips/\[id\]/discuss.post.ts` — expect exactly the import, the guard body, and nothing else).
 
@@ -956,18 +959,18 @@ Reorder the top of the handler to:
 Because sanitize now runs BEFORE the consume, its 400 no longer needs a refund — **delete the `await refundAiCredit(session.user.id)` line added for it in Phase 3**, and replace the block with:
 
 ```ts
-  // Sanitize before consuming: this is pure string validation, so a rejection
-  // here must never cost the traveler a credit. (Phase 3 added a refund here
-  // because the consume used to come first; moving the consume below every
-  // validation makes that refund unnecessary rather than merely correct.)
-  const prompt = sanitizePromptInput(rawPrompt)
-  if (!prompt) {
-    throw createError({
-      statusCode: 400,
-      message:
-        "Your prompt contains disallowed content. Please describe your travel preferences only.",
-    })
-  }
+// Sanitize before consuming: this is pure string validation, so a rejection
+// here must never cost the traveler a credit. (Phase 3 added a refund here
+// because the consume used to come first; moving the consume below every
+// validation makes that refund unnecessary rather than merely correct.)
+const prompt = sanitizePromptInput(rawPrompt)
+if (!prompt) {
+  throw createError({
+    statusCode: 400,
+    message:
+      "Your prompt contains disallowed content. Please describe your travel preferences only.",
+  })
+}
 ```
 
 Keep the 400's status and message byte-identical. Do not touch the `processUserRequest` catch's refund (Task 5 depends on it).
