@@ -66,12 +66,12 @@ rewrite. An earlier draft of this spec mis-described the endpoint and would have
 deleted all three; they are recorded here so that cannot happen again.
 
 - **`maxSteps: MAX_DISCUSS_STEPS` (30, from `server/utils/ai-credit-cost.ts`).**
-  This is a *runaway guard, not a UX budget* — its own docstring explains it is
+  This is a _runaway guard, not a UX budget_ — its own docstring explains it is
   sized against Vercel's 300s function limit, because if the process is killed
   mid-flight the endpoint's refund never runs and the user is charged for
   nothing. Do not lower it.
 - **`prepareStep`.** On the last permitted step it returns `{ activeTools: [] }`,
-  stripping the toolset so the model *must* spend that step writing a reply —
+  stripping the toolset so the model _must_ spend that step writing a reply —
   hitting the ceiling degrades to a partial answer instead of silence. On every
   other step it re-states `DISCUSS_SYSTEM_PROMPT` verbatim plus a runtime note
   telling the model how many steps remain and that every `STEPS_PER_CREDIT`
@@ -160,7 +160,8 @@ Only then: open the stream, and replace `generate` with
 ```ts
 const result = await discussAgent.stream(cleanMessages, {
   toolsets: { discuss: tools },
-  maxSteps: 10,
+  maxSteps: MAX_DISCUSS_STEPS, // 30 — runaway guard, unchanged
+  prepareStep, // unchanged — strips tools on the last step
   abortSignal: controller.signal,
 })
 for await (const chunk of result.fullStream) {
@@ -182,12 +183,12 @@ nothing.
 
 **Wire protocol — four events:**
 
-| Event   | Payload                                   | Source                                                                                                                 |
-| ------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `tool`  | `{ line: string }`                        | `'tool-call'` chunks → the existing `describeToolCall()`, filtering `propose*` exactly as `toolCallSummary` does today |
-| `text`  | `{ delta: string }`                       | `'text-delta'` chunks                                                                                                  |
+| Event   | Payload                                                | Source                                                                                                                                                                                                    |
+| ------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tool`  | `{ line: string }`                                     | `'tool-call'` chunks → the existing `describeToolCall()`, filtering `propose*` exactly as `toolCallSummary` does today                                                                                    |
+| `text`  | `{ delta: string }`                                    | `'text-delta'` chunks                                                                                                                                                                                     |
 | `done`  | `{ message, proposals, toolCallSummary, creditsUsed }` | `fallbackDiscussMessage()` for `message`; `stampGroup(proposalCollector, randomUUID())` for `proposals`; `creditsUsed` from the settle step below — it replaces the field the JSON response returns today |
-| `error` | `{ message: string }`                     | in-stream failure (the stream is already 200; this is the only way to report)                                          |
+| `error` | `{ message: string }`                                  | in-stream failure (the stream is already 200; this is the only way to report)                                                                                                                             |
 
 `maxSteps: MAX_DISCUSS_STEPS` and `prepareStep` are passed to `stream()`
 unchanged from the current `generate()` call. The existing `logTripAction` audit
@@ -230,16 +231,16 @@ and `stepsUsed` (incremented on each `'step-finish'` chunk).
 cancelled after 20 steps still costs what those steps cost. This preserves the
 existing pricing rather than inventing a second, cheaper rule for streamed turns.
 
-| Exit                                                     | Settles as                                        |
-| -------------------------------------------------------- | ------------------------------------------------- |
-| Any pre-flight throw (before consume)                    | nothing (no credit taken yet)                     |
-| Throw after consume, before stream opens (existing wrap) | refund — `settleCredits(false, 0)`                |
-| Agent throws mid-stream, `streamedAny === false`         | refund, then `error` event                        |
-| Agent throws mid-stream, `streamedAny === true`          | metered, then `error` event (partial text kept)   |
-| Client disconnects, `streamedAny === false`              | refund (abort the agent)                          |
-| Client disconnects, `streamedAny === true`               | metered (abort the agent)                         |
-| Clean finish, `fallbackDiscussMessage().shouldRefund`    | refund (`creditsUsed = 0`)                        |
-| Clean finish with text or proposals                      | metered → `creditsUsed` rides the `done` event    |
+| Exit                                                     | Settles as                                      |
+| -------------------------------------------------------- | ----------------------------------------------- |
+| Any pre-flight throw (before consume)                    | nothing (no credit taken yet)                   |
+| Throw after consume, before stream opens (existing wrap) | refund — `settleCredits(false, 0)`              |
+| Agent throws mid-stream, `streamedAny === false`         | refund, then `error` event                      |
+| Agent throws mid-stream, `streamedAny === true`          | metered, then `error` event (partial text kept) |
+| Client disconnects, `streamedAny === false`              | refund (abort the agent)                        |
+| Client disconnects, `streamedAny === true`               | metered (abort the agent)                       |
+| Clean finish, `fallbackDiscussMessage().shouldRefund`    | refund (`creditsUsed = 0`)                      |
+| Clean finish with text or proposals                      | metered → `creditsUsed` rides the `done` event  |
 
 No path may settle twice — not a double refund, not a double charge, and never
 a refund AND a charge for one turn. The implementation must include an explicit
