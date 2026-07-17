@@ -4,7 +4,7 @@ import { createEventStream } from "h3"
 import type { AssistantModelMessage, UserModelMessage } from "ai"
 import { z } from "zod"
 import { db } from "../../../db"
-import { itineraryDays, trips } from "../../../db/schema"
+import { itineraryDays, tripIdeas, trips } from "../../../db/schema"
 import { uuidParamsSchema } from "../../../utils/schemas"
 import { normalizeTransportMode } from "../../../utils/transport"
 import { detectInjection, sanitizePromptInput } from "../../../utils/sanitize"
@@ -143,9 +143,23 @@ export default defineEventHandler(async (event) => {
       console.error("[discuss.post] Flight context unavailable, proceeding without:", e)
     }
 
+    // Saved ideas — the traveler's curated wishlist, same context generation gets.
+    // Degrades to empty on failure rather than blocking the turn.
+    let savedIdeas: { name: string; type: string; description: string | null }[] = []
+    try {
+      savedIdeas = await db.query.tripIdeas.findMany({
+        where: eq(tripIdeas.tripId, id),
+        columns: { name: true, type: true, description: true },
+      })
+    } catch (e: unknown) {
+      console.error("[discuss.post] Saved-ideas context unavailable, proceeding without:", e)
+    }
+
     // Inject trip context into the latest user message so the agent has it on every turn
     // without needing to call read_day / read_trip_summary.
-    const tripContext = tripForCtx ? buildTripContext(tripForCtx, dayId, flights) : ""
+    const tripContext = tripForCtx
+      ? buildTripContext(tripForCtx, dayId, flights, { tripNotes: trip.tripNotes, savedIdeas })
+      : ""
     if (tripContext) {
       const lastUserIdx = cleanMessages.findLastIndex((m) => m.role === "user")
       if (lastUserIdx >= 0) {

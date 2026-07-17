@@ -1,5 +1,10 @@
 import type { TripPreferences } from "../db/schema/trips"
-import { buildFlightsCtx, type FlightPromptInput } from "./ai"
+import {
+  buildFlightsCtx,
+  buildSavedIdeasCtx,
+  buildTripNotesCtx,
+  type FlightPromptInput,
+} from "./ai"
 
 /** The slice of a trip the discuss context needs — structurally satisfied by getTripWithRelations. */
 export interface DiscussContextTrip {
@@ -35,10 +40,16 @@ function escapeCtx(s: string): string {
 // Guard for pathological trips — not the common path.
 const MAX_CONTEXT_ACTIVITY_LINES = 300
 
+export interface DiscussContextExtras {
+  tripNotes?: string | null
+  savedIdeas?: { name: string; type: string; description: string | null }[]
+}
+
 export function buildTripContext(
   trip: DiscussContextTrip,
   focusDayId: string | null,
   flights?: FlightPromptInput[],
+  extras?: DiscussContextExtras,
 ): string {
   const lines: string[] = []
   lines.push(
@@ -93,6 +104,14 @@ export function buildTripContext(
   // rules the generation handlers get (see buildFlightsCtx).
   const flightsCtx = buildFlightsCtx(flights)
   if (flightsCtx) lines.push(flightsCtx.trimStart())
+
+  // Trip notes + saved ideas: the same (sanitized) context the generation
+  // handlers and the outline get — the agent should discuss around the
+  // traveler's stated constraints and curated wishlist.
+  const notesCtx = buildTripNotesCtx(extras?.tripNotes)
+  if (notesCtx) lines.push(notesCtx.trimStart())
+  const ideasCtx = buildSavedIdeasCtx(extras?.savedIdeas)
+  if (ideasCtx) lines.push(ideasCtx.trimStart())
 
   return lines.join("\n")
 }
