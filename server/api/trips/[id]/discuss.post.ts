@@ -359,23 +359,33 @@ export default defineEventHandler(async (event) => {
       await stream.close()
     } catch (e) {
       console.error("[discuss] agent failed:", e)
-      const streamedAny = streamedText.length > 0 || proposalCollector.length > 0
-      await settleCredits(streamedAny, stepsUsed)
-      // `push` itself doesn't throw here (h3's _sendEvent early-returns once the
-      // writer is closed and swallows write failures internally) — this guard
-      // exists because there is no point pushing an `error` event to a client
-      // that has already gone away, and because `done` may have already shipped
-      // a successful result for this turn (doneSent), in which case pushing
-      // `error` afterward would misreport a successful turn as failed.
-      if (!controller.signal.aborted && !doneSent) {
-        await stream.push({
-          event: "error",
-          data: JSON.stringify({
-            message: "Sorry — I couldn't think that through right now. Try again in a moment.",
-          }),
-        })
+      // Settling and the error-push are wrapped so a throw from either one still
+      // reaches `finally` and closes the stream — otherwise the exception would
+      // escape this `void (async () => {...})()` as an unhandled rejection and
+      // strand the client's SSE connection open forever with no `error` event
+      // and no close.
+      try {
+        const streamedAny = streamedText.length > 0 || proposalCollector.length > 0
+        await settleCredits(streamedAny, stepsUsed)
+        // `push` is a no-op once the writer has cleanly closed (h3's `_sendEvent`
+        // early-returns in that case), so this guard exists to avoid pushing an
+        // `error` event the client will never see — not because push is unsafe —
+        // and to avoid misreporting a turn as failed after `done` already shipped
+        // (doneSent).
+        if (!controller.signal.aborted && !doneSent) {
+          await stream.push({
+            event: "error",
+            data: JSON.stringify({
+              message: "Sorry — I couldn't think that through right now. Try again in a moment.",
+            }),
+          })
+        }
+      } catch (settleOrPushError) {
+        // No client left to tell; log so a settle-primitive failure is diagnosable.
+        console.error("[discuss] settle/error-push failed:", settleOrPushError)
+      } finally {
+        await stream.close()
       }
-      await stream.close()
     }
   })()
 
