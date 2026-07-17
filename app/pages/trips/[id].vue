@@ -718,9 +718,6 @@ watch(
 const dayLabels = computed<Record<string, string>>(() =>
   Object.fromEntries((trip.value?.days ?? []).map((d) => [d.id, `Day ${d.dayNumber}`])),
 )
-const activeDayLabel = computed(() =>
-  activeDay.value ? `Day ${activeDay.value.dayNumber}` : "this trip",
-)
 
 const aiInput = ref("")
 const aiMessages = ref<ChatMessage[]>([])
@@ -1976,7 +1973,6 @@ async function recomputeSegments(dayId: string) {
       :destination="trip.destination"
       :starters="aiStarters"
       :day-labels="dayLabels"
-      :active-day-label="activeDayLabel"
       @submit="handleAiSubmit"
       @apply-proposal="handleAiApplyProposal"
       @dismiss-proposal="handleAiDismissProposal"

@@ -93,7 +93,6 @@ const props = defineProps<{
   destination: string
   starters: string[]
   dayLabels: Record<string, string>
-  activeDayLabel: string
 }>()
 
 const emit = defineEmits<{
@@ -215,6 +214,15 @@ watch(
     if (isLoading) expanded.value = true
   },
 )
+
+// The tool line that shimmers: the last summary line of the message that is
+// still streaming, and only until its text reply begins. Once `loading` flips
+// off (or `content` arrives) the line settles to the static gray style.
+function isActiveToolLine(msg: ChatMessage, i: number): boolean {
+  if (!props.loading || msg.content) return false
+  if (props.messages[props.messages.length - 1]?.id !== msg.id) return false
+  return i === (msg.toolCallSummary?.length ?? 0) - 1
+}
 
 // ── Quick chips ─────────────────────────────────────────────────────
 
@@ -356,15 +364,12 @@ const proposalKindMeta: Record<
       <header class="mx-auto mt-3 flex w-full max-w-[28rem] items-baseline justify-between px-4">
         <div class="flex items-center gap-2">
           <Icon name="lucide:sparkles" class="h-4 w-4 text-terra-500" />
-          <div class="flex flex-col">
-            <span
-              :id="dialogHeadingId"
-              class="text-[10px] uppercase tracking-[0.22em] text-sand-600"
-            >
-              From your planner
-            </span>
-            <span class="text-[10px] text-sand-500">Editing {{ activeDayLabel }}</span>
-          </div>
+          <span
+            :id="dialogHeadingId"
+            class="text-[10px] uppercase tracking-[0.22em] text-sand-600"
+          >
+            From your planner
+          </span>
         </div>
         <div class="flex items-baseline gap-3">
           <span
@@ -450,7 +455,9 @@ const proposalKindMeta: Record<
               <div v-if="msg.toolCallSummary?.length" class="flex flex-col gap-0.5">
                 <p v-for="(line, i) in msg.toolCallSummary" :key="i" class="dock-tool-line">
                   <Icon name="lucide:eye" class="dock-tool-icon" />
-                  {{ line }}
+                  <span :class="['dock-tool-text', { 'dock-tool-text--active': isActiveToolLine(msg, i) }]">
+                    {{ line }}
+                  </span>
                 </p>
               </div>
               <div class="dock-assistant-body" v-html="renderMarkdown(msg.id, msg.content)" />
@@ -783,11 +790,51 @@ const proposalKindMeta: Record<
   font-size: 11px;
   color: var(--color-sand-500);
   font-style: italic;
+  animation: dock-tool-in 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .dock-tool-icon {
   width: 12px;
   height: 12px;
   color: var(--color-sand-500);
+  flex-shrink: 0;
+}
+@keyframes dock-tool-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Shimmer sweeps a brighter (sand-800) band through the muted sand-500 text.
+   The sand var swap keeps sand-800 as the most prominent text tone in BOTH
+   themes, so this reads correctly in light and dark without a media query. */
+.dock-tool-text--active {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(
+    100deg,
+    var(--color-sand-500) 0%,
+    var(--color-sand-500) 40%,
+    var(--color-sand-800) 50%,
+    var(--color-sand-500) 60%,
+    var(--color-sand-500) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: dock-tool-shimmer 1.4s linear infinite;
+}
+@keyframes dock-tool-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
 }
 
 .dock-proposal {
@@ -1046,6 +1093,15 @@ const proposalKindMeta: Record<
   }
   .dock-dot {
     animation: none;
+  }
+  .dock-tool-line {
+    animation: none;
+  }
+  .dock-tool-text--active {
+    animation: none;
+    color: var(--color-sand-700);
+    -webkit-text-fill-color: var(--color-sand-700);
+    background: none;
   }
 }
 </style>
