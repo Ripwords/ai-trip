@@ -108,6 +108,29 @@ function findActivityIdByName(day: DayForProposals, name: string): string | unde
   return day.activities.find((a) => a.name.toLowerCase().trim() === normalized)?.id
 }
 
+/**
+ * Same-day duplicate guard for add-activities proposals: adding a place the
+ * day already has is never intended — match by placeId when both sides have
+ * one, else by normalized name. Cross-day repeats stay allowed (a coffee stop
+ * every morning is a legitimate pattern the agent fans out via dayIds).
+ */
+export function filterDuplicateActivities<T extends { name: string; placeId?: string | null }>(
+  incoming: T[],
+  existing: { name: string; placeId?: string | null }[],
+): { fresh: T[]; duplicates: T[] } {
+  const names = new Set(existing.map((a) => a.name.toLowerCase().trim()))
+  const placeIds = new Set(existing.map((a) => a.placeId).filter((p): p is string => !!p))
+  const fresh: T[] = []
+  const duplicates: T[] = []
+  for (const a of incoming) {
+    const isDuplicate =
+      (a.placeId != null && placeIds.has(a.placeId)) || names.has(a.name.toLowerCase().trim())
+    if (isDuplicate) duplicates.push(a)
+    else fresh.push(a)
+  }
+  return { fresh, duplicates }
+}
+
 function timeToMinutes(time: string | null | undefined): number | null {
   if (!time) return null
   const m = time.match(/^(\d{1,2}):(\d{2})/)
@@ -240,6 +263,7 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
     case "add-activities": {
       let unlocated: { name: string }[] = []
       let locatedCount = 0
+      let skippedDuplicates = 0
       try {
         const enriched = await enrichItinerary(
           {
@@ -261,59 +285,67 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
             where: eq(activities.itineraryDayId, ctx.dayId),
             orderBy: [asc(activities.sortOrder)],
           })
-          const maxSort = current.length > 0 ? Math.max(...current.map((a) => a.sortOrder)) : -1
-          const guardedCosts = await Promise.all(
-            located.map((a) =>
-              guardCostEstimate({
-                costEstimate: a.costEstimate,
-                type: a.type,
-                placeId: a.placeId,
-                currencyCode: ctx.currencyCode,
-              }),
-            ),
-          )
-          const inserted = await db
-            .insert(activities)
-            .values(
-              located.map((a, i) => ({
-                itineraryDayId: ctx.dayId,
-                name: a.name,
-                placeId: a.placeId,
-                type: a.type,
-                description: a.description,
-                lat: a.lat,
-                lng: a.lng,
-                address: a.address,
-                rating: a.rating?.toString() ?? null,
-                priceLevel: a.priceLevel,
-                openingHours: a.openingHours,
-                photos: a.photos,
-                suggestedTime: normalizeSuggestedTime(a.suggestedTime),
-                estimatedDurationMinutes:
-                  clampDurationMinutes(a.estimatedDurationMinutes) ?? a.estimatedDurationMinutes,
-                costEstimate: guardedCosts[i] ?? null,
-                tags: a.tags,
-                sortOrder: maxSort + 1 + i,
-              })),
+          // Same-day dedup — parity with the generation apply path, which
+          // filters AI output against existing names before inserting.
+          const { fresh, duplicates } = filterDuplicateActivities(located, current)
+          skippedDuplicates = duplicates.length
+          if (fresh.length === 0) {
+            added = 0
+          } else {
+            const maxSort = current.length > 0 ? Math.max(...current.map((a) => a.sortOrder)) : -1
+            const guardedCosts = await Promise.all(
+              fresh.map((a) =>
+                guardCostEstimate({
+                  costEstimate: a.costEstimate,
+                  type: a.type,
+                  placeId: a.placeId,
+                  currencyCode: ctx.currencyCode,
+                }),
+              ),
             )
-            .returning({
-              id: activities.id,
-              suggestedTime: activities.suggestedTime,
-              sortOrder: activities.sortOrder,
-            })
-          added = inserted.length
+            const inserted = await db
+              .insert(activities)
+              .values(
+                fresh.map((a, i) => ({
+                  itineraryDayId: ctx.dayId,
+                  name: a.name,
+                  placeId: a.placeId,
+                  type: a.type,
+                  description: a.description,
+                  lat: a.lat,
+                  lng: a.lng,
+                  address: a.address,
+                  rating: a.rating?.toString() ?? null,
+                  priceLevel: a.priceLevel,
+                  openingHours: a.openingHours,
+                  photos: a.photos,
+                  suggestedTime: normalizeSuggestedTime(a.suggestedTime),
+                  estimatedDurationMinutes:
+                    clampDurationMinutes(a.estimatedDurationMinutes) ?? a.estimatedDurationMinutes,
+                  costEstimate: guardedCosts[i] ?? null,
+                  tags: a.tags,
+                  sortOrder: maxSort + 1 + i,
+                })),
+              )
+              .returning({
+                id: activities.id,
+                suggestedTime: activities.suggestedTime,
+                sortOrder: activities.sortOrder,
+              })
+            added = inserted.length
 
-          // Slot new activities into the day's sequence by suggestedTime.
-          // Preserves existing relative order (so manual reorders aren't stomped).
-          await slotNewActivitiesIntoSequence(
-            ctx.dayId,
-            current.map((a) => ({
-              id: a.id,
-              suggestedTime: a.suggestedTime,
-              sortOrder: a.sortOrder,
-            })),
-            inserted,
-          )
+            // Slot new activities into the day's sequence by suggestedTime.
+            // Preserves existing relative order (so manual reorders aren't stomped).
+            await slotNewActivitiesIntoSequence(
+              ctx.dayId,
+              current.map((a) => ({
+                id: a.id,
+                suggestedTime: a.suggestedTime,
+                sortOrder: a.sortOrder,
+              })),
+              inserted,
+            )
+          }
         }
       } catch (e) {
         console.error("[applyProposal] enrichment failed:", e)
@@ -342,6 +374,9 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
               .map((a) => a.name)
               .join(", ")})`
           : `Added ${added} activit${added === 1 ? "y" : "ies"}`
+      if (skippedDuplicates > 0) {
+        message += ` · skipped ${skippedDuplicates} already on this day`
+      }
       break
     }
 

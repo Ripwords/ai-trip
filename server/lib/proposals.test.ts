@@ -267,3 +267,35 @@ describe("proposalSchema group metadata", () => {
     assert.equal(result.success && result.data.groupId, "33333333-3333-4333-8333-333333333333")
   })
 })
+
+describe("filterDuplicateActivities", () => {
+  it("splits incoming activities into fresh and same-day duplicates", async () => {
+    const { filterDuplicateActivities } = await import("./proposals")
+    const { fresh, duplicates } = filterDuplicateActivities(
+      [
+        { name: "Bếp Cuốn Đà Nẵng", placeId: null },
+        { name: "New Cafe", placeId: "place-new" },
+        { name: "Renamed Bridge", placeId: "place-bridge" },
+      ],
+      [
+        { name: "bếp cuốn đà nẵng ", placeId: "place-bep" },
+        { name: "Dragon Bridge", placeId: "place-bridge" },
+      ],
+    )
+    assert.deepEqual(
+      fresh.map((a) => a.name),
+      ["New Cafe"],
+    )
+    assert.deepEqual(
+      duplicates.map((a) => a.name),
+      ["Bếp Cuốn Đà Nẵng", "Renamed Bridge"],
+    )
+  })
+
+  it("returns everything fresh when the day is empty", async () => {
+    const { filterDuplicateActivities } = await import("./proposals")
+    const { fresh, duplicates } = filterDuplicateActivities([{ name: "A", placeId: null }], [])
+    assert.equal(fresh.length, 1)
+    assert.equal(duplicates.length, 0)
+  })
+})
