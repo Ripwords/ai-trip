@@ -50,4 +50,48 @@ describe("planGenerationRun", () => {
     assert.match(plan.mode === "outline" ? plan.confirm.message : "", /1 empty day\b/)
     assert.doesNotMatch(plan.mode === "outline" ? plan.confirm.message : "", /1 empty days/)
   })
+
+  it("normalizes negative aiRemaining to generic with dayCount 1", () => {
+    const plan = planGenerationRun(4, -1)
+    assert.equal(plan.mode, "generic")
+    assert.equal(plan.mode === "generic" && plan.dayCount, 1)
+    const message = plan.mode === "generic" ? plan.confirm.message : ""
+    assert.doesNotMatch(message, /-1/)
+    assert.doesNotMatch(message, /NaN/)
+  })
+
+  it("normalizes fractional aiRemaining to integer dayCount", () => {
+    const plan = planGenerationRun(4, 2.5)
+    assert.equal(plan.mode, "generic")
+    assert.equal(plan.mode === "generic" && plan.dayCount, 2)
+    const message = plan.mode === "generic" ? plan.confirm.message : ""
+    assert.doesNotMatch(message, /2\.5/)
+  })
+
+  it("treats NaN aiRemaining as unknown and uses outline path", () => {
+    const plan = planGenerationRun(4, NaN)
+    assert.equal(plan.mode, "outline")
+    assert.equal(plan.mode === "outline" && plan.dayCount, 4)
+    const message = plan.mode === "outline" ? plan.confirm.message : ""
+    assert.doesNotMatch(message, /NaN/)
+  })
+
+  it("treats Infinity aiRemaining as unknown and uses outline path", () => {
+    const plan = planGenerationRun(4, Infinity)
+    assert.equal(plan.mode, "outline")
+    assert.equal(plan.mode === "outline" && plan.dayCount, 4)
+  })
+
+  it("returns mode none for negative emptyDayCount", () => {
+    const plan = planGenerationRun(-3, 5)
+    assert.deepEqual(plan, { mode: "none" })
+  })
+
+  it("normalizes fractional emptyDayCount to integer dayCount", () => {
+    const plan = planGenerationRun(2.7, 10)
+    assert.equal(plan.mode, "outline")
+    assert.equal(plan.mode === "outline" && plan.dayCount, 2)
+    const message = plan.mode === "outline" ? plan.confirm.message : ""
+    assert.doesNotMatch(message, /2\.7/)
+  })
 })

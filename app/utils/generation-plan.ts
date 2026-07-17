@@ -18,32 +18,47 @@ export type GenerationPlan =
   | { mode: "generic"; dayCount: number; confirm: GenerationConfirm }
 
 export function planGenerationRun(emptyDayCount: number, aiRemaining?: number): GenerationPlan {
-  if (emptyDayCount <= 0) return { mode: "none" }
+  // Normalize inputs to ensure non-negative integers. Non-finite values are
+  // treated as missing/unknown to prevent broken iteration counts and messages.
+  let normalizedDayCount = Number.isFinite(emptyDayCount) ? Math.floor(emptyDayCount) : NaN
+  normalizedDayCount = Math.max(0, normalizedDayCount)
 
-  const dayWord = emptyDayCount === 1 ? "day" : "days"
+  if (normalizedDayCount === 0) return { mode: "none" }
 
-  if (aiRemaining == null || aiRemaining >= emptyDayCount + 1) {
+  let normalizedAiRemaining = aiRemaining
+  if (normalizedAiRemaining !== undefined) {
+    if (!Number.isFinite(normalizedAiRemaining)) {
+      normalizedAiRemaining = undefined
+    } else {
+      normalizedAiRemaining = Math.max(0, Math.floor(normalizedAiRemaining))
+    }
+  }
+
+  const dayWord = normalizedDayCount === 1 ? "day" : "days"
+
+  if (normalizedAiRemaining == null || normalizedAiRemaining >= normalizedDayCount + 1) {
     return {
       mode: "outline",
-      dayCount: emptyDayCount,
+      dayCount: normalizedDayCount,
       confirm: {
         title: "Generate full itinerary",
-        message: `AI will plan your ${emptyDayCount} empty ${dayWord} together — themes, areas, and pacing — then fill each one. Uses ${emptyDayCount + 1} AI prompts (1 to plan the trip, 1 per day).`,
+        message: `AI will plan your ${normalizedDayCount} empty ${dayWord} together — themes, areas, and pacing — then fill each one. Uses ${normalizedDayCount + 1} AI prompts (1 to plan the trip, 1 per day).`,
         confirmText: "Generate",
       },
     }
   }
 
-  // aiRemaining === 0 still attempts one day so the server's 429 surfaces to
+  // normalizedAiRemaining === 0 still attempts one day so the server's 429 surfaces to
   // the user as an error instead of the run silently doing nothing.
-  const dayCount = aiRemaining === 0 ? 1 : Math.min(aiRemaining, emptyDayCount)
+  const dayCount =
+    normalizedAiRemaining === 0 ? 1 : Math.min(normalizedAiRemaining, normalizedDayCount)
 
   return {
     mode: "generic",
     dayCount,
     confirm: {
       title: "Not enough AI prompts",
-      message: `Planning the whole trip needs ${emptyDayCount + 1} prompts (1 to plan, 1 per day) but you have ${aiRemaining} left this month. Skip trip-level planning and fill ${dayCount} ${dayCount === 1 ? "day" : "days"} instead?`,
+      message: `Planning the whole trip needs ${normalizedDayCount + 1} prompts (1 to plan, 1 per day) but you have ${normalizedAiRemaining} left this month. Skip trip-level planning and fill ${dayCount} ${dayCount === 1 ? "day" : "days"} instead?`,
       confirmText: "Continue anyway",
     },
   }
