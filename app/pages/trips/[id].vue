@@ -1852,12 +1852,12 @@ async function recomputeSegments(dayId: string) {
     >
       <div
         v-if="generatingItinerary"
-        class="pointer-events-none fixed bottom-28 left-1/2 z-40 -translate-x-1/2"
+        class="pointer-events-none fixed left-1/2 top-20 z-[80] -translate-x-1/2 md:top-auto md:bottom-28"
         role="status"
         aria-live="polite"
       >
         <div
-          class="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm shadow-lg ring-1 ring-black/5"
+          class="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm text-sand-800 shadow-lg ring-1 ring-black/5"
         >
           <span class="size-2 animate-pulse rounded-full bg-terra-500" />
           <span class="truncate max-w-[70vw]">
