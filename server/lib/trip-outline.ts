@@ -90,13 +90,11 @@ function cleanCappedList(items: string[], cap: number): string[] {
  * of each name and how many reach the prompt, since this is only dedup context.
  */
 function sanitizeActivityNames(names: string[]): string[] {
-  const out: string[] = []
-  for (const name of names.slice(0, MAX_ACTIVITY_NAMES_PER_DAY)) {
-    const cleaned = sanitizePromptInput(name)
-    if (!cleaned) continue
-    out.push(cleaned.slice(0, MAX_ACTIVITY_NAME_LENGTH))
-  }
-  return out
+  return names
+    .map((name) => sanitizePromptInput(name))
+    .filter((cleaned): cleaned is string => cleaned !== null)
+    .map((cleaned) => cleaned.slice(0, MAX_ACTIVITY_NAME_LENGTH))
+    .slice(0, MAX_ACTIVITY_NAMES_PER_DAY)
 }
 
 function buildFlightsCtx(flights: TripOutlineInput["flights"]): string {
@@ -125,7 +123,13 @@ function buildPrompt(input: TripOutlineInput): string {
   // destination comes from trip.destination (createTripSchema.name: free text, no
   // injection filtering) and flows back from user input — sanitize before it enters
   // the prompt, falling back to a neutral placeholder when it's rejected.
-  const safeDestination = sanitizePromptInput(input.destination) ?? "the destination"
+  const sanitizedDestination = sanitizePromptInput(input.destination)
+  if (!sanitizedDestination) {
+    console.warn(
+      `[trip-outline] destination sanitized to null, falling back to placeholder (rejected: ${input.destination.slice(0, 40)})`,
+    )
+  }
+  const safeDestination = sanitizedDestination ?? "the destination"
   const emptyNumbers = input.days.filter((d) => d.isEmpty).map((d) => d.dayNumber)
   return `Plan the shape of a trip to ${safeDestination} from ${input.startDate} to ${input.endDate}.
 
