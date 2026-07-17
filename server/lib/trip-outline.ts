@@ -46,7 +46,12 @@ export interface TripOutline {
 
 // ── Schema ───────────────────────────────────────────────────────────
 
-const outlineSchema = z.object({
+export const outlineSchema = z.object({
+  routeReasoning: z
+    .string()
+    .describe(
+      "Dedicated route check — the trip's geographic arc across days: which area each day covers and why that order never makes the traveler double back. Place en-route sights on the day that travels past them.",
+    ),
   days: z.array(
     z.object({
       dayNumber: z.number().int().describe("The day number this entry plans"),
@@ -147,7 +152,9 @@ Rules:
 - mustInclude is 0-3 anchor places per day. Leave it empty rather than inventing a place you are not confident exists.
 - Use the flight times: if the traveler lands late, the arrival day is a light evening only; if they fly out, the departure day ends before they must leave for the airport. Say so in that day's guidance.
 - avoidRepeats must list every already-planned activity name above plus every place you put in mustInclude, so no day duplicates them.
-- Plan themes and areas only — do NOT invent specific venue names beyond the saved ideas and famous, well-known landmarks. Exact venues are chosen later.`
+- Plan themes and areas only — do NOT invent specific venue names beyond the saved ideas and famous, well-known landmarks. Exact venues are chosen later.
+- Sequence the days' focus areas as ONE geographic arc across the trip — never make the traveler double back to an area they already covered on an earlier day.
+- Put en-route sights on the day the traveler actually travels past them (a stop between two cities belongs on the transfer day, not on a day that turns it into a dedicated round trip).`
 }
 
 const SYSTEM = `You are a local travel expert planning the arc of a whole trip: themes, areas, and pacing across days — not individual venues.
@@ -185,6 +192,8 @@ export async function buildTripOutline(
     })
 
   const raw = await withOneRetry("outline", () => generate({ prompt, system: SYSTEM }))
+
+  console.info(`[trip-outline] route reasoning: ${raw.routeReasoning}`)
 
   // Server-side validation: the model may hallucinate day numbers or overrun caps.
   const emptyById = new Map(input.days.filter((d) => d.isEmpty).map((d) => [d.dayNumber, d.dayId]))
