@@ -20,7 +20,7 @@ import { creditsForSteps, MAX_DISCUSS_STEPS, STEPS_PER_CREDIT } from "../../../u
 import { getTripWithRelations } from "../../../lib/trips"
 import { stampGroup } from "../../../lib/proposal-targeting"
 import type { Proposal } from "../../../lib/proposals"
-import { mapChunk } from "../../../lib/discuss-stream"
+import { mapChunk, toSseFrame } from "../../../lib/discuss-stream"
 
 const discussBodySchema = z.object({
   messages: z
@@ -323,16 +323,20 @@ export default defineEventHandler(async (event) => {
         if (!mapped) continue
         if (mapped.type === "tool") {
           toolLines.push(mapped.line)
-          await stream.push({ event: "tool", data: JSON.stringify({ line: mapped.line }) })
+          await stream.push(toSseFrame({ event: "tool", data: { line: mapped.line } }))
         } else {
           streamedText += mapped.delta
-          await stream.push({ event: "text", data: JSON.stringify({ delta: mapped.delta }) })
+          await stream.push(toSseFrame({ event: "text", data: { delta: mapped.delta } }))
         }
       }
 
-      // The user got value iff they saw text or got proposals. Existing
-      // fallbackDiscussMessage rule, extended to streaming.
-      const streamedAny = streamedText.length > 0 || proposalCollector.length > 0
+      // The user got value iff they saw non-whitespace text or got proposals.
+      // MUST use the same trim() as fallbackDiscussMessage's text.trim().length>0
+      // check below — mapChunk only drops zero-length deltas, so a whitespace-only
+      // delta (" ", "\n") streams through and would otherwise make this true while
+      // fallbackDiscussMessage still calls it empty, charging the user for a turn
+      // whose message says it wasn't counted.
+      const streamedAny = streamedText.trim().length > 0 || proposalCollector.length > 0
 
       if (controller.signal.aborted) {
         // Metered even when cancelled: those steps were really spent.
@@ -342,21 +346,25 @@ export default defineEventHandler(async (event) => {
       }
 
       const final = fallbackDiscussMessage(streamedText, proposalCollector.length)
-      // shouldRefund === !streamedAny in practice; pass streamedAny so the
-      // settle rule has ONE definition.
+      // shouldRefund is exactly !streamedAny: fallbackDiscussMessage refunds iff
+      // text.trim() is empty AND there are no proposals, which is the precise
+      // negation of streamedAny's OR above (same trim(), same proposal check) —
+      // not "in practice", provably so as long as both stay in sync.
       const creditsUsed = await settleCredits(streamedAny, stepsUsed)
 
       const groupedProposals = stampGroup(proposalCollector, randomUUID())
 
-      await stream.push({
-        event: "done",
-        data: JSON.stringify({
-          message: final.message,
-          proposals: groupedProposals,
-          toolCallSummary: toolLines,
-          creditsUsed,
+      await stream.push(
+        toSseFrame({
+          event: "done",
+          data: {
+            message: final.message,
+            proposals: groupedProposals,
+            toolCallSummary: toolLines,
+            creditsUsed,
+          },
         }),
-      })
+      )
       doneSent = true
 
       console.log(
@@ -387,7 +395,9 @@ export default defineEventHandler(async (event) => {
       // strand the client's SSE connection open forever with no `error` event
       // and no close.
       try {
-        const streamedAny = streamedText.length > 0 || proposalCollector.length > 0
+        // Same predicate as the clean-finish path above — must match
+        // fallbackDiscussMessage's text.trim().length>0 check exactly.
+        const streamedAny = streamedText.trim().length > 0 || proposalCollector.length > 0
         await settleCredits(streamedAny, stepsUsed)
         // `push` is a no-op once the writer has cleanly closed (h3's `_sendEvent`
         // early-returns in that case), so this guard exists to avoid pushing an
@@ -395,12 +405,14 @@ export default defineEventHandler(async (event) => {
         // and to avoid misreporting a turn as failed after `done` already shipped
         // (doneSent).
         if (!controller.signal.aborted && !doneSent) {
-          await stream.push({
-            event: "error",
-            data: JSON.stringify({
-              message: "Sorry — I couldn't think that through right now. Try again in a moment.",
+          await stream.push(
+            toSseFrame({
+              event: "error",
+              data: {
+                message: "Sorry — I couldn't think that through right now. Try again in a moment.",
+              },
             }),
-          })
+          )
         }
       } catch (settleOrPushError) {
         // No client left to tell; log so a settle-primitive failure is diagnosable.

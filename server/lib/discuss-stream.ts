@@ -6,6 +6,20 @@
  * and can never drift apart.
  */
 
+// `DiscussSseEvent` lives in shared/utils/discuss-sse.ts (not here) so the
+// client can import the wire contract via Nuxt's `#shared` alias instead of
+// reaching directly into server/. This file stays free of RUNTIME imports —
+// `import type` is erased at compile time, so referencing the type below
+// costs nothing at runtime and keeps this module unit-testable with plain
+// object literals. See shared/utils/discuss-sse.ts for the full contract
+// and the Proposal-typing tradeoff.
+import type { DiscussSseEvent } from "../../shared/utils/discuss-sse"
+
+/** Build an h3 `EventStreamMessage`-shaped frame from a typed event. */
+export function toSseFrame(e: DiscussSseEvent): { event: DiscussSseEvent["event"]; data: string } {
+  return { event: e.event, data: JSON.stringify(e.data) }
+}
+
 export interface ToolSummaryEntry {
   toolId: string
   args: Record<string, unknown>

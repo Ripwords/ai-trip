@@ -188,16 +188,26 @@ function onListScroll() {
   if (!userScrolledUp.value) newReplyPending.value = false
 }
 
-watch(
-  () => props.messages.length,
-  () => {
-    if (userScrolledUp.value) {
-      newReplyPending.value = true
-    } else {
-      nextTick(() => scrollToBottom())
-    }
-  },
-)
+// Streaming mutates the LAST message in place (empty bubble -> tool lines ->
+// text deltas) without changing `messages.length`, so length alone can't
+// drive autoscroll anymore — a long reply would stream entirely below the
+// fold. Watch a cheap derived signal instead: a string built from three
+// O(1) property reads (message count, last message's content length, last
+// message's tool-line count). This fires on every token like the old
+// length-only watcher did on every new message, but stays O(1) per fire —
+// no deep watch of the array or its content strings.
+const lastMessageProgress = computed(() => {
+  const last = props.messages[props.messages.length - 1]
+  return `${props.messages.length}:${last?.content.length ?? 0}:${last?.toolCallSummary?.length ?? 0}`
+})
+
+watch(lastMessageProgress, () => {
+  if (userScrolledUp.value) {
+    newReplyPending.value = true
+  } else {
+    nextTick(() => scrollToBottom())
+  }
+})
 
 watch(
   () => props.loading,

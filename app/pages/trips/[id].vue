@@ -5,6 +5,7 @@ import type { ReviewFinding } from "~/types/review"
 import type { ChatMessage } from "~/components/AiDock.vue"
 import { countryByAlpha2 } from "~/data/countries"
 import { parseSseFrames } from "../../utils/sse-parse"
+import type { DiscussSseEvent } from "#shared/utils/discuss-sse"
 
 definePageMeta({ layout: "app" })
 
@@ -841,31 +842,31 @@ async function handleAiSubmit(text: string) {
       buf = rest
 
       for (const frame of frames) {
+        // Cast through the shared DiscussSseEvent union (shared/utils/discuss-sse.ts)
+        // rather than an ad hoc literal per branch — a field rename on either side
+        // (e.g. delta -> text) now breaks the build instead of silently reading
+        // `undefined` at runtime. The `as` here is unavoidable: SSE payloads are
+        // JSON.parse'd `unknown` and this is the only boundary where the network
+        // meets the type system.
         const payload: unknown = JSON.parse(frame.data)
         if (frame.event === "tool") {
-          const { line } = payload as { line: string }
+          const { line } = payload as Extract<DiscussSseEvent, { event: "tool" }>["data"]
           patch((m) => ({ ...m, toolCallSummary: [...(m.toolCallSummary ?? []), line] }))
         } else if (frame.event === "text") {
-          const { delta } = payload as { delta: string }
+          const { delta } = payload as Extract<DiscussSseEvent, { event: "text" }>["data"]
           patch((m) => ({ ...m, content: m.content + delta }))
         } else if (frame.event === "done") {
-          const donePayload = payload as {
-            message: string
-            proposals: Proposal[]
-            toolCallSummary: string[]
-            creditsUsed: number
-          }
+          const donePayload = payload as Extract<DiscussSseEvent, { event: "done" }>["data"]
+          const proposals: Proposal[] = donePayload.proposals
           patch((m) => ({
             ...m,
             content: donePayload.message,
             toolCallSummary: donePayload.toolCallSummary,
-            proposals: donePayload.proposals,
-            proposalStates: Object.fromEntries(
-              donePayload.proposals.map((p) => [p.id, "pending" as const]),
-            ),
+            proposals,
+            proposalStates: Object.fromEntries(proposals.map((p) => [p.id, "pending" as const])),
           }))
         } else if (frame.event === "error") {
-          streamError = (payload as { message: string }).message
+          streamError = (payload as Extract<DiscussSseEvent, { event: "error" }>["data"]).message
         }
       }
     }
