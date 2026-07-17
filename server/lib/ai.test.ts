@@ -55,3 +55,30 @@ describe("generation schemas", () => {
     assert.ok(!("routeReasoning" in activityShape))
   })
 })
+
+describe("buildOptimizeActivitiesPayload", () => {
+  it("includes opening hours when the activity has them", async () => {
+    const { buildOptimizeActivitiesPayload } = await import("./ai")
+    const payload = buildOptimizeActivitiesPayload([
+      {
+        name: "Marble Mountains",
+        type: "attraction",
+        lat: 16.0,
+        lng: 108.26,
+        address: "Da Nang",
+        openingHours: ["Monday: 7:00 AM – 5:30 PM"],
+      },
+      {
+        name: "Beach",
+        type: "attraction",
+        lat: 16.05,
+        lng: 108.25,
+        address: null,
+        openingHours: null,
+      },
+    ])
+    assert.deepEqual(payload[0]?.hours, ["Monday: 7:00 AM – 5:30 PM"])
+    assert.equal(payload[1]?.hours, undefined)
+    assert.equal(payload[0]?.name, "Marble Mountains")
+  })
+})

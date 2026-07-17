@@ -576,6 +576,32 @@ Check if the existing activities cover lunch and dinner. If lunch (11:30-14:00) 
   return { activities: filtered, timeUpdates: object.timeUpdates ?? [] }
 }
 
+/** Prompt payload for optimize — includes persisted opening hours so "respect real opening hours" is actionable, not aspirational. */
+export function buildOptimizeActivitiesPayload(
+  activities: {
+    name: string
+    type: string
+    suggestedTime?: string | null
+    estimatedDurationMinutes?: number | null
+    lat: number | null
+    lng: number | null
+    address: string | null
+    openingHours?: string[] | null
+  }[],
+) {
+  return activities.map((a, index) => ({
+    index,
+    name: a.name,
+    type: a.type,
+    time: a.suggestedTime ?? null,
+    dur: a.estimatedDurationMinutes ?? null,
+    lat: a.lat,
+    lng: a.lng,
+    addr: a.address,
+    hours: a.openingHours?.length ? a.openingHours : undefined,
+  }))
+}
+
 async function handleOptimize(params: {
   destination: string
   date: string
@@ -587,6 +613,7 @@ async function handleOptimize(params: {
     lat: number | null
     lng: number | null
     address: string | null
+    openingHours?: string[] | null
   }[]
   prompt?: string
   startLocation?: StartLocation
@@ -615,18 +642,7 @@ Optimize for minimum travel time, BUT respect time-of-day expectations:
 
 When a time-of-day constraint conflicts with the shortest-travel ordering, follow the time-of-day constraint and minimize travel within what's left.
 ${formatPreferences(params.preferences)}${buildFlightsCtx(params.flights)}
-ACTIVITIES: ${JSON.stringify(
-        params.activities.map((a, index) => ({
-          index,
-          name: a.name,
-          type: a.type,
-          time: a.suggestedTime,
-          dur: a.estimatedDurationMinutes,
-          lat: a.lat,
-          lng: a.lng,
-          addr: a.address,
-        })),
-      )}
+ACTIVITIES: ${JSON.stringify(buildOptimizeActivitiesPayload(params.activities))}
 ${params.startLocation ? `START FROM: ${params.startLocation.name}${params.startLocation.address ? ` (${params.startLocation.address})` : ""}` : ""}
 ${params.prompt ? `Traveler wants: ${params.prompt}` : ""}`,
     }),
@@ -645,6 +661,7 @@ async function handleReschedule(params: {
     type: string
     suggestedTime: string | null
     estimatedDurationMinutes: number | null
+    openingHours?: string[] | null
   }[]
   startLocation?: StartLocation
   preferences?: TripPreferences
@@ -663,7 +680,7 @@ async function handleReschedule(params: {
       prompt: `The traveler says: "${params.prompt}"
 ${formatPreferences(params.preferences)}${buildFlightsCtx(params.flights)}
 Current schedule:
-${JSON.stringify(params.activities.map((a) => ({ name: a.name, type: a.type, time: a.suggestedTime, dur: a.estimatedDurationMinutes })))}
+${JSON.stringify(params.activities.map((a) => ({ name: a.name, type: a.type, time: a.suggestedTime, dur: a.estimatedDurationMinutes, hours: a.openingHours?.length ? a.openingHours : undefined })))}
 ${params.startLocation ? `Start point: ${params.startLocation.name}${params.startLocation.address ? ` (${params.startLocation.address})` : ""}` : ""}
 
 Adjust the times to fix the issue the traveler described. Return ALL activities with updated times. Keep the same activities — only change when they happen.
@@ -769,6 +786,7 @@ export async function processUserRequest(params: {
     address?: string | null
     lat?: number | null
     lng?: number | null
+    openingHours?: string[] | null
   }[]
   accommodation?: { name: string; address: string | null }
   startLocation?: StartLocation
@@ -910,6 +928,7 @@ export async function processUserRequest(params: {
             lat: a.lat ?? null,
             lng: a.lng ?? null,
             address: a.address ?? null,
+            openingHours: a.openingHours ?? null,
           })),
           prompt: params.prompt,
           startLocation: params.startLocation,

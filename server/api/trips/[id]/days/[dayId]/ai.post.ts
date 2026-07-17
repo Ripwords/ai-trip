@@ -158,6 +158,7 @@ export default defineEventHandler(async (event) => {
         address: a.address,
         lat: a.lat,
         lng: a.lng,
+        openingHours: a.openingHours,
       })),
       accommodation: day.accommodationName
         ? { name: day.accommodationName, address: day.accommodationAddress }
