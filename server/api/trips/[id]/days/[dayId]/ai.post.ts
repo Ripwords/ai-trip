@@ -34,14 +34,12 @@ export default defineEventHandler(async (event) => {
   const { id, dayId } = await getValidatedRouterParams(event, dayIdParamsSchema.parse)
   const { prompt: rawPrompt, intent } = await readValidatedBody(event, aiBodySchema.parse)
 
-  // Atomically consume one AI credit (throws 429 if limit reached)
-  await tryConsumeAiCredit(session.user.id)
-
-  // Sanitize prompt
+  // Sanitize before consuming: this is pure string validation, so a rejection
+  // here must never cost the traveler a credit. (Phase 3 added a refund here
+  // because the consume used to come first; moving the consume below every
+  // validation makes that refund unnecessary rather than merely correct.)
   const prompt = sanitizePromptInput(rawPrompt)
   if (!prompt) {
-    // The credit was consumed above, before we could validate the prompt — give it back.
-    await refundAiCredit(session.user.id)
     throw createError({
       statusCode: 400,
       message:
@@ -73,6 +71,11 @@ export default defineEventHandler(async (event) => {
   if (!day) {
     throw createError({ statusCode: 404, message: "Day not found" })
   }
+
+  // Atomically consume one AI credit (throws 429 if limit reached). Kept last
+  // among the rejections that can be known without calling the model, so a
+  // 403/404 never burns a credit.
+  await tryConsumeAiCredit(session.user.id)
 
   // Fetch saved ideas for AI context
   const savedIdeasRows = await db.query.tripIdeas.findMany({

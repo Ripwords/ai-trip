@@ -89,7 +89,12 @@ export async function chargeExtraAiCredits(userId: string, extra: number): Promi
 
 /**
  * Refund one AI credit. Use after a planning step fails and no work was committed.
- * Does NOT go below zero. Safe to call multiple times if a single consume succeeded.
+ * Does NOT go below zero.
+ *
+ * NOT idempotent: the SQL is `GREATEST(count - 1, 0)`, so calling this twice for
+ * a single consume decrements twice and mints the user a free credit. Each
+ * request must refund at most once — where a handler has several failure paths,
+ * route them all through one guard (see discuss.post.ts's `settleCredits`).
  */
 export async function refundAiCredit(userId: string): Promise<void> {
   const month = getCurrentMonth()

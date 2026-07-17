@@ -19,10 +19,25 @@ function ensureDomPurifyHook() {
   domPurifyHookRegistered = true
 }
 
-function renderMarkdown(content: string): string {
+// Streaming replaces `aiMessages.value` once per `text` delta (~per token),
+// which changes the prop array identity and re-runs the whole `v-for` render
+// function — so an unmemoized parse+sanitize here becomes O(tokens *
+// messages) instead of O(messages). Cache keyed by message id (not by the
+// content string) so a message that is still streaming — whose content
+// changes every token — overwrites its OWN single cache entry instead of
+// growing the cache by one per token. Bounded with simple oldest-first
+// eviction (Map preserves insertion order) so a very long session still
+// can't grow this unboundedly.
+const MARKDOWN_CACHE_LIMIT = 50
+const markdownCache = new Map<string, { content: string; html: string }>()
+
+function renderMarkdown(id: string, content: string): string {
+  const cached = markdownCache.get(id)
+  if (cached && cached.content === content) return cached.html
+
   ensureDomPurifyHook()
   const html = marked.parse(content, { async: false }) as string
-  return DOMPurify.sanitize(html, {
+  const sanitized = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
       "p",
       "br",
@@ -46,6 +61,13 @@ function renderMarkdown(content: string): string {
     ],
     ALLOWED_ATTR: ["href", "title", "target", "rel"],
   })
+
+  markdownCache.set(id, { content, html: sanitized })
+  if (markdownCache.size > MARKDOWN_CACHE_LIMIT) {
+    const oldestKey = markdownCache.keys().next().value
+    if (oldestKey !== undefined) markdownCache.delete(oldestKey)
+  }
+  return sanitized
 }
 
 export type ChatRole = "user" | "assistant" | "system"
@@ -166,16 +188,26 @@ function onListScroll() {
   if (!userScrolledUp.value) newReplyPending.value = false
 }
 
-watch(
-  () => props.messages.length,
-  () => {
-    if (userScrolledUp.value) {
-      newReplyPending.value = true
-    } else {
-      nextTick(() => scrollToBottom())
-    }
-  },
-)
+// Streaming mutates the LAST message in place (empty bubble -> tool lines ->
+// text deltas) without changing `messages.length`, so length alone can't
+// drive autoscroll anymore — a long reply would stream entirely below the
+// fold. Watch a cheap derived signal instead: a string built from three
+// O(1) property reads (message count, last message's content length, last
+// message's tool-line count). This fires on every token like the old
+// length-only watcher did on every new message, but stays O(1) per fire —
+// no deep watch of the array or its content strings.
+const lastMessageProgress = computed(() => {
+  const last = props.messages[props.messages.length - 1]
+  return `${props.messages.length}:${last?.content.length ?? 0}:${last?.toolCallSummary?.length ?? 0}`
+})
+
+watch(lastMessageProgress, () => {
+  if (userScrolledUp.value) {
+    newReplyPending.value = true
+  } else {
+    nextTick(() => scrollToBottom())
+  }
+})
 
 watch(
   () => props.loading,
@@ -421,7 +453,7 @@ const proposalKindMeta: Record<
                   {{ line }}
                 </p>
               </div>
-              <div class="dock-assistant-body" v-html="renderMarkdown(msg.content)" />
+              <div class="dock-assistant-body" v-html="renderMarkdown(msg.id, msg.content)" />
 
               <!-- Inline proposal cards, grouped by chat-turn groupId -->
               <div v-for="g in proposalGroups(msg)" :key="g.key" class="mt-1 flex flex-col gap-2">

@@ -856,8 +856,12 @@ export async function processUserRequest(params: {
       }
     }
   } catch (e) {
+    // Rethrow — do NOT swallow. ai.post.ts's catch turns this into a 502 AND
+    // refunds the credit. Swallowing it returned 200 with zero activities: the
+    // user was charged, the page reported success over an empty day, and the
+    // full-itinerary loop counted the day as generated.
     logger.error("=== HANDLER FAILED ===", { intent, error: String(e) })
-    result.message = "Something went wrong processing your request. Please try again."
+    throw e
   }
 
   // Normalize AI-produced times/durations before they reach any DB write.

@@ -7,7 +7,7 @@ trip-level generation shipped)
 
 ## Problem
 
-`POST /api/trips/[id]/discuss` runs a Mastra agent with `maxSteps: 10` and
+`POST /api/trips/[id]/discuss` runs a Mastra agent with a 30-step ceiling and
 returns one JSON blob only after the whole tool-calling loop finishes — web
 searches, Places lookups, distance checks included. The user watches an
 animated-dots placeholder ("Thinking...") for the entire turn with no signal
@@ -15,7 +15,7 @@ of what is happening.
 
 The endpoint already builds a `toolCallSummary` ("searched Google Maps for
 'ramen Shinjuku'", "checked travel time between two stops") and `AiDock.vue`
-already renders it — but only *retrospectively*, attached to the finished
+already renders it — but only _retrospectively_, attached to the finished
 message. The words describing the work exist; they just arrive after the work
 is over.
 
@@ -32,13 +32,13 @@ correctness, which this work touches directly):
 - `refundAiCredit`'s docstring (`server/utils/ai-limits.ts:71`) claims it is
   "Safe to call multiple times if a single consume succeeded." It is not: the
   SQL is `GREATEST(count - 1, 0)`, so two calls on one consume mint the user a
-  free credit. Separately, `ai.post.ts:38` consumes the credit *before* its
+  free credit. Separately, `ai.post.ts:38` consumes the credit _before_ its
   auth/existence checks, so a 403/404 burns a credit — the other two AI
   endpoints deliberately consume after those checks and comment on it.
 
 ## Decisions (from brainstorming)
 
-- **Full streaming**, not one or the other: live tool progress *and*
+- **Full streaming**, not one or the other: live tool progress _and_
   token-by-token text.
 - **Proposals arrive at the end**, on the final event — not as they are
   emitted. The `propose*` tools fire during the tool loop, so `proposalCollector`
@@ -50,12 +50,50 @@ correctness, which this work touches directly):
 - **Refund only if nothing streamed.** No text AND no proposals → refund.
   Anything delivered → charged. This extends the existing
   `fallbackDiscussMessage` rule verbatim rather than inventing a second one.
+  "Charged" means **metered by steps**, per the existing pricing below — not a
+  flat credit.
 - **Transport: SSE via h3's `createEventStream`** (approach A). NDJSON over a
   raw `ReadableStream` (approach B) is the named fallback — same four events,
   different framing — if the `@experimental` API or Vercel buffering bites.
 - **Scope:** streaming + the two credit-correctness defects above. Chat
   persistence stays out, as ruled by the Phase 2 / AI-chat-rework specs ("No
   chat history / persistence… No new database tables").
+
+## Existing behaviour that MUST be preserved
+
+Three things in the current endpoint are load-bearing and easy to lose in a
+rewrite. An earlier draft of this spec mis-described the endpoint and would have
+deleted all three; they are recorded here so that cannot happen again.
+
+- **`maxSteps: MAX_DISCUSS_STEPS` (30, from `server/utils/ai-credit-cost.ts`).**
+  This is a _runaway guard, not a UX budget_ — its own docstring explains it is
+  sized against Vercel's 300s function limit, because if the process is killed
+  mid-flight the endpoint's refund never runs and the user is charged for
+  nothing. Do not lower it.
+- **`prepareStep`.** On the last permitted step it returns `{ activeTools: [] }`,
+  stripping the toolset so the model _must_ spend that step writing a reply —
+  hitting the ceiling degrades to a partial answer instead of silence. On every
+  other step it re-states `DISCUSS_SYSTEM_PROMPT` verbatim plus a runtime note
+  telling the model how many steps remain and that every `STEPS_PER_CREDIT`
+  steps costs the user a credit. This is what makes the system prompt's "wind
+  down when running low on steps" instruction honourable at all, and it is what
+  makes `fallbackDiscussMessage`'s refund path "near-unreachable". It was added
+  by commit `15ddaa9` to fix exactly the empty-reply bug this phase must not
+  reintroduce. `prepareStep` is on `AgentExecutionOptionsBase`, so `stream()`
+  accepts it unchanged.
+- **Step-metered billing.** A discuss turn does NOT cost a flat credit.
+  `STEPS_PER_CREDIT = 8`; `creditsForSteps(steps)` brackets the cost
+  (`max(1, ceil(min(steps, 30) / 8))`) so ordinary chat stays at 1 credit and a
+  research binge pays its way. One credit is taken up front by
+  `tryConsumeAiCredit`, and the remainder is charged at the end via
+  `chargeExtraAiCredits(userId, creditsUsed - 1)`. The turn's `creditsUsed` is
+  returned to the client (no UI consumes it yet, but the field exists so a heavy
+  turn can be surfaced rather than silently charged against a 100/month
+  allowance).
+
+`stepsUsed` is currently counted in `onStepFinish`. Under streaming it is
+counted from `'step-finish'` chunks on `fullStream` — verified present in the
+installed chunk union.
 
 ## Feasibility (verified against installed versions)
 
@@ -69,7 +107,7 @@ correctness, which this work touches directly):
 - Tool visibility: `fullStream`/`onChunk` emit a typed union
   (`@mastra/core/dist/stream/types.d.ts:769`). The decisive event is
   **`tool-call`** — it carries the full `{ toolCallId, toolName, args }` and
-  fires *before* the tool executes, which is what makes "searching Google Maps
+  fires _before_ the tool executes, which is what makes "searching Google Maps
   for 'X'…" possible. (`tool-call-input-streaming-start` carries only a
   toolName and is not enough; `tool-result`/`tool-error` come too late.)
 - `h3@1.15.11` ships `createEventStream(event)` → `push()` / `onClosed()` /
@@ -96,15 +134,24 @@ correctness, which this work touches directly):
   fire on client disconnect. `H3Event` carries no built-in `AbortSignal` in
   this h3 version — we wire our own and pass it to `agent.stream({ abortSignal })`.
 
-**Verified by reading, not by deploying.** A Vercel preview spike was offered
-and declined. Two things therefore remain unproven until this ships to a
-preview: whether Vercel's Lambda-streaming bridge buffers `text/event-stream`
-(which would defeat the feature), and how promptly a client TCP close
-propagates back to the Node process (which the cancel→abort behavior depends
-on). Mitigation: both are transport-level, and approach B is a contained
-fallback that changes only framing. **The implementation plan must include a
-preview-deploy check of incremental delivery before this is called done** —
-`bun test` cannot observe either property.
+**Verified by reading, not by deploying — deliberately.** Platform questions are
+answered here from the installed source and Vercel's published docs; deploying
+to verify is explicitly out of bounds for this project. The evidence above is
+what it is: nitropack's Node preset hard-codes `supportsResponseStreaming: true`,
+and Vercel documents streaming support on Serverless. That is the answer.
+
+Two things consequently remain **named unknowns**, not blockers:
+
+- Whether Vercel's Lambda bridge buffers `text/event-stream` in practice. If it
+  ever does, the feature degrades to today's behaviour (one blob at the end) —
+  no data loss, no billing impact — and the contained fallback is approach B,
+  NDJSON over a raw `ReadableStream`, which changes framing only.
+- How promptly a client TCP close propagates to the Node process, which the
+  cancel→abort behaviour depends on. See the cancel note below.
+
+Verification is local: drive the real app and observe. `bun test` cannot observe
+incremental delivery or disconnect handling, but a local dev server can, and
+local findings are reported as local findings.
 
 ## Design
 
@@ -122,10 +169,13 @@ Only then: open the stream, and replace `generate` with
 ```ts
 const result = await discussAgent.stream(cleanMessages, {
   toolsets: { discuss: tools },
-  maxSteps: 10,
+  maxSteps: MAX_DISCUSS_STEPS, // 30 — runaway guard, unchanged
+  prepareStep, // unchanged — strips tools on the last step
   abortSignal: controller.signal,
 })
-for await (const chunk of result.fullStream) { /* map + push */ }
+for await (const chunk of result.fullStream) {
+  /* map + push */
+}
 ```
 
 Iterate `fullStream` **once** and switch on `chunk.type`, rather than mixing
@@ -137,50 +187,72 @@ Iterate `fullStream` **once** and switch on `chunk.type`, rather than mixing
 Discriminators confirmed present in the installed union: **`'tool-call'`**
 (payload `ToolCallPayload` — fires before execution, carries the args),
 **`'text-delta'`**, plus `'error'`, `'abort'` and `'finish'`. Everything else in
-the union (workflow-*, network-*, reasoning-*, background-task-*) maps to
+the union (workflow-_, network-_, reasoning-_, background-task-_) maps to
 nothing.
 
 **Wire protocol — four events:**
 
-| Event | Payload | Source |
-|---|---|---|
-| `tool` | `{ line: string }` | `'tool-call'` chunks → the existing `describeToolCall()`, filtering `propose*` exactly as `toolCallSummary` does today |
-| `text` | `{ delta: string }` | `'text-delta'` chunks |
-| `done` | `{ message, proposals, toolCallSummary }` | `fallbackDiscussMessage()` for `message`; `stampGroup(proposalCollector, randomUUID())` for `proposals` |
-| `error` | `{ message: string }` | in-stream failure (the stream is already 200; this is the only way to report) |
+| Event   | Payload                                                | Source                                                                                                                                                                                                    |
+| ------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tool`  | `{ line: string }`                                     | `'tool-call'` chunks → the existing `describeToolCall()`, filtering `propose*` exactly as `toolCallSummary` does today                                                                                    |
+| `text`  | `{ delta: string }`                                    | `'text-delta'` chunks                                                                                                                                                                                     |
+| `done`  | `{ message, proposals, toolCallSummary, creditsUsed }` | `fallbackDiscussMessage()` for `message`; `stampGroup(proposalCollector, randomUUID())` for `proposals`; `creditsUsed` from the settle step below — it replaces the field the JSON response returns today |
+| `error` | `{ message: string }`                                  | in-stream failure (the stream is already 200; this is the only way to report)                                                                                                                             |
 
-The existing `logTripAction` audit write stays, after the turn completes.
+`maxSteps: MAX_DISCUSS_STEPS` and `prepareStep` are passed to `stream()`
+unchanged from the current `generate()` call. The existing `logTripAction` audit
+write stays, after the turn completes, and keeps its `stepsUsed`/`creditsUsed`
+metadata.
 
 ### 2. Credit accounting
 
-Streaming multiplies the refund paths — pre-flight throw, mid-stream throw,
-client disconnect, empty-reply fallback — from two to four, all inside one
-handler. Since `refundAiCredit` is **not** idempotent (`GREATEST(count-1, 0)`),
-every path must route through one guard:
+Every post-consume exit must **settle** the turn exactly once — settling is
+either a refund or a metered charge. Streaming takes the settle paths from two
+to four (pre-stream throw, mid-stream throw, client disconnect, clean finish),
+all inside one handler.
+
+Both settle primitives are **non-idempotent**: `refundAiCredit` is
+`GREATEST(count - 1, 0)`, so a double refund mints a free credit; and
+`chargeExtraAiCredits` is `promptCount + extra`, so a double charge bills the
+user twice. A guard covering only refunds would therefore be insufficient — one
+guard covers both:
 
 ```ts
-let refunded = false
-async function refundOnce() {
-  if (refunded) return
-  refunded = true
-  await refundAiCredit(session.user.id)
+let settled = false
+/** Settle the turn exactly once: refund if the user got nothing, else meter. */
+async function settleCredits(streamedAny: boolean, stepsUsed: number): Promise<number> {
+  if (settled) return 0
+  settled = true
+  if (!streamedAny) {
+    await refundAiCredit(session.user.id)
+    return 0
+  }
+  const creditsUsed = creditsForSteps(stepsUsed)
+  await chargeExtraAiCredits(session.user.id, creditsUsed - 1)
+  return creditsUsed
 }
 ```
 
-Track `streamedAny = textDeltaCount > 0 || proposalCollector.length > 0`.
+Track `streamedAny = streamedText.length > 0 || proposalCollector.length > 0`
+and `stepsUsed` (incremented on each `'step-finish'` chunk).
 
-| Exit | Refunds |
-|---|---|
-| Any pre-flight throw (before consume) | 0 |
-| Throw after consume, before stream opens (existing wrap) | 1 |
-| Agent throws mid-stream, `streamedAny === false` | 1, then `error` event |
-| Agent throws mid-stream, `streamedAny === true` | 0, then `error` event (partial text kept) |
-| Client disconnects, `streamedAny === false` | 1 (abort the agent) |
-| Client disconnects, `streamedAny === true` | 0 (abort the agent) |
-| Clean finish, `fallbackDiscussMessage().shouldRefund` | 1 |
-| Clean finish with text or proposals | 0 |
+"Charged" always means metered — the steps were really spent, so a turn the user
+cancelled after 20 steps still costs what those steps cost. This preserves the
+existing pricing rather than inventing a second, cheaper rule for streamed turns.
 
-No path may refund twice. The implementation must include an explicit
+| Exit                                                     | Settles as                                      |
+| -------------------------------------------------------- | ----------------------------------------------- |
+| Any pre-flight throw (before consume)                    | nothing (no credit taken yet)                   |
+| Throw after consume, before stream opens (existing wrap) | refund — `settleCredits(false, 0)`              |
+| Agent throws mid-stream, `streamedAny === false`         | refund, then `error` event                      |
+| Agent throws mid-stream, `streamedAny === true`          | metered, then `error` event (partial text kept) |
+| Client disconnects, `streamedAny === false`              | refund (abort the agent)                        |
+| Client disconnects, `streamedAny === true`               | metered (abort the agent)                       |
+| Clean finish, `fallbackDiscussMessage().shouldRefund`    | refund (`creditsUsed = 0`)                      |
+| Clean finish with text or proposals                      | metered → `creditsUsed` rides the `done` event  |
+
+No path may settle twice — not a double refund, not a double charge, and never
+a refund AND a charge for one turn. The implementation must include an explicit
 enumeration of every exit, as `generate-outline.post.ts` did in Phase 3.
 
 Client disconnect must abort the agent server-side via the `abortSignal`, so a
