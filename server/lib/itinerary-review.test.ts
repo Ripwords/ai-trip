@@ -208,3 +208,112 @@ describe("ItineraryReviewFinding type", () => {
     assert.equal(f.proposal?.kind, "add-activities")
   })
 })
+
+describe("flight findings", () => {
+  const flightTrip = {
+    id: "trip-f",
+    destination: "Da Nang",
+    flights: [
+      {
+        departureAirport: "SIN",
+        arrivalAirport: "DAD",
+        departureTimeLocal: "2026-06-01 09:10+08:00",
+        arrivalTimeLocal: "2026-06-01 11:05+07:00",
+      },
+      {
+        departureAirport: "DAD",
+        arrivalAirport: "SIN",
+        departureTimeLocal: "2026-06-02 18:00+07:00",
+        arrivalTimeLocal: "2026-06-02 22:10+08:00",
+      },
+    ],
+    days: [
+      {
+        ...baseDay,
+        activities: [
+          {
+            id: "f1",
+            name: "Beach Cafe",
+            type: "cafe",
+            lat: 16.05,
+            lng: 108.25,
+            suggestedTime: "10:00",
+            estimatedDurationMinutes: 60,
+            sortOrder: 1,
+          },
+        ],
+      },
+      {
+        ...baseDay,
+        id: "day-2",
+        dayNumber: 2,
+        date: "2026-06-02",
+        activities: [
+          {
+            id: "f2",
+            name: "Marble Mountains",
+            type: "attraction",
+            lat: 16.0,
+            lng: 108.26,
+            suggestedTime: "16:00",
+            estimatedDurationMinutes: 120,
+            sortOrder: 1,
+          },
+        ],
+      },
+    ],
+  }
+
+  it("flags activities that start before an arrival flight clears the airport", () => {
+    const result = reviewItinerary(flightTrip, { scope: "day", dayId: "day-1" })
+    const finding = result.findings.critical.find(
+      (f) => f.code === "activity-before-flight-arrival",
+    )
+    assert.ok(finding, "expected activity-before-flight-arrival finding")
+    assert.deepEqual(finding.activityIds, ["f1"])
+  })
+
+  it("flags activities that end after the departure-flight cutoff", () => {
+    const result = reviewItinerary(flightTrip, { scope: "day", dayId: "day-2" })
+    const finding = result.findings.critical.find(
+      (f) => f.code === "activity-after-flight-departure",
+    )
+    assert.ok(finding, "expected activity-after-flight-departure finding")
+    assert.deepEqual(finding.activityIds, ["f2"])
+  })
+
+  it("emits no flight findings when the schedule respects the flights", () => {
+    const okTrip = {
+      ...flightTrip,
+      days: [
+        {
+          ...baseDay,
+          activities: [
+            {
+              id: "f3",
+              name: "Dinner",
+              type: "restaurant",
+              lat: 16.05,
+              lng: 108.25,
+              suggestedTime: "19:00",
+              estimatedDurationMinutes: 90,
+              sortOrder: 1,
+            },
+          ],
+        },
+      ],
+    }
+    const result = reviewItinerary(okTrip, { scope: "day", dayId: "day-1" })
+    const codes = new Set(
+      [...result.findings.critical, ...result.findings.warning].map((f) => f.code),
+    )
+    assert.ok(!codes.has("activity-before-flight-arrival"))
+    assert.ok(!codes.has("activity-after-flight-departure"))
+  })
+
+  it("ignores flights whose local date doesn't match the day", () => {
+    const result = reviewItinerary(flightTrip, { scope: "day", dayId: "day-1" })
+    const codes = result.findings.critical.map((f) => f.code)
+    assert.ok(!codes.includes("activity-after-flight-departure"))
+  })
+})

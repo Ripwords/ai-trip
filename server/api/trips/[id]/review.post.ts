@@ -1,5 +1,6 @@
 import { z } from "zod"
-import { reviewItinerary } from "../../../lib/itinerary-review"
+import { reviewItinerary, type ReviewableFlight } from "../../../lib/itinerary-review"
+import { getTripFlightsForUser } from "../../../lib/trip-flights"
 import { getTripWithRelations } from "../../../lib/trips"
 import { uuidParamsSchema } from "../../../utils/schemas"
 
@@ -25,8 +26,23 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Trip not found" })
   }
 
+  // Flight bounds enable arrival/departure-day findings. User-scoped; degrades
+  // to no flight findings when unavailable.
+  let flights: ReviewableFlight[] = []
   try {
-    return reviewItinerary(trip, body)
+    const rows = await getTripFlightsForUser({ tripId: id, userId: session.user.id })
+    flights = rows.map((f) => ({
+      departureAirport: f.departureAirport,
+      arrivalAirport: f.arrivalAirport,
+      departureTimeLocal: f.departureTimeLocal,
+      arrivalTimeLocal: f.arrivalTimeLocal,
+    }))
+  } catch (e: unknown) {
+    console.error("[review.post] Flight context unavailable, proceeding without:", e)
+  }
+
+  try {
+    return reviewItinerary({ ...trip, flights }, body)
   } catch (error) {
     if (error instanceof Error && error.message === "Day not found") {
       throw createError({ statusCode: 404, message: "Day not found" })

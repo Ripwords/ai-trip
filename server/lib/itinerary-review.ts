@@ -33,10 +33,20 @@ export interface ReviewableDay {
   travelSegments: ReviewableTravelSegment[]
 }
 
+export interface ReviewableFlight {
+  departureAirport: string | null
+  arrivalAirport: string | null
+  /** Local wall-clock strings "YYYY-MM-DD HH:MM±TZ" when known. */
+  departureTimeLocal: string | null
+  arrivalTimeLocal: string | null
+}
+
 export interface ReviewableTrip {
   id: string
   destination?: string
   days: ReviewableDay[]
+  /** Optional — callers without user context omit it and skip flight findings. */
+  flights?: ReviewableFlight[]
 }
 
 export interface ItineraryReviewOptions {
@@ -137,6 +147,10 @@ interface TimedActivity {
 const MEAL_TERMS = ["restaurant", "cafe", "bar", "food", "lunch", "dinner", "breakfast", "meal"]
 const LONG_TRAVEL_SECONDS = 60 * 60
 const VERY_LONG_TRAVEL_SECONDS = 90 * 60
+// Mirror buildFlightsCtx's hard rules: ~90min to clear an arrival airport,
+// leave for the airport 3h before departure.
+const ARRIVAL_BUFFER_MINUTES = 90
+const DEPARTURE_CUTOFF_MINUTES = 180
 
 export function reviewItinerary(
   trip: ReviewableTrip,
@@ -153,6 +167,10 @@ export function reviewItinerary(
   for (const day of days) {
     const previousDay = allDays.find((candidate) => candidate.dayNumber === day.dayNumber - 1)
     reviewDay(day, findings, previousDay)
+    addFlightFindings(day, trip.flights ?? [], findings, {
+      firstTripDate: allDays[0]?.date,
+      lastTripDate: allDays[allDays.length - 1]?.date,
+    })
   }
 
   return {
@@ -176,6 +194,78 @@ function selectDays(days: ReviewableDay[], options: ItineraryReviewOptions): Rev
   const day = days.find((candidate) => candidate.id === options.dayId)
   if (!day) throw new Error("Day not found")
   return [day]
+}
+
+/** Parse "YYYY-MM-DD HH:MM±TZ" into minutes-of-day, only when the local date matches `date`. */
+function parseLocalFlightMinutes(local: string | null, date: string): number | null {
+  if (!local) return null
+  const match = local.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})/)
+  if (!match || match[1] !== date) return null
+  return Number(match[2]) * 60 + Number(match[3])
+}
+
+function addFlightFindings(
+  day: ReviewableDay,
+  flights: ReviewableFlight[],
+  findings: Record<ItineraryReviewSeverity, ItineraryReviewFinding[]>,
+  tripBounds: { firstTripDate?: string; lastTripDate?: string },
+) {
+  for (const flight of flights) {
+    const arrivalMinutes = parseLocalFlightMinutes(flight.arrivalTimeLocal, day.date)
+    const departureMinutes = parseLocalFlightMinutes(flight.departureTimeLocal, day.date)
+
+    // A flight departing AND arriving on this same date is directional: on the
+    // trip's first day it's the inbound leg (only the arrival bound applies —
+    // its departure happened at the origin city); on the last day it's the
+    // outbound leg (only the departure cutoff applies).
+    const sameDay = arrivalMinutes != null && departureMinutes != null
+    const skipDeparture = sameDay && day.date === tripBounds.firstTripDate
+    const skipArrival = sameDay && day.date === tripBounds.lastTripDate
+
+    if (arrivalMinutes != null && !skipArrival) {
+      const readyMinutes = arrivalMinutes + ARRIVAL_BUFFER_MINUTES
+      const tooEarly = day.activities.filter((a) => {
+        const start = parseClockTime(a.suggestedTime)
+        return start != null && start < readyMinutes
+      })
+      if (tooEarly.length > 0) {
+        addFinding(findings, {
+          code: "activity-before-flight-arrival",
+          severity: "critical",
+          title: "Activities start before the flight lands",
+          message: `${tooEarly.map((a) => a.name).join(", ")} start${tooEarly.length === 1 ? "s" : ""} before the ${flight.departureAirport ?? "?"} → ${flight.arrivalAirport ?? "?"} flight clears the airport (~${formatClockTime(readyMinutes)} after landing, immigration, and transfer).`,
+          recommendation:
+            "Move these activities after the arrival window, or to another day — nothing fits before the traveler leaves the airport.",
+          dayId: day.id,
+          dayNumber: day.dayNumber,
+          activityIds: tooEarly.map((a) => a.id),
+        })
+      }
+    }
+
+    if (departureMinutes != null && !skipDeparture) {
+      const cutoffMinutes = departureMinutes - DEPARTURE_CUTOFF_MINUTES
+      const tooLate = day.activities.filter((a) => {
+        const start = parseClockTime(a.suggestedTime)
+        if (start == null) return false
+        const end = start + (a.estimatedDurationMinutes ?? 0)
+        return end > cutoffMinutes
+      })
+      if (tooLate.length > 0) {
+        addFinding(findings, {
+          code: "activity-after-flight-departure",
+          severity: "critical",
+          title: "Activities run past the airport cutoff",
+          message: `${tooLate.map((a) => a.name).join(", ")} end${tooLate.length === 1 ? "s" : ""} after ${formatClockTime(cutoffMinutes)}, when the traveler must leave for the ${flight.departureAirport ?? "?"} → ${flight.arrivalAirport ?? "?"} departure.`,
+          recommendation:
+            "End the day by the airport cutoff — move or shorten these activities, or shift them to an earlier day.",
+          dayId: day.id,
+          dayNumber: day.dayNumber,
+          activityIds: tooLate.map((a) => a.id),
+        })
+      }
+    }
+  }
 }
 
 function reviewDay(

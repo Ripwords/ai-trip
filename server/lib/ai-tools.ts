@@ -5,7 +5,8 @@ import { createTool } from "@mastra/core/tools"
 import { db } from "../db"
 import { activities, itineraryDays } from "../db/schema"
 import { searchPlace, getPlaceDetails, getDistanceMatrix } from "./google-maps"
-import { reviewItinerary } from "./itinerary-review"
+import { reviewItinerary, type ReviewableFlight } from "./itinerary-review"
+import { getTripFlightsForUser } from "./trip-flights"
 import { getTripWithRelations } from "./trips"
 import { proposalSchema, type Proposal } from "./proposals"
 import { resolveTargetDay, resolveTargetDays, type DayRef } from "./proposal-targeting"
@@ -159,8 +160,24 @@ export function createTripTools(ctx: TripToolsContext) {
     execute: async (input) => {
       const trip = await getTripWithRelations(ctx.tripId)
       if (!trip) return { error: "trip not found" }
+      // Flight bounds make arrival/departure-day findings possible. User-scoped;
+      // degrades to no flight findings when unavailable.
+      let flights: ReviewableFlight[] = []
+      if (ctx.userId) {
+        try {
+          const rows = await getTripFlightsForUser({ tripId: ctx.tripId, userId: ctx.userId })
+          flights = rows.map((f) => ({
+            departureAirport: f.departureAirport,
+            arrivalAirport: f.arrivalAirport,
+            departureTimeLocal: f.departureTimeLocal,
+            arrivalTimeLocal: f.arrivalTimeLocal,
+          }))
+        } catch (e: unknown) {
+          console.error("[runReview] Flight context unavailable, proceeding without:", e)
+        }
+      }
       return reviewItinerary(
-        trip,
+        { ...trip, flights },
         input.scope === "trip"
           ? { scope: input.scope }
           : { scope: input.scope, dayId: ctx.activeDayId },
@@ -181,6 +198,8 @@ export function createTripTools(ctx: TripToolsContext) {
 interface DiscussToolsContext extends TripToolsContext {
   /** Live USD→trip-currency rate for cost anchors; null degrades to static hints. */
   usdRate: number | null
+  /** Flights are user-scoped — needed so runReview can include flight findings. */
+  userId?: string
 }
 
 export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal[]) {

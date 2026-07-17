@@ -183,6 +183,7 @@ export default defineEventHandler(async (event) => {
         transportMode,
         currencyCode: trip.currencyCode || "USD",
         usdRate,
+        userId: session.user.id,
       },
       proposalCollector,
     )
