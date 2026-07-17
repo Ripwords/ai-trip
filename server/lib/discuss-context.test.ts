@@ -31,7 +31,7 @@ const trip: DiscussContextTrip = {
 describe("buildTripContext", () => {
   it("renders days, activities, and accommodation with bracketed ids", () => {
     const ctx = buildTripContext(trip, trip.days[0]!.id)
-    assert.match(ctx, /Day 1 \(2026-08-16\) \[day:11111111-1111-4111-8111-111111111111\]/)
+    assert.match(ctx, /Day 1 \(2026-08-16, Sunday\) \[day:11111111-1111-4111-8111-111111111111\]/)
     assert.match(ctx, /· OPEN/)
     assert.match(ctx, /\[act:22222222-2222-4222-8222-222222222222\] 10:00 Sound of Silence Coffee/)
     assert.match(ctx, /staying at Four Seasons Nam Hai/)
