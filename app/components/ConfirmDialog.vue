@@ -15,7 +15,7 @@ useModalA11y(panel, { isOpen, onClose: handleCancel })
       leave-from-class="opacity-100"
       leave-to-class="opacity-0"
     >
-      <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center">
+      <div v-if="isOpen" class="fixed inset-0 z-[80] flex items-center justify-center">
         <div class="fixed inset-0 bg-black/40" @click="handleCancel" />
         <div
           ref="panel"
