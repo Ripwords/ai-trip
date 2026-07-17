@@ -229,7 +229,19 @@ export default defineEventHandler(async (event) => {
   // cancelled turn stops burning model tokens — and, because the turn is
   // step-metered, stops running up the user's bill. Before this, cancelling
   // only aborted the client fetch; the server ran to completion and charged.
-  stream.onClosed(() => {
+  //
+  // h3's EventStream.onClosed() hooks req 'close' (h3/dist/index.mjs:1546), but Node
+  // fires res 'close' on a client disconnect — readValidatedBody already consumed the
+  // request body, so req ends cleanly and never emits 'close' when the socket dies.
+  // Verified on bare h3 + Node 24: res 'close' fires at disconnect (+1.6s), req 'close'
+  // never does. Without this, Cancel is cosmetic: the agent runs to completion and the
+  // user is billed for a turn they dismissed.
+  //
+  // res 'close' also fires on our OWN clean-finish stream.close() below, but by then
+  // controller.signal.aborted has already been checked (see the loop-end branch) and
+  // settleCredits has already run — settleCredits is guarded by `settled`, so a late
+  // abort() here can neither flip a finished turn into the abort branch nor double-settle.
+  event.node.res.on("close", () => {
     controller.abort()
   })
 
