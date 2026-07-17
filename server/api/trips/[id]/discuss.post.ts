@@ -130,6 +130,13 @@ export default defineEventHandler(async (event) => {
   /** Settle the turn exactly once: refund if the user got nothing, else meter. */
   async function settleCredits(streamedAny: boolean, steps: number): Promise<number> {
     if (settled) return 0
+    // Flip the flag BEFORE the DB awaits below, on purpose: if refundAiCredit
+    // or chargeExtraAiCredits throws, the turn is left unsettled rather than
+    // retried — a throwing primitive here is fail-open (never wrongly
+    // charges), whereas setting the flag after the await would risk a second
+    // settle call racing in and double-settling against these non-idempotent
+    // SQL updates. An unsettled turn on primitive failure is the accepted
+    // trade-off.
     settled = true
     if (!streamedAny) {
       await refundAiCredit(session.user.id)
@@ -229,6 +236,10 @@ export default defineEventHandler(async (event) => {
   let streamedText = ""
   let stepsUsed = 0
   const toolLines: string[] = []
+  // Set right after the `done` push succeeds, so the catch below never ships
+  // an `error` event for a turn the client already saw finish successfully
+  // (e.g. if logTripAction throws after `done` already shipped).
+  let doneSent = false
 
   // Pushed in the background; the handler returns stream.send() immediately.
   void (async () => {
@@ -274,6 +285,17 @@ export default defineEventHandler(async (event) => {
       })
 
       for await (const chunk of result.fullStream) {
+        // Mastra enqueues provider/model failures as an ordinary `error` chunk and lets
+        // the stream close cleanly — it never calls controller.error(). Without this,
+        // the loop would exit normally and a failed turn would take the clean-finish
+        // path: shipping `done` with the step-budget apology, and (worse) metering a
+        // turn that died mid-answer.
+        if (chunk.type === "error") {
+          const err = chunk.payload.error
+          throw err instanceof Error
+            ? err
+            : new Error(typeof err === "string" ? err : JSON.stringify(err ?? "stream error"))
+        }
         if (chunk.type === "step-finish") stepsUsed++
         const mapped = mapChunk(chunk)
         if (!mapped) continue
@@ -313,6 +335,7 @@ export default defineEventHandler(async (event) => {
           creditsUsed,
         }),
       })
+      doneSent = true
 
       console.log(
         `[discuss] activeDay=${dayId ?? "none"} proposals=[${groupedProposals
@@ -338,9 +361,13 @@ export default defineEventHandler(async (event) => {
       console.error("[discuss] agent failed:", e)
       const streamedAny = streamedText.length > 0 || proposalCollector.length > 0
       await settleCredits(streamedAny, stepsUsed)
-      // A client disconnect surfaces here as an abort error; the socket is
-      // already gone, so pushing would throw.
-      if (!controller.signal.aborted) {
+      // `push` itself doesn't throw here (h3's _sendEvent early-returns once the
+      // writer is closed and swallows write failures internally) — this guard
+      // exists because there is no point pushing an `error` event to a client
+      // that has already gone away, and because `done` may have already shipped
+      // a successful result for this turn (doneSent), in which case pushing
+      // `error` afterward would misreport a successful turn as failed.
+      if (!controller.signal.aborted && !doneSent) {
         await stream.push({
           event: "error",
           data: JSON.stringify({
