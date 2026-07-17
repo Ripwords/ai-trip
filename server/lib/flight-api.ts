@@ -48,6 +48,9 @@ export interface AeroDataBoxFlight {
 export interface DerivedFlightFields {
   departureDate: string | null
   arrivalDate: string | null
+  /** Full local-time strings as reported by the airline API, e.g. "2026-08-16 18:55+07:00". */
+  departureTimeLocal: string | null
+  arrivalTimeLocal: string | null
   departureAirportLat: number | null
   departureAirportLng: number | null
   arrivalAirportLat: number | null
@@ -68,6 +71,8 @@ export function deriveFlightFields(raw: unknown): DerivedFlightFields {
   return {
     departureDate: dep?.scheduledTime?.local?.slice(0, 10) ?? null,
     arrivalDate: arr?.scheduledTime?.local?.slice(0, 10) ?? null,
+    departureTimeLocal: dep?.scheduledTime?.local ?? null,
+    arrivalTimeLocal: arr?.scheduledTime?.local ?? null,
     departureAirportLat: dep?.airport?.location?.lat ?? null,
     departureAirportLng: dep?.airport?.location?.lon ?? null,
     arrivalAirportLat: arr?.airport?.location?.lat ?? null,

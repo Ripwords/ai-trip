@@ -18,3 +18,25 @@ export function clampDurationMinutes(d: number | null | undefined): number | nul
   if (d == null || !Number.isFinite(d)) return null
   return Math.min(720, Math.max(5, Math.round(d)))
 }
+
+/**
+ * Resolve an AI-returned activity ordering (by index into the list the AI was
+ * shown) back to concrete activity ids. Index-based matching replaces matching
+ * on echoed names, which silently failed on diacritics and parentheticals.
+ * Invalid indexes are dropped; a repeated index keeps its first entry.
+ */
+export function mapOrderedActivityIndexes(
+  ordered: { index: number; suggestedTime: string }[],
+  activities: { id: string; name: string }[],
+): { id: string; name: string; suggestedTime: string }[] {
+  const seen = new Set<number>()
+  const result: { id: string; name: string; suggestedTime: string }[] = []
+  for (const entry of ordered) {
+    if (!Number.isInteger(entry.index) || seen.has(entry.index)) continue
+    const activity = activities[entry.index]
+    if (!activity) continue
+    seen.add(entry.index)
+    result.push({ id: activity.id, name: activity.name, suggestedTime: entry.suggestedTime })
+  }
+  return result
+}

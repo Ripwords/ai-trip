@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { lookupFlight, FLIGHT_LOOKUP_SCHEMA_VERSION } from "./flight-api"
+import { lookupFlight, deriveFlightFields, FLIGHT_LOOKUP_SCHEMA_VERSION } from "./flight-api"
 import { clearRateLimitState, makeMemoryStore } from "./flight-api-cache"
 
 const originalKey = process.env.AERODATABOX_API_KEY
@@ -156,5 +156,23 @@ describe("lookupFlight cache integration", () => {
 
     expect(calls).toHaveLength(1)
     expect(result?.gate).toBe("C99")
+  })
+})
+
+describe("deriveFlightFields", () => {
+  it("exposes full local departure/arrival times alongside local dates", () => {
+    const derived = deriveFlightFields(SAMPLE_RESPONSE[0])
+
+    expect(derived.departureDate).toBe("2099-05-26")
+    expect(derived.arrivalDate).toBe("2099-05-27")
+    expect(derived.departureTimeLocal).toBe("2099-05-26 20:25+08:00")
+    expect(derived.arrivalTimeLocal).toBe("2099-05-27 00:25+08:00")
+  })
+
+  it("returns nulls when the raw response is missing", () => {
+    const derived = deriveFlightFields(null)
+
+    expect(derived.departureTimeLocal).toBeNull()
+    expect(derived.arrivalTimeLocal).toBeNull()
   })
 })

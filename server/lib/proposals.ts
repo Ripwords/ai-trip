@@ -555,9 +555,10 @@ export function resultToProposals(result: AIProcessResult, day: DayForProposals)
   }
 
   if (result.shouldOptimize && result.newActivities.length === 0 && result.removals.length === 0) {
+    const dayActivityIds = new Set(day.activities.map((a) => a.id))
     const orderedActivityIds = result.orderedActivities
-      ?.map((o) => findActivityIdByName(day, o.name))
-      .filter((id): id is string => !!id)
+      ?.map((o) => o.id)
+      .filter((id) => dayActivityIds.has(id))
     proposals.push({
       id: randomUUID(),
       kind: "optimize-route",
