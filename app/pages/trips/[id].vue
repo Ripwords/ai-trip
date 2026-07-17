@@ -148,8 +148,9 @@ async function handleToggleParticipant(activityId: string, userId: string) {
 // Two separate AI loading signals so the chat doesn't hide the activity list.
 // - aiChatLoading: discuss endpoint is replying (chat-only; does not mutate the day)
 // - aiMutating: a flow that rewrites activities is in flight (fill-gaps / optimize / generate-full)
-// The day's Ideas + DaySection v-show on `aiMutating`, while the AiDock's typing
-// indicator binds to a computed OR of both so it lights up for any AI work.
+// During `aiMutating` the DaySection stays visible but dims + goes readonly (so
+// the day never blanks out mid-rewrite), while the AiDock's typing indicator
+// binds to a computed OR of both so it lights up for any AI work.
 const aiChatLoading = ref(false)
 const aiMutating = ref(false)
 const aiLoading = computed(() => aiChatLoading.value || aiMutating.value)
@@ -1742,7 +1743,6 @@ async function recomputeSegments(dayId: string) {
               <!-- Ideas bucket (hidden for viewers) -->
               <IdeasBucket
                 v-if="!isViewer"
-                v-show="!aiMutating"
                 :trip-id="tripId"
                 :ideas="ideas ?? []"
                 :days="sortedDays.map((d) => ({ id: d.id, dayNumber: d.dayNumber, date: d.date }))"
@@ -1776,27 +1776,44 @@ async function recomputeSegments(dayId: string) {
                 @updated="refresh"
               />
 
-              <!-- Activities for this day -->
-              <DaySection
-                :key="activeDay.id"
-                v-show="!aiMutating"
-                :day="activeDay"
-                :trip-id="tripId"
-                :currency-code="trip?.currencyCode ?? 'USD'"
-                :highlighted-activity-id="highlightedActivityId"
-                :travel-segments="activeDay.travelSegments"
-                :travel-mode="activeTransportMode"
-                :readonly="isViewer"
-                :participants-map="participantsMap ?? undefined"
-                :members="tripMembers?.filter((m) => m.status === 'active')"
-                @edit-activity="handleEditActivity"
-                @delete-activity="handleDeleteActivity"
-                @click-activity="handleActivityClick"
-                @add-activity="handleAddActivity"
-                @reordered="refresh"
-                @update-notes="handleUpdateDayNotes"
-                @toggle-participant="handleToggleParticipant"
-              />
+              <!-- Activities for this day. During a mutating AI flow (fill /
+                   optimize / generate) the list stays VISIBLE but dims and locks
+                   so the user never watches their day go blank mid-rewrite — the
+                   map keeps showing the same stops, so the two panels agree. -->
+              <div class="relative">
+                <div
+                  v-if="aiMutating"
+                  class="pointer-events-none absolute right-2 top-2 z-10 inline-flex items-center gap-1.5 rounded-full bg-sand-900/85 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-sand-50"
+                >
+                  <Icon name="lucide:loader-2" class="h-3 w-3 animate-spin" />
+                  Updating
+                </div>
+                <div
+                  class="transition-opacity duration-200"
+                  :class="{ 'pointer-events-none select-none opacity-60': aiMutating }"
+                  :aria-busy="aiMutating || undefined"
+                >
+                  <DaySection
+                    :key="activeDay.id"
+                    :day="activeDay"
+                    :trip-id="tripId"
+                    :currency-code="trip?.currencyCode ?? 'USD'"
+                    :highlighted-activity-id="highlightedActivityId"
+                    :travel-segments="activeDay.travelSegments"
+                    :travel-mode="activeTransportMode"
+                    :readonly="isViewer || aiMutating"
+                    :participants-map="participantsMap ?? undefined"
+                    :members="tripMembers?.filter((m) => m.status === 'active')"
+                    @edit-activity="handleEditActivity"
+                    @delete-activity="handleDeleteActivity"
+                    @click-activity="handleActivityClick"
+                    @add-activity="handleAddActivity"
+                    @reordered="refresh"
+                    @update-notes="handleUpdateDayNotes"
+                    @toggle-participant="handleToggleParticipant"
+                  />
+                </div>
+              </div>
             </div>
 
             <!-- Right: Map -->
