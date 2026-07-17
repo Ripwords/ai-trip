@@ -134,15 +134,24 @@ installed chunk union.
   fire on client disconnect. `H3Event` carries no built-in `AbortSignal` in
   this h3 version — we wire our own and pass it to `agent.stream({ abortSignal })`.
 
-**Verified by reading, not by deploying.** A Vercel preview spike was offered
-and declined. Two things therefore remain unproven until this ships to a
-preview: whether Vercel's Lambda-streaming bridge buffers `text/event-stream`
-(which would defeat the feature), and how promptly a client TCP close
-propagates back to the Node process (which the cancel→abort behavior depends
-on). Mitigation: both are transport-level, and approach B is a contained
-fallback that changes only framing. **The implementation plan must include a
-preview-deploy check of incremental delivery before this is called done** —
-`bun test` cannot observe either property.
+**Verified by reading, not by deploying — deliberately.** Platform questions are
+answered here from the installed source and Vercel's published docs; deploying
+to verify is explicitly out of bounds for this project. The evidence above is
+what it is: nitropack's Node preset hard-codes `supportsResponseStreaming: true`,
+and Vercel documents streaming support on Serverless. That is the answer.
+
+Two things consequently remain **named unknowns**, not blockers:
+
+- Whether Vercel's Lambda bridge buffers `text/event-stream` in practice. If it
+  ever does, the feature degrades to today's behaviour (one blob at the end) —
+  no data loss, no billing impact — and the contained fallback is approach B,
+  NDJSON over a raw `ReadableStream`, which changes framing only.
+- How promptly a client TCP close propagates to the Node process, which the
+  cancel→abort behaviour depends on. See the cancel note below.
+
+Verification is local: drive the real app and observe. `bun test` cannot observe
+incremental delivery or disconnect handling, but a local dev server can, and
+local findings are reported as local findings.
 
 ## Design
 

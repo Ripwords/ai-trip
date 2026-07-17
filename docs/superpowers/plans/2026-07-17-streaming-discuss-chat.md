@@ -1021,7 +1021,7 @@ git commit -m "fix(ai): consume the day-AI credit only after validation; correct
 
 ### Task 7: Runtime verification
 
-The spec REQUIRES this, and `bun test` cannot substitute: no unit test can observe whether bytes arrive incrementally or whether a client disconnect reaches the server. Steps 1-4 verify locally; **Step 5 is the preview-deploy check the spec mandates before this can be called done** ("The implementation plan must include a preview-deploy check of incremental delivery before this is called done"). Local dev is a plain Node server, NOT Vercel's Lambda streaming bridge — so local passes say nothing about bridge buffering, which is the one failure mode that would kill this feature outright in production while every test stays green.
+The spec REQUIRES this, and `bun test` cannot substitute: no unit test can observe whether bytes arrive incrementally or whether a client disconnect reaches the server. Steps 1-4 verify locally. **There is no preview-deploy step: deploying to verify is out of bounds for this project.** Platform questions are answered from docs + installed source ("The implementation plan must include a preview-deploy check of incremental delivery before this is called done"). Local dev is a plain Node server, NOT Vercel's Lambda streaming bridge — so local passes say nothing about bridge buffering, which is the one failure mode that would kill this feature outright in production while every test stays green.
 
 **If the human waives Step 5**, that is their call — but then Step 6 must state plainly that buffering and disconnect-propagation are unverified on real infra, and the branch ships with that risk named.
 
@@ -1052,34 +1052,9 @@ Start a turn, hit Cancel mid-stream, and confirm from the server logs that the a
 
 Query `ai_usage.prompt_count` before/after: a normal successful turn charges exactly 1. Report both numbers.
 
-- [ ] **Step 5: Preview-deploy check (spec-mandated — confirm with the human before deploying)**
+- [ ] **Step 5: Report what is local-only**
 
-This is the only step that can settle the two questions local dev structurally cannot. The project is already linked (`.vercel/project.json` → `ai-trip`) and the `vercel` CLI is on PATH.
-
-**Deploying is outward-facing — get explicit confirmation from the human before running it.** Then:
-
-```bash
-vercel deploy            # PREVIEW, never --prod
-```
-
-Against the returned preview URL, with a valid session cookie:
-
-1. **Buffering** — `curl -N` the discuss endpoint and timestamp each frame's arrival:
-   ```bash
-   curl -N -X POST "$PREVIEW_URL/api/trips/$TRIP_ID/discuss" \
-     -H 'content-type: application/json' \
-     -H "cookie: ai-trip.session_token=$COOKIE" \
-     -d '{"messages":[{"role":"user","content":"find a ramen place near Shinjuku"}]}' \
-     | while IFS= read -r line; do printf '%s %s\n' "$(date +%s.%N)" "$line"; done
-   ```
-   PASS = timestamps spread across the turn. FAIL = every frame lands at once → Vercel is buffering → stop and escalate; the spec's fallback is NDJSON over a raw `ReadableStream`.
-2. **Disconnect propagation** — start a turn against the preview, kill the client mid-stream, and confirm from `vercel logs` that the agent aborted rather than running to completion.
-
-Report the raw timestamps and the log evidence.
-
-- [ ] **Step 6: Report what remains unverified**
-
-State plainly in the report which of Step 5's two checks actually ran. If Step 5 was waived or a check could not be completed, say so explicitly — "Vercel bridge buffering and disconnect-propagation timing remain UNVERIFIED; local dev is a Node server, not the Lambda streaming bridge" — and name NDJSON as the fallback. Never claim these were verified when they were not.
+Local dev is a plain Node server, not Vercel's Lambda bridge. Say so plainly: bridge buffering and disconnect-propagation timing are NOT observable here and are named unknowns per the spec (fallback: NDJSON over a raw `ReadableStream`). Report local findings AS local findings — never generalise a local pass or a local failure to production, and never claim these were verified when they were not.
 
 - [ ] **Step 7: Confirm the tree is clean**
 
