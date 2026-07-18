@@ -1,4 +1,5 @@
 import { farFromAnchor } from "../utils/geo"
+import { parseOpeningWindow } from "../utils/schedule"
 
 export type ItineraryReviewScope = "day" | "trip"
 export type ItineraryReviewSeverity = "critical" | "warning" | "suggestion"
@@ -13,6 +14,8 @@ export interface ReviewableActivity {
   estimatedDurationMinutes: number | null
   sortOrder: number
   tags?: string[] | null
+  /** Google opening-hours lines, e.g. "Monday: 7:00 AM – 5:30 PM". */
+  openingHours?: string[] | null
 }
 
 export interface ReviewableTravelSegment {
@@ -67,6 +70,8 @@ export interface ItineraryReviewFinding {
     | "missing-activity-duration"
     | "activity-overlap"
     | "insufficient-transfer-time"
+    | "venue-closed-on-day"
+    | "activity-outside-opening-hours"
     | "long-travel-segment"
     | "missing-lunch"
     | "missing-dinner"
@@ -165,6 +170,8 @@ const FAR_FROM_STAY_KM = 12
 // overrun; escalate to critical when you'd arrive well after the next start.
 const TRANSFER_GRACE_MINUTES = 3
 const TRANSFER_CRITICAL_MINUTES = 20
+// A few minutes' slack around opening/closing so an on-the-dot start isn't flagged.
+const OPENING_GRACE_MINUTES = 5
 
 /** Where the traveler sleeps after `day`: the day's own accommodation, or the most recent prior day's. */
 function effectiveAccommodation(
@@ -401,6 +408,7 @@ function reviewDay(
 
   addOverlapFindings(day, timedActivities, findings)
   addTransferTimeFindings(day, timedActivities, findings)
+  addOpeningHoursFindings(day, timedActivities, findings)
   addTravelFindings(day, findings)
   addMealFindings(day, activities, timedActivities, findings)
   addLateEndingFinding(day, timedActivities, findings)
@@ -522,6 +530,67 @@ function addTransferTimeFindings(
       dayNumber: day.dayNumber,
       activityIds: [current.activity.id, next.activity.id],
     })
+  }
+}
+
+// Catches a stop scheduled when its venue is shut: closed that whole weekday,
+// or a start time before it opens / after it closes. Uses the persisted Google
+// opening hours (skipped silently when they're missing, 24h, or unparseable).
+function addOpeningHoursFindings(
+  day: ReviewableDay,
+  timedActivities: TimedActivity[],
+  findings: Record<ItineraryReviewSeverity, ItineraryReviewFinding[]>,
+) {
+  for (const timed of timedActivities) {
+    const window = parseOpeningWindow(timed.activity.openingHours, day.date)
+    if (window == null) continue
+
+    if (window === "closed") {
+      const weekday = new Date(day.date + "T00:00:00").toLocaleDateString("en-US", {
+        weekday: "long",
+      })
+      addFinding(findings, {
+        code: "venue-closed-on-day",
+        severity: "critical",
+        title: "Venue is closed that day",
+        message: `${timed.activity.name} is scheduled on ${weekday}, but it's closed that day.`,
+        recommendation: "Move it to a day the venue is open, or swap it for an alternative.",
+        dayId: day.id,
+        dayNumber: day.dayNumber,
+        activityIds: [timed.activity.id],
+      })
+      continue
+    }
+
+    const start = timed.startMinutes
+    if (start < window.openMinutes - OPENING_GRACE_MINUTES) {
+      addFinding(findings, {
+        code: "activity-outside-opening-hours",
+        severity: "warning",
+        title: "Scheduled before it opens",
+        message: `${timed.activity.name} is scheduled for ${formatClockTime(
+          start,
+        )}, but it doesn't open until ${formatClockTime(window.openMinutes)}.`,
+        recommendation: "Push the start time to opening, or reorder the day around its hours.",
+        dayId: day.id,
+        dayNumber: day.dayNumber,
+        activityIds: [timed.activity.id],
+      })
+    } else if (window.closeMinutes <= 24 * 60 && start > window.closeMinutes + OPENING_GRACE_MINUTES) {
+      // Only judge same-day closes; overnight venues (close > midnight) are skipped.
+      addFinding(findings, {
+        code: "activity-outside-opening-hours",
+        severity: "warning",
+        title: "Scheduled after it closes",
+        message: `${timed.activity.name} is scheduled for ${formatClockTime(
+          start,
+        )}, but it closes at ${formatClockTime(window.closeMinutes)}.`,
+        recommendation: "Move it earlier in the day, or to a day you can arrive before it closes.",
+        dayId: day.id,
+        dayNumber: day.dayNumber,
+        activityIds: [timed.activity.id],
+      })
+    }
   }
 }
 

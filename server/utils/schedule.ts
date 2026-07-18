@@ -141,6 +141,50 @@ export function parseOpeningTime(
   return hours * 60 + minutes
 }
 
+/**
+ * The open→close window for a venue on a given date, from its Google opening
+ * hours. `parseOpeningTime` above returns only the open time (used to avoid
+ * scheduling before a place opens); this returns both bounds so callers can
+ * also catch "scheduled after it closes" and "closed that day".
+ *
+ * Returns "closed" when the day entry says Closed, and null when the window
+ * can't be determined (no entry, "Open 24 hours", or fewer than two times) —
+ * callers should skip rather than guess. `closeMinutes` may exceed 1440 when
+ * the venue closes after midnight (e.g. a bar open until 2 AM).
+ */
+export function parseOpeningWindow(
+  openingHours: string[] | null | undefined,
+  date: string,
+): { openMinutes: number; closeMinutes: number } | "closed" | null {
+  if (!openingHours || openingHours.length === 0) return null
+
+  const dayOfWeek = new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long" })
+  const dayEntry = openingHours.find((h) => h.toLowerCase().startsWith(dayOfWeek.toLowerCase()))
+  if (!dayEntry) return null
+
+  const lower = dayEntry.toLowerCase()
+  if (lower.includes("closed")) return "closed"
+  if (lower.includes("24 hours") || lower.includes("open 24")) return null
+
+  const tokens = [...dayEntry.matchAll(/(\d{1,2}):(\d{2})\s*(AM|PM)?/gi)]
+  if (tokens.length < 2) return null
+
+  const toMinutes = (m: RegExpMatchArray): number => {
+    let hours = parseInt(m[1]!, 10)
+    const minutes = parseInt(m[2]!, 10)
+    const period = m[3]?.toUpperCase()
+    if (period === "PM" && hours !== 12) hours += 12
+    if (period === "AM" && hours === 12) hours = 0
+    return hours * 60 + minutes
+  }
+
+  const times = tokens.map(toMinutes)
+  const openMinutes = times[0]!
+  let closeMinutes = times[times.length - 1]!
+  if (closeMinutes <= openMinutes) closeMinutes += 24 * 60 // closes after midnight
+  return { openMinutes, closeMinutes }
+}
+
 /** Parses a strict "HH:MM" clock time to minutes since midnight, or null. */
 export function parseClockMinutes(time: string | null | undefined): number | null {
   if (!time) return null

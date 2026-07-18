@@ -443,8 +443,26 @@ describe("insufficient transfer time (travel doesn't fit the gap)", () => {
     accommodationLng: 108.32,
     accommodationPlaceId: null,
     activities: [
-      { id: "cafe", name: "Cộng Cà Phê", type: "cafe", lat: 16.069, lng: 108.225, suggestedTime: "14:30", estimatedDurationMinutes: 60, sortOrder: 0 },
-      { id: "buddha", name: "Lady Buddha", type: "attraction", lat: 16.1, lng: 108.278, suggestedTime: "15:45", estimatedDurationMinutes: 90, sortOrder: 1 },
+      {
+        id: "cafe",
+        name: "Cộng Cà Phê",
+        type: "cafe",
+        lat: 16.069,
+        lng: 108.225,
+        suggestedTime: "14:30",
+        estimatedDurationMinutes: 60,
+        sortOrder: 0,
+      },
+      {
+        id: "buddha",
+        name: "Lady Buddha",
+        type: "attraction",
+        lat: 16.1,
+        lng: 108.278,
+        suggestedTime: "15:45",
+        estimatedDurationMinutes: 90,
+        sortOrder: 1,
+      },
     ],
   }
 
@@ -452,7 +470,14 @@ describe("insufficient transfer time (travel doesn't fit the gap)", () => {
     const trip = {
       id: "t",
       destination: "Da Nang",
-      days: [{ ...dayBase3, travelSegments: [{ fromActivityId: "cafe", toActivityId: "buddha", durationSeconds: 23 * 60 }] }],
+      days: [
+        {
+          ...dayBase3,
+          travelSegments: [
+            { fromActivityId: "cafe", toActivityId: "buddha", durationSeconds: 23 * 60 },
+          ],
+        },
+      ],
     }
     // cafe ends 15:30, +23min = 15:53, buddha at 15:45 → 8-min overrun (warning)
     const res = reviewItinerary(trip, { scope: "day", dayId: "d3" })
@@ -465,7 +490,14 @@ describe("insufficient transfer time (travel doesn't fit the gap)", () => {
     const trip = {
       id: "t",
       destination: "Da Nang",
-      days: [{ ...dayBase3, travelSegments: [{ fromActivityId: "cafe", toActivityId: "buddha", durationSeconds: 45 * 60 }] }],
+      days: [
+        {
+          ...dayBase3,
+          travelSegments: [
+            { fromActivityId: "cafe", toActivityId: "buddha", durationSeconds: 45 * 60 },
+          ],
+        },
+      ],
     }
     // cafe ends 15:30, +45min = 16:15, buddha at 15:45 → 30-min overrun (critical)
     const res = reviewItinerary(trip, { scope: "day", dayId: "d3" })
@@ -484,7 +516,9 @@ describe("insufficient transfer time (travel doesn't fit the gap)", () => {
             dayBase3.activities[0]!,
             { ...dayBase3.activities[1]!, suggestedTime: "15:44" },
           ],
-          travelSegments: [{ fromActivityId: "cafe", toActivityId: "buddha", durationSeconds: 15 * 60 }],
+          travelSegments: [
+            { fromActivityId: "cafe", toActivityId: "buddha", durationSeconds: 15 * 60 },
+          ],
         },
       ],
     }
@@ -504,7 +538,9 @@ describe("insufficient transfer time (travel doesn't fit the gap)", () => {
             dayBase3.activities[0]!,
             { ...dayBase3.activities[1]!, suggestedTime: "16:45" }, // 75-min gap
           ],
-          travelSegments: [{ fromActivityId: "cafe", toActivityId: "buddha", durationSeconds: 23 * 60 }],
+          travelSegments: [
+            { fromActivityId: "cafe", toActivityId: "buddha", durationSeconds: 23 * 60 },
+          ],
         },
       ],
     }
@@ -523,12 +559,88 @@ describe("insufficient transfer time (travel doesn't fit the gap)", () => {
             dayBase3.activities[0]!,
             { ...dayBase3.activities[1]!, suggestedTime: "15:00" }, // starts before cafe ends (raw overlap)
           ],
-          travelSegments: [{ fromActivityId: "cafe", toActivityId: "buddha", durationSeconds: 23 * 60 }],
+          travelSegments: [
+            { fromActivityId: "cafe", toActivityId: "buddha", durationSeconds: 23 * 60 },
+          ],
         },
       ],
     }
     const res = reviewItinerary(trip, { scope: "day", dayId: "d3" })
     assert.ok(res.findings.critical.some((x) => x.code === "activity-overlap"))
     assert.ok(!res.findings.critical.some((x) => x.code === "insufficient-transfer-time"))
+  })
+})
+
+describe("opening-hours findings", () => {
+  const base = {
+    id: "oh",
+    dayNumber: 2,
+    date: "2026-08-17", // Monday
+    notes: null,
+    accommodationName: null,
+    accommodationAddress: null,
+    accommodationLat: null,
+    accommodationLng: null,
+    accommodationPlaceId: null,
+    travelSegments: [],
+  }
+  const act = (over: Record<string, unknown>) => ({
+    id: "v",
+    name: "Marble Mountains",
+    type: "attraction",
+    lat: 16.0,
+    lng: 108.26,
+    suggestedTime: "10:00",
+    estimatedDurationMinutes: 60,
+    sortOrder: 0,
+    openingHours: ["Monday: 7:00 AM – 5:30 PM"],
+    ...over,
+  })
+
+  it("flags a stop scheduled after the venue closes", () => {
+    const trip = { id: "t", days: [{ ...base, activities: [act({ suggestedTime: "18:00" })] }] }
+    const res = reviewItinerary(trip, { scope: "day", dayId: "oh" })
+    const f = res.findings.warning.find((x) => x.code === "activity-outside-opening-hours")
+    assert.ok(f && /closes/.test(f.message))
+    assert.deepEqual(f.activityIds, ["v"])
+  })
+
+  it("flags a stop scheduled before the venue opens", () => {
+    const trip = { id: "t", days: [{ ...base, activities: [act({ suggestedTime: "06:00" })] }] }
+    const res = reviewItinerary(trip, { scope: "day", dayId: "oh" })
+    assert.ok(res.findings.warning.some((x) => x.code === "activity-outside-opening-hours" && /open/.test(x.message)))
+  })
+
+  it("flags a venue closed on the scheduled day (critical)", () => {
+    const trip = {
+      id: "t",
+      days: [{ ...base, activities: [act({ openingHours: ["Monday: Closed"] })] }],
+    }
+    const res = reviewItinerary(trip, { scope: "day", dayId: "oh" })
+    assert.ok(res.findings.critical.some((x) => x.code === "venue-closed-on-day"))
+  })
+
+  it("does not flag a stop comfortably within opening hours", () => {
+    const trip = { id: "t", days: [{ ...base, activities: [act({ suggestedTime: "10:00" })] }] }
+    const res = reviewItinerary(trip, { scope: "day", dayId: "oh" })
+    assert.ok(!res.findings.warning.some((x) => x.code === "activity-outside-opening-hours"))
+    assert.ok(!res.findings.critical.some((x) => x.code === "venue-closed-on-day"))
+  })
+
+  it("skips when hours are missing or 24h", () => {
+    const trip = {
+      id: "t",
+      days: [
+        {
+          ...base,
+          activities: [
+            act({ id: "n", openingHours: null, suggestedTime: "23:00" }),
+            act({ id: "h", openingHours: ["Monday: Open 24 hours"], suggestedTime: "03:00" }),
+          ],
+        },
+      ],
+    }
+    const res = reviewItinerary(trip, { scope: "day", dayId: "oh" })
+    assert.ok(!res.findings.warning.some((x) => x.code === "activity-outside-opening-hours"))
   })
 })

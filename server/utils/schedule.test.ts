@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { computeSchedule, orderDayActivities, parseClockMinutes } from "./schedule"
+import { computeSchedule, orderDayActivities, parseClockMinutes, parseOpeningWindow } from "./schedule"
 
 test("adds start travel time before the first activity", () => {
   const [first, second] = computeSchedule({
@@ -124,4 +124,26 @@ test("parseClockMinutes parses HH:MM and rejects garbage", () => {
   assert.equal(parseClockMinutes("25:00"), null)
   assert.equal(parseClockMinutes(null), null)
   assert.equal(parseClockMinutes("later"), null)
+})
+
+test("parseOpeningWindow returns open and close minutes", () => {
+  // 2026-08-17 is a Monday
+  const w = parseOpeningWindow(["Monday: 7:00 AM – 5:30 PM"], "2026-08-17")
+  assert.deepEqual(w, { openMinutes: 7 * 60, closeMinutes: 17 * 60 + 30 })
+})
+
+test("parseOpeningWindow handles closes-after-midnight", () => {
+  const w = parseOpeningWindow(["Monday: 6:00 PM – 2:00 AM"], "2026-08-17")
+  assert.deepEqual(w, { openMinutes: 18 * 60, closeMinutes: 2 * 60 + 24 * 60 })
+})
+
+test("parseOpeningWindow reports a closed day", () => {
+  assert.equal(parseOpeningWindow(["Monday: Closed"], "2026-08-17"), "closed")
+})
+
+test("parseOpeningWindow returns null for 24h, unknown day, or empty", () => {
+  assert.equal(parseOpeningWindow(["Monday: Open 24 hours"], "2026-08-17"), null)
+  assert.equal(parseOpeningWindow(["Tuesday: 9:00 AM – 5:00 PM"], "2026-08-17"), null)
+  assert.equal(parseOpeningWindow([], "2026-08-17"), null)
+  assert.equal(parseOpeningWindow(null, "2026-08-17"), null)
 })
