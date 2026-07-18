@@ -1,6 +1,6 @@
 import { normalizeTransportMode, type TransportMode } from "../utils/transport"
 
-interface LatLng {
+export interface LatLng {
   lat: number
   lng: number
 }
@@ -41,7 +41,7 @@ interface PlacePricing {
   } | null
 }
 
-interface DistanceMatrixEntry {
+export interface DistanceMatrixEntry {
   distance: { text: string; value: number }
   duration: { text: string; value: number }
   status: string

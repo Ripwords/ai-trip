@@ -8,6 +8,7 @@ import { getTripFlightsForUser } from "../../../../../lib/trip-flights"
 import { enrichItinerary } from "../../../../../lib/enrich"
 import { computeAndSaveSegments } from "../../../../../lib/segments"
 import { getDistanceMatrix } from "../../../../../lib/google-maps"
+import { consecutiveTravelTimes } from "../../../../../lib/travel-times"
 import { sanitizePromptInput } from "../../../../../utils/sanitize"
 import { normalizeTransportMode } from "../../../../../utils/transport"
 import { guardCostEstimate } from "../../../../../lib/cost-guard"
@@ -390,29 +391,9 @@ export default defineEventHandler(async (event) => {
         result.orderedActivities?.map((o) => o.id),
       )
 
-      // Travel times between consecutive geo-located activities in the new order
-      const geoActivities = ordered.filter((a) => a.lat != null && a.lng != null)
-      const travelTimes: { fromId: string; toId: string; durationMinutes: number }[] = []
-
-      if (geoActivities.length >= 2) {
-        try {
-          const origins = geoActivities.slice(0, -1).map((a) => ({ lat: a.lat!, lng: a.lng! }))
-          const destinations = geoActivities.slice(1).map((a) => ({ lat: a.lat!, lng: a.lng! }))
-          const matrix = await getDistanceMatrix(origins, destinations, transportMode)
-          for (let i = 0; i < origins.length; i++) {
-            const element = matrix[i]?.[i]
-            if (element?.duration?.value) {
-              travelTimes.push({
-                fromId: geoActivities[i]!.id,
-                toId: geoActivities[i + 1]!.id,
-                durationMinutes: Math.ceil(element.duration.value / 60),
-              })
-            }
-          }
-        } catch {
-          /* proceed without travel times */
-        }
-      }
+      // Per-pair travel times — bills N-1 Distance Matrix elements instead of the
+      // (N-1)² a full matrix would, and caches per pair. See consecutiveTravelTimes.
+      const travelTimes = await consecutiveTravelTimes(ordered, getDistanceMatrix, transportMode)
 
       // Compute schedule
       let startHour = 9

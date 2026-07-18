@@ -5,6 +5,7 @@ import { activities, itineraryDays } from "../../../../../db/schema"
 import { dayIdParamsSchema } from "../../../../../utils/schemas"
 import { computeAndSaveSegments } from "../../../../../lib/segments"
 import { getDistanceMatrix } from "../../../../../lib/google-maps"
+import { consecutiveTravelTimes } from "../../../../../lib/travel-times"
 
 const reorderSchema = z.object({
   activityIds: z.array(z.string().uuid()),
@@ -53,28 +54,9 @@ export default defineEventHandler(async (event) => {
 
   if (day && allDayActivities.length >= 2) {
     // Get travel times for new order
-    const geoActivities = allDayActivities.filter((a) => a.lat != null && a.lng != null)
-    const travelTimes: { fromId: string; toId: string; durationMinutes: number }[] = []
-
-    if (geoActivities.length >= 2) {
-      try {
-        const origins = geoActivities.slice(0, -1).map((a) => ({ lat: a.lat!, lng: a.lng! }))
-        const destinations = geoActivities.slice(1).map((a) => ({ lat: a.lat!, lng: a.lng! }))
-        const matrix = await getDistanceMatrix(origins, destinations)
-        for (let i = 0; i < origins.length; i++) {
-          const element = matrix[i]?.[i]
-          if (element?.duration?.value) {
-            travelTimes.push({
-              fromId: geoActivities[i]!.id,
-              toId: geoActivities[i + 1]!.id,
-              durationMinutes: Math.ceil(element.duration.value / 60),
-            })
-          }
-        }
-      } catch {
-        /* proceed without travel times */
-      }
-    }
+    // Per-pair travel times — bills N-1 Distance Matrix elements instead of the
+    // (N-1)² a full matrix would, and caches per pair. See consecutiveTravelTimes.
+    const travelTimes = await consecutiveTravelTimes(allDayActivities, getDistanceMatrix)
 
     // Find earliest existing time as start
     let startHour = 9
