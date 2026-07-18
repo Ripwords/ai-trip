@@ -1126,7 +1126,10 @@ async function handleQuickOptimizeRoute() {
       },
     ]
     await refresh()
-    toastWithAction("Route optimized.", {
+    // The server appends a "Heads up: …" note when a stop is stranded far from
+    // the accommodation — reflect that in the toast so it isn't missed.
+    const stranded = data.message?.includes("Heads up:")
+    toastWithAction(stranded ? "Optimized — a stop is far from your hotel (see notes)." : "Route optimized.", {
       label: "Undo",
       onClick: () => handleAiUndo(dayId),
     })

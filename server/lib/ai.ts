@@ -7,6 +7,7 @@ import type { TripPreferences } from "../db/schema/trips"
 import type { TransportMode } from "../utils/transport"
 import { sanitizePromptInput } from "../utils/sanitize"
 import { getModel, AI_PROVIDER_OPTIONS } from "./ai-config"
+import { farFromAnchor } from "../utils/geo"
 import { buildCurrencyCtx } from "./currency-context"
 import { getExchangeRate } from "../utils/exchange-rate"
 import { withOneRetry } from "./retry"
@@ -607,6 +608,38 @@ export function buildOptimizeActivitiesPayload(
   }))
 }
 
+const OPTIMIZE_EVENING_START_MINUTES = 18 * 60
+const OPTIMIZE_FAR_FROM_STAY_KM = 12
+
+/**
+ * A note for the optimize result when evening activities are stranded far from
+ * the day's accommodation — reordering can't fix that, so tell the traveler to
+ * move them. Returns null when nothing is stranded or coords are missing.
+ */
+export function buildStrandedNote(
+  activities: { name: string; lat: number | null; lng: number | null; suggestedTime: string | null }[],
+  accommodation?: { name: string | null; lat: number | null; lng: number | null },
+): string | null {
+  if (accommodation?.lat == null || accommodation.lng == null) return null
+  const evening = activities.filter((a) => {
+    const m = a.suggestedTime?.match(/^(\d{1,2}):(\d{2})/)
+    if (!m) return false
+    return Number(m[1]) * 60 + Number(m[2]) >= OPTIMIZE_EVENING_START_MINUTES
+  })
+  const far = farFromAnchor(
+    evening.map((a) => ({ lat: a.lat, lng: a.lng })),
+    { lat: accommodation.lat, lng: accommodation.lng },
+    OPTIMIZE_FAR_FROM_STAY_KM,
+  )
+  if (far.length === 0) return null
+  const names = far.map((f) => `${evening[f.index]!.name} (~${Math.round(f.distanceKm)}km)`)
+  return `Heads up: ${names.join(", ")} ${far.length === 1 ? "is" : "are"} far from ${
+    accommodation.name ?? "your accommodation"
+  } — reordering can't avoid the evening round-trip, so consider moving ${
+    far.length === 1 ? "it" : "them"
+  } to a day based nearer.`
+}
+
 async function handleOptimize(params: {
   destination: string
   date: string
@@ -803,7 +836,7 @@ export async function processUserRequest(params: {
     lng?: number | null
     openingHours?: string[] | null
   }[]
-  accommodation?: { name: string; address: string | null }
+  accommodation?: { name: string; address: string | null; lat?: number | null; lng?: number | null }
   startLocation?: StartLocation
   preferences?: TripPreferences
   otherDayActivities?: { name: string; type: string }[]
@@ -958,7 +991,12 @@ export async function processUserRequest(params: {
           params.existingActivities,
         )
         result.shouldOptimize = true
-        result.message = "Optimized route for minimum travel time"
+        // Reordering can't rescue an evening stop stranded far from tonight's
+        // accommodation — surface it so the traveler can move it to a better day.
+        const strandedNote = buildStrandedNote(params.existingActivities, params.accommodation)
+        result.message = strandedNote
+          ? `Optimized route for minimum travel time. ${strandedNote}`
+          : "Optimized route for minimum travel time"
         break
       }
 

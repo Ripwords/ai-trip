@@ -90,3 +90,33 @@ describe("SCHEDULE_RULES evening proximity", () => {
     assert.match(SCHEDULE_RULES, /after dark/i)
   })
 })
+
+describe("buildStrandedNote", () => {
+  it("names evening activities far from the accommodation", async () => {
+    const { buildStrandedNote } = await import("./ai")
+    const note = buildStrandedNote(
+      [
+        { name: "Ha My Beach", lat: 15.927, lng: 108.322, suggestedTime: "14:15" },
+        { name: "Dragon Bridge Show", lat: 16.061, lng: 108.228, suggestedTime: "22:30" },
+      ],
+      { name: "Four Seasons Nam Hai", lat: 15.929, lng: 108.318 },
+    )
+    assert.ok(note && note.includes("Dragon Bridge Show"))
+    assert.ok(!note!.includes("Ha My Beach")) // daytime, not flagged
+  })
+
+  it("returns null when nothing is stranded or coords are missing", async () => {
+    const { buildStrandedNote } = await import("./ai")
+    assert.equal(
+      buildStrandedNote(
+        [{ name: "Resort dinner", lat: 15.929, lng: 108.317, suggestedTime: "19:30" }],
+        { name: "Four Seasons", lat: 15.929, lng: 108.318 },
+      ),
+      null,
+    )
+    assert.equal(
+      buildStrandedNote([{ name: "X", lat: 16.06, lng: 108.23, suggestedTime: "22:00" }], undefined),
+      null,
+    )
+  })
+})
