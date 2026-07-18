@@ -30,6 +30,18 @@ export const AI_MODELS = {
 
 export type AIModelKey = keyof typeof AI_MODELS
 
+/**
+ * Provider options passed alongside every model call. DeepSeek V4 models
+ * default to THINKING mode — a hidden reasoning_content phase that makes calls
+ * slow, hides output from the stream, and breaks multi-turn tool-calling. We
+ * force it off. The option is namespaced under `deepseek`, so the Google
+ * provider ignores it entirely — this is a no-op whenever the active model is
+ * Gemini, and only takes effect once a model key is routed to DeepSeek.
+ */
+export const AI_PROVIDER_OPTIONS = {
+  deepseek: { thinking: { type: "disabled" } },
+}
+
 /** Gemini model used when DEEPSEEK_API_KEY is missing (previous default). */
 const DEEPSEEK_FALLBACK_MODEL = "gemini-3.5-flash"
 

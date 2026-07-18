@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { afterEach, describe, it } from "node:test"
 
-import { getModel } from "./ai-config"
+import { getModel, AI_PROVIDER_OPTIONS } from "./ai-config"
 
 const originalKey = process.env.DEEPSEEK_API_KEY
 
@@ -12,6 +12,16 @@ function setKey() {
 function unsetKey() {
   delete process.env.DEEPSEEK_API_KEY
 }
+
+describe("AI_PROVIDER_OPTIONS", () => {
+  it("disables DeepSeek thinking mode", () => {
+    assert.equal(AI_PROVIDER_OPTIONS.deepseek.thinking.type, "disabled")
+  })
+
+  it("is namespaced under deepseek only (no-op for Gemini)", () => {
+    assert.deepEqual(Object.keys(AI_PROVIDER_OPTIONS), ["deepseek"])
+  })
+})
 
 describe("getModel", () => {
   afterEach(() => {

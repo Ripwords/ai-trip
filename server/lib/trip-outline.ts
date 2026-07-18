@@ -2,7 +2,7 @@ import { z } from "zod"
 import type { TripPreferences } from "../db/schema/trips"
 import { sanitizePromptInput } from "../utils/sanitize"
 import { buildSavedIdeasCtx, buildTripNotesCtx, formatPreferences, getDayOfWeek } from "./ai"
-import { getModel } from "./ai-config"
+import { getModel, AI_PROVIDER_OPTIONS } from "./ai-config"
 import { withOneRetry } from "./retry"
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -189,6 +189,7 @@ export async function buildTripOutline(
       const { generateObject } = await import("ai")
       const { object } = await generateObject({
         model: getModel(),
+        providerOptions: AI_PROVIDER_OPTIONS,
         schema: outlineSchema,
         system: args.system,
         prompt: args.prompt,

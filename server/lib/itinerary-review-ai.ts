@@ -9,7 +9,7 @@ import {
 } from "./itinerary-review"
 import { proposalSchema } from "./proposals"
 import { createTripTools } from "./ai-tools"
-import { getModel } from "./ai-config"
+import { getModel, AI_PROVIDER_OPTIONS } from "./ai-config"
 import type { TransportMode } from "../utils/transport"
 
 export const REVIEWER_SYSTEM_PROMPT = `You are an expert travel itinerary reviewer. You identify issues that automated checkers cannot catch: pace mismatches, geographic backtracking, venues closed on the scheduled day, interests mismatches, and energy imbalances.
@@ -157,6 +157,8 @@ export async function reviewItineraryWithJudgment(
       name: "Itinerary Reviewer",
       instructions: REVIEWER_SYSTEM_PROMPT,
       model: getModel("discuss"),
+      // Force DeepSeek out of thinking mode (no-op on Gemini). See AI_PROVIDER_OPTIONS.
+      providerOptions: AI_PROVIDER_OPTIONS,
       tools: {
         searchPlaces: tools.searchPlaces,
         getPlaceDetails: tools.getPlaceDetails,
