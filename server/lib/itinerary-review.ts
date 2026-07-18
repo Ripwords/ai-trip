@@ -172,6 +172,9 @@ const TRANSFER_GRACE_MINUTES = 3
 const TRANSFER_CRITICAL_MINUTES = 20
 // A few minutes' slack around opening/closing so an on-the-dot start isn't flagged.
 const OPENING_GRACE_MINUTES = 5
+// A visit ending slightly past close is fine (you leave at close); flag only a
+// meaningful overrun where the planned time genuinely can't be spent.
+const CLOSE_OVERRUN_GRACE_MINUTES = 15
 
 /** Where the traveler sleeps after `day`: the day's own accommodation, or the most recent prior day's. */
 function effectiveAccommodation(
@@ -576,7 +579,10 @@ function addOpeningHoursFindings(
         dayNumber: day.dayNumber,
         activityIds: [timed.activity.id],
       })
-    } else if (window.closeMinutes <= 24 * 60 && start > window.closeMinutes + OPENING_GRACE_MINUTES) {
+    } else if (
+      window.closeMinutes <= 24 * 60 &&
+      start > window.closeMinutes + OPENING_GRACE_MINUTES
+    ) {
       // Only judge same-day closes; overnight venues (close > midnight) are skipped.
       addFinding(findings, {
         code: "activity-outside-opening-hours",
@@ -586,6 +592,27 @@ function addOpeningHoursFindings(
           start,
         )}, but it closes at ${formatClockTime(window.closeMinutes)}.`,
         recommendation: "Move it earlier in the day, or to a day you can arrive before it closes.",
+        dayId: day.id,
+        dayNumber: day.dayNumber,
+        activityIds: [timed.activity.id],
+      })
+    } else if (
+      window.closeMinutes <= 24 * 60 &&
+      timed.endMinutes > window.closeMinutes + CLOSE_OVERRUN_GRACE_MINUTES
+    ) {
+      // Starts open but the planned duration runs well past closing — the visit
+      // gets cut short when the venue shuts.
+      addFinding(findings, {
+        code: "activity-outside-opening-hours",
+        severity: "warning",
+        title: "Runs past closing time",
+        message: `${timed.activity.name} is planned until ${formatClockTime(
+          timed.endMinutes,
+        )}, but it closes at ${formatClockTime(
+          window.closeMinutes,
+        )} — the visit gets cut short.`,
+        recommendation:
+          "Start it earlier, shorten the visit, or move it to a day with more time before closing.",
         dayId: day.id,
         dayNumber: day.dayNumber,
         activityIds: [timed.activity.id],

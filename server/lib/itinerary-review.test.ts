@@ -608,7 +608,11 @@ describe("opening-hours findings", () => {
   it("flags a stop scheduled before the venue opens", () => {
     const trip = { id: "t", days: [{ ...base, activities: [act({ suggestedTime: "06:00" })] }] }
     const res = reviewItinerary(trip, { scope: "day", dayId: "oh" })
-    assert.ok(res.findings.warning.some((x) => x.code === "activity-outside-opening-hours" && /open/.test(x.message)))
+    assert.ok(
+      res.findings.warning.some(
+        (x) => x.code === "activity-outside-opening-hours" && /open/.test(x.message),
+      ),
+    )
   })
 
   it("flags a venue closed on the scheduled day (critical)", () => {
@@ -641,6 +645,34 @@ describe("opening-hours findings", () => {
       ],
     }
     const res = reviewItinerary(trip, { scope: "day", dayId: "oh" })
+    assert.ok(!res.findings.warning.some((x) => x.code === "activity-outside-opening-hours"))
+  })
+})
+
+describe("duration runs past closing", () => {
+  const base = {
+    id: "oh2", dayNumber: 2, date: "2026-08-17", notes: null,
+    accommodationName: null, accommodationAddress: null, accommodationLat: null,
+    accommodationLng: null, accommodationPlaceId: null, travelSegments: [],
+  }
+  const act = (over: Record<string, unknown>) => ({
+    id: "v", name: "Marble Mountains", type: "attraction", lat: 16.0, lng: 108.26,
+    suggestedTime: "16:30", estimatedDurationMinutes: 90, sortOrder: 0,
+    openingHours: ["Monday: 7:00 AM – 5:30 PM"], ...over,
+  })
+
+  it("warns when the planned end runs well past closing", () => {
+    // 16:30 + 90 = 18:00, closes 17:30 -> 30 min past close
+    const trip = { id: "t", days: [{ ...base, activities: [act({})] }] }
+    const res = reviewItinerary(trip, { scope: "day", dayId: "oh2" })
+    const f = res.findings.warning.find((x) => x.code === "activity-outside-opening-hours" && /cut short/.test(x.message))
+    assert.ok(f, "expected runs-past-closing warning")
+  })
+
+  it("does not flag a visit that ends before closing", () => {
+    // 15:00 + 90 = 16:30, closes 17:30 -> fine
+    const trip = { id: "t", days: [{ ...base, activities: [act({ suggestedTime: "15:00" })] }] }
+    const res = reviewItinerary(trip, { scope: "day", dayId: "oh2" })
     assert.ok(!res.findings.warning.some((x) => x.code === "activity-outside-opening-hours"))
   })
 })
