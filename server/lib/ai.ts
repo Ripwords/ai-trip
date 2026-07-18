@@ -154,6 +154,8 @@ ROUTE LOGIC (dedicated step — walk this through BEFORE picking times or order)
 3. Cluster geographically nearby stops next to each other in the sequence.
 4. A stop that lies on the way between two anchors (a sight between the airport and the hotel, or between two cities) belongs on the day the traveler actually travels that leg — never on a day that turns it into a dedicated round trip.
 
+EVENING PROXIMITY (hard): dinner and any night activity (a show, bar, night market, late viewpoint) must be within ~15 minutes of where the traveler sleeps that night. Never schedule a late venue far from the accommodation — it forces a long drive out and back after dark. If a night attraction the traveler wants is far from tonight's stay (e.g. a city-centre show while they sleep an hour away), it belongs on a day they are based near it, not on this one — pick a closer evening option instead.
+
 DEFAULT DAY BLUEPRINT (fallback for an unstructured day — skip when the day has a clear shape: beach day, hiking day, flight day, single-event day):
 1. Morning activity/attraction (09:00–11:30)
 2. Lunch at a local restaurant (11:30–13:00)

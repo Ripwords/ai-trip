@@ -82,3 +82,11 @@ describe("buildOptimizeActivitiesPayload", () => {
     assert.equal(payload[0]?.name, "Marble Mountains")
   })
 })
+
+describe("SCHEDULE_RULES evening proximity", () => {
+  it("requires evening/night venues to be near where the traveler sleeps", () => {
+    assert.match(SCHEDULE_RULES, /EVENING PROXIMITY/)
+    assert.match(SCHEDULE_RULES, /where the traveler sleeps/i)
+    assert.match(SCHEDULE_RULES, /after dark/i)
+  })
+})
