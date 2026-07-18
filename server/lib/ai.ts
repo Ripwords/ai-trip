@@ -620,6 +620,8 @@ async function handleOptimize(params: {
   }[]
   prompt?: string
   startLocation?: StartLocation
+  /** Where the day ENDS (this day's accommodation) — anchors the route so it terminates there. */
+  endLocation?: { name: string; address: string | null }
   preferences?: TripPreferences
   flights?: FlightPromptInput[]
 }): Promise<{ orderedActivities: { index: number; suggestedTime: string }[] }> {
@@ -645,9 +647,14 @@ Optimize for minimum travel time, BUT respect time-of-day expectations:
 - Start times must leave room for travel between consecutive activities — no overlaps.
 
 When a time-of-day constraint conflicts with the shortest-travel ordering, follow the time-of-day constraint and minimize travel within what's left.
+
+ANCHORS (hard) — the day runs from START to END; plan one continuous path between them and NEVER route past the end point and back out:
+- The traveler STARTS from the start point below (or, if none is given, from wherever the day's first sensible stop is).
+- The traveler ENDS the day at the accommodation below and sleeps there. Make it the LAST stop. Do NOT schedule anything after it, even an evening activity — if an evening/night activity sits far from the accommodation, place it BEFORE the final leg to the accommodation, not after.
 ${formatPreferences(params.preferences)}${buildFlightsCtx(params.flights)}
 ACTIVITIES: ${JSON.stringify(buildOptimizeActivitiesPayload(params.activities))}
 ${params.startLocation ? `START FROM: ${params.startLocation.name}${params.startLocation.address ? ` (${params.startLocation.address})` : ""}` : ""}
+${params.endLocation ? `END AT (accommodation — must be the last stop): ${params.endLocation.name}${params.endLocation.address ? ` (${params.endLocation.address})` : ""}` : ""}
 ${params.prompt ? `Traveler wants: ${params.prompt}` : ""}`,
     }),
   )
@@ -938,6 +945,7 @@ export async function processUserRequest(params: {
           })),
           prompt: params.prompt,
           startLocation: params.startLocation,
+          endLocation: params.accommodation,
           preferences: params.preferences,
           flights: params.flights,
         })
