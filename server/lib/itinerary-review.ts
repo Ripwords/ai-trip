@@ -69,6 +69,7 @@ export interface ItineraryReviewFinding {
     | "missing-activity-time"
     | "missing-activity-duration"
     | "activity-overlap"
+    | "activities-out-of-order"
     | "insufficient-transfer-time"
     | "venue-closed-on-day"
     | "activity-outside-opening-hours"
@@ -410,6 +411,7 @@ function reviewDay(
   }
 
   addOverlapFindings(day, timedActivities, findings)
+  addTimeOrderFindings(day, timedActivities, findings)
   addTransferTimeFindings(day, timedActivities, findings)
   addOpeningHoursFindings(day, timedActivities, findings)
   addTravelFindings(day, findings)
@@ -455,6 +457,37 @@ function addDayLevelFindings(
       dayId: day.id,
       dayNumber: day.dayNumber,
     })
+  }
+}
+
+// timedActivities arrives in the day's route order (sortOrder). If a later stop
+// has an earlier start time than one before it, the map/list order and the
+// timeline disagree — usually a manual reorder that left the times behind.
+function addTimeOrderFindings(
+  day: ReviewableDay,
+  timedActivities: TimedActivity[],
+  findings: Record<ItineraryReviewSeverity, ItineraryReviewFinding[]>,
+) {
+  for (let i = 0; i < timedActivities.length - 1; i += 1) {
+    const current = timedActivities[i]!
+    const next = timedActivities[i + 1]!
+    if (next.startMinutes >= current.startMinutes) continue
+
+    addFinding(findings, {
+      code: "activities-out-of-order",
+      severity: "warning",
+      title: "Activities are out of time order",
+      message: `${next.activity.name} (${formatClockTime(
+        next.startMinutes,
+      )}) is listed after ${current.activity.name} (${formatClockTime(
+        current.startMinutes,
+      )}), so the route order and the timeline disagree.`,
+      recommendation: "Reorder the day so the stops run in time order, or fix the times.",
+      dayId: day.id,
+      dayNumber: day.dayNumber,
+      activityIds: [current.activity.id, next.activity.id],
+    })
+    return // one flag per day is enough to signal the inconsistency
   }
 }
 
@@ -608,9 +641,7 @@ function addOpeningHoursFindings(
         title: "Runs past closing time",
         message: `${timed.activity.name} is planned until ${formatClockTime(
           timed.endMinutes,
-        )}, but it closes at ${formatClockTime(
-          window.closeMinutes,
-        )} — the visit gets cut short.`,
+        )}, but it closes at ${formatClockTime(window.closeMinutes)} — the visit gets cut short.`,
         recommendation:
           "Start it earlier, shorten the visit, or move it to a day with more time before closing.",
         dayId: day.id,

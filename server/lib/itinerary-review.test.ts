@@ -651,21 +651,37 @@ describe("opening-hours findings", () => {
 
 describe("duration runs past closing", () => {
   const base = {
-    id: "oh2", dayNumber: 2, date: "2026-08-17", notes: null,
-    accommodationName: null, accommodationAddress: null, accommodationLat: null,
-    accommodationLng: null, accommodationPlaceId: null, travelSegments: [],
+    id: "oh2",
+    dayNumber: 2,
+    date: "2026-08-17",
+    notes: null,
+    accommodationName: null,
+    accommodationAddress: null,
+    accommodationLat: null,
+    accommodationLng: null,
+    accommodationPlaceId: null,
+    travelSegments: [],
   }
   const act = (over: Record<string, unknown>) => ({
-    id: "v", name: "Marble Mountains", type: "attraction", lat: 16.0, lng: 108.26,
-    suggestedTime: "16:30", estimatedDurationMinutes: 90, sortOrder: 0,
-    openingHours: ["Monday: 7:00 AM – 5:30 PM"], ...over,
+    id: "v",
+    name: "Marble Mountains",
+    type: "attraction",
+    lat: 16.0,
+    lng: 108.26,
+    suggestedTime: "16:30",
+    estimatedDurationMinutes: 90,
+    sortOrder: 0,
+    openingHours: ["Monday: 7:00 AM – 5:30 PM"],
+    ...over,
   })
 
   it("warns when the planned end runs well past closing", () => {
     // 16:30 + 90 = 18:00, closes 17:30 -> 30 min past close
     const trip = { id: "t", days: [{ ...base, activities: [act({})] }] }
     const res = reviewItinerary(trip, { scope: "day", dayId: "oh2" })
-    const f = res.findings.warning.find((x) => x.code === "activity-outside-opening-hours" && /cut short/.test(x.message))
+    const f = res.findings.warning.find(
+      (x) => x.code === "activity-outside-opening-hours" && /cut short/.test(x.message),
+    )
     assert.ok(f, "expected runs-past-closing warning")
   })
 
@@ -674,5 +690,31 @@ describe("duration runs past closing", () => {
     const trip = { id: "t", days: [{ ...base, activities: [act({ suggestedTime: "15:00" })] }] }
     const res = reviewItinerary(trip, { scope: "day", dayId: "oh2" })
     assert.ok(!res.findings.warning.some((x) => x.code === "activity-outside-opening-hours"))
+  })
+})
+
+describe("activities out of time order", () => {
+  const base = {
+    id: "ord", dayNumber: 1, date: "2026-08-16", notes: null,
+    accommodationName: null, accommodationAddress: null, accommodationLat: null,
+    accommodationLng: null, accommodationPlaceId: null, travelSegments: [],
+  }
+  const a = (id: string, time: string, sortOrder: number) => ({
+    id, name: id, type: "attraction", lat: 16.0, lng: 108.2,
+    suggestedTime: time, estimatedDurationMinutes: 30, sortOrder,
+  })
+
+  it("flags a later-listed stop with an earlier time", () => {
+    const trip = { id: "t", days: [{ ...base, activities: [a("A", "09:00", 0), a("B", "14:00", 1), a("C", "10:00", 2)] }] }
+    const res = reviewItinerary(trip, { scope: "day", dayId: "ord" })
+    const f = res.findings.warning.find((x) => x.code === "activities-out-of-order")
+    assert.ok(f, "expected activities-out-of-order")
+    assert.deepEqual(f.activityIds, ["B", "C"])
+  })
+
+  it("does not flag a day whose times run in order", () => {
+    const trip = { id: "t", days: [{ ...base, activities: [a("A", "09:00", 0), a("B", "10:00", 1), a("C", "14:00", 2)] }] }
+    const res = reviewItinerary(trip, { scope: "day", dayId: "ord" })
+    assert.ok(!res.findings.warning.some((x) => x.code === "activities-out-of-order"))
   })
 })
