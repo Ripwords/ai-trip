@@ -1103,50 +1103,17 @@ async function handleQuickFillGaps() {
   }
 }
 
+// "Optimize route" is a canned chat turn, not a separate one-click mutation, so
+// it gets the discuss agent's full route logic: it reorders when that helps,
+// and when a stop is stranded far from where the traveler sleeps (which no
+// reordering can fix) it presents the real options and lets them choose —
+// exactly what typing the request in the chat would do. Changes arrive as
+// proposals the traveler applies, so there's one behaviour, not two.
 async function handleQuickOptimizeRoute() {
-  if (!activeDay.value) return
-  const dayId = activeDay.value.id
-  snapshotDay(
-    dayId,
-    activeDay.value.activities.map((a) => ({ ...a })),
+  if (!activeDay.value || aiChatLoading.value) return
+  await handleAiSubmit(
+    "Optimize the route for this day — reorder the stops to minimise travel time and remove any back-and-forth. If a stop is stranded far from where I sleep tonight, lay out my options instead of forcing it.",
   )
-  aiMutating.value = true
-  try {
-    const data = await $fetch<{ message: string }>(`/api/trips/${tripId}/days/${dayId}/ai`, {
-      method: "POST",
-      body: { prompt: "Optimize the route", intent: "optimize" },
-    })
-    aiMessages.value = [
-      ...aiMessages.value,
-      {
-        id: makeMessageId(),
-        role: "system",
-        content: data.message ?? "Optimized.",
-        timestamp: Date.now(),
-      },
-    ]
-    await refresh()
-    // The server appends a "Heads up: …" note when a stop is stranded far from
-    // the accommodation — reflect that in the toast so it isn't missed.
-    const stranded = data.message?.includes("Heads up:")
-    toastWithAction(stranded ? "Optimized — a stop is far from your hotel (see notes)." : "Route optimized.", {
-      label: "Undo",
-      onClick: () => handleAiUndo(dayId),
-    })
-  } catch (e: unknown) {
-    aiMessages.value = [
-      ...aiMessages.value,
-      {
-        id: makeMessageId(),
-        role: "system",
-        content: e instanceof Error ? e.message : "Optimize failed",
-        timestamp: Date.now(),
-      },
-    ]
-  } finally {
-    aiMutating.value = false
-    await refreshAiUsage()
-  }
 }
 
 async function handleGenerateFullItinerary() {
