@@ -140,3 +140,14 @@ describe("stranded evening activity handling", () => {
     assert.match(DISCUSS_SYSTEM_PROMPT, /accept the (round-trip|drive)/i)
   })
 })
+
+describe("conciseness", () => {
+  it("forbids restating the schedule in prose when a proposal card already shows it", () => {
+    assert.match(DISCUSS_SYSTEM_PROMPT, /do not restate|don't restate|not restate/i)
+    assert.match(DISCUSS_SYSTEM_PROMPT, /proposal card/i)
+  })
+
+  it("keeps the four-sentence limit as a hard cap", () => {
+    assert.match(DISCUSS_SYSTEM_PROMPT, /hard cap|never (write )?more than four/i)
+  })
+})

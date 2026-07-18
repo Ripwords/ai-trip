@@ -509,7 +509,11 @@ const proposalKindMeta: Record<
                 <span class="dock-thinking-dots" aria-hidden="true"><i /><i /><i /></span>
                 <span class="dock-thinking-text">{{ thinkingText }}</span>
               </div>
-              <div v-else class="dock-assistant-body" v-html="renderMarkdown(msg.id, msg.content)" />
+              <div
+                v-else
+                class="dock-assistant-body"
+                v-html="renderMarkdown(msg.id, msg.content)"
+              />
 
               <!-- Inline proposal cards, grouped by chat-turn groupId -->
               <div v-for="g in proposalGroups(msg)" :key="g.key" class="mt-1 flex flex-col gap-2">
@@ -741,13 +745,17 @@ const proposalKindMeta: Record<
 }
 
 .dock-assistant-body {
-  font-size: 14.5px;
-  line-height: 1.55;
-  color: var(--color-sand-900);
+  font-size: 15px;
+  /* ~1.6 leading + a comfortable (not maximal) text colour: sand-900 is
+     near-white in dark mode (~16:1, harsh for long reading); sand-700 lands
+     around the ~87% "high-emphasis" level (~11:1) and stays readable in light
+     mode. Bold keeps sand-900 so emphasis still pops against the softer body. */
+  line-height: 1.6;
+  color: var(--color-sand-700);
 }
 
 .dock-assistant-body :where(p) {
-  margin: 0 0 8px;
+  margin: 0 0 14px;
 }
 .dock-assistant-body :where(p:last-child) {
   margin-bottom: 0;
