@@ -208,12 +208,50 @@ watch(lastMessageProgress, () => {
   }
 })
 
+// Rotating hints shown in the assistant bubble during the gap before the first
+// tool line or text token arrives — a turn that calls tools before replying can
+// sit silent for a few seconds, and an empty bubble reads as frozen. Real tool
+// activity (searchPlaces, getDistance) replaces this the moment it streams.
+const THINKING_HINTS = [
+  "Reading your trip…",
+  "Thinking it through…",
+  "Checking your schedule…",
+  "Working on your reply…",
+]
+const thinkingHintIndex = ref(0)
+const thinkingText = computed(() => THINKING_HINTS[thinkingHintIndex.value % THINKING_HINTS.length])
+let thinkingTimer: ReturnType<typeof setInterval> | null = null
+
 watch(
   () => props.loading,
   (isLoading) => {
-    if (isLoading) expanded.value = true
+    if (isLoading) {
+      expanded.value = true
+      thinkingHintIndex.value = 0
+      thinkingTimer ??= setInterval(() => {
+        thinkingHintIndex.value++
+      }, 2200)
+    } else if (thinkingTimer) {
+      clearInterval(thinkingTimer)
+      thinkingTimer = null
+    }
   },
 )
+
+onBeforeUnmount(() => {
+  if (thinkingTimer) clearInterval(thinkingTimer)
+})
+
+// The empty streaming bubble — loading, last message, no tool lines or text yet.
+function isThinkingBubble(msg: ChatMessage): boolean {
+  return (
+    props.loading &&
+    msg.role === "assistant" &&
+    !msg.content &&
+    !msg.toolCallSummary?.length &&
+    props.messages[props.messages.length - 1]?.id === msg.id
+  )
+}
 
 // The tool line that shimmers: the last summary line of the message that is
 // still streaming, and only until its text reply begins. Once `loading` flips
@@ -462,7 +500,16 @@ const proposalKindMeta: Record<
                   </span>
                 </p>
               </div>
-              <div class="dock-assistant-body" v-html="renderMarkdown(msg.id, msg.content)" />
+              <div
+                v-if="isThinkingBubble(msg)"
+                class="dock-thinking"
+                role="status"
+                aria-live="polite"
+              >
+                <span class="dock-thinking-dots" aria-hidden="true"><i /><i /><i /></span>
+                <span class="dock-thinking-text">{{ thinkingText }}</span>
+              </div>
+              <div v-else class="dock-assistant-body" v-html="renderMarkdown(msg.id, msg.content)" />
 
               <!-- Inline proposal cards, grouped by chat-turn groupId -->
               <div v-for="g in proposalGroups(msg)" :key="g.key" class="mt-1 flex flex-col gap-2">
@@ -783,6 +830,65 @@ const proposalKindMeta: Record<
   text-transform: uppercase;
   letter-spacing: 0.18em;
   color: var(--color-sand-500);
+}
+
+.dock-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--color-sand-500);
+}
+.dock-thinking-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+.dock-thinking-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.35;
+  animation: dock-thinking-pulse 1.2s ease-in-out infinite;
+}
+.dock-thinking-dots i:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.dock-thinking-dots i:nth-child(3) {
+  animation-delay: 0.36s;
+}
+.dock-thinking-text {
+  animation: dock-thinking-fade 2.2s ease-in-out infinite;
+}
+@keyframes dock-thinking-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+@keyframes dock-thinking-fade {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dock-thinking-dots i,
+  .dock-thinking-text {
+    animation: none;
+  }
+  .dock-thinking-dots i {
+    opacity: 0.6;
+  }
 }
 
 .dock-tool-line {
