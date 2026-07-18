@@ -617,7 +617,12 @@ const OPTIMIZE_FAR_FROM_STAY_KM = 12
  * move them. Returns null when nothing is stranded or coords are missing.
  */
 export function buildStrandedNote(
-  activities: { name: string; lat: number | null; lng: number | null; suggestedTime: string | null }[],
+  activities: {
+    name: string
+    lat: number | null
+    lng: number | null
+    suggestedTime: string | null
+  }[],
   accommodation?: { name: string | null; lat: number | null; lng: number | null },
 ): string | null {
   if (accommodation?.lat == null || accommodation.lng == null) return null
@@ -635,9 +640,7 @@ export function buildStrandedNote(
   const names = far.map((f) => `${evening[f.index]!.name} (~${Math.round(f.distanceKm)}km)`)
   return `Heads up: ${names.join(", ")} ${far.length === 1 ? "is" : "are"} far from ${
     accommodation.name ?? "your accommodation"
-  } — reordering can't avoid the evening round-trip, so consider moving ${
-    far.length === 1 ? "it" : "them"
-  } to a day based nearer.`
+  }, where you sleep tonight — reordering can't avoid the evening round-trip. Ask me in the chat and I'll lay out your options (swap for an evening near your hotel, stay somewhere nearer that night, or keep the drive).`
 }
 
 async function handleOptimize(params: {

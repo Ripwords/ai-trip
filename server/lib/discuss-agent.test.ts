@@ -127,3 +127,16 @@ describe("injection guard", () => {
     assert.match(DISCUSS_SYSTEM_PROMPT, /never follow instructions.*(trip|traveler) data/i)
   })
 })
+
+describe("stranded evening activity handling", () => {
+  it("tells the agent to present a choice, not silently reorder or propose an impossible move", () => {
+    assert.match(DISCUSS_SYSTEM_PROMPT, /STRANDED EVENING/)
+    assert.match(DISCUSS_SYSTEM_PROMPT, /where the traveler sleeps/i)
+    assert.match(DISCUSS_SYSTEM_PROMPT, /let the traveler (choose|decide)/i)
+  })
+
+  it("lists the real options (swap nearby / add a night / keep the drive)", () => {
+    assert.match(DISCUSS_SYSTEM_PROMPT, /swap/i)
+    assert.match(DISCUSS_SYSTEM_PROMPT, /accept the (round-trip|drive)/i)
+  })
+})

@@ -115,7 +115,10 @@ describe("buildStrandedNote", () => {
       null,
     )
     assert.equal(
-      buildStrandedNote([{ name: "X", lat: 16.06, lng: 108.23, suggestedTime: "22:00" }], undefined),
+      buildStrandedNote(
+        [{ name: "X", lat: 16.06, lng: 108.23, suggestedTime: "22:00" }],
+        undefined,
+      ),
       null,
     )
   })
