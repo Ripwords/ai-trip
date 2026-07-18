@@ -87,3 +87,54 @@ describe("day-of-week in context", () => {
     assert.match(ctx, /Day 1 \(2026-08-16, Sunday\)/)
   })
 })
+
+describe("start-location carry-forward", () => {
+  const multiDay: DiscussContextTrip = {
+    destination: "Central Vietnam",
+    startDate: "2026-08-16",
+    endDate: "2026-08-18",
+    currencyCode: "VND",
+    preferences: null,
+    days: [
+      {
+        id: "d1",
+        dayNumber: 1,
+        date: "2026-08-16",
+        accommodationName: "Four Seasons Nam Hai",
+        activities: [],
+      },
+      {
+        // Multi-night stay: no accommodation of its own, continues from day 1.
+        id: "d2",
+        dayNumber: 2,
+        date: "2026-08-17",
+        accommodationName: null,
+        activities: [],
+      },
+      {
+        // Hotel-change day: sleeps somewhere new, but starts from the prior hotel.
+        id: "d3",
+        dayNumber: 3,
+        date: "2026-08-18",
+        accommodationName: "Hoi An Ancient House",
+        activities: [],
+      },
+    ],
+  }
+
+  it("shows where a day with no accommodation of its own starts from", () => {
+    const ctx = buildTripContext(multiDay, null)
+    assert.match(ctx, /Day 2 .*starts from Four Seasons Nam Hai/)
+  })
+
+  it("shows both the morning start and the night's stay on a hotel-change day", () => {
+    const ctx = buildTripContext(multiDay, null)
+    assert.match(ctx, /Day 3 .*starts from Four Seasons Nam Hai.*staying at Hoi An Ancient House/)
+  })
+
+  it("adds no start anchor to day 1 (no prior night)", () => {
+    const ctx = buildTripContext(multiDay, null)
+    const day1Line = ctx.split("\n").find((l) => l.includes("Day 1"))
+    assert.ok(day1Line && !day1Line.includes("starts from"))
+  })
+})

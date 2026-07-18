@@ -75,12 +75,26 @@ export function buildTripContext(
 
   let activityLines = 0
   let trimmed = false
+  // Where a day STARTS = where the traveler slept the night before = the most
+  // recent prior day that had an accommodation. Generation derives this same
+  // "start the day from X" anchor (previousStayDay in ai.post); surfacing it
+  // here is what makes the discuss ROUTE CHECK's start anchor visible on days
+  // that don't set their own accommodation (multi-night stays, transfer days).
+  let carriedAccommodation: string | null = null
   for (const d of sortedDays) {
     if (trimmed) break
     const open = d.id === focusDayId ? " · OPEN" : ""
+    // Suppress the start anchor when it equals the day's own accommodation —
+    // "starts from X · staying at X" is just noise for a same-hotel night.
+    const startsFrom =
+      carriedAccommodation &&
+      carriedAccommodation.trim().toLowerCase() !== d.accommodationName?.trim().toLowerCase()
+        ? ` · starts from ${escapeCtx(carriedAccommodation)}`
+        : ""
     lines.push(
-      `--- Day ${d.dayNumber} (${d.date}, ${getDayOfWeek(d.date)}) [day:${d.id}]${d.accommodationName ? ` · staying at ${escapeCtx(d.accommodationName)}` : ""}${open} ---`,
+      `--- Day ${d.dayNumber} (${d.date}, ${getDayOfWeek(d.date)}) [day:${d.id}]${startsFrom}${d.accommodationName ? ` · staying at ${escapeCtx(d.accommodationName)}` : ""}${open} ---`,
     )
+    if (d.accommodationName) carriedAccommodation = d.accommodationName
     const acts = d.activities.toSorted((a, b) => a.sortOrder - b.sortOrder)
     if (acts.length === 0) {
       lines.push("  (no activities yet)")
