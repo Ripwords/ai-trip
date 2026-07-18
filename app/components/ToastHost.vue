@@ -36,7 +36,7 @@ function runAction(t: Toast) {
           v-for="t in toasts"
           :key="t.id"
           :role="t.type === 'error' ? 'alert' : 'status'"
-          class="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border bg-white px-4 py-3 shadow-lg"
+          class="pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-xl border bg-white px-4 py-3 shadow-lg"
           :class="{
             'border-forest-200': t.type === 'success',
             'border-red-200': t.type === 'error',
@@ -45,7 +45,7 @@ function runAction(t: Toast) {
         >
           <Icon
             :name="icon(t.type)"
-            class="mt-0.5 h-5 w-5 shrink-0"
+            class="h-5 w-5 shrink-0"
             :class="{
               'text-forest-500': t.type === 'success',
               'text-red-500': t.type === 'error',
