@@ -1,3 +1,5 @@
+import { farFromAnchor } from "../utils/geo"
+
 export type ItineraryReviewScope = "day" | "trip"
 export type ItineraryReviewSeverity = "critical" | "warning" | "suggestion"
 
@@ -69,6 +71,9 @@ export interface ItineraryReviewFinding {
     | "missing-dinner"
     | "late-ending"
     | "missing-activity-coordinates"
+    | "activity-before-flight-arrival"
+    | "activity-after-flight-departure"
+    | "evening-activity-far-from-stay"
     | "pace-mismatch"
     | "backtracking-route"
     | "closed-on-date"
@@ -151,6 +156,63 @@ const VERY_LONG_TRAVEL_SECONDS = 90 * 60
 // leave for the airport 3h before departure.
 const ARRIVAL_BUFFER_MINUTES = 90
 const DEPARTURE_CUTOFF_MINUTES = 180
+// An activity starting at/after this hour should be near where the traveler
+// sleeps that night — otherwise it forces a long out-and-back after dark.
+const EVENING_START_MINUTES = 18 * 60
+const FAR_FROM_STAY_KM = 12
+
+/** Where the traveler sleeps after `day`: the day's own accommodation, or the most recent prior day's. */
+function effectiveAccommodation(
+  day: ReviewableDay,
+  allDays: ReviewableDay[],
+): { name: string | null; lat: number; lng: number } | null {
+  if (day.accommodationLat != null && day.accommodationLng != null) {
+    return { name: day.accommodationName, lat: day.accommodationLat, lng: day.accommodationLng }
+  }
+  const prior = allDays
+    .filter(
+      (d) =>
+        d.dayNumber < day.dayNumber && d.accommodationLat != null && d.accommodationLng != null,
+    )
+    .toSorted((a, b) => b.dayNumber - a.dayNumber)[0]
+  if (!prior || prior.accommodationLat == null || prior.accommodationLng == null) return null
+  return { name: prior.accommodationName, lat: prior.accommodationLat, lng: prior.accommodationLng }
+}
+
+function addAccommodationDistanceFindings(
+  day: ReviewableDay,
+  allDays: ReviewableDay[],
+  findings: Record<ItineraryReviewSeverity, ItineraryReviewFinding[]>,
+) {
+  const stay = effectiveAccommodation(day, allDays)
+  if (!stay) return
+  const evening = day.activities.filter((a) => {
+    const t = parseClockTime(a.suggestedTime)
+    return t != null && t >= EVENING_START_MINUTES
+  })
+  const far = farFromAnchor(
+    evening.map((a) => ({ lat: a.lat, lng: a.lng })),
+    { lat: stay.lat, lng: stay.lng },
+    FAR_FROM_STAY_KM,
+  )
+  if (far.length === 0) return
+  const flagged = far.map((f) => ({ activity: evening[f.index]!, km: Math.round(f.distanceKm) }))
+  addFinding(findings, {
+    code: "evening-activity-far-from-stay",
+    severity: "warning",
+    title: "Evening plans are far from tonight's stay",
+    message: `${flagged
+      .map((f) => `${f.activity.name} (~${f.km}km)`)
+      .join(", ")} ${flagged.length === 1 ? "is" : "are"} a long trip from ${
+      stay.name ?? "your accommodation"
+    }, where you sleep tonight — you'll drive out and back after dark.`,
+    recommendation:
+      "Move these to a day based nearer them, or swap for an evening option closer to your accommodation.",
+    dayId: day.id,
+    dayNumber: day.dayNumber,
+    activityIds: flagged.map((f) => f.activity.id),
+  })
+}
 
 export function reviewItinerary(
   trip: ReviewableTrip,
@@ -171,6 +233,7 @@ export function reviewItinerary(
       firstTripDate: allDays[0]?.date,
       lastTripDate: allDays[allDays.length - 1]?.date,
     })
+    addAccommodationDistanceFindings(day, allDays, findings)
   }
 
   return {

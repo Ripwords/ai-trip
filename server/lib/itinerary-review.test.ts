@@ -317,3 +317,80 @@ describe("flight findings", () => {
     assert.ok(!codes.includes("activity-after-flight-departure"))
   })
 })
+
+describe("evening activity far from tonight's stay", () => {
+  const dayBase = {
+    id: "d1",
+    dayNumber: 1,
+    date: "2026-08-16",
+    notes: null,
+    accommodationName: "Four Seasons Nam Hai",
+    accommodationAddress: "Hoi An",
+    accommodationLat: 15.929,
+    accommodationLng: 108.318,
+    accommodationPlaceId: null,
+    travelSegments: [],
+  }
+
+  it("flags a late-evening activity far north when the stay is far south", () => {
+    const trip = {
+      id: "t",
+      destination: "Vietnam",
+      days: [
+        {
+          ...dayBase,
+          activities: [
+            { id: "a1", name: "Ha My Beach", type: "attraction", lat: 15.927, lng: 108.322, suggestedTime: "14:15", estimatedDurationMinutes: 90, sortOrder: 0 },
+            { id: "a2", name: "Dragon Bridge Fire Show", type: "entertainment", lat: 16.061, lng: 108.228, suggestedTime: "22:30", estimatedDurationMinutes: 60, sortOrder: 1 },
+          ],
+        },
+      ],
+    }
+    const res = reviewItinerary(trip, { scope: "day", dayId: "d1" })
+    const f = res.findings.warning.find((x) => x.code === "evening-activity-far-from-stay")
+    assert.ok(f, "expected evening-activity-far-from-stay finding")
+    assert.deepEqual(f.activityIds, ["a2"])
+    assert.doesNotMatch(JSON.stringify(f.activityIds), /a1/) // daytime beach not flagged
+  })
+
+  it("does not flag when evening activities are near the stay", () => {
+    const trip = {
+      id: "t",
+      destination: "Vietnam",
+      days: [
+        {
+          ...dayBase,
+          activities: [
+            { id: "b1", name: "Dinner at resort", type: "restaurant", lat: 15.929, lng: 108.317, suggestedTime: "19:30", estimatedDurationMinutes: 90, sortOrder: 0 },
+          ],
+        },
+      ],
+    }
+    const res = reviewItinerary(trip, { scope: "day", dayId: "d1" })
+    assert.ok(!res.findings.warning.some((x) => x.code === "evening-activity-far-from-stay"))
+  })
+
+  it("carries the stay forward to a night with no accommodation of its own", () => {
+    const trip = {
+      id: "t",
+      destination: "Vietnam",
+      days: [
+        { ...dayBase, activities: [] },
+        {
+          ...dayBase,
+          id: "d2",
+          dayNumber: 2,
+          date: "2026-08-17",
+          accommodationName: null,
+          accommodationLat: null,
+          accommodationLng: null,
+          activities: [
+            { id: "c1", name: "Late Da Nang bar", type: "bar", lat: 16.06, lng: 108.23, suggestedTime: "21:00", estimatedDurationMinutes: 60, sortOrder: 0 },
+          ],
+        },
+      ],
+    }
+    const res = reviewItinerary(trip, { scope: "day", dayId: "d2" })
+    assert.ok(res.findings.warning.some((x) => x.code === "evening-activity-far-from-stay"))
+  })
+})
