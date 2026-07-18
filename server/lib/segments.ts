@@ -32,24 +32,30 @@ export async function computeAndSaveSegments(dayId: string, mode?: TransportMode
   if (geoActivities.length < 2) return
 
   try {
-    const origins = geoActivities.slice(0, -1).map((a) => ({ lat: a.lat!, lng: a.lng! }))
-    const destinations = geoActivities.slice(1).map((a) => ({ lat: a.lat!, lng: a.lng! }))
-
-    const matrix = (await getDistanceMatrix(origins, destinations, travelMode)) as MatrixEntry[][]
-
-    const segmentValues = geoActivities.slice(0, -1).map((activity, i) => {
-      const data = pickSegmentData(matrix[i]?.[i], undefined, travelMode, travelMode)
-      return {
-        itineraryDayId: dayId,
-        fromActivityId: activity.id,
-        toActivityId: geoActivities[i + 1]!.id,
-        durationSeconds: data.durationSeconds,
-        distanceMeters: data.distanceMeters,
-        durationText: data.durationText,
-        distanceText: data.distanceText,
-        mode: data.mode,
-      }
-    })
+    // One 1×1 request per consecutive pair — bills N-1 Distance Matrix elements
+    // (not the (N-1)² a full origins×destinations grid would) and caches per
+    // pair, so a pair that recurs across reorders is free. Runs in parallel.
+    const pairs = geoActivities.slice(0, -1).map((from, i) => ({ from, to: geoActivities[i + 1]! }))
+    const segmentValues = await Promise.all(
+      pairs.map(async ({ from, to }) => {
+        const matrix = (await getDistanceMatrix(
+          [{ lat: from.lat!, lng: from.lng! }],
+          [{ lat: to.lat!, lng: to.lng! }],
+          travelMode,
+        )) as MatrixEntry[][]
+        const data = pickSegmentData(matrix[0]?.[0], undefined, travelMode, travelMode)
+        return {
+          itineraryDayId: dayId,
+          fromActivityId: from.id,
+          toActivityId: to.id,
+          durationSeconds: data.durationSeconds,
+          distanceMeters: data.distanceMeters,
+          durationText: data.durationText,
+          distanceText: data.distanceText,
+          mode: data.mode,
+        }
+      }),
+    )
 
     if (segmentValues.length > 0) {
       await db.insert(travelSegments).values(segmentValues)
