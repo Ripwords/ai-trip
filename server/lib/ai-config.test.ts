@@ -49,31 +49,32 @@ describe("getModel", () => {
     })
   })
 
-  describe("with DEEPSEEK_API_KEY set", () => {
-    it("default resolves to deepseek-v4-flash", () => {
+  // DeepSeek was reverted (too slow for the interactive discuss chat and for
+  // generateObject latency) — default/discuss run on Gemini regardless of the
+  // key. The DeepSeek plumbing stays in getModel as a one-line re-enable lever.
+  describe("default and discuss run on gemini-3.5-flash", () => {
+    it("default resolves to gemini-3.5-flash with DEEPSEEK_API_KEY set", () => {
       setKey()
       const model = getModel()
-      assert.equal(model.modelId, "deepseek-v4-flash")
-      assert.match(model.provider, /deepseek/)
+      assert.equal(model.modelId, "gemini-3.5-flash")
+      assert.match(model.provider, /google/)
     })
 
-    it("discuss resolves to deepseek-v4-flash", () => {
-      setKey()
-      const model = getModel("discuss")
-      assert.equal(model.modelId, "deepseek-v4-flash")
-      assert.match(model.provider, /deepseek/)
-    })
-  })
-
-  describe("without DEEPSEEK_API_KEY", () => {
-    it("default falls back to gemini-3.5-flash", () => {
+    it("default resolves to gemini-3.5-flash without DEEPSEEK_API_KEY", () => {
       unsetKey()
       const model = getModel()
       assert.equal(model.modelId, "gemini-3.5-flash")
       assert.match(model.provider, /google/)
     })
 
-    it("discuss falls back to gemini-3.5-flash", () => {
+    it("discuss resolves to gemini-3.5-flash with DEEPSEEK_API_KEY set", () => {
+      setKey()
+      const model = getModel("discuss")
+      assert.equal(model.modelId, "gemini-3.5-flash")
+      assert.match(model.provider, /google/)
+    })
+
+    it("discuss resolves to gemini-3.5-flash without DEEPSEEK_API_KEY", () => {
       unsetKey()
       const model = getModel("discuss")
       assert.equal(model.modelId, "gemini-3.5-flash")
