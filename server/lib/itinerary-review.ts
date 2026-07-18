@@ -66,6 +66,7 @@ export interface ItineraryReviewFinding {
     | "missing-activity-time"
     | "missing-activity-duration"
     | "activity-overlap"
+    | "insufficient-transfer-time"
     | "long-travel-segment"
     | "missing-lunch"
     | "missing-dinner"
@@ -160,6 +161,10 @@ const DEPARTURE_CUTOFF_MINUTES = 180
 // sleeps that night — otherwise it forces a long out-and-back after dark.
 const EVENING_START_MINUTES = 18 * 60
 const FAR_FROM_STAY_KM = 12
+// Transfer-time conflict: ignore a couple minutes of slack; warn on a real
+// overrun; escalate to critical when you'd arrive well after the next start.
+const TRANSFER_GRACE_MINUTES = 3
+const TRANSFER_CRITICAL_MINUTES = 20
 
 /** Where the traveler sleeps after `day`: the day's own accommodation, or the most recent prior day's. */
 function effectiveAccommodation(
@@ -395,6 +400,7 @@ function reviewDay(
   }
 
   addOverlapFindings(day, timedActivities, findings)
+  addTransferTimeFindings(day, timedActivities, findings)
   addTravelFindings(day, findings)
   addMealFindings(day, activities, timedActivities, findings)
   addLateEndingFinding(day, timedActivities, findings)
@@ -461,6 +467,57 @@ function addOverlapFindings(
         current.endMinutes,
       )}, which overlaps ${next.activity.name} at ${formatClockTime(next.startMinutes)}.`,
       recommendation: "Shorten one activity, move the next start time later, or reorder the day.",
+      dayId: day.id,
+      dayNumber: day.dayNumber,
+      activityIds: [current.activity.id, next.activity.id],
+    })
+  }
+}
+
+// A raw time overlap is caught by addOverlapFindings. This catches the subtler
+// case the LLM misses: two stops that DON'T overlap on the clock, but the drive
+// between them is longer than the gap — so the traveler arrives at the next
+// stop after its scheduled start. estimatedDurationMinutes is venue-time only;
+// the real transfer time lives in the day's travel segments.
+function addTransferTimeFindings(
+  day: ReviewableDay,
+  timedActivities: TimedActivity[],
+  findings: Record<ItineraryReviewSeverity, ItineraryReviewFinding[]>,
+) {
+  const sorted = timedActivities.toSorted((a, b) => a.startMinutes - b.startMinutes)
+  const segmentByFrom = new Map(day.travelSegments.map((s) => [s.fromActivityId, s]))
+
+  for (let i = 0; i < sorted.length - 1; i += 1) {
+    const current = sorted[i]!
+    const next = sorted[i + 1]!
+    // Raw overlap is addOverlapFindings' job — only judge the no-overlap gap.
+    if (current.endMinutes > next.startMinutes) continue
+
+    const segment = segmentByFrom.get(current.activity.id)
+    if (!segment) continue
+    if (segment.toActivityId != null && segment.toActivityId !== next.activity.id) continue
+
+    const travelSeconds = segment.durationSeconds ?? parseDurationText(segment.durationText)
+    if (travelSeconds == null) continue
+
+    const arrivalMinutes = current.endMinutes + Math.ceil(travelSeconds / 60)
+    const overrunMinutes = arrivalMinutes - next.startMinutes
+    // Grace for rounding / a couple minutes' slack; escalate a large overrun.
+    if (overrunMinutes < TRANSFER_GRACE_MINUTES) continue
+
+    addFinding(findings, {
+      code: "insufficient-transfer-time",
+      severity: overrunMinutes > TRANSFER_CRITICAL_MINUTES ? "critical" : "warning",
+      title: "Not enough time to travel between stops",
+      message: `${current.activity.name} ends at ${formatClockTime(
+        current.endMinutes,
+      )} and the trip to ${next.activity.name} takes about ${formatDuration(
+        travelSeconds,
+      )}, so you'd arrive around ${formatClockTime(arrivalMinutes)} — after its ${formatClockTime(
+        next.startMinutes,
+      )} start.`,
+      recommendation:
+        "Push the later start time back, shorten the earlier stop, or reorder so the drive fits.",
       dayId: day.id,
       dayNumber: day.dayNumber,
       activityIds: [current.activity.id, next.activity.id],

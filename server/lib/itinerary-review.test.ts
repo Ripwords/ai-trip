@@ -340,8 +340,26 @@ describe("evening activity far from tonight's stay", () => {
         {
           ...dayBase,
           activities: [
-            { id: "a1", name: "Ha My Beach", type: "attraction", lat: 15.927, lng: 108.322, suggestedTime: "14:15", estimatedDurationMinutes: 90, sortOrder: 0 },
-            { id: "a2", name: "Dragon Bridge Fire Show", type: "entertainment", lat: 16.061, lng: 108.228, suggestedTime: "22:30", estimatedDurationMinutes: 60, sortOrder: 1 },
+            {
+              id: "a1",
+              name: "Ha My Beach",
+              type: "attraction",
+              lat: 15.927,
+              lng: 108.322,
+              suggestedTime: "14:15",
+              estimatedDurationMinutes: 90,
+              sortOrder: 0,
+            },
+            {
+              id: "a2",
+              name: "Dragon Bridge Fire Show",
+              type: "entertainment",
+              lat: 16.061,
+              lng: 108.228,
+              suggestedTime: "22:30",
+              estimatedDurationMinutes: 60,
+              sortOrder: 1,
+            },
           ],
         },
       ],
@@ -361,7 +379,16 @@ describe("evening activity far from tonight's stay", () => {
         {
           ...dayBase,
           activities: [
-            { id: "b1", name: "Dinner at resort", type: "restaurant", lat: 15.929, lng: 108.317, suggestedTime: "19:30", estimatedDurationMinutes: 90, sortOrder: 0 },
+            {
+              id: "b1",
+              name: "Dinner at resort",
+              type: "restaurant",
+              lat: 15.929,
+              lng: 108.317,
+              suggestedTime: "19:30",
+              estimatedDurationMinutes: 90,
+              sortOrder: 0,
+            },
           ],
         },
       ],
@@ -385,12 +412,123 @@ describe("evening activity far from tonight's stay", () => {
           accommodationLat: null,
           accommodationLng: null,
           activities: [
-            { id: "c1", name: "Late Da Nang bar", type: "bar", lat: 16.06, lng: 108.23, suggestedTime: "21:00", estimatedDurationMinutes: 60, sortOrder: 0 },
+            {
+              id: "c1",
+              name: "Late Da Nang bar",
+              type: "bar",
+              lat: 16.06,
+              lng: 108.23,
+              suggestedTime: "21:00",
+              estimatedDurationMinutes: 60,
+              sortOrder: 0,
+            },
           ],
         },
       ],
     }
     const res = reviewItinerary(trip, { scope: "day", dayId: "d2" })
     assert.ok(res.findings.warning.some((x) => x.code === "evening-activity-far-from-stay"))
+  })
+})
+
+describe("insufficient transfer time (travel doesn't fit the gap)", () => {
+  const dayBase3 = {
+    id: "d3",
+    dayNumber: 3,
+    date: "2026-08-18",
+    notes: null,
+    accommodationName: "Homestay",
+    accommodationAddress: "Hoi An",
+    accommodationLat: 15.89,
+    accommodationLng: 108.32,
+    accommodationPlaceId: null,
+    activities: [
+      { id: "cafe", name: "Cộng Cà Phê", type: "cafe", lat: 16.069, lng: 108.225, suggestedTime: "14:30", estimatedDurationMinutes: 60, sortOrder: 0 },
+      { id: "buddha", name: "Lady Buddha", type: "attraction", lat: 16.1, lng: 108.278, suggestedTime: "15:45", estimatedDurationMinutes: 90, sortOrder: 1 },
+    ],
+  }
+
+  it("warns when the drive overruns the gap by a few minutes", () => {
+    const trip = {
+      id: "t",
+      destination: "Da Nang",
+      days: [{ ...dayBase3, travelSegments: [{ fromActivityId: "cafe", toActivityId: "buddha", durationSeconds: 23 * 60 }] }],
+    }
+    // cafe ends 15:30, +23min = 15:53, buddha at 15:45 → 8-min overrun (warning)
+    const res = reviewItinerary(trip, { scope: "day", dayId: "d3" })
+    const f = res.findings.warning.find((x) => x.code === "insufficient-transfer-time")
+    assert.ok(f, "expected insufficient-transfer-time warning")
+    assert.deepEqual(f.activityIds, ["cafe", "buddha"])
+  })
+
+  it("escalates to critical when the arrival is well past the next start", () => {
+    const trip = {
+      id: "t",
+      destination: "Da Nang",
+      days: [{ ...dayBase3, travelSegments: [{ fromActivityId: "cafe", toActivityId: "buddha", durationSeconds: 45 * 60 }] }],
+    }
+    // cafe ends 15:30, +45min = 16:15, buddha at 15:45 → 30-min overrun (critical)
+    const res = reviewItinerary(trip, { scope: "day", dayId: "d3" })
+    assert.ok(res.findings.critical.some((x) => x.code === "insufficient-transfer-time"))
+  })
+
+  it("ignores a rounding-level overrun within the grace window", () => {
+    const trip = {
+      id: "t",
+      destination: "Da Nang",
+      days: [
+        {
+          ...dayBase3,
+          // cafe ends 15:30, buddha 15:44, 15-min drive → arrive 15:45, 1-min overrun (< grace)
+          activities: [
+            dayBase3.activities[0]!,
+            { ...dayBase3.activities[1]!, suggestedTime: "15:44" },
+          ],
+          travelSegments: [{ fromActivityId: "cafe", toActivityId: "buddha", durationSeconds: 15 * 60 }],
+        },
+      ],
+    }
+    const res = reviewItinerary(trip, { scope: "day", dayId: "d3" })
+    const all = [...res.findings.critical, ...res.findings.warning]
+    assert.ok(!all.some((x) => x.code === "insufficient-transfer-time"))
+  })
+
+  it("does not flag when the drive comfortably fits the gap", () => {
+    const trip = {
+      id: "t",
+      destination: "Da Nang",
+      days: [
+        {
+          ...dayBase3,
+          activities: [
+            dayBase3.activities[0]!,
+            { ...dayBase3.activities[1]!, suggestedTime: "16:45" }, // 75-min gap
+          ],
+          travelSegments: [{ fromActivityId: "cafe", toActivityId: "buddha", durationSeconds: 23 * 60 }],
+        },
+      ],
+    }
+    const res = reviewItinerary(trip, { scope: "day", dayId: "d3" })
+    assert.ok(!res.findings.critical.some((x) => x.code === "insufficient-transfer-time"))
+  })
+
+  it("does not double-flag a raw overlap as a transfer conflict", () => {
+    const trip = {
+      id: "t",
+      destination: "Da Nang",
+      days: [
+        {
+          ...dayBase3,
+          activities: [
+            dayBase3.activities[0]!,
+            { ...dayBase3.activities[1]!, suggestedTime: "15:00" }, // starts before cafe ends (raw overlap)
+          ],
+          travelSegments: [{ fromActivityId: "cafe", toActivityId: "buddha", durationSeconds: 23 * 60 }],
+        },
+      ],
+    }
+    const res = reviewItinerary(trip, { scope: "day", dayId: "d3" })
+    assert.ok(res.findings.critical.some((x) => x.code === "activity-overlap"))
+    assert.ok(!res.findings.critical.some((x) => x.code === "insufficient-transfer-time"))
   })
 })
