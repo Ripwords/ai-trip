@@ -1,20 +1,21 @@
 <script setup lang="ts">
-interface Reservation {
-  id: string
-  type: string
-  status: string
-  name: string
-  confirmationNumber: string | null
-  provider: string | null
-  notes: string | null
-  startDate: string | null
-  endDate: string | null
-  amount: string | null
-}
+import {
+  bookingOriginHint,
+  editableBookingFields,
+  isDerivedBooking,
+  missingFieldsSummary,
+  needsDetails,
+  type BookingField,
+  type BookingRow as Reservation,
+} from "~/utils/booking-rows"
 
 const props = defineProps<{
   tripId: string
   currencyCode: string
+}>()
+
+const emit = defineEmits<{
+  "edit-in-itinerary": [dayId: string | null]
 }>()
 
 const { data: reservations, refresh } = await useFetch<Reservation[]>(
@@ -23,6 +24,19 @@ const { data: reservations, refresh } = await useFetch<Reservation[]>(
 
 const showAddForm = ref(false)
 const editingId = ref<string | null>(null)
+
+// Which row is being edited, so the form can drop the fields the itinerary
+// owns instead of re-asking for the hotel name and dates it already has.
+const editingRow = computed(() => reservations.value?.find((r) => r.id === editingId.value) ?? null)
+const formFields = computed<BookingField[]>(() =>
+  editingRow.value
+    ? editableBookingFields(editingRow.value)
+    : editableBookingFields({ source: "manual", detachedAt: null }),
+)
+const editingDerived = computed(() => !!editingRow.value && isDerivedBooking(editingRow.value))
+function shows(field: BookingField): boolean {
+  return formFields.value.includes(field)
+}
 
 const uid = useId()
 const nameId = `${uid}-name`
@@ -98,7 +112,10 @@ function startEdit(r: Reservation) {
 async function submitReservation() {
   if (!formName.value.trim()) return
   try {
-    const body: Record<string, unknown> = {
+    // Only send what this row's card is allowed to own. A derived row that
+    // posted its mirrored name or dates would be rejected with a 409 — those
+    // belong to the stay, and the itinerary is where they're changed.
+    const all: Record<BookingField, unknown> = {
       type: formType.value,
       status: formStatus.value,
       name: formName.value,
@@ -109,6 +126,10 @@ async function submitReservation() {
       endDate: formEndDate.value ? new Date(formEndDate.value).toISOString() : undefined,
       amount:
         formAmount.value === "" || formAmount.value == null ? undefined : String(formAmount.value),
+    }
+    const body: Record<string, unknown> = {}
+    for (const field of formFields.value) {
+      body[field] = all[field]
     }
 
     if (editingId.value) {
@@ -159,6 +180,13 @@ function formatCurrency(amount: string): string {
 const showEndDate = computed(
   () => formType.value === "accommodation" || formType.value === "car_rental",
 )
+
+// Amount is always present; the two date inputs come and go with the row type
+// and with whether this card owns its dates at all.
+const dateGridClass = computed(() => {
+  const columns = 1 + (shows("startDate") ? 1 : 0) + (shows("endDate") && showEndDate.value ? 1 : 0)
+  return columns === 3 ? "grid-cols-3" : columns === 2 ? "grid-cols-2" : "grid-cols-1"
+})
 </script>
 
 <template>
@@ -186,8 +214,49 @@ const showEndDate = computed(
         class="mt-4 space-y-3 border-b border-sand-100 pb-4"
         @submit.prevent="submitReservation"
       >
-        <div class="grid grid-cols-2 gap-3">
+        <!--
+          A derived row's hotel and nights come from the itinerary, so the form
+          shows them as read-only context and sends the user back there to
+          change them, rather than asking for them a second time.
+        -->
+        <div v-if="editingDerived && editingRow" class="rounded-xl bg-sand-50 px-3 py-2.5 text-sm">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p class="font-medium text-sand-900 truncate">{{ editingRow.name }}</p>
+              <p v-if="editingRow.startDate" class="mt-0.5 text-xs text-sand-500">
+                <NuxtTime
+                  :datetime="editingRow.startDate"
+                  locale="en-US"
+                  month="short"
+                  day="numeric"
+                />
+                <template v-if="editingRow.endDate">
+                  –
+                  <NuxtTime
+                    :datetime="editingRow.endDate"
+                    locale="en-US"
+                    month="short"
+                    day="numeric"
+                  />
+                </template>
+              </p>
+            </div>
+            <button
+              type="button"
+              class="shrink-0 text-xs font-medium text-terra-600 hover:text-terra-700 focus-ring"
+              @click="emit('edit-in-itinerary', editingRow.itineraryDayId)"
+            >
+              Edit in itinerary →
+            </button>
+          </div>
+          <p v-if="editingRow.missingFields.length" class="mt-2 text-xs text-sand-500">
+            Just add the {{ missingFieldsSummary(editingRow.missingFields) }}.
+          </p>
+        </div>
+
+        <div class="grid gap-3" :class="shows('type') ? 'grid-cols-2' : 'grid-cols-1'">
           <select
+            v-if="shows('type')"
             v-model="formType"
             class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
           >
@@ -204,7 +273,7 @@ const showEndDate = computed(
             </option>
           </select>
         </div>
-        <div>
+        <div v-if="shows('name')">
           <label :for="nameId" class="mb-1 block text-xs font-medium text-sand-600">Name</label>
           <input
             :id="nameId"
@@ -244,8 +313,8 @@ const showEndDate = computed(
             />
           </div>
         </div>
-        <div class="grid gap-3" :class="showEndDate ? 'grid-cols-3' : 'grid-cols-2'">
-          <div>
+        <div class="grid gap-3" :class="dateGridClass">
+          <div v-if="shows('startDate')">
             <label class="mb-1 block text-xs text-sand-500">{{
               showEndDate ? "Check-in" : "Date"
             }}</label>
@@ -255,7 +324,7 @@ const showEndDate = computed(
               class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
             />
           </div>
-          <div v-if="showEndDate">
+          <div v-if="shows('endDate') && showEndDate">
             <label class="mb-1 block text-xs text-sand-500">Check-out</label>
             <input
               v-model="formEndDate"
@@ -330,7 +399,24 @@ const showEndDate = computed(
                     {{ formatType(r.type) }}
                   </span>
                   <span v-if="r.provider" class="text-sand-400">{{ r.provider }}</span>
+                  <span
+                    v-if="bookingOriginHint(r)"
+                    class="inline-flex items-center gap-0.5 rounded-full bg-ocean-50 px-2 py-0.5 text-xs font-medium text-ocean-700"
+                  >
+                    <Icon name="lucide:link" class="h-3 w-3" />
+                    {{ bookingOriginHint(r) }}
+                  </span>
+                  <span
+                    v-if="needsDetails(r)"
+                    class="inline-block rounded-full bg-yellow-50 px-2 py-0.5 text-xs font-medium text-yellow-700"
+                  >
+                    Needs details
+                  </span>
                 </div>
+                <p v-if="needsDetails(r)" class="mt-1 text-xs text-sand-400">
+                  Add the {{ missingFieldsSummary(r.missingFields) }} — the rest came from your
+                  itinerary.
+                </p>
                 <div
                   v-if="r.startDate || r.confirmationNumber"
                   class="mt-1 flex flex-wrap items-center gap-2 text-xs text-sand-500"

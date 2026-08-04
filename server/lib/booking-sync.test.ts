@@ -226,7 +226,11 @@ describe("detachStayBooking", () => {
     assert.equal(ops.length, 1)
     assert.equal(ops[0]!.op, "update")
     assert.equal(ops[0]!.table, reservations)
-    assert.deepEqual(ops[0]!.values, { stayId: null, source: "manual" })
+    assert.equal(ops[0]!.values.stayId, null)
+    assert.equal(ops[0]!.values.source, "manual")
+    // Stamped so the Bookings tab can say "no longer linked" rather than
+    // letting the row silently pass for hand-typed.
+    assert.ok(ops[0]!.values.detachedAt instanceof Date)
   })
 
   it("issues no delete — a paid PNR is never destroyed by an unlink", async () => {

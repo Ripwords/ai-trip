@@ -113,7 +113,7 @@ async function backfillTrip(tripId: string, totals: Totals): Promise<void> {
         // status stay untouched. Only the link and the source flip.
         await tx
           .update(reservations)
-          .set({ stayId, source: "stay" })
+          .set({ stayId, source: "stay", detachedAt: null })
           .where(eq(reservations.id, entry.adoptReservationId))
         totals.bookingsAdopted++
       } else {

@@ -301,6 +301,17 @@ function handleExportKml() {
   )
 }
 
+// A derived booking's hotel and nights live on the day that owns the stay —
+// send the user there rather than letting them retype it in the Bookings tab.
+function handleEditBookingInItinerary(dayId: string | null) {
+  if (dayId) {
+    handleNavigateToDay(dayId)
+    return
+  }
+  activeTab.value = "itinerary"
+  if (import.meta.client) sessionStorage.setItem(storageKeyTab, "itinerary")
+}
+
 function handleNavigateToDay(dayId: string) {
   activeDayId.value = dayId
   activeTab.value = "itinerary"
@@ -1983,7 +1994,11 @@ async function recomputeSegments(dayId: string) {
 
       <!-- Bookings tab -->
       <div v-else-if="activeTab === 'reservations'" class="mt-8 max-w-3xl">
-        <ReservationTracker :trip-id="tripId" :currency-code="trip.currencyCode ?? 'USD'" />
+        <ReservationTracker
+          :trip-id="tripId"
+          :currency-code="trip.currencyCode ?? 'USD'"
+          @edit-in-itinerary="handleEditBookingInItinerary"
+        />
       </div>
 
       <!-- Team tab -->

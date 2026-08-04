@@ -275,7 +275,7 @@ export async function upsertStayBooking(
 export async function detachStayBooking(tx: Tx, stayId: string): Promise<void> {
   await tx
     .update(reservations)
-    .set({ stayId: null, source: "manual" })
+    .set({ stayId: null, source: "manual", detachedAt: new Date() })
     .where(eq(reservations.stayId, stayId))
 }
 

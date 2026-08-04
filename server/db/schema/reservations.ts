@@ -22,6 +22,10 @@ export const reservations = pgTable(
     // co-editor. See #57.
     source: text("source").notNull().default("manual"),
     stayId: uuid("stay_id").references(() => stays.id, { onDelete: "set null" }),
+    // Set when a derived row was unlinked (the hotel was cleared or changed).
+    // The row survives as a fully editable manual booking — this is only so the
+    // UI can say "no longer linked" instead of silently looking hand-typed.
+    detachedAt: timestamp("detached_at", { withTimezone: true }),
     status: text("status").notNull().default("confirmed"),
     name: text("name").notNull(),
     confirmationNumber: encryptedText("confirmation_number"),

@@ -1,0 +1,27 @@
+-- WHY THIS IS `IF NOT EXISTS` AND NOT THE STATEMENT DRIZZLE GENERATES
+--
+-- drizzle-kit decides what to apply by a timestamp watermark, not by filename
+-- index: pg-core/dialect.js only runs a migration when the last applied row's
+-- `created_at` is strictly below that migration's `when` in meta/_journal.json.
+--
+-- This branch was originally numbered 0032/0033/0034 with `when` values around
+-- 1785850097782-1785850795996. A preview deploy ran `vercel-build`
+-- (`nuxt build && drizzle-kit migrate`) against production at a point where the
+-- watermark already sat at 1785850599917 (PR #68's 0032_sturdy_slipstream).
+-- The result: this branch's 0032 and 0033 fell below the watermark and were
+-- silently skipped, but 0034 -- this file -- sat above it and was applied. So
+-- production already has `reservations.detached_at`, while `stays`,
+-- `reservations.source` and `reservations.stay_id` are still missing.
+--
+-- Renumbering for the agreed merge order gives every migration on this branch a
+-- fresh timestamp above the watermark, which means drizzle will now try to add
+-- `detached_at` a second time. Unguarded that is a `42701 duplicate column`
+-- error and a failed production deploy. Production was deliberately NOT touched
+-- to repair this; the migration is made idempotent instead, so it is correct
+-- both against a fresh database and against production's partially-applied one.
+--
+-- 0038 and 0039 are guarded the same way as a precaution: they should be absent
+-- from production per the reasoning above, but that reasoning is inferred from
+-- the watermark arithmetic rather than read off the production journal, so they
+-- are written to tolerate being re-run too.
+ALTER TABLE "reservations" ADD COLUMN IF NOT EXISTS "detached_at" timestamp with time zone;
