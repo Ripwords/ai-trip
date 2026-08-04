@@ -26,8 +26,23 @@ const activitySnapshotSchema = z.object({
   actualCost: z.string().nullable(),
 })
 
+/**
+ * Optional so a client that hasn't been updated still restores activities.
+ * When present, the day's accommodation is restored too — a set-accommodation
+ * proposal offers Undo, and previously that silently left the accommodation in
+ * place while reporting "Reverted."
+ */
+const accommodationSnapshotSchema = z.object({
+  accommodationName: z.string().nullable(),
+  accommodationPlaceId: z.string().nullable(),
+  accommodationAddress: z.string().nullable(),
+  accommodationLat: z.number().nullable(),
+  accommodationLng: z.number().nullable(),
+})
+
 const restoreBodySchema = z.object({
   activities: z.array(activitySnapshotSchema).max(50),
+  accommodation: accommodationSnapshotSchema.optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -88,7 +103,12 @@ export default defineEventHandler(async (event) => {
     await batchDb.batch(ops as [unknown, ...unknown[]])
   }
 
-  // Recompute travel segments
+  if (body.accommodation) {
+    await db.update(itineraryDays).set(body.accommodation).where(eq(itineraryDays.id, dayId))
+  }
+
+  // Recompute travel segments (accommodation anchors the day's route, so this
+  // must run after the update above).
   await computeAndSaveSegments(dayId)
 
   // Audit log
@@ -96,7 +116,7 @@ export default defineEventHandler(async (event) => {
     tripId: id,
     userId: session.user.id,
     action: "ai_undo",
-    description: `Undid AI changes, restored ${body.activities.length} activities`,
+    description: `Undid AI changes, restored ${body.activities.length} activities${body.accommodation ? " and accommodation" : ""}`,
   })
 
   return { success: true, restored: body.activities.length }
