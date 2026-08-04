@@ -46,7 +46,13 @@ describe("consecutiveTravelTimes", () => {
     const f = fakeFetcher({})
     assert.deepEqual(await consecutiveTravelTimes([{ id: "a", lat: 0, lng: 0 }], f.fetch), [])
     assert.deepEqual(
-      await consecutiveTravelTimes([{ id: "a", lat: null, lng: null }, { id: "b", lat: 1, lng: 1 }], f.fetch),
+      await consecutiveTravelTimes(
+        [
+          { id: "a", lat: null, lng: null },
+          { id: "b", lat: 1, lng: 1 },
+        ],
+        f.fetch,
+      ),
       [],
     )
     assert.equal(f.calls.length, 0)

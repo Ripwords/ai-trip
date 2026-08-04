@@ -695,17 +695,33 @@ describe("duration runs past closing", () => {
 
 describe("activities out of time order", () => {
   const base = {
-    id: "ord", dayNumber: 1, date: "2026-08-16", notes: null,
-    accommodationName: null, accommodationAddress: null, accommodationLat: null,
-    accommodationLng: null, accommodationPlaceId: null, travelSegments: [],
+    id: "ord",
+    dayNumber: 1,
+    date: "2026-08-16",
+    notes: null,
+    accommodationName: null,
+    accommodationAddress: null,
+    accommodationLat: null,
+    accommodationLng: null,
+    accommodationPlaceId: null,
+    travelSegments: [],
   }
   const a = (id: string, time: string, sortOrder: number) => ({
-    id, name: id, type: "attraction", lat: 16.0, lng: 108.2,
-    suggestedTime: time, estimatedDurationMinutes: 30, sortOrder,
+    id,
+    name: id,
+    type: "attraction",
+    lat: 16.0,
+    lng: 108.2,
+    suggestedTime: time,
+    estimatedDurationMinutes: 30,
+    sortOrder,
   })
 
   it("flags a later-listed stop with an earlier time", () => {
-    const trip = { id: "t", days: [{ ...base, activities: [a("A", "09:00", 0), a("B", "14:00", 1), a("C", "10:00", 2)] }] }
+    const trip = {
+      id: "t",
+      days: [{ ...base, activities: [a("A", "09:00", 0), a("B", "14:00", 1), a("C", "10:00", 2)] }],
+    }
     const res = reviewItinerary(trip, { scope: "day", dayId: "ord" })
     const f = res.findings.warning.find((x) => x.code === "activities-out-of-order")
     assert.ok(f, "expected activities-out-of-order")
@@ -713,7 +729,10 @@ describe("activities out of time order", () => {
   })
 
   it("does not flag a day whose times run in order", () => {
-    const trip = { id: "t", days: [{ ...base, activities: [a("A", "09:00", 0), a("B", "10:00", 1), a("C", "14:00", 2)] }] }
+    const trip = {
+      id: "t",
+      days: [{ ...base, activities: [a("A", "09:00", 0), a("B", "10:00", 1), a("C", "14:00", 2)] }],
+    }
     const res = reviewItinerary(trip, { scope: "day", dayId: "ord" })
     assert.ok(!res.findings.warning.some((x) => x.code === "activities-out-of-order"))
   })

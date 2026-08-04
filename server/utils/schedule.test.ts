@@ -1,7 +1,12 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { computeSchedule, orderDayActivities, parseClockMinutes, parseOpeningWindow } from "./schedule"
+import {
+  computeSchedule,
+  orderDayActivities,
+  parseClockMinutes,
+  parseOpeningWindow,
+} from "./schedule"
 
 test("adds start travel time before the first activity", () => {
   const [first, second] = computeSchedule({
