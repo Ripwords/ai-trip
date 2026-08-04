@@ -63,6 +63,7 @@ const { data: expensesList, refresh: refreshExpenses } = useLazyFetch<
     description: string
     amount: string
     category: string
+    paidById: string | null
     paidAt: string | null
   }[]
 >(`/api/trips/${tripId}/expenses`)
@@ -1836,7 +1837,9 @@ async function recomputeSegments(dayId: string) {
           :budget="trip.budget ?? null"
           :currency-code="trip.currencyCode ?? 'USD'"
           :members="tripMembers?.filter((m) => m.status === 'active') ?? []"
+          :expenses="expensesList ?? []"
           @budget-updated="refresh"
+          @expenses-changed="refreshExpenses"
         />
       </div>
 

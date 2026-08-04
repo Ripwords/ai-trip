@@ -20,15 +20,24 @@ const props = defineProps<{
   budget: string | null
   currencyCode: string
   members?: Member[]
+  /**
+   * Owned by the page so the Overview tab and this tracker read the same list.
+   * This component used to run its own useFetch, which meant a second request
+   * for the same endpoint and an Overview that went stale after every edit.
+   */
+  expenses: Expense[]
 }>()
 
 const emit = defineEmits<{
   budgetUpdated: []
+  expensesChanged: []
 }>()
 
 const { downloadCsv } = useExportExpenses()
 
-const { data: expenses, refresh } = await useFetch<Expense[]>(`/api/trips/${props.tripId}/expenses`)
+const expenses = computed(() => props.expenses)
+/** Ask the page to refetch; it owns the data. Fire-and-forget by design. */
+const refresh = () => emit("expensesChanged")
 
 const editingBudget = ref(false)
 const budgetInput = ref(props.budget ?? "")
@@ -156,7 +165,7 @@ async function submitExpense() {
     }
     resetForm()
     showAddForm.value = false
-    await refresh()
+    refresh()
   } catch (e: unknown) {
     console.error("Failed to save expense:", e)
     toast.error("Couldn't save expense. Please try again.")
@@ -179,7 +188,7 @@ async function deleteExpense(expenseId: string) {
     await $fetch(`/api/trips/${props.tripId}/expenses/${expenseId}`, {
       method: "DELETE",
     })
-    await refresh()
+    refresh()
   } catch (e: unknown) {
     console.error("Failed to delete expense:", e)
   }
