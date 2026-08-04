@@ -277,7 +277,11 @@ export default defineEventHandler(async (event) => {
     })
 
     if (deduped.length > 0) {
-      // Enrich with Google Maps (graceful — if enrichment fails, skip adding)
+      // Enrichment is the last step that can fail after the credit is spent.
+      // A failure here used to be swallowed, returning `success: true, added: 0`
+      // over an untouched day: the traveler was charged, the page reported
+      // success, and the full-itinerary loop counted the day as generated.
+      // Mirrors applyProposal's add-activities branch, which already re-throws.
       let enriched
       try {
         // Use first geo-located activity or accommodation as location bias for place search
@@ -346,7 +350,19 @@ export default defineEventHandler(async (event) => {
           addedCount = enrichedActivities.length
         }
       } catch (e: unknown) {
-        console.error("[ai.post] Enrichment failed, skipping new activities:", e)
+        console.error("[ai.post] Enrichment failed:", e)
+        // Only bail when the request achieved nothing at all. `modify` removes
+        // activities before this point and `fill_gaps` can fill blank times —
+        // that work is already committed, so throwing would strand the day in a
+        // half-applied state AND refund a request that did change something.
+        // In that case fall through and report the partial result instead.
+        if (addedCount === 0 && removedCount === 0 && updatedCount === 0) {
+          await refundAiCredit(session.user.id)
+          throw createError({
+            statusCode: 502,
+            message: "Couldn't look those places up on Google Maps. Please try again.",
+          })
+        }
       }
     }
   }
