@@ -19,6 +19,8 @@ interface ReviewFinding {
 interface ReviewResult {
   scope: ReviewScope
   dayId?: string
+  /** Only present when the deep (AI judgment) review was requested. */
+  judgment?: { ran: boolean; reason?: string }
   findings: Record<ReviewSeverity, ReviewFinding[]>
   summary: {
     checkedDays: number
@@ -54,6 +56,8 @@ const scope = ref<ReviewScope>(props.initialScope)
 const selectedDayId = ref<string | undefined>(props.initialDayId ?? props.days[0]?.id)
 const result = ref<ReviewResult | null>(null)
 const loading = ref(false)
+/** True only while the opt-in AI judgment pass is running (it costs a credit). */
+const deepLoading = ref(false)
 const error = ref("")
 
 const severityMeta: Record<
@@ -153,13 +157,15 @@ function fixButtonLabel(code: string): string {
   }
 }
 
-async function runReview() {
+async function runReview(options: { judgment?: boolean } = {}) {
   if (scope.value === "day" && !selectedDayId.value) {
     error.value = "Choose a day to review."
     return
   }
 
+  const judgment = options.judgment ?? false
   loading.value = true
+  deepLoading.value = judgment
   error.value = ""
 
   try {
@@ -168,15 +174,22 @@ async function runReview() {
       body: {
         scope: scope.value,
         dayId: scope.value === "day" ? selectedDayId.value : undefined,
+        judgment,
       },
     })
     result.value = review
     emit("reviewed", review)
+    if (judgment && review.judgment && !review.judgment.ran) {
+      // The credit was refunded server-side; say so rather than pretending the
+      // deep pass ran and found nothing.
+      error.value = "The deep review couldn't run this time. Showing the standard checks instead."
+    }
   } catch (e: unknown) {
     console.error("Failed to review itinerary:", e)
     error.value = "Review failed. Try again in a moment."
   } finally {
     loading.value = false
+    deepLoading.value = false
   }
 }
 
@@ -198,15 +211,28 @@ onMounted(() => {
         </p>
       </div>
 
-      <button
-        type="button"
-        class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-terra-500 px-3 text-sm font-medium text-white transition hover:bg-terra-600 disabled:cursor-not-allowed disabled:opacity-60"
-        :disabled="loading"
-        @click="runReview"
-      >
-        <Icon name="lucide:refresh-cw" class="h-4 w-4" :class="{ 'animate-spin': loading }" />
-        {{ loading ? "Reviewing" : "Review" }}
-      </button>
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-sand-300 px-3 text-sm font-medium text-sand-700 transition hover:bg-sand-50 disabled:cursor-not-allowed disabled:opacity-60"
+          :disabled="loading"
+          title="Uses one AI credit to look for pace, routing, opening-hours and interest problems the standard checks can't see."
+          @click="runReview({ judgment: true })"
+        >
+          <Icon name="lucide:brain" class="h-4 w-4" :class="{ 'animate-pulse': deepLoading }" />
+          {{ deepLoading ? "Thinking" : "Deep review" }}
+        </button>
+
+        <button
+          type="button"
+          class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-terra-500 px-3 text-sm font-medium text-white transition hover:bg-terra-600 disabled:cursor-not-allowed disabled:opacity-60"
+          :disabled="loading"
+          @click="runReview()"
+        >
+          <Icon name="lucide:refresh-cw" class="h-4 w-4" :class="{ 'animate-spin': loading }" />
+          {{ loading ? "Reviewing" : "Review" }}
+        </button>
+      </div>
     </div>
 
     <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
