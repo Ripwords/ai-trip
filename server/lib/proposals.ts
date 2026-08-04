@@ -40,6 +40,9 @@ const aiActivityPayloadSchema = z.object({
   address: z.string().nullable().optional(),
 })
 
+/** Strict HH:MM. The old /^\d{2}:\d{2}$/ accepted "99:99" and "45:67". */
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/
+
 const baseProposal = z.object({
   id: z.string().uuid(),
   dayId: z.string().uuid(),
@@ -66,7 +69,7 @@ export const proposalSchema = z.discriminatedUnion("kind", [
         .array(
           z.object({
             activityId: z.string().uuid(),
-            suggestedTime: z.string().regex(/^\d{2}:\d{2}$/),
+            suggestedTime: z.string().regex(HHMM),
             estimatedDurationMinutes: z.number().int().positive(),
           }),
         )
@@ -86,7 +89,7 @@ export const proposalSchema = z.discriminatedUnion("kind", [
         .array(
           z.object({
             id: z.string().uuid(),
-            suggestedTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+            suggestedTime: z.string().regex(HHMM),
           }),
         )
         .optional(),
@@ -284,11 +287,17 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
       let matched = 0
       await db.transaction(async (tx) => {
         for (const u of proposal.payload.updates) {
+          // Normalize/clamp before persisting — parity with the add branch
+          // below. The payload regex accepted "99:99", and durations were
+          // written unbounded.
+          const suggestedTime = normalizeSuggestedTime(u.suggestedTime)
+          if (!suggestedTime) continue
           const rows = await tx
             .update(activities)
             .set({
-              suggestedTime: u.suggestedTime,
-              estimatedDurationMinutes: u.estimatedDurationMinutes,
+              suggestedTime,
+              estimatedDurationMinutes:
+                clampDurationMinutes(u.estimatedDurationMinutes) ?? u.estimatedDurationMinutes,
             })
             .where(and(eq(activities.id, u.activityId), eq(activities.itineraryDayId, ctx.dayId)))
             .returning({ id: activities.id })

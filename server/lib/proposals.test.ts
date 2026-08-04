@@ -100,6 +100,39 @@ describe("proposalSchema", () => {
   })
 })
 
+describe("proposalSchema time validation", () => {
+  const reschedule = (suggestedTime: string) =>
+    proposalSchema.safeParse({
+      id: "11111111-1111-4111-8111-111111111111",
+      kind: "reschedule",
+      dayId: "22222222-2222-4222-8222-222222222222",
+      summary: "Move dinner",
+      payload: {
+        updates: [
+          {
+            activityId: "33333333-3333-4333-8333-333333333333",
+            suggestedTime,
+            estimatedDurationMinutes: 60,
+          },
+        ],
+      },
+    })
+
+  // The old /^\d{2}:\d{2}$/ matched the shape but not the range, so these
+  // reached the database as-is.
+  it("rejects times that look like HH:MM but are not real clock times", () => {
+    for (const t of ["99:99", "45:67", "24:00", "23:60"]) {
+      assert.equal(reschedule(t).success, false, `expected ${t} to be rejected`)
+    }
+  })
+
+  it("accepts real clock times at the boundaries", () => {
+    for (const t of ["00:00", "09:05", "23:59"]) {
+      assert.equal(reschedule(t).success, true, `expected ${t} to be accepted`)
+    }
+  })
+})
+
 const dayFixture = {
   id: "22222222-2222-4222-8222-222222222222",
   activities: [
