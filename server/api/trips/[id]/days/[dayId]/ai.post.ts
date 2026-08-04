@@ -127,15 +127,23 @@ export default defineEventHandler(async (event) => {
     console.error("[ai.post] Flight context unavailable, proceeding without:", e)
   }
 
-  // Derive day location from activities/accommodation
-  let dayLocation = trip.destination
-  const addresses = day.activities.map((a) => a.address).filter((a): a is string => !!a)
-  if (addresses.length > 0) {
-    dayLocation = `${addresses[0]} (near ${trip.destination})`
-  }
-  if (day.accommodationAddress) {
-    dayLocation = `${day.accommodationAddress} (near ${trip.destination})`
-  }
+  // The AI prompt and the web-research query want a CITY or area, never a
+  // street address. This used to be `"<full street address> (near <dest>)"`,
+  // which reached the model as `ALL places must be in 4-1 Nishishinjuku,
+  // Shinjuku City, Tokyo 160-0023 (near Japan)` — a nonsensical constraint and
+  // a poor search query, and it made the research cache key differ per day.
+  //
+  // Geographic precision comes from coordinates instead: dayCoords biases the
+  // Places lookup during enrichment. Prefer the day's accommodation (where the
+  // traveler actually is) over whichever activity happens to sort first.
+  const dayLocation = trip.destination
+  const geoActivity = day.activities.find((a) => a.lat != null && a.lng != null)
+  const dayCoords =
+    day.accommodationLat != null && day.accommodationLng != null
+      ? { lat: day.accommodationLat, lng: day.accommodationLng }
+      : geoActivity
+        ? { lat: geoActivity.lat!, lng: geoActivity.lng! }
+        : undefined
 
   // Process the user's request through the AI
   let result
@@ -275,16 +283,10 @@ export default defineEventHandler(async (event) => {
       // Mirrors applyProposal's add-activities branch, which already re-throws.
       let enriched
       try {
-        // Use first geo-located activity or accommodation as location bias for place search
-        const geoActivity = day.activities.find((a) => a.lat != null && a.lng != null)
-        const destinationCoords = geoActivity
-          ? { lat: geoActivity.lat!, lng: geoActivity.lng! }
-          : undefined
-
         enriched = await enrichItinerary(
           { days: [{ dayNumber: day.dayNumber, theme: "", activities: deduped }] },
           dayLocation,
-          destinationCoords,
+          dayCoords,
         )
 
         enrichmentFailures = enriched.enrichmentFailures
