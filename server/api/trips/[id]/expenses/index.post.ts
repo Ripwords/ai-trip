@@ -26,13 +26,13 @@ export default defineEventHandler(async (event) => {
   // Shared with the PUT handler — see server/lib/expenses.ts.
   await assertExpenseRefs(id, { activityId: body.activityId, paidById: body.paidById })
 
-  const { paidAt, ...restBody } = body
   const [expense] = await db
     .insert(expenses)
     .values({
-      ...restBody,
+      ...body,
       tripId: id,
-      paidAt: paidAt ? new Date(paidAt) : undefined,
+      // paid_at is a `date` column — a plain YYYY-MM-DD string, no Date round-trip.
+      paidAt: body.paidAt ?? undefined,
     })
     .returning()
 

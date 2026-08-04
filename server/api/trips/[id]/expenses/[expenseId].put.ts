@@ -25,12 +25,12 @@ export default defineEventHandler(async (event) => {
   // always checked both; PUT checked neither.
   await assertExpenseRefs(id, { activityId: body.activityId, paidById: body.paidById })
 
-  const { paidAt, ...restBody } = body
   const [updated] = await db
     .update(expenses)
     .set({
-      ...restBody,
-      ...(paidAt !== undefined ? { paidAt: paidAt ? new Date(paidAt) : null } : {}),
+      ...body,
+      // paid_at is a `date` column — a plain YYYY-MM-DD string, no Date round-trip.
+      ...(body.paidAt !== undefined ? { paidAt: body.paidAt ?? null } : {}),
     })
     .where(eq(expenses.id, expenseId))
     .returning()

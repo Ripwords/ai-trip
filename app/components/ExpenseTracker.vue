@@ -48,7 +48,7 @@ const paidById = `${uid}-paid-by`
 const formDescription = ref("")
 const formAmount = ref("")
 const formCategory = ref("food")
-const formDate = ref(new Date().toISOString().split("T")[0])
+const formDate = ref(todayCalendarDate())
 const formPaidById = ref<string>("")
 
 const categories = ["accommodation", "food", "transport", "activity", "shopping", "other"]
@@ -100,7 +100,7 @@ function resetForm() {
   formDescription.value = ""
   formAmount.value = ""
   formCategory.value = "food"
-  formDate.value = new Date().toISOString().split("T")[0]
+  formDate.value = todayCalendarDate()
   formPaidById.value = ""
   editingExpenseId.value = null
 }
@@ -110,7 +110,9 @@ function startEdit(expense: Expense) {
   formDescription.value = expense.description
   formAmount.value = expense.amount
   formCategory.value = expense.category
-  formDate.value = expense.paidAt ? new Date(expense.paidAt).toISOString().split("T")[0] : ""
+  // paidAt is already a plain YYYY-MM-DD calendar date — parsing it into a
+  // Date and back reintroduced the UTC/local shift this column exists to avoid.
+  formDate.value = expense.paidAt ?? ""
   formPaidById.value = expense.paidById ?? ""
   showAddForm.value = true
 }
@@ -144,7 +146,7 @@ async function submitExpense() {
       description: formDescription.value,
       amount: formAmount.value,
       category: formCategory.value,
-      paidAt: formDate.value ? new Date(formDate.value).toISOString() : undefined,
+      paidAt: formDate.value || undefined,
       paidById: formPaidById.value || undefined,
     }
 
@@ -443,14 +445,9 @@ function getMemberName(userId: string | null): string {
               >
                 {{ formatType(expense.category) }}
               </span>
-              <NuxtTime
-                v-if="expense.paidAt"
-                :datetime="expense.paidAt"
-                locale="en-US"
-                month="short"
-                day="numeric"
-                year="numeric"
-              />
+              <!-- Rendered from the date parts directly: <NuxtTime> resolves in
+                   the viewer's timezone, which re-introduces the off-by-one. -->
+              <span v-if="expense.paidAt">{{ formatCalendarDate(expense.paidAt) }}</span>
               <span v-if="expense.paidById && members && members.length > 1" class="text-sand-400">
                 paid by {{ getMemberName(expense.paidById) }}
               </span>

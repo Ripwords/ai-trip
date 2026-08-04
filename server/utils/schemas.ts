@@ -218,7 +218,14 @@ export const createExpenseSchema = z.object({
   category: expenseCategoryEnum.optional(),
   activityId: z.string().uuid().nullish(),
   paidById: z.string().nullish(),
-  paidAt: z.string().nullish(),
+  // A calendar date, not an instant — the `paid_at` column is a `date`.
+  // Legacy clients may still send a full ISO timestamp; take its date part
+  // rather than rejecting, since that is exactly what used to be stored.
+  paidAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}(T.*)?$/, "Must be a YYYY-MM-DD date")
+    .transform((s) => s.slice(0, 10))
+    .nullish(),
 })
 
 // `.partial()` alone made `{}` a valid body — an empty PUT was accepted and

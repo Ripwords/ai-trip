@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, numeric, timestamp, jsonb, index } from "drizzle-orm/pg-core"
+import { pgTable, uuid, text, numeric, timestamp, date, jsonb, index } from "drizzle-orm/pg-core"
 import { relations } from "drizzle-orm"
 import { trips } from "./trips"
 import { activities } from "./activities"
@@ -22,7 +22,11 @@ export const expenses = pgTable(
     // Custom splits: { userId: amount } — who owes what portion
     // e.g., { "user1": "25.00", "user2": "25.00" } for a $50 expense split between 2
     splits: jsonb("splits").$type<Record<string, string>>(),
-    paidAt: timestamp("paid_at", { withTimezone: true }),
+    // A calendar date, not an instant: "the day the money was spent" has no
+    // time and no timezone. As timestamptz it was written as UTC midnight and
+    // rendered in the viewer's local zone, so everyone west of UTC saw every
+    // expense dated a day early.
+    paidAt: date("paid_at"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

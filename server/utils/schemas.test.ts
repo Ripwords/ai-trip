@@ -40,6 +40,36 @@ describe("createExpenseSchema", () => {
     assert.equal(result.success, false)
   })
 
+  it("accepts a calendar date and keeps it as one", () => {
+    const result = createExpenseSchema.safeParse({
+      description: "Lunch",
+      amount: "20.00",
+      paidAt: "2026-08-04",
+    })
+    assert.equal(result.success, true)
+    assert.equal(result.success && result.data.paidAt, "2026-08-04")
+  })
+
+  // Legacy clients sent `new Date(d).toISOString()`; keep accepting that, but
+  // store only the date part so it can't reintroduce the timezone shift.
+  it("narrows a legacy ISO timestamp to its date part", () => {
+    const result = createExpenseSchema.safeParse({
+      description: "Lunch",
+      amount: "20.00",
+      paidAt: "2026-08-04T00:00:00.000Z",
+    })
+    assert.equal(result.success && result.data.paidAt, "2026-08-04")
+  })
+
+  it("rejects a paidAt that is not a date", () => {
+    const result = createExpenseSchema.safeParse({
+      description: "Lunch",
+      amount: "20.00",
+      paidAt: "yesterday",
+    })
+    assert.equal(result.success, false)
+  })
+
   it("accepts a well-formed expense", () => {
     const result = createExpenseSchema.safeParse({
       description: "Lunch",
