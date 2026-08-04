@@ -8,6 +8,9 @@ import { formatCurrencyAmount } from "../../shared/utils/currency"
  * ramen lunch on a JPY trip), not a real price.
  */
 const USD_BOUNDS: Record<string, { min: number; max: number }> = {
+  // The food floors stay at 1 USD: they are what catches the motivating bug,
+  // an AI writing "15" (USD-shaped) for a ramen lunch on a JPY trip. Exactly 0
+  // is handled separately below — see the zero exception in guardCostEstimate.
   restaurant: { min: 1, max: 500 },
   cafe: { min: 1, max: 500 },
   bar: { min: 1, max: 500 },
@@ -43,6 +46,16 @@ export async function guardCostEstimate(
   deps: CostGuardDeps = defaultDeps,
 ): Promise<string | null> {
   const code = input.currencyCode.toUpperCase()
+
+  // Exactly 0 is an explicit statement that the stop is free — hotel breakfast,
+  // an included tasting, a free festival — and is plausible for every type. It
+  // is also unambiguous in a way a small nonzero number is not: "15" on a JPY
+  // trip is probably a USD amount in the wrong scale, but "0" cannot be. The
+  // per-type floors below exist to catch exactly that scale error, so they must
+  // not also swallow a legitimate free stop.
+  if (input.costEstimate === 0) {
+    return formatCurrencyAmount(0, code)
+  }
 
   const usdRate = await deps.getRate("USD", code)
   if (usdRate == null || !Number.isFinite(usdRate) || usdRate <= 0) {
