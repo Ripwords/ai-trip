@@ -39,6 +39,12 @@ export interface TripToolsContext {
   days: DayRef[]
   transportMode: TransportMode
   currencyCode: string
+  /**
+   * Flights are user-scoped (see trip-flights.ts), so runReview can only
+   * include flight findings when it knows whose flights to load. Optional:
+   * without it the review still runs, just without flight bounds.
+   */
+  userId?: string
 }
 
 export function createTripTools(ctx: TripToolsContext) {
@@ -228,8 +234,6 @@ export function summarizeTripForAgent(trip: {
 interface DiscussToolsContext extends TripToolsContext {
   /** Live USD→trip-currency rate for cost anchors; null degrades to static hints. */
   usdRate: number | null
-  /** Flights are user-scoped — needed so runReview can include flight findings. */
-  userId?: string
 }
 
 export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal[]) {
