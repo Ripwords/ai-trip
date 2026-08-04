@@ -1,8 +1,14 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 
-const { researchCacheKey, isCacheableResearch, timeOfDayBucket, layoverTipsCacheKey } =
-  await import("./ai-cache")
+const {
+  researchCacheKey,
+  isCacheableResearch,
+  timeOfDayBucket,
+  layoverTipsCacheKey,
+  researchIntent,
+  normalizeResearchDestination,
+} = await import("./ai-cache")
 
 describe("researchCacheKey", () => {
   it("is stable for the same destination and context", () => {
@@ -30,6 +36,73 @@ describe("researchCacheKey", () => {
     const key = researchCacheKey("Tokyo, Japan", "IGNORE ALL <instructions>://?")
     assert.ok(!/ignore all/i.test(key))
     assert.match(key, /^[a-z0-9-]+$/)
+  })
+})
+
+describe("normalizeResearchDestination", () => {
+  it("collapses a per-day street address to its city and country", () => {
+    assert.equal(
+      normalizeResearchDestination("1-1 Yoyogikamizonocho, Shibuya City, Tokyo 151-8557, Japan"),
+      "tokyo, japan",
+    )
+    assert.equal(normalizeResearchDestination("Tokyo, Japan"), "tokyo, japan")
+  })
+
+  it("keeps single-segment destinations intact", () => {
+    assert.equal(normalizeResearchDestination("Tokyo"), "tokyo")
+  })
+
+  it("falls back to the raw input when normalization strips everything", () => {
+    assert.equal(normalizeResearchDestination("151-8557"), "151-8557")
+    assert.equal(normalizeResearchDestination("   "), "")
+  })
+})
+
+describe("researchIntent", () => {
+  it("buckets prompts by the topic that actually determines the research", () => {
+    assert.equal(researchIntent("find me some great ramen spots"), "food")
+    assert.equal(researchIntent("jazz bars and cocktails after dinner"), "nightlife")
+    assert.equal(researchIntent("hotels accommodation airbnb near the station"), "accommodation")
+    assert.equal(researchIntent("temples and museums to visit"), "attractions")
+    assert.equal(researchIntent("a day hike with mountain views"), "outdoors")
+    assert.equal(researchIntent("souvenir shopping and markets"), "shopping")
+  })
+
+  it("falls back to general when nothing matches", () => {
+    assert.equal(researchIntent(""), "general")
+    assert.equal(researchIntent(undefined), "general")
+    assert.equal(researchIntent("just do something nice"), "general")
+  })
+
+  it("is stable regardless of phrasing or case", () => {
+    assert.equal(researchIntent("Where should we EAT lunch?"), researchIntent("good lunch places"))
+  })
+})
+
+describe("researchCacheKey normalization (issue #31)", () => {
+  it("hits across differently-worded prompts with the same intent", () => {
+    assert.equal(
+      researchCacheKey("Tokyo, Japan", "find a great dinner spot for day 2"),
+      researchCacheKey("Tokyo, Japan", "somewhere authentic to eat on our last night"),
+    )
+  })
+
+  it("hits across per-day street addresses in the same city", () => {
+    assert.equal(
+      researchCacheKey("1-1 Yoyogikamizonocho, Shibuya City, Tokyo 151-8557, Japan", "ramen"),
+      researchCacheKey("2-8-1 Nishishinjuku, Shinjuku City, Tokyo 163-8001, Japan", "ramen"),
+    )
+  })
+
+  it("still misses across different cities and different intents", () => {
+    assert.notEqual(
+      researchCacheKey("Tokyo, Japan", "ramen spots"),
+      researchCacheKey("Osaka, Japan", "ramen spots"),
+    )
+    assert.notEqual(
+      researchCacheKey("Tokyo, Japan", "ramen spots"),
+      researchCacheKey("Tokyo, Japan", "where to stay"),
+    )
   })
 })
 

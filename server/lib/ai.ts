@@ -16,7 +16,13 @@ import {
   clampDurationMinutes,
   mapOrderedActivityIndexes,
 } from "./normalize-ai-output"
-import { researchCacheKey, isCacheableResearch } from "./ai-cache"
+import {
+  researchCacheKey,
+  isCacheableResearch,
+  normalizeResearchDestination,
+  researchIntent,
+  RESEARCH_INTENT_FOCUS,
+} from "./ai-cache"
 import { filterDuplicateActivities } from "../utils/activity-dedup"
 
 // ── Schemas ──────────────────────────────────────────────────────────
@@ -337,13 +343,21 @@ const mastra = new Mastra({
 // request, and full-itinerary generation repeats near-identical research per
 // day. 24h TTL; failures (empty string) are never cached so a transient web
 // failure can't stick (see Phase 1 FX-cache lesson).
+//
+// The search runs on the SAME normalized city + coarse intent bucket the cache
+// key is built from, never the raw prompt. Keying on the raw prompt meant the
+// cache practically never hit (issue #31) — and generating off inputs the key
+// does not capture would serve one prompt's answer under another prompt's key.
 const doResearch = defineCachedFunction(
   async (destination: string, userContext?: string): Promise<string> => {
-    logger.info("[research] Searching for", { destination })
+    const city = normalizeResearchDestination(destination) || destination.trim()
+    const intent = researchIntent(userContext)
+    const focus = RESEARCH_INTENT_FOCUS[intent]
+    logger.info("[research] Searching for", { city, intent })
     try {
       const agent = mastra.getAgent("planner")
       const response = await agent.generate(
-        `Search the web for local hidden gems, authentic restaurants, and traveler recommendations in ${destination}.${userContext ? ` Focus on: ${userContext}` : ""}`,
+        `Search the web for local hidden gems, authentic restaurants, and traveler recommendations in ${city}.${focus ? ` Focus on: ${focus}.` : ""}`,
       )
       logger.info("[research] Done", { length: response.text.length })
       // If sanitization rejects the result (injection pattern / over-length), drop
@@ -354,7 +368,9 @@ const doResearch = defineCachedFunction(
         logger.warn("[research] Sanitization dropped results, proceeding without research")
         return ""
       }
-      return `<research_results source="web_search" destination="${destination}">\n${sanitizedResults}\n</research_results>`
+      // The attribute carries the normalized city, which is letters/spaces/commas
+      // only — a raw dayLocation could have closed the attribute.
+      return `<research_results source="web_search" destination="${city}" focus="${intent}">\n${sanitizedResults}\n</research_results>`
     } catch (e) {
       logger.error("[research] Web search failed, proceeding without research", {
         error: String(e),
