@@ -78,7 +78,7 @@ export default defineEventHandler(async (event) => {
   // Atomically consume one AI credit (throws 429 if limit reached). Kept last
   // among the rejections that can be known without calling the model, so a
   // 403/404 never burns a credit.
-  await tryConsumeAiCredit(session.user.id)
+  const usageMonth = await tryConsumeAiCredit(session.user.id)
 
   // Fetch saved ideas for AI context
   const savedIdeasRows = await db.query.tripIdeas.findMany({
@@ -189,7 +189,7 @@ export default defineEventHandler(async (event) => {
     })
   } catch (e: unknown) {
     console.error("[ai.post] AI processing failed:", e)
-    await refundAiCredit(session.user.id)
+    await refundAiCredit(session.user.id, usageMonth)
     throw createError({
       statusCode: 502,
       message: "AI service is temporarily unavailable. Please try again.",
@@ -361,7 +361,7 @@ export default defineEventHandler(async (event) => {
         // half-applied state AND refund a request that did change something.
         // In that case fall through and report the partial result instead.
         if (addedCount === 0 && removedCount === 0 && updatedCount === 0) {
-          await refundAiCredit(session.user.id)
+          await refundAiCredit(session.user.id, usageMonth)
           throw createError({
             statusCode: 502,
             message: "Couldn't look those places up on Google Maps. Please try again.",
@@ -379,7 +379,7 @@ export default defineEventHandler(async (event) => {
         updatedCount === 0 &&
         unlocatedNames.length > 0
       ) {
-        await refundAiCredit(session.user.id)
+        await refundAiCredit(session.user.id, usageMonth)
         throw createError({
           statusCode: 422,
           message:

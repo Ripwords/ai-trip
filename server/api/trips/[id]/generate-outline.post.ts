@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
   // Consume AFTER auth + access + existence + empty-day checks, so every throw
   // above never needs a refund. Every throw below is refunded exactly once by
   // the try/catch wrap.
-  await tryConsumeAiCredit(session.user.id)
+  const usageMonth = await tryConsumeAiCredit(session.user.id)
 
   let outline: TripOutline
   try {
@@ -101,7 +101,7 @@ export default defineEventHandler(async (event) => {
     })
   } catch (e) {
     // The outline produced nothing usable — the traveler keeps their credit.
-    await refundAiCredit(session.user.id)
+    await refundAiCredit(session.user.id, usageMonth)
     throw e
   }
 
@@ -111,6 +111,6 @@ export default defineEventHandler(async (event) => {
   // decrement twice and mint the user a free credit. A 200 with an empty outline
   // never entered the catch, so this is the only place it's safe to check.
   // The model returned no usable day — the traveler keeps their credit.
-  if (outline.days.length === 0) await refundAiCredit(session.user.id)
+  if (outline.days.length === 0) await refundAiCredit(session.user.id, usageMonth)
   return { outline }
 })

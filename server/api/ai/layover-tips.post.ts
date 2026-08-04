@@ -94,7 +94,7 @@ export default defineEventHandler(async (event) => {
   // Consume AFTER body validation + sanitization, so a 400 never costs a
   // credit — same ordering the day-AI and discuss endpoints use, and for the
   // same reason: every throw above this line needs no refund.
-  await tryConsumeAiCredit(session.user.id)
+  const usageMonth = await tryConsumeAiCredit(session.user.id)
 
   try {
     return await generateLayoverTips(
@@ -106,7 +106,7 @@ export default defineEventHandler(async (event) => {
   } catch (e: unknown) {
     // The model produced nothing usable — the traveler keeps their credit.
     console.error("[layover-tips] generation failed:", e)
-    await refundAiCredit(session.user.id)
+    await refundAiCredit(session.user.id, usageMonth)
     throw createError({
       statusCode: 502,
       message: "Couldn't generate layover tips right now. Please try again.",
