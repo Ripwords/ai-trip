@@ -1,11 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import {
-  createExpenseSchema,
-  moneyString,
-  updateExpenseSchema,
-  updateTripSchema,
-} from "./schemas"
+import { createExpenseSchema, moneyString, updateExpenseSchema, updateTripSchema } from "./schemas"
 
 describe("moneyString", () => {
   it("accepts plain and two-decimal amounts", () => {
@@ -70,6 +65,15 @@ describe("updateExpenseSchema", () => {
 })
 
 describe("updateTripSchema", () => {
+  // currencyCode used to be writable here, which bypassed the locked,
+  // transactional conversion in convert-currency.post.ts and silently
+  // reinterpreted every stored amount at 1:1.
+  it("does not accept currencyCode", () => {
+    const result = updateTripSchema.safeParse({ currencyCode: "JPY" })
+    assert.equal(result.success, true, "unknown keys are stripped, not rejected")
+    assert.equal("currencyCode" in (result.success ? result.data : {}), false)
+  })
+
   it("still accepts the fields a trip edit legitimately changes", () => {
     const result = updateTripSchema.safeParse({ name: "Japan", budget: "1000" })
     assert.equal(result.success, true)

@@ -54,10 +54,15 @@ export const createTripSchema = z.object({
 
 export const updateTripSchema = createTripSchema
   .partial()
+  // `currencyCode` is deliberately absent (and stripped if sent): setting it
+  // here wrote the new code without touching a single stored amount, silently
+  // reinterpreting every value at 1:1. Currency changes must go through
+  // /convert-currency, which takes a row lock, checks the `from` code, and
+  // converts every money column in one transaction.
+  .omit({ currencyCode: true })
   .extend({
     status: tripStatusEnum.optional(),
     budget: moneyString.nullish(),
-    currencyCode: z.string().length(3).optional(),
     tripNotes: z.string().nullish(),
   })
   .refine((v) => !v.startDate || !v.endDate || v.endDate >= v.startDate, {
