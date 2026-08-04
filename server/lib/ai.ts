@@ -835,11 +835,13 @@ export async function processUserRequest(params: {
     suggestedTime: string | null
     estimatedDurationMinutes: number | null
     address?: string | null
-    lat?: number | null
-    lng?: number | null
+    // Non-optional: buildStrandedNote requires `number | null`, and every
+    // caller maps from DB rows where these are always present (never undefined).
+    lat: number | null
+    lng: number | null
     openingHours?: string[] | null
   }[]
-  accommodation?: { name: string; address: string | null; lat?: number | null; lng?: number | null }
+  accommodation?: { name: string; address: string | null; lat: number | null; lng: number | null }
   startLocation?: StartLocation
   preferences?: TripPreferences
   otherDayActivities?: { name: string; type: string }[]
