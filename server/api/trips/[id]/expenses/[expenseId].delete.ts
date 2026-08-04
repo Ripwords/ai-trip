@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm"
 import { db } from "../../../../db"
 import { expenses } from "../../../../db/schema"
 import { expenseIdParamsSchema } from "../../../../utils/schemas"
+import { releaseExpenseSlot } from "../../../../lib/expense-cap"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -18,7 +19,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Expense not found" })
   }
 
-  await db.delete(expenses).where(eq(expenses.id, expenseId))
+  // Both statements or neither: the trip's expense counter is what the 200-row
+  // cap is enforced against, so a delete that didn't give its slot back would
+  // turn the cap into a lifetime quota.
+  await db.transaction(async (tx) => {
+    await tx.delete(expenses).where(eq(expenses.id, expenseId))
+    await releaseExpenseSlot(id, tx)
+  })
 
   // Expenses drive settlement — i.e. who owes whom real money — so a
   // collaborator deleting someone else's row must leave a trace. Only POST

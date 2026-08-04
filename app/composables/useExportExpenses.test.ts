@@ -24,8 +24,15 @@ interface FakeAnchor {
   click: () => void
 }
 
+interface DocumentLike {
+  createElement: (tagName: string) => FakeAnchor
+}
+
 const realUrl = { create: URL.createObjectURL, revoke: URL.revokeObjectURL }
-const globalWithDocument = globalThis as { document?: { createElement: () => FakeAnchor } }
+// `document` is a DOM `Document` in the ambient types and absent at runtime
+// here; swapping in a stub that only implements `createElement` means going
+// through `unknown`.
+const globalWithDocument = globalThis as unknown as { document?: DocumentLike }
 const realDocument = globalWithDocument.document
 
 let lastBlob: Blob | null = null

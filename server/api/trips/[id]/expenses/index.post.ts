@@ -1,8 +1,9 @@
-import { eq, sql } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { db } from "../../../../db"
 import { expenses, trips } from "../../../../db/schema"
 import { uuidParamsSchema, createExpenseSchema } from "../../../../utils/schemas"
 import { assertExpenseRefs } from "../../../../lib/expenses"
+import { reserveExpenseSlot } from "../../../../lib/expense-cap"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -11,30 +12,28 @@ export default defineEventHandler(async (event) => {
 
   await requireTripAccess(id, session.user.id, ["owner", "editor"])
 
-  // Check per-trip expense limit
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(expenses)
-    .where(eq(expenses.tripId, id))
-  if (count >= 200) {
-    throw createError({
-      statusCode: 400,
-      message: "Maximum number of expenses per trip reached (200)",
-    })
-  }
-
   // Shared with the PUT handler — see server/lib/expenses.ts.
   await assertExpenseRefs(id, { activityId: body.activityId, paidById: body.paidById })
 
-  const [expense] = await db
-    .insert(expenses)
-    .values({
-      ...body,
-      tripId: id,
-      // paid_at is a `date` column — a plain YYYY-MM-DD string, no Date round-trip.
-      paidAt: body.paidAt ?? undefined,
-    })
-    .returning()
+  // The per-trip cap. Reserving the slot and writing the row in one transaction
+  // means a failed insert gives the slot back, and the reservation itself is a
+  // single conditional UPDATE rather than the `count(*)` this used to run on
+  // every write — see server/lib/expense-cap.ts.
+  const expense = await db.transaction(async (tx) => {
+    await reserveExpenseSlot(id, tx)
+
+    const [row] = await tx
+      .insert(expenses)
+      .values({
+        ...body,
+        tripId: id,
+        // paid_at is a `date` column — a plain YYYY-MM-DD string, no Date round-trip.
+        paidAt: body.paidAt ?? undefined,
+      })
+      .returning()
+
+    return row
+  })
 
   // Audit log. The currency comes from the trip — this line used to hardcode
   // "$", permanently misreporting every expense on a non-USD trip.
