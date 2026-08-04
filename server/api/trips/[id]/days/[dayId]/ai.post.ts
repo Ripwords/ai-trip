@@ -12,6 +12,7 @@ import { consecutiveTravelTimes } from "../../../../../lib/travel-times"
 import { sanitizePromptInput } from "../../../../../utils/sanitize"
 import { normalizeTransportMode } from "../../../../../utils/transport"
 import { guardCostEstimate } from "../../../../../lib/cost-guard"
+import { filterDuplicateActivities } from "../../../../../utils/activity-dedup"
 import { refundAiCredit } from "../../../../../utils/ai-limits"
 import {
   normalizeSuggestedTime,
@@ -253,23 +254,13 @@ export default defineEventHandler(async (event) => {
   // Handle new activities
   if (result.newActivities.length > 0) {
     // Dedup against existing names
-    const existingNames = new Set(
-      day.activities
-        .filter(
-          (a) =>
-            !result.removals.some(
-              (r) => r.name.toLowerCase().trim() === a.name.toLowerCase().trim(),
-            ),
-        )
-        .map((a) => a.name.toLowerCase().trim()),
+    const stillOnDay = day.activities.filter(
+      (a) =>
+        !result.removals.some((r) => r.name.toLowerCase().trim() === a.name.toLowerCase().trim()),
     )
-
-    const deduped = result.newActivities.filter((a) => {
-      const n = a.name.toLowerCase().trim()
-      return (
-        !existingNames.has(n) && ![...existingNames].some((e) => e.includes(n) || n.includes(e))
-      )
-    })
+    // Exact normalized-name match. Substring matching dropped any suggestion
+    // whose name was a substring of an existing one, or vice versa.
+    const { fresh: deduped } = filterDuplicateActivities(result.newActivities, stillOnDay)
 
     console.log("[ai.post] After dedup:", {
       before: result.newActivities.length,

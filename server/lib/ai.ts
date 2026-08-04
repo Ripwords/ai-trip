@@ -17,6 +17,7 @@ import {
   mapOrderedActivityIndexes,
 } from "./normalize-ai-output"
 import { researchCacheKey, isCacheableResearch } from "./ai-cache"
+import { filterDuplicateActivities } from "../utils/activity-dedup"
 
 // ── Schemas ──────────────────────────────────────────────────────────
 
@@ -400,8 +401,6 @@ async function handleAdd(
     currency: params.currencyCode,
   })
 
-  const existingNames = params.existingActivities.map((a) => a.name.toLowerCase().trim())
-
   // Step 1: Research via agent (with web search tool)
   const research = await doResearch(params.destination, params.prompt)
 
@@ -450,13 +449,12 @@ IMPORTANT: Only add what the traveler asked for. If they asked for "a ramen spot
 
   const activities = object.activities ?? []
 
-  // Server-side dedup (current day + other days)
-  const otherDayNames = (params.otherDayActivities ?? []).map((a) => a.name.toLowerCase().trim())
-  const allExcluded = [...existingNames, ...otherDayNames]
-  const filtered = activities.filter((a) => {
-    const n = a.name.toLowerCase().trim()
-    return !allExcluded.some((e) => e.includes(n) || n.includes(e))
-  })
+  // Server-side dedup (current day + other days). Exact normalized-name match:
+  // substring matching dropped "Bar Trench" whenever the day had a "Sushi Bar".
+  const { fresh: filtered } = filterDuplicateActivities(activities, [
+    ...params.existingActivities,
+    ...(params.otherDayActivities ?? []),
+  ])
 
   logger.info("[add] Done", { suggested: activities.length, afterDedup: filtered.length })
   return { activities: filtered }
@@ -567,12 +565,10 @@ Check if the existing activities cover lunch and dinner. If lunch (11:30-14:00) 
   logger.info("[fill] route reasoning", { routeReasoning: object.routeReasoning })
 
   const activities = object.activities ?? []
-  const otherDayNames = (params.otherDayActivities ?? []).map((a) => a.name.toLowerCase().trim())
-  const allExcluded = [...existingNames, ...otherDayNames]
-  const filtered = activities.filter((a) => {
-    const n = a.name.toLowerCase().trim()
-    return !allExcluded.some((e) => e.includes(n) || n.includes(e))
-  })
+  const { fresh: filtered } = filterDuplicateActivities(activities, [
+    ...params.existingActivities,
+    ...(params.otherDayActivities ?? []),
+  ])
 
   logger.info("[fill] Done", {
     suggested: activities.length,

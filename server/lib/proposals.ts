@@ -12,6 +12,10 @@ import { logTripAction } from "../utils/trip-access"
 import type { TransportMode } from "../utils/transport"
 import type { AIProcessResult } from "./ai"
 import { normalizeSuggestedTime, clampDurationMinutes } from "./normalize-ai-output"
+import { filterDuplicateActivities } from "../utils/activity-dedup"
+
+// Re-exported: this used to live here, and applyProposal still uses it.
+export { filterDuplicateActivities }
 
 const aiActivityPayloadSchema = z.object({
   name: z.string(),
@@ -124,29 +128,6 @@ export interface DayForProposals {
 function findActivityIdByName(day: DayForProposals, name: string): string | undefined {
   const normalized = name.toLowerCase().trim()
   return day.activities.find((a) => a.name.toLowerCase().trim() === normalized)?.id
-}
-
-/**
- * Same-day duplicate guard for add-activities proposals: adding a place the
- * day already has is never intended — match by placeId when both sides have
- * one, else by normalized name. Cross-day repeats stay allowed (a coffee stop
- * every morning is a legitimate pattern the agent fans out via dayIds).
- */
-export function filterDuplicateActivities<T extends { name: string; placeId?: string | null }>(
-  incoming: T[],
-  existing: { name: string; placeId?: string | null }[],
-): { fresh: T[]; duplicates: T[] } {
-  const names = new Set(existing.map((a) => a.name.toLowerCase().trim()))
-  const placeIds = new Set(existing.map((a) => a.placeId).filter((p): p is string => !!p))
-  const fresh: T[] = []
-  const duplicates: T[] = []
-  for (const a of incoming) {
-    const isDuplicate =
-      (a.placeId != null && placeIds.has(a.placeId)) || names.has(a.name.toLowerCase().trim())
-    if (isDuplicate) duplicates.push(a)
-    else fresh.push(a)
-  }
-  return { fresh, duplicates }
 }
 
 /**

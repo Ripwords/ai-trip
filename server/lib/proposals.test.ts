@@ -381,6 +381,33 @@ describe("proposalSchema group metadata", () => {
   })
 })
 
+// The generation handlers used `e.includes(n) || n.includes(e)`, which dropped
+// any suggestion whose name was a substring of an existing one (or vice versa).
+describe("filterDuplicateActivities substring safety", () => {
+  it("keeps a distinct venue whose name is a substring of an existing one", async () => {
+    const { filterDuplicateActivities } = await import("./proposals")
+    const { fresh, duplicates } = filterDuplicateActivities(
+      [{ name: "Bar Trench" }, { name: "Ueno Park" }],
+      [{ name: "Sushi Bar" }, { name: "Ueno Park Zoo" }],
+    )
+    assert.deepEqual(
+      fresh.map((f) => f.name),
+      ["Bar Trench", "Ueno Park"],
+    )
+    assert.equal(duplicates.length, 0)
+  })
+
+  it("still drops an exact duplicate regardless of case and padding", async () => {
+    const { filterDuplicateActivities } = await import("./proposals")
+    const { fresh, duplicates } = filterDuplicateActivities(
+      [{ name: "  afuri ramen " }],
+      [{ name: "Afuri Ramen" }],
+    )
+    assert.equal(fresh.length, 0)
+    assert.equal(duplicates.length, 1)
+  })
+})
+
 describe("filterDuplicateActivities", () => {
   it("splits incoming activities into fresh and same-day duplicates", async () => {
     const { filterDuplicateActivities } = await import("./proposals")
