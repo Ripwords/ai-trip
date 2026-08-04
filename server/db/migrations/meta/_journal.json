@@ -267,6 +267,13 @@
       "when": 1785905665204,
       "tag": "0037_cheerful_tomas",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1785905695442,
+      "tag": "0038_light_gateway",
+      "breakpoints": true
     }
   ]
 }
