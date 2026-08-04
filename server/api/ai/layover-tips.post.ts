@@ -3,6 +3,7 @@ import { generateText, Output, stepCountIs } from "ai"
 import { google } from "@ai-sdk/google"
 import { getModel } from "../../lib/ai-config"
 import { sanitizePromptInput } from "../../utils/sanitize"
+import { refundAiCredit } from "../../utils/ai-limits"
 
 const bodySchema = z.object({
   airport: z.string().min(2).max(4).toUpperCase(),
@@ -50,11 +51,18 @@ Be concise and practical. If the layover is short (under 3 hours), focus on in-a
 ${requiresAirportOnly ? "VISA RESTRICTION: the traveler needs a visa for this country and likely cannot exit immigration. Focus ONLY on airside / transit-zone options." : ""}`,
     })
 
-    return result.output!
+    // Throw rather than assert with `!`: an undefined output would otherwise be
+    // returned as-is AND cached for the full 30-day maxAge, and the handler's
+    // refund path would never run because nothing threw.
+    if (!result.output) throw new Error("layover tips: model returned no structured output")
+    return result.output
   },
   {
     maxAge: 60 * 60 * 24 * 30,
     name: "layover-tips",
+    // Never cache a failed generation (see the FX/research cache lesson).
+    validate: (entry: { value?: unknown }) =>
+      entry.value != null && typeof entry.value === "object",
     getKey: (airport: string, durationHours: number, visaStatus: string, _timeOfDay: string) =>
       `${airport}:${durationHours}:${visaStatus}`,
   },
@@ -62,9 +70,6 @@ ${requiresAirportOnly ? "VISA RESTRICTION: the traveler needs a visa for this co
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
-
-  // Atomically consume one AI credit (throws 429 if limit reached)
-  await tryConsumeAiCredit(session.user.id)
 
   const body = await readValidatedBody(event, bodySchema.parse)
 
@@ -88,10 +93,25 @@ export default defineEventHandler(async (event) => {
       })
     : "unknown"
 
-  return generateLayoverTips(
-    sanitizedAirport,
-    durationHours,
-    sanitizedVisaStatus ?? "unknown",
-    timeOfDay,
-  )
+  // Consume AFTER body validation + sanitization, so a 400 never costs a
+  // credit — same ordering the day-AI and discuss endpoints use, and for the
+  // same reason: every throw above this line needs no refund.
+  await tryConsumeAiCredit(session.user.id)
+
+  try {
+    return await generateLayoverTips(
+      sanitizedAirport,
+      durationHours,
+      sanitizedVisaStatus ?? "unknown",
+      timeOfDay,
+    )
+  } catch (e: unknown) {
+    // The model produced nothing usable — the traveler keeps their credit.
+    console.error("[layover-tips] generation failed:", e)
+    await refundAiCredit(session.user.id)
+    throw createError({
+      statusCode: 502,
+      message: "Couldn't generate layover tips right now. Please try again.",
+    })
+  }
 })

@@ -35,8 +35,10 @@ const input: TripOutlineInput = {
     {
       departureAirport: "SIN",
       arrivalAirport: "KIX",
-      departureTime: "2026-08-31T18:00:00Z",
-      arrivalTime: "2026-09-01T22:10:00Z",
+      departureTimeUtc: "2026-08-31T18:00:00Z",
+      arrivalTimeUtc: "2026-09-01T22:10:00Z",
+      departureTimeLocal: null,
+      arrivalTimeLocal: null,
     },
   ],
 }
@@ -144,6 +146,40 @@ describe("buildTripOutline", () => {
     assert.match(prompt, /RELAXED PACE/) // formatPreferences output
     assert.match(prompt, /SIN → KIX/) // flights
     assert.match(prompt, /2026-09-01T22:10:00Z/) // arrival time drives pacing
+  })
+
+  // The outline had its own buildFlightsCtx that emitted bare ISO timestamps
+  // described only as "ISO timestamps". A 23:00 UTC landing in Tokyo was then
+  // paced as a late-night arrival when it is actually 08:00 local.
+  it("labels UTC flight times as UTC and states the flight rules", async () => {
+    const { seen, generate } = capture()
+    await buildTripOutline(input, { generate })
+    const prompt = seen[0]?.prompt ?? ""
+    assert.match(prompt, /UTC — convert to the destination's local time/)
+    assert.match(prompt, /FLIGHT RULES/)
+  })
+
+  it("prefers local flight times over UTC when they are known", async () => {
+    const { seen, generate } = capture()
+    await buildTripOutline(
+      {
+        ...input,
+        flights: [
+          {
+            departureAirport: "SIN",
+            arrivalAirport: "KIX",
+            departureTimeUtc: "2026-08-31T18:00:00Z",
+            arrivalTimeUtc: "2026-09-01T22:10:00Z",
+            departureTimeLocal: "2026-09-01 02:00+08:00",
+            arrivalTimeLocal: "2026-09-02 07:10+09:00",
+          },
+        ],
+      },
+      { generate },
+    )
+    const prompt = seen[0]?.prompt ?? ""
+    assert.match(prompt, /2026-09-02 07:10\+09:00 \(local time\)/)
+    assert.doesNotMatch(prompt, /2026-09-01T22:10:00Z/)
   })
 
   it("asks only for the empty days in the prompt instructions", async () => {

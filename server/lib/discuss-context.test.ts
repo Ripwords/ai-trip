@@ -28,6 +28,43 @@ const trip: DiscussContextTrip = {
   ],
 }
 
+// The agent only ever saw prefs.budget — the "budget"|"moderate"|"luxury"
+// string — so it could not answer "am I over budget?" while happily generating
+// costEstimate values against a number it had never been shown.
+describe("buildTripContext budget", () => {
+  it("states budget, spent and remaining when a budget is set", () => {
+    const ctx = buildTripContext(trip, null, undefined, undefined, {
+      budget: "2000",
+      spent: 750.5,
+    })
+    assert.match(ctx, /Budget: 2000 VND/)
+    assert.match(ctx, /spent 750.5 VND/)
+    assert.match(ctx, /1249.5 VND remaining/)
+  })
+
+  it("flags an overspend rather than reporting a negative remainder", () => {
+    const ctx = buildTripContext(trip, null, undefined, undefined, {
+      budget: "500",
+      spent: 800,
+    })
+    assert.match(ctx, /over budget by 300 VND/)
+  })
+
+  it("reports spend with no budget set", () => {
+    const ctx = buildTripContext(trip, null, undefined, undefined, { budget: null, spent: 120 })
+    assert.match(ctx, /Spent so far: 120 VND \(no budget set\)/)
+  })
+
+  it("says nothing when there is no budget and nothing spent", () => {
+    const ctx = buildTripContext(trip, null, undefined, undefined, { budget: null, spent: 0 })
+    assert.doesNotMatch(ctx, /Budget|Spent so far/)
+  })
+
+  it("omits the line entirely when no spend info is supplied", () => {
+    assert.doesNotMatch(buildTripContext(trip, null), /Budget:|Spent so far/)
+  })
+})
+
 describe("buildTripContext", () => {
   it("renders days, activities, and accommodation with bracketed ids", () => {
     const ctx = buildTripContext(trip, trip.days[0]!.id)

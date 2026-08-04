@@ -17,7 +17,10 @@ export function useExportExpenses() {
   function downloadCsv(tripName: string, expenses: Expense[], currencyCode: string) {
     const header = "Description,Amount,Currency,Category,Date"
     const rows = expenses.map((e) => {
-      const date = e.paidAt ? new Date(e.paidAt).toLocaleDateString() : ""
+      // Emit the raw YYYY-MM-DD. `new Date(...).toLocaleDateString()` shifted
+      // the calendar date into the viewer's timezone (a day early west of UTC),
+      // and ISO is the better CSV format for spreadsheets anyway.
+      const date = e.paidAt ?? ""
       return `${escapeCsvField(e.description)},${e.amount},${currencyCode},${e.category},${date}`
     })
 

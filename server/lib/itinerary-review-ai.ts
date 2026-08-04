@@ -128,7 +128,14 @@ function groupBySeverity(
 export async function reviewItineraryWithJudgment(
   trip: ReviewableTrip,
   options: ItineraryReviewOptions,
-  ctx: { tripId: string; dayId: string; transportMode: TransportMode; currencyCode: string },
+  ctx: {
+    tripId: string
+    dayId: string
+    transportMode: TransportMode
+    currencyCode: string
+    /** Without this, runReview cannot load the user's flights (see TripToolsContext). */
+    userId?: string
+  },
 ): Promise<ItineraryReviewResult> {
   const deterministic = reviewItinerary(trip, options)
   const deterministicFlat: ItineraryReviewFinding[] = [
@@ -150,6 +157,7 @@ export async function reviewItineraryWithJudgment(
       days: trip.days.map((d) => ({ id: d.id, dayNumber: d.dayNumber })),
       transportMode: ctx.transportMode,
       currencyCode: ctx.currencyCode,
+      userId: ctx.userId,
     })
 
     const reviewAgent = new Agent({

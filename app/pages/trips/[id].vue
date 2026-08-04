@@ -63,6 +63,7 @@ const { data: expensesList, refresh: refreshExpenses } = useLazyFetch<
     description: string
     amount: string
     category: string
+    paidById: string | null
     paidAt: string | null
   }[]
 >(`/api/trips/${tripId}/expenses`)
@@ -946,9 +947,13 @@ async function applyOneProposal(
 ): Promise<{ ok: boolean; message?: string; enrichmentFailures: number }> {
   const day = trip.value?.days.find((d) => d.id === proposal.dayId)
   if (day)
+    // The day row is passed so a set-accommodation proposal can be undone —
+    // without it, Undo restores activities and reports success while leaving
+    // the accommodation changed.
     snapshotDay(
       proposal.dayId,
       day.activities.map((a) => ({ ...a })),
+      day,
     )
   setProposalState(messageId, proposal.id, "applying")
   try {
@@ -1066,6 +1071,7 @@ async function handleQuickFillGaps() {
   snapshotDay(
     dayId,
     activeDay.value.activities.map((a) => ({ ...a })),
+    activeDay.value,
   )
   aiMutating.value = true
   try {
@@ -1831,7 +1837,9 @@ async function recomputeSegments(dayId: string) {
           :budget="trip.budget ?? null"
           :currency-code="trip.currencyCode ?? 'USD'"
           :members="tripMembers?.filter((m) => m.status === 'active') ?? []"
+          :expenses="expensesList ?? []"
           @budget-updated="refresh"
+          @expenses-changed="refreshExpenses"
         />
       </div>
 

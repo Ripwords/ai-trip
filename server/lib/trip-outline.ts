@@ -1,7 +1,14 @@
 import { z } from "zod"
 import type { TripPreferences } from "../db/schema/trips"
 import { sanitizePromptInput } from "../utils/sanitize"
-import { buildSavedIdeasCtx, buildTripNotesCtx, formatPreferences, getDayOfWeek } from "./ai"
+import {
+  buildFlightsCtx,
+  buildSavedIdeasCtx,
+  buildTripNotesCtx,
+  formatPreferences,
+  getDayOfWeek,
+  type FlightPromptInput,
+} from "./ai"
 import { getModel, AI_PROVIDER_OPTIONS } from "./ai-config"
 import { withOneRetry } from "./retry"
 
@@ -24,12 +31,12 @@ export interface TripOutlineInput {
     /** Where the traveler sleeps that night — the day's strongest geographic anchor. */
     accommodationName?: string | null
   }[]
-  flights: {
-    departureAirport: string | null
-    arrivalAirport: string | null
-    departureTime: string | null
-    arrivalTime: string | null
-  }[]
+  /**
+   * Uses the canonical FlightPromptInput so the outline gets the same
+   * local-time preference and the same hard FLIGHT RULES the per-day
+   * generation handlers get.
+   */
+  flights: FlightPromptInput[]
 }
 
 export interface TripOutlineDay {
@@ -102,17 +109,6 @@ function sanitizeActivityNames(names: string[]): string[] {
     .filter((cleaned): cleaned is string => cleaned !== null)
     .map((cleaned) => cleaned.slice(0, MAX_ACTIVITY_NAME_LENGTH))
     .slice(0, MAX_ACTIVITY_NAMES_PER_DAY)
-}
-
-function buildFlightsCtx(flights: TripOutlineInput["flights"]): string {
-  if (flights.length === 0) return ""
-  const lines = flights.map((f) => {
-    const route = `${f.departureAirport ?? "?"} → ${f.arrivalAirport ?? "?"}`
-    const dep = f.departureTime ? `departs ${f.departureTime}` : "departure time unknown"
-    const arr = f.arrivalTime ? `arrives ${f.arrivalTime}` : "arrival time unknown"
-    return `- ${route}: ${dep}, ${arr}`
-  })
-  return `\nFLIGHTS (times are ISO timestamps — use them to pace arrival/departure days):\n${lines.join("\n")}`
 }
 
 function buildDaysCtx(days: TripOutlineInput["days"]): string {

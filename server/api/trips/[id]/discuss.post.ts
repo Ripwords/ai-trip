@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto"
-import { and, eq } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import { createEventStream } from "h3"
 import type { AssistantModelMessage, UserModelMessage } from "ai"
 import { z } from "zod"
 import { db } from "../../../db"
-import { itineraryDays, tripIdeas, trips } from "../../../db/schema"
+import { expenses, itineraryDays, tripIdeas, trips } from "../../../db/schema"
 import { uuidParamsSchema } from "../../../utils/schemas"
 import { normalizeTransportMode } from "../../../utils/transport"
 import { detectInjection, sanitizePromptInput } from "../../../utils/sanitize"
@@ -155,10 +155,30 @@ export default defineEventHandler(async (event) => {
       console.error("[discuss.post] Saved-ideas context unavailable, proceeding without:", e)
     }
 
+    // Budget vs actual spend. The agent generates costEstimate values, so it
+    // should be able to see what is actually left. Degrades to no budget line
+    // on failure rather than blocking the turn.
+    let spend: { budget: string | null; spent: number } | undefined
+    try {
+      const rows = await db
+        .select({ total: sql<string>`COALESCE(SUM(${expenses.amount}), 0)` })
+        .from(expenses)
+        .where(eq(expenses.tripId, id))
+      spend = { budget: trip.budget ?? null, spent: parseFloat(rows[0]?.total ?? "0") || 0 }
+    } catch (e: unknown) {
+      console.error("[discuss.post] Spend context unavailable, proceeding without:", e)
+    }
+
     // Inject trip context into the latest user message so the agent has it on every turn
     // without needing to call read_day / read_trip_summary.
     const tripContext = tripForCtx
-      ? buildTripContext(tripForCtx, dayId, flights, { tripNotes: trip.tripNotes, savedIdeas })
+      ? buildTripContext(
+          tripForCtx,
+          dayId,
+          flights,
+          { tripNotes: trip.tripNotes, savedIdeas },
+          spend,
+        )
       : ""
     if (tripContext) {
       const lastUserIdx = cleanMessages.findLastIndex((m) => m.role === "user")

@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNotNull, sql } from "drizzle-orm"
 import type { db } from "../db"
 import { trips, activities, expenses, reservations, itineraryDays } from "../db/schema"
+import { currencyDecimals } from "../../shared/utils/currency"
 
 /** Drizzle transaction handle, structurally (also satisfied by `db` itself). */
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -17,6 +18,10 @@ export async function convertTripMoney(
   rate: number,
   toCurrency: string,
 ): Promise<void> {
+  // Zero-decimal currencies (JPY, KRW, VND, …) have no minor unit, so a fixed
+  // ROUND(..., 2) produced impossible values like "1234.56 JPY".
+  const decimals = currencyDecimals(toCurrency)
+
   const dayRows = await tx
     .select({ id: itineraryDays.id })
     .from(itineraryDays)
@@ -27,32 +32,32 @@ export async function convertTripMoney(
     await tx
       .update(activities)
       .set({
-        costEstimate: sql`ROUND(${activities.costEstimate}::numeric * ${rate}::numeric, 2)`,
+        costEstimate: sql`ROUND(${activities.costEstimate}::numeric * ${rate}::numeric, ${decimals})`,
       })
       .where(and(inArray(activities.itineraryDayId, dayIds), isNotNull(activities.costEstimate)))
 
     await tx
       .update(activities)
       .set({
-        actualCost: sql`ROUND(${activities.actualCost}::numeric * ${rate}::numeric, 2)`,
+        actualCost: sql`ROUND(${activities.actualCost}::numeric * ${rate}::numeric, ${decimals})`,
       })
       .where(and(inArray(activities.itineraryDayId, dayIds), isNotNull(activities.actualCost)))
   }
 
   await tx
     .update(expenses)
-    .set({ amount: sql`ROUND(${expenses.amount}::numeric * ${rate}::numeric, 2)` })
+    .set({ amount: sql`ROUND(${expenses.amount}::numeric * ${rate}::numeric, ${decimals})` })
     .where(eq(expenses.tripId, tripId))
 
   await tx
     .update(reservations)
-    .set({ amount: sql`ROUND(${reservations.amount}::numeric * ${rate}::numeric, 2)` })
+    .set({ amount: sql`ROUND(${reservations.amount}::numeric * ${rate}::numeric, ${decimals})` })
     .where(and(eq(reservations.tripId, tripId), isNotNull(reservations.amount)))
 
   await tx
     .update(trips)
     .set({
-      budget: sql`CASE WHEN ${trips.budget} IS NULL THEN NULL ELSE ROUND(${trips.budget}::numeric * ${rate}::numeric, 2) END`,
+      budget: sql`CASE WHEN ${trips.budget} IS NULL THEN NULL ELSE ROUND(${trips.budget}::numeric * ${rate}::numeric, ${decimals}) END`,
       currencyCode: toCurrency,
     })
     .where(eq(trips.id, tripId))

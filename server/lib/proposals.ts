@@ -7,11 +7,15 @@ import { enrichItinerary, partitionGeocoded } from "./enrich"
 import { guardCostEstimate } from "./cost-guard"
 import { computeAndSaveSegments } from "./segments"
 import { getDistanceMatrix } from "./google-maps"
-import { computeSchedule, parseOpeningTime } from "../utils/schedule"
+import { computeSchedule, orderDayActivities, parseOpeningTime } from "../utils/schedule"
 import { logTripAction } from "../utils/trip-access"
 import type { TransportMode } from "../utils/transport"
 import type { AIProcessResult } from "./ai"
 import { normalizeSuggestedTime, clampDurationMinutes } from "./normalize-ai-output"
+import { filterDuplicateActivities } from "../utils/activity-dedup"
+
+// Re-exported: this used to live here, and applyProposal still uses it.
+export { filterDuplicateActivities }
 
 const aiActivityPayloadSchema = z.object({
   name: z.string(),
@@ -40,6 +44,9 @@ const aiActivityPayloadSchema = z.object({
   address: z.string().nullable().optional(),
 })
 
+/** Strict HH:MM. The old /^\d{2}:\d{2}$/ accepted "99:99" and "45:67". */
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/
+
 const baseProposal = z.object({
   id: z.string().uuid(),
   dayId: z.string().uuid(),
@@ -66,7 +73,7 @@ export const proposalSchema = z.discriminatedUnion("kind", [
         .array(
           z.object({
             activityId: z.string().uuid(),
-            suggestedTime: z.string().regex(/^\d{2}:\d{2}$/),
+            suggestedTime: z.string().regex(HHMM),
             estimatedDurationMinutes: z.number().int().positive(),
           }),
         )
@@ -75,7 +82,22 @@ export const proposalSchema = z.discriminatedUnion("kind", [
   }),
   baseProposal.extend({
     kind: z.literal("optimize-route"),
-    payload: z.object({ orderedActivityIds: z.array(z.string().uuid()).optional() }),
+    payload: z.object({
+      orderedActivityIds: z.array(z.string().uuid()).optional(),
+      /**
+       * The start times the optimize pass produced, alongside the order. Kept
+       * separate from `orderedActivityIds` (rather than replacing it) so older
+       * proposal payloads still in a client's chat history stay valid.
+       */
+      orderedActivities: z
+        .array(
+          z.object({
+            id: z.string().uuid(),
+            suggestedTime: z.string().regex(HHMM),
+          }),
+        )
+        .optional(),
+    }),
   }),
   baseProposal.extend({
     kind: z.literal("reorder-activities"),
@@ -109,26 +131,50 @@ function findActivityIdByName(day: DayForProposals, name: string): string | unde
 }
 
 /**
- * Same-day duplicate guard for add-activities proposals: adding a place the
- * day already has is never intended — match by placeId when both sides have
- * one, else by normalized name. Cross-day repeats stay allowed (a coffee stop
- * every morning is a legitimate pattern the agent fans out via dayIds).
+ * Resolve a day's full activity order from a (possibly partial) list of ids.
+ *
+ * Listed ids come first in the order given; everything else keeps its existing
+ * relative order behind them. Unknown and repeated ids are dropped, so the
+ * result always contains every activity on the day exactly once — which is what
+ * makes it safe to write back as a dense `sortOrder` sequence.
+ *
+ * Both `reorder-activities` and `optimize-route` go through this. optimize-route
+ * previously wrote `sortOrder: i` for only the ids it was handed, leaving
+ * unlisted activities on their old values and producing duplicate sortOrders.
  */
-export function filterDuplicateActivities<T extends { name: string; placeId?: string | null }>(
-  incoming: T[],
-  existing: { name: string; placeId?: string | null }[],
-): { fresh: T[]; duplicates: T[] } {
-  const names = new Set(existing.map((a) => a.name.toLowerCase().trim()))
-  const placeIds = new Set(existing.map((a) => a.placeId).filter((p): p is string => !!p))
-  const fresh: T[] = []
-  const duplicates: T[] = []
-  for (const a of incoming) {
-    const isDuplicate =
-      (a.placeId != null && placeIds.has(a.placeId)) || names.has(a.name.toLowerCase().trim())
-    if (isDuplicate) duplicates.push(a)
-    else fresh.push(a)
+export function resolveDayOrder(dayActivityIds: string[], orderedIds?: string[]): string[] {
+  if (!orderedIds?.length) return [...dayActivityIds]
+  const known = new Set(dayActivityIds)
+  const seen = new Set<string>()
+  const head: string[] = []
+  for (const id of orderedIds) {
+    if (!known.has(id) || seen.has(id)) continue
+    seen.add(id)
+    head.push(id)
   }
-  return { fresh, duplicates }
+  return [...head, ...dayActivityIds.filter((id) => !seen.has(id))]
+}
+
+/**
+ * Re-sort a day's rows so `sortOrder` follows `suggestedTime`. Used after a
+ * reschedule, which changes times without touching order.
+ */
+async function resortDayByTime(dayId: string): Promise<void> {
+  const rows = await db.query.activities.findMany({
+    where: eq(activities.itineraryDayId, dayId),
+    orderBy: [asc(activities.sortOrder)],
+  })
+  const ordered = orderDayActivities(rows)
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < ordered.length; i++) {
+      const row = ordered[i]!
+      if (row.sortOrder === i) continue
+      await tx
+        .update(activities)
+        .set({ sortOrder: i })
+        .where(and(eq(activities.id, row.id), eq(activities.itineraryDayId, dayId)))
+    }
+  })
 }
 
 function timeToMinutes(time: string | null | undefined): number | null {
@@ -244,11 +290,17 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
       let matched = 0
       await db.transaction(async (tx) => {
         for (const u of proposal.payload.updates) {
+          // Normalize/clamp before persisting — parity with the add branch
+          // below. The payload regex accepted "99:99", and durations were
+          // written unbounded.
+          const suggestedTime = normalizeSuggestedTime(u.suggestedTime)
+          if (!suggestedTime) continue
           const rows = await tx
             .update(activities)
             .set({
-              suggestedTime: u.suggestedTime,
-              estimatedDurationMinutes: u.estimatedDurationMinutes,
+              suggestedTime,
+              estimatedDurationMinutes:
+                clampDurationMinutes(u.estimatedDurationMinutes) ?? u.estimatedDurationMinutes,
             })
             .where(and(eq(activities.id, u.activityId), eq(activities.itineraryDayId, ctx.dayId)))
             .returning({ id: activities.id })
@@ -256,6 +308,10 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
         }
       })
       updated = matched
+      // Reschedule rewrites times without touching row order, so the day would
+      // read 09:00 -> 19:00 -> 11:00 until something else re-sorted it. The
+      // generation path already did this; the proposal path did not.
+      if (matched > 0) await resortDayByTime(ctx.dayId)
       message = `Rescheduled ${updated} activit${updated === 1 ? "y" : "ies"}`
       break
     }
@@ -386,9 +442,10 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
         orderBy: [asc(activities.sortOrder)],
       })
       const knownIds = new Set(dayActivities.map((a) => a.id))
-      const orderedIds = proposal.payload.orderedActivityIds.filter((id) => knownIds.has(id))
-      const remaining = dayActivities.filter((a) => !orderedIds.includes(a.id))
-      const finalOrder = [...orderedIds, ...remaining.map((a) => a.id)]
+      const finalOrder = resolveDayOrder(
+        dayActivities.map((a) => a.id),
+        proposal.payload.orderedActivityIds,
+      )
 
       await db.transaction(async (tx) => {
         for (let i = 0; i < finalOrder.length; i++) {
@@ -398,7 +455,7 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
             .where(and(eq(activities.id, finalOrder[i]!), eq(activities.itineraryDayId, ctx.dayId)))
         }
       })
-      updated = orderedIds.length
+      updated = proposal.payload.orderedActivityIds.filter((id) => knownIds.has(id)).length
       message = `Reordered ${updated} activit${updated === 1 ? "y" : "ies"}`
       break
     }
@@ -410,13 +467,28 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
       })
       if (dayActivities.length >= 2) {
         if (proposal.payload.orderedActivityIds?.length) {
-          const ids = proposal.payload.orderedActivityIds
+          // Every activity on the day gets a fresh sortOrder, not just the ones
+          // the model listed — a partial list otherwise leaves duplicates behind.
+          const finalOrder = resolveDayOrder(
+            dayActivities.map((a) => a.id),
+            proposal.payload.orderedActivityIds,
+          )
+          // The optimize pass produced a time per activity; apply it alongside
+          // the order so the day isn't left with its old, overlapping times.
+          const timeById = new Map(
+            (proposal.payload.orderedActivities ?? []).flatMap((o) => {
+              const time = normalizeSuggestedTime(o.suggestedTime)
+              return time ? ([[o.id, time]] as const) : []
+            }),
+          )
           await db.transaction(async (tx) => {
-            for (let i = 0; i < ids.length; i++) {
+            for (let i = 0; i < finalOrder.length; i++) {
+              const id = finalOrder[i]!
+              const suggestedTime = timeById.get(id)
               await tx
                 .update(activities)
-                .set({ sortOrder: i })
-                .where(and(eq(activities.id, ids[i]!), eq(activities.itineraryDayId, ctx.dayId)))
+                .set(suggestedTime ? { sortOrder: i, suggestedTime } : { sortOrder: i })
+                .where(and(eq(activities.id, id), eq(activities.itineraryDayId, ctx.dayId)))
             }
           })
           optimized = true
@@ -591,15 +663,22 @@ export function resultToProposals(result: AIProcessResult, day: DayForProposals)
 
   if (result.shouldOptimize && result.newActivities.length === 0 && result.removals.length === 0) {
     const dayActivityIds = new Set(day.activities.map((a) => a.id))
-    const orderedActivityIds = result.orderedActivities
-      ?.map((o) => o.id)
-      .filter((id) => dayActivityIds.has(id))
+    const onDay = (result.orderedActivities ?? []).filter((o) => dayActivityIds.has(o.id))
+    const orderedActivityIds = onDay.map((o) => o.id)
+    // Times ride along with the order. An entry whose time can't be normalized
+    // still keeps its place in the ordering — only the bad time is dropped.
+    const orderedActivities = onDay.flatMap((o) => {
+      const suggestedTime = normalizeSuggestedTime(o.suggestedTime)
+      return suggestedTime ? [{ id: o.id, suggestedTime }] : []
+    })
     proposals.push({
       id: randomUUID(),
       kind: "optimize-route",
       dayId: day.id,
       summary: "Optimize route for the day",
-      payload: orderedActivityIds?.length ? { orderedActivityIds } : {},
+      payload: orderedActivityIds.length
+        ? { orderedActivityIds, ...(orderedActivities.length ? { orderedActivities } : {}) }
+        : {},
     })
   }
 

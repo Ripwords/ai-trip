@@ -20,5 +20,16 @@ export default defineEventHandler(async (event) => {
 
   await db.delete(expenses).where(eq(expenses.id, expenseId))
 
+  // Expenses drive settlement — i.e. who owes whom real money — so a
+  // collaborator deleting someone else's row must leave a trace. Only POST
+  // used to log.
+  await logTripAction({
+    tripId: id,
+    userId: session.user.id,
+    action: "expense_deleted",
+    description: `Deleted expense: ${expense.description}`,
+    metadata: { expenseId, amount: expense.amount, category: expense.category },
+  })
+
   return { success: true }
 })

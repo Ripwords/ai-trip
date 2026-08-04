@@ -19,7 +19,31 @@ export interface ActivitySnapshot {
   actualCost: string | null
 }
 
+/** The day's accommodation fields, restored alongside activities. */
+export interface AccommodationSnapshot {
+  accommodationName: string | null
+  accommodationPlaceId: string | null
+  accommodationAddress: string | null
+  accommodationLat: number | null
+  accommodationLng: number | null
+}
+
 type ActivityLike = Record<string, unknown>
+type DayLike = Record<string, unknown>
+
+/** Project a loaded day row onto the restore endpoint's accommodation schema. */
+export function buildAccommodationSnapshot(
+  day: DayLike | null | undefined,
+): AccommodationSnapshot | undefined {
+  if (!day) return undefined
+  return {
+    accommodationName: (day.accommodationName as string | null) ?? null,
+    accommodationPlaceId: (day.accommodationPlaceId as string | null) ?? null,
+    accommodationAddress: (day.accommodationAddress as string | null) ?? null,
+    accommodationLat: (day.accommodationLat as number | null) ?? null,
+    accommodationLng: (day.accommodationLng as number | null) ?? null,
+  }
+}
 
 /** Project loaded activity rows onto exactly the restore endpoint's schema. */
 export function buildDaySnapshot(activities: ActivityLike[]): ActivitySnapshot[] {
@@ -45,20 +69,33 @@ export function buildDaySnapshot(activities: ActivityLike[]): ActivitySnapshot[]
   }))
 }
 
+interface DaySnapshot {
+  activities: ActivitySnapshot[]
+  accommodation?: AccommodationSnapshot
+}
+
 /** Per-day snapshot store + restore call. Snapshots live only in memory. */
 export function useDayUndo(tripId: string) {
-  const snapshots = new Map<string, ActivitySnapshot[]>()
+  const snapshots = new Map<string, DaySnapshot>()
 
-  function snapshot(dayId: string, activities: ActivityLike[]) {
-    snapshots.set(dayId, buildDaySnapshot(activities))
+  /**
+   * `day` is optional only so existing call sites that have no day row keep
+   * compiling; pass it wherever the change could touch accommodation, or Undo
+   * will report success while leaving it in place.
+   */
+  function snapshot(dayId: string, activities: ActivityLike[], day?: DayLike | null) {
+    snapshots.set(dayId, {
+      activities: buildDaySnapshot(activities),
+      accommodation: buildAccommodationSnapshot(day),
+    })
   }
 
   async function restore(dayId: string): Promise<boolean> {
-    const activities = snapshots.get(dayId)
-    if (!activities) return false
+    const snap = snapshots.get(dayId)
+    if (!snap) return false
     await $fetch(`/api/trips/${tripId}/days/${dayId}/restore`, {
       method: "POST",
-      body: { activities },
+      body: { activities: snap.activities, accommodation: snap.accommodation },
     })
     snapshots.delete(dayId)
     return true

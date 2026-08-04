@@ -1,7 +1,8 @@
 import { eq, sql } from "drizzle-orm"
 import { db } from "../../../../db"
-import { activities, expenses, tripMembers, trips } from "../../../../db/schema"
+import { expenses, trips } from "../../../../db/schema"
 import { uuidParamsSchema, createExpenseSchema } from "../../../../utils/schemas"
+import { assertExpenseRefs } from "../../../../lib/expenses"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -22,56 +23,32 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // If activityId provided, verify activity belongs to this trip
-  if (body.activityId) {
-    const activity = await db.query.activities.findFirst({
-      where: eq(activities.id, body.activityId),
-      with: {
-        day: true,
-      },
-    })
+  // Shared with the PUT handler — see server/lib/expenses.ts.
+  await assertExpenseRefs(id, { activityId: body.activityId, paidById: body.paidById })
 
-    if (!activity || activity.day.tripId !== id) {
-      throw createError({ statusCode: 404, message: "Activity not found" })
-    }
-  }
-
-  // If paidById provided, verify they are owner or active member of this trip
-  if (body.paidById) {
-    const trip = await db.query.trips.findFirst({
-      where: eq(trips.id, id),
-      columns: { userId: true },
-    })
-    if (!trip) throw createError({ statusCode: 404, message: "Trip not found" })
-
-    const isOwner = body.paidById === trip.userId
-    if (!isOwner) {
-      const member = await db.query.tripMembers.findFirst({
-        where: (m, { and, eq: e }) =>
-          and(e(m.tripId, id), e(m.userId, body.paidById!), e(m.status, "active")),
-      })
-      if (!member) {
-        throw createError({ statusCode: 400, message: "Paid-by user is not a member of this trip" })
-      }
-    }
-  }
-
-  const { paidAt, ...restBody } = body
   const [expense] = await db
     .insert(expenses)
     .values({
-      ...restBody,
+      ...body,
       tripId: id,
-      paidAt: paidAt ? new Date(paidAt) : undefined,
+      // paid_at is a `date` column — a plain YYYY-MM-DD string, no Date round-trip.
+      paidAt: body.paidAt ?? undefined,
     })
     .returning()
 
-  // Audit log
+  // Audit log. The currency comes from the trip — this line used to hardcode
+  // "$", permanently misreporting every expense on a non-USD trip.
+  const trip = await db.query.trips.findFirst({
+    where: eq(trips.id, id),
+    columns: { currencyCode: true },
+  })
+  const currency = trip?.currencyCode || "USD"
   await logTripAction({
     tripId: id,
     userId: session.user.id,
     action: "expense_added",
-    description: `Added expense: ${body.description} ($${body.amount})`,
+    description: `Added expense: ${body.description} (${body.amount} ${currency})`,
+    metadata: { expenseId: expense?.id, amount: body.amount, currency },
   })
 
   return expense

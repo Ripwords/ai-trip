@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { transportModes } from "./transport"
+import { EXPENSE_CATEGORIES } from "../../shared/utils/expense-categories"
 
 export const uuidParamsSchema = z.object({
   id: z.string().uuid(),
@@ -11,6 +12,19 @@ export const paginationSchema = z.object({
 })
 
 export const tripStatusEnum = z.enum(["upcoming", "ongoing", "completed", "cancelled"])
+
+/**
+ * A decimal money amount, as a string, sized to fit the `numeric(10, 2)`
+ * columns it is written to (8 integer digits + 2 decimals).
+ *
+ * Plain `z.string()` let `"abc"`, `"1e40"` and `""` reach Postgres, which
+ * rejected them with `invalid input syntax for type numeric` / `numeric field
+ * overflow` — surfacing as an unhandled 500 instead of a 400. `"-50"` was
+ * worse: it persisted, and silently corrupted every total that summed it.
+ */
+export const moneyString = z
+  .string()
+  .regex(/^\d{1,8}(\.\d{1,2})?$/, "Must be a positive amount with at most 2 decimal places")
 
 // Not a strict enum — Google Places returns types like "museum", "cafe", "park", etc.
 export const activityTypeEnum = z.string().min(1)
@@ -41,10 +55,15 @@ export const createTripSchema = z.object({
 
 export const updateTripSchema = createTripSchema
   .partial()
+  // `currencyCode` is deliberately absent (and stripped if sent): setting it
+  // here wrote the new code without touching a single stored amount, silently
+  // reinterpreting every value at 1:1. Currency changes must go through
+  // /convert-currency, which takes a row lock, checks the `from` code, and
+  // converts every money column in one transaction.
+  .omit({ currencyCode: true })
   .extend({
     status: tripStatusEnum.optional(),
-    budget: z.string().nullish(),
-    currencyCode: z.string().length(3).optional(),
+    budget: moneyString.nullish(),
     tripNotes: z.string().nullish(),
   })
   .refine((v) => !v.startDate || !v.endDate || v.endDate >= v.startDate, {
@@ -184,26 +203,31 @@ export const updateAccommodationRangeSchema = updateAccommodationSchema.extend({
   dayIds: z.array(z.string().uuid()).min(1),
 })
 
-// Expenses
-export const expenseCategoryEnum = z.enum([
-  "accommodation",
-  "food",
-  "transport",
-  "activity",
-  "shopping",
-  "other",
-])
+// Expenses. Categories come from shared/ so the client picker and badge map
+// cannot drift from what the server accepts.
+export const expenseCategoryEnum = z.enum(EXPENSE_CATEGORIES)
 
 export const createExpenseSchema = z.object({
   description: z.string().min(1),
-  amount: z.string(),
+  amount: moneyString,
   category: expenseCategoryEnum.optional(),
   activityId: z.string().uuid().nullish(),
   paidById: z.string().nullish(),
-  paidAt: z.string().nullish(),
+  // A calendar date, not an instant — the `paid_at` column is a `date`.
+  // Legacy clients may still send a full ISO timestamp; take its date part
+  // rather than rejecting, since that is exactly what used to be stored.
+  paidAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}(T.*)?$/, "Must be a YYYY-MM-DD date")
+    .transform((s) => s.slice(0, 10))
+    .nullish(),
 })
 
-export const updateExpenseSchema = createExpenseSchema.partial()
+// `.partial()` alone made `{}` a valid body — an empty PUT was accepted and
+// returned 200 having changed nothing. Require at least one field.
+export const updateExpenseSchema = createExpenseSchema
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, { message: "At least one field is required" })
 
 export const expenseIdParamsSchema = z.object({
   id: z.string().uuid(),

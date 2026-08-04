@@ -17,6 +17,29 @@ function deps(overrides: {
   }
 }
 
+describe("guardCostEstimate free meals", () => {
+  // The food types had min: 1 USD, so a genuinely free item — hotel breakfast,
+  // an included tasting, a street festival — was treated as an AI scale error
+  // and nulled out. Attractions and parks already allowed 0.
+  for (const type of ["restaurant", "cafe", "bar"]) {
+    it(`keeps a zero-cost ${type}`, async () => {
+      const result = await guardCostEstimate(
+        { costEstimate: 0, type, placeId: null, currencyCode: "JPY" },
+        deps({ rate: 150 }),
+      )
+      assert.equal(result, "0")
+    })
+  }
+
+  it("still rejects an implausibly large restaurant estimate", async () => {
+    const result = await guardCostEstimate(
+      { costEstimate: 5_000_000, type: "restaurant", placeId: null, currencyCode: "JPY" },
+      deps({ rate: 150 }),
+    )
+    assert.equal(result, null)
+  })
+})
+
 describe("guardCostEstimate", () => {
   it("keeps a plausible estimate, formatted for the currency", async () => {
     // 1500 JPY at rate 150 → $10 USD-equivalent, inside restaurant bounds.

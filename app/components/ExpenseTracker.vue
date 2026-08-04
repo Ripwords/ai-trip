@@ -20,15 +20,24 @@ const props = defineProps<{
   budget: string | null
   currencyCode: string
   members?: Member[]
+  /**
+   * Owned by the page so the Overview tab and this tracker read the same list.
+   * This component used to run its own useFetch, which meant a second request
+   * for the same endpoint and an Overview that went stale after every edit.
+   */
+  expenses: Expense[]
 }>()
 
 const emit = defineEmits<{
   budgetUpdated: []
+  expensesChanged: []
 }>()
 
 const { downloadCsv } = useExportExpenses()
 
-const { data: expenses, refresh } = await useFetch<Expense[]>(`/api/trips/${props.tripId}/expenses`)
+const expenses = computed(() => props.expenses)
+/** Ask the page to refetch; it owns the data. Fire-and-forget by design. */
+const refresh = () => emit("expensesChanged")
 
 const editingBudget = ref(false)
 const budgetInput = ref(props.budget ?? "")
@@ -48,19 +57,12 @@ const paidById = `${uid}-paid-by`
 const formDescription = ref("")
 const formAmount = ref("")
 const formCategory = ref("food")
-const formDate = ref(new Date().toISOString().split("T")[0])
+const formDate = ref(todayCalendarDate())
 const formPaidById = ref<string>("")
 
-const categories = ["accommodation", "food", "transport", "activity", "shopping", "other"]
-
-const categoryBadgeClasses: Record<string, string> = {
-  accommodation: "bg-ocean-50 text-ocean-700",
-  food: "bg-terra-50 text-terra-700",
-  transport: "bg-sand-100 text-sand-700",
-  activity: "bg-ocean-50 text-ocean-700",
-  shopping: "bg-terra-50 text-terra-600",
-  other: "bg-sand-100 text-sand-700",
-}
+// Both come from shared/utils/expense-categories.ts — the same list the server
+// validates against, so the picker can't fall out of sync with the enum.
+const categories = EXPENSE_CATEGORIES
 
 const totalExpenses = computed(() => {
   if (!expenses.value) return 0
@@ -80,41 +82,14 @@ const progressBarColor = computed(() => {
   return "bg-forest-500"
 })
 
-// Settlement calculation (equal split)
-const settlement = computed(() => {
-  if (!expenses.value?.length || !props.members?.length) return []
-  const memberCount = props.members.length
-  if (memberCount < 2) return []
-
-  // Track how much each person paid
-  const paid: Record<string, number> = {}
-  for (const m of props.members) {
-    paid[m.userId] = 0
-  }
-
-  for (const expense of expenses.value) {
-    const payerId = expense.paidById
-    if (payerId && paid[payerId] !== undefined) {
-      paid[payerId] += parseFloat(expense.amount)
-    }
-  }
-
-  // Each person's fair share
-  const total = Object.values(paid).reduce((a, b) => a + b, 0)
-  if (total === 0) return []
-  const fairShare = total / memberCount
-
-  // Calculate balances (positive = owed money, negative = owes money)
-  const balances = props.members
-    .map((m) => ({
-      userId: m.userId,
-      name: m.user.name,
-      balance: (paid[m.userId] ?? 0) - fairShare,
-    }))
-    .filter((b) => Math.abs(b.balance) > 0.01)
-
-  return balances
-})
+// Equal-split settlement. The maths lives in app/utils/settlement.ts so it can
+// be unit-tested — see that file for why unattributed expenses are surfaced
+// rather than silently excluded.
+const settlementResult = computed(() =>
+  computeSettlement(expenses.value ?? [], props.members ?? []),
+)
+const settlement = computed(() => settlementResult.value.balances)
+const unattributedTotal = computed(() => settlementResult.value.unattributedTotal)
 
 watch(
   () => props.budget,
@@ -127,7 +102,7 @@ function resetForm() {
   formDescription.value = ""
   formAmount.value = ""
   formCategory.value = "food"
-  formDate.value = new Date().toISOString().split("T")[0]
+  formDate.value = todayCalendarDate()
   formPaidById.value = ""
   editingExpenseId.value = null
 }
@@ -137,7 +112,9 @@ function startEdit(expense: Expense) {
   formDescription.value = expense.description
   formAmount.value = expense.amount
   formCategory.value = expense.category
-  formDate.value = expense.paidAt ? new Date(expense.paidAt).toISOString().split("T")[0] : ""
+  // paidAt is already a plain YYYY-MM-DD calendar date — parsing it into a
+  // Date and back reintroduced the UTC/local shift this column exists to avoid.
+  formDate.value = expense.paidAt ?? ""
   formPaidById.value = expense.paidById ?? ""
   showAddForm.value = true
 }
@@ -171,7 +148,7 @@ async function submitExpense() {
       description: formDescription.value,
       amount: formAmount.value,
       category: formCategory.value,
-      paidAt: formDate.value ? new Date(formDate.value).toISOString() : undefined,
+      paidAt: formDate.value || undefined,
       paidById: formPaidById.value || undefined,
     }
 
@@ -188,7 +165,7 @@ async function submitExpense() {
     }
     resetForm()
     showAddForm.value = false
-    await refresh()
+    refresh()
   } catch (e: unknown) {
     console.error("Failed to save expense:", e)
     toast.error("Couldn't save expense. Please try again.")
@@ -211,7 +188,7 @@ async function deleteExpense(expenseId: string) {
     await $fetch(`/api/trips/${props.tripId}/expenses/${expenseId}`, {
       method: "DELETE",
     })
-    await refresh()
+    refresh()
   } catch (e: unknown) {
     console.error("Failed to delete expense:", e)
   }
@@ -295,9 +272,12 @@ function getMemberName(userId: string | null): string {
     </div>
 
     <!-- Settlement summary (only for group trips with paid-by data) -->
-    <div v-if="settlement.length > 0" class="rounded-2xl border border-sand-200 bg-white p-6">
+    <div
+      v-if="settlement.length > 0 || unattributedTotal > 0"
+      class="rounded-2xl border border-sand-200 bg-white p-6"
+    >
       <h3 class="text-sm font-semibold text-sand-900">Settlement</h3>
-      <div class="mt-3 space-y-2">
+      <div v-if="settlement.length > 0" class="mt-3 space-y-2">
         <div
           v-for="person in settlement"
           :key="person.userId"
@@ -313,6 +293,15 @@ function getMemberName(userId: string | null): string {
           </span>
         </div>
       </div>
+      <!-- Without this the settlement silently ignores these expenses while the
+           total above still counts them, and the two numbers never reconcile. -->
+      <p
+        v-if="unattributedTotal > 0"
+        class="mt-3 border-t border-sand-100 pt-3 text-xs text-sand-500"
+      >
+        {{ formatCurrency(unattributedTotal) }} not included — no payer recorded. Edit those
+        expenses to set who paid.
+      </p>
     </div>
 
     <!-- Expenses section -->
@@ -454,18 +443,13 @@ function getMemberName(userId: string | null): string {
             <div class="mt-0.5 flex items-center gap-2 text-xs text-sand-500">
               <span
                 class="inline-block rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="categoryBadgeClasses[expense.category] || 'bg-sand-100 text-sand-700'"
+                :class="expenseCategoryBadgeClasses(expense.category)"
               >
                 {{ formatType(expense.category) }}
               </span>
-              <NuxtTime
-                v-if="expense.paidAt"
-                :datetime="expense.paidAt"
-                locale="en-US"
-                month="short"
-                day="numeric"
-                year="numeric"
-              />
+              <!-- Rendered from the date parts directly: <NuxtTime> resolves in
+                   the viewer's timezone, which re-introduces the off-by-one. -->
+              <span v-if="expense.paidAt">{{ formatCalendarDate(expense.paidAt) }}</span>
               <span v-if="expense.paidById && members && members.length > 1" class="text-sand-400">
                 paid by {{ getMemberName(expense.paidById) }}
               </span>

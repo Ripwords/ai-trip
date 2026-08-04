@@ -26,6 +26,13 @@ function makeFakeTx(dayRows: { id: string }[]) {
   return { tx: fake as unknown as Tx, updates }
 }
 
+/** Pull the interpolated numbers out of a drizzle `sql` fragment, in order. */
+function sqlNumbers(value: unknown): number[] {
+  const chunks = (value as { queryChunks?: unknown[] })?.queryChunks
+  if (!Array.isArray(chunks)) return []
+  return chunks.filter((c): c is number => typeof c === "number")
+}
+
 describe("convertTripMoney", () => {
   it("converts reservations.amount alongside activities, expenses, and budget", async () => {
     const { tx, updates } = makeFakeTx([{ id: "day-1" }])
@@ -55,5 +62,35 @@ describe("convertTripMoney", () => {
 
     assert.ok(!updates.some((u) => u.table === activities))
     assert.ok(updates.some((u) => u.table === reservations))
+  })
+
+  // Every column used to be ROUND(..., 2), which produced impossible values
+  // like "1234.56 JPY" — currencies with no minor unit must land on whole
+  // numbers. shared/utils/currency.ts already knew this; conversion didn't use it.
+  it("rounds to whole units when converting to a zero-decimal currency", async () => {
+    const { tx, updates } = makeFakeTx([{ id: "day-1" }])
+    await convertTripMoney(tx, "trip-1", 155.2, "JPY")
+
+    for (const update of updates) {
+      for (const [column, value] of Object.entries(update.set)) {
+        if (column === "currencyCode") continue
+        assert.deepEqual(
+          sqlNumbers(value).filter((n) => n !== 155.2),
+          [0],
+          `${column} must round to 0 decimals for JPY`,
+        )
+      }
+    }
+  })
+
+  it("still rounds to 2 decimals for a normal currency", async () => {
+    const { tx, updates } = makeFakeTx([{ id: "day-1" }])
+    await convertTripMoney(tx, "trip-1", 0.9, "EUR")
+
+    const expenseUpdate = updates.find((u) => u.table === expenses)!
+    assert.deepEqual(
+      sqlNumbers(expenseUpdate.set.amount).filter((n) => n !== 0.9),
+      [2],
+    )
   })
 })

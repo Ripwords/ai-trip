@@ -46,16 +46,51 @@ export interface DiscussContextExtras {
   savedIdeas?: { name: string; type: string; description: string | null }[]
 }
 
+/** Actual money, so the agent can plan against what is left rather than a vibe. */
+export interface DiscussContextSpend {
+  /** trips.budget as stored (a decimal string), or null when unset. */
+  budget: string | null
+  /** Sum of recorded expenses, in the trip currency. */
+  spent: number
+}
+
+/** Trim float noise from summing decimal strings, without forcing 2dp on JPY etc. */
+function money(n: number): string {
+  return String(Math.round(n * 100) / 100)
+}
+
+function buildSpendLine(spend: DiscussContextSpend | undefined, currency: string): string | null {
+  if (!spend) return null
+  const budget = spend.budget != null ? parseFloat(spend.budget) : null
+  const hasBudget = budget != null && Number.isFinite(budget) && budget > 0
+
+  if (!hasBudget) {
+    if (spend.spent <= 0) return null
+    return `Spent so far: ${money(spend.spent)} ${currency} (no budget set).`
+  }
+
+  const remaining = budget - spend.spent
+  const status =
+    remaining < 0
+      ? `over budget by ${money(-remaining)} ${currency}`
+      : `${money(remaining)} ${currency} remaining`
+  return `Budget: ${money(budget)} ${currency} — spent ${money(spend.spent)} ${currency}, ${status}. Respect what is left when suggesting costs.`
+}
+
 export function buildTripContext(
   trip: DiscussContextTrip,
   focusDayId: string | null,
   flights?: FlightPromptInput[],
   extras?: DiscussContextExtras,
+  spend?: DiscussContextSpend,
 ): string {
   const lines: string[] = []
   lines.push(
     `Destination: ${escapeCtx(trip.destination)}. Dates: ${trip.startDate} → ${trip.endDate}. Trip currency: ${trip.currencyCode || "USD"} (all cost estimates must be in this currency — do NOT convert to USD).`,
   )
+
+  const spendLine = buildSpendLine(spend, trip.currencyCode || "USD")
+  if (spendLine) lines.push(spendLine)
 
   const prefs = trip.preferences
   if (prefs) {

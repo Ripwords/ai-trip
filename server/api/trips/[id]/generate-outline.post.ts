@@ -78,11 +78,15 @@ export default defineEventHandler(async (event) => {
         existingActivityNames: d.activities.map((a) => a.name),
         accommodationName: d.accommodationName,
       })),
+      // Same shape the day-AI and discuss endpoints send — including the local
+      // times, which buildFlightsCtx prefers over UTC.
       flights: flights.map((f) => ({
         departureAirport: f.departureAirport,
         arrivalAirport: f.arrivalAirport,
-        departureTime: f.departureTime?.toISOString() ?? null,
-        arrivalTime: f.arrivalTime?.toISOString() ?? null,
+        departureTimeUtc: f.departureTime?.toISOString() ?? null,
+        arrivalTimeUtc: f.arrivalTime?.toISOString() ?? null,
+        departureTimeLocal: f.departureTimeLocal,
+        arrivalTimeLocal: f.arrivalTimeLocal,
       })),
     }
 

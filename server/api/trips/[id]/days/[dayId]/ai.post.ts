@@ -5,13 +5,14 @@ import { trips, itineraryDays, activities, tripIdeas } from "../../../../../db/s
 import { dayIdParamsSchema } from "../../../../../utils/schemas"
 import { processUserRequest, type FlightPromptInput } from "../../../../../lib/ai"
 import { getTripFlightsForUser } from "../../../../../lib/trip-flights"
-import { enrichItinerary } from "../../../../../lib/enrich"
+import { enrichItinerary, partitionGeocoded } from "../../../../../lib/enrich"
 import { computeAndSaveSegments } from "../../../../../lib/segments"
 import { getDistanceMatrix } from "../../../../../lib/google-maps"
 import { consecutiveTravelTimes } from "../../../../../lib/travel-times"
 import { sanitizePromptInput } from "../../../../../utils/sanitize"
 import { normalizeTransportMode } from "../../../../../utils/transport"
 import { guardCostEstimate } from "../../../../../lib/cost-guard"
+import { filterDuplicateActivities } from "../../../../../utils/activity-dedup"
 import { refundAiCredit } from "../../../../../utils/ai-limits"
 import {
   normalizeSuggestedTime,
@@ -126,15 +127,23 @@ export default defineEventHandler(async (event) => {
     console.error("[ai.post] Flight context unavailable, proceeding without:", e)
   }
 
-  // Derive day location from activities/accommodation
-  let dayLocation = trip.destination
-  const addresses = day.activities.map((a) => a.address).filter((a): a is string => !!a)
-  if (addresses.length > 0) {
-    dayLocation = `${addresses[0]} (near ${trip.destination})`
-  }
-  if (day.accommodationAddress) {
-    dayLocation = `${day.accommodationAddress} (near ${trip.destination})`
-  }
+  // The AI prompt and the web-research query want a CITY or area, never a
+  // street address. This used to be `"<full street address> (near <dest>)"`,
+  // which reached the model as `ALL places must be in 4-1 Nishishinjuku,
+  // Shinjuku City, Tokyo 160-0023 (near Japan)` — a nonsensical constraint and
+  // a poor search query, and it made the research cache key differ per day.
+  //
+  // Geographic precision comes from coordinates instead: dayCoords biases the
+  // Places lookup during enrichment. Prefer the day's accommodation (where the
+  // traveler actually is) over whichever activity happens to sort first.
+  const dayLocation = trip.destination
+  const geoActivity = day.activities.find((a) => a.lat != null && a.lng != null)
+  const dayCoords =
+    day.accommodationLat != null && day.accommodationLng != null
+      ? { lat: day.accommodationLat, lng: day.accommodationLng }
+      : geoActivity
+        ? { lat: geoActivity.lat!, lng: geoActivity.lng! }
+        : undefined
 
   // Process the user's request through the AI
   let result
@@ -200,6 +209,8 @@ export default defineEventHandler(async (event) => {
   let updatedCount = 0
   let optimized = false
   let enrichmentFailures = 0
+  /** Names Google could not resolve — surfaced so the traveler knows what was dropped. */
+  let unlocatedNames: string[] = []
 
   // Handle removals
   if (result.removals.length > 0) {
@@ -253,23 +264,13 @@ export default defineEventHandler(async (event) => {
   // Handle new activities
   if (result.newActivities.length > 0) {
     // Dedup against existing names
-    const existingNames = new Set(
-      day.activities
-        .filter(
-          (a) =>
-            !result.removals.some(
-              (r) => r.name.toLowerCase().trim() === a.name.toLowerCase().trim(),
-            ),
-        )
-        .map((a) => a.name.toLowerCase().trim()),
+    const stillOnDay = day.activities.filter(
+      (a) =>
+        !result.removals.some((r) => r.name.toLowerCase().trim() === a.name.toLowerCase().trim()),
     )
-
-    const deduped = result.newActivities.filter((a) => {
-      const n = a.name.toLowerCase().trim()
-      return (
-        !existingNames.has(n) && ![...existingNames].some((e) => e.includes(n) || n.includes(e))
-      )
-    })
+    // Exact normalized-name match. Substring matching dropped any suggestion
+    // whose name was a substring of an existing one, or vice versa.
+    const { fresh: deduped } = filterDuplicateActivities(result.newActivities, stillOnDay)
 
     console.log("[ai.post] After dedup:", {
       before: result.newActivities.length,
@@ -277,29 +278,35 @@ export default defineEventHandler(async (event) => {
     })
 
     if (deduped.length > 0) {
-      // Enrich with Google Maps (graceful — if enrichment fails, skip adding)
+      // Enrichment is the last step that can fail after the credit is spent.
+      // A failure here used to be swallowed, returning `success: true, added: 0`
+      // over an untouched day: the traveler was charged, the page reported
+      // success, and the full-itinerary loop counted the day as generated.
       let enriched
       try {
-        // Use first geo-located activity or accommodation as location bias for place search
-        const geoActivity = day.activities.find((a) => a.lat != null && a.lng != null)
-        const destinationCoords = geoActivity
-          ? { lat: geoActivity.lat!, lng: geoActivity.lng! }
-          : undefined
-
         enriched = await enrichItinerary(
           { days: [{ dayNumber: day.dayNumber, theme: "", activities: deduped }] },
           dayLocation,
-          destinationCoords,
+          dayCoords,
         )
 
         enrichmentFailures = enriched.enrichmentFailures
         const enrichedActivities = enriched.days[0]?.activities ?? []
+        // Never persist an activity Google could not locate: enrich.ts states
+        // the invariant outright — a null-coordinate row is invisible on the
+        // map and skipped by the segments engine. enrichActivity returns a
+        // FULL object with lat/lng null on failure rather than dropping it, so
+        // without this split those rows were inserted, and `addedCount` counted
+        // them — which also defeated the refund guard below in exactly the case
+        // it exists for (every suggestion failed to geocode).
+        const { located, unlocated } = partitionGeocoded(enrichedActivities)
         console.log("[ai.post] After enrich:", {
           count: enrichedActivities.length,
+          located: located.length,
           failures: enrichmentFailures,
         })
 
-        if (enrichedActivities.length > 0) {
+        if (located.length > 0) {
           const currentActivities = await db.query.activities.findMany({
             where: eq(activities.itineraryDayId, dayId),
             orderBy: [asc(activities.sortOrder)],
@@ -310,7 +317,7 @@ export default defineEventHandler(async (event) => {
               : -1
 
           const guardedCosts = await Promise.all(
-            enrichedActivities.map((a) =>
+            located.map((a) =>
               guardCostEstimate({
                 costEstimate: a.costEstimate,
                 type: a.type,
@@ -321,7 +328,7 @@ export default defineEventHandler(async (event) => {
           )
 
           await db.insert(activities).values(
-            enrichedActivities.map((activity, index) => ({
+            located.map((activity, index) => ({
               itineraryDayId: dayId,
               name: activity.name,
               placeId: activity.placeId,
@@ -343,10 +350,43 @@ export default defineEventHandler(async (event) => {
               sortOrder: maxSort + 1 + index,
             })),
           )
-          addedCount = enrichedActivities.length
+          addedCount = located.length
         }
+        unlocatedNames = unlocated.map((a) => a.name)
       } catch (e: unknown) {
-        console.error("[ai.post] Enrichment failed, skipping new activities:", e)
+        console.error("[ai.post] Enrichment failed:", e)
+        // Only bail when the request achieved nothing at all. `modify` removes
+        // activities before this point and `fill_gaps` can fill blank times —
+        // that work is already committed, so throwing would strand the day in a
+        // half-applied state AND refund a request that did change something.
+        // In that case fall through and report the partial result instead.
+        if (addedCount === 0 && removedCount === 0 && updatedCount === 0) {
+          await refundAiCredit(session.user.id)
+          throw createError({
+            statusCode: 502,
+            message: "Couldn't look those places up on Google Maps. Please try again.",
+          })
+        }
+      }
+
+      // Distinct from the exception above: enrichment SUCCEEDED but Google
+      // located nothing, so nothing was inserted and no exception was thrown —
+      // the catch never ran. Same rule applies: only bail when the request
+      // achieved nothing at all, otherwise report the partial result.
+      if (
+        addedCount === 0 &&
+        removedCount === 0 &&
+        updatedCount === 0 &&
+        unlocatedNames.length > 0
+      ) {
+        await refundAiCredit(session.user.id)
+        throw createError({
+          statusCode: 422,
+          message:
+            unlocatedNames.length === 1
+              ? `Couldn't find "${unlocatedNames[0]}" on Google Maps. Try a more specific request.`
+              : "Couldn't find any of those places on Google Maps. Try a more specific request.",
+        })
       }
     }
   }
@@ -500,6 +540,11 @@ export default defineEventHandler(async (event) => {
     optimized,
     enrichmentFailures,
     intent: result.intent,
-    message: result.message,
+    // Name what was dropped. Silently returning a smaller number than the AI
+    // suggested reads as the model under-delivering rather than Google failing.
+    message:
+      unlocatedNames.length > 0
+        ? `${result.message} · couldn't locate ${unlocatedNames.length} (${unlocatedNames.join(", ")})`
+        : result.message,
   }
 })
