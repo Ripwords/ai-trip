@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm"
 import { db } from "../../../../db"
-import { expenses } from "../../../../db/schema"
+import { expenses, trips } from "../../../../db/schema"
 import { uuidParamsSchema, createExpenseSchema } from "../../../../utils/schemas"
 import { assertExpenseRefs } from "../../../../lib/expenses"
 
@@ -36,12 +36,19 @@ export default defineEventHandler(async (event) => {
     })
     .returning()
 
-  // Audit log
+  // Audit log. The currency comes from the trip — this line used to hardcode
+  // "$", permanently misreporting every expense on a non-USD trip.
+  const trip = await db.query.trips.findFirst({
+    where: eq(trips.id, id),
+    columns: { currencyCode: true },
+  })
+  const currency = trip?.currencyCode || "USD"
   await logTripAction({
     tripId: id,
     userId: session.user.id,
     action: "expense_added",
-    description: `Added expense: ${body.description} ($${body.amount})`,
+    description: `Added expense: ${body.description} (${body.amount} ${currency})`,
+    metadata: { expenseId: expense?.id, amount: body.amount, currency },
   })
 
   return expense

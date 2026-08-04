@@ -35,5 +35,17 @@ export default defineEventHandler(async (event) => {
     .where(eq(expenses.id, expenseId))
     .returning()
 
+  await logTripAction({
+    tripId: id,
+    userId: session.user.id,
+    action: "expense_updated",
+    description: `Updated expense: ${updated?.description ?? expense.description}`,
+    metadata: {
+      expenseId,
+      before: { amount: expense.amount, category: expense.category },
+      after: { amount: updated?.amount, category: updated?.category },
+    },
+  })
+
   return updated
 })
