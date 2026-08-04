@@ -80,41 +80,14 @@ const progressBarColor = computed(() => {
   return "bg-forest-500"
 })
 
-// Settlement calculation (equal split)
-const settlement = computed(() => {
-  if (!expenses.value?.length || !props.members?.length) return []
-  const memberCount = props.members.length
-  if (memberCount < 2) return []
-
-  // Track how much each person paid
-  const paid: Record<string, number> = {}
-  for (const m of props.members) {
-    paid[m.userId] = 0
-  }
-
-  for (const expense of expenses.value) {
-    const payerId = expense.paidById
-    if (payerId && paid[payerId] !== undefined) {
-      paid[payerId] += parseFloat(expense.amount)
-    }
-  }
-
-  // Each person's fair share
-  const total = Object.values(paid).reduce((a, b) => a + b, 0)
-  if (total === 0) return []
-  const fairShare = total / memberCount
-
-  // Calculate balances (positive = owed money, negative = owes money)
-  const balances = props.members
-    .map((m) => ({
-      userId: m.userId,
-      name: m.user.name,
-      balance: (paid[m.userId] ?? 0) - fairShare,
-    }))
-    .filter((b) => Math.abs(b.balance) > 0.01)
-
-  return balances
-})
+// Equal-split settlement. The maths lives in app/utils/settlement.ts so it can
+// be unit-tested — see that file for why unattributed expenses are surfaced
+// rather than silently excluded.
+const settlementResult = computed(() =>
+  computeSettlement(expenses.value ?? [], props.members ?? []),
+)
+const settlement = computed(() => settlementResult.value.balances)
+const unattributedTotal = computed(() => settlementResult.value.unattributedTotal)
 
 watch(
   () => props.budget,
@@ -295,9 +268,12 @@ function getMemberName(userId: string | null): string {
     </div>
 
     <!-- Settlement summary (only for group trips with paid-by data) -->
-    <div v-if="settlement.length > 0" class="rounded-2xl border border-sand-200 bg-white p-6">
+    <div
+      v-if="settlement.length > 0 || unattributedTotal > 0"
+      class="rounded-2xl border border-sand-200 bg-white p-6"
+    >
       <h3 class="text-sm font-semibold text-sand-900">Settlement</h3>
-      <div class="mt-3 space-y-2">
+      <div v-if="settlement.length > 0" class="mt-3 space-y-2">
         <div
           v-for="person in settlement"
           :key="person.userId"
@@ -313,6 +289,15 @@ function getMemberName(userId: string | null): string {
           </span>
         </div>
       </div>
+      <!-- Without this the settlement silently ignores these expenses while the
+           total above still counts them, and the two numbers never reconcile. -->
+      <p
+        v-if="unattributedTotal > 0"
+        class="mt-3 border-t border-sand-100 pt-3 text-xs text-sand-500"
+      >
+        {{ formatCurrency(unattributedTotal) }} not included — no payer recorded. Edit those
+        expenses to set who paid.
+      </p>
     </div>
 
     <!-- Expenses section -->
