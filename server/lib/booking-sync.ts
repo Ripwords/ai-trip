@@ -180,6 +180,52 @@ export function planStayReconciliation(args: {
   }
 }
 
+/** What the backfill intends to do with one stay run. */
+export interface StayBackfillPlanEntry {
+  run: StayRun
+  /** The stay this run already maps to, when the backfill has run before. */
+  stayId: string | null
+  /** A hand-typed booking to adopt onto this stay, when it's unambiguous. */
+  adoptReservationId: string | null
+  /** Rows that plausibly relate but are too risky to link automatically. */
+  ambiguousReservationIds: string[]
+}
+
+/**
+ * Decide, per stay run, whether the backfill creates a stay or reuses one, and
+ * whether an existing hand-typed booking can be adopted onto it.
+ *
+ * Idempotent by construction: a run already covered by a stay reports that
+ * stay, and its booking is no longer among the unlinked candidates, so a second
+ * pass adopts and creates nothing.
+ */
+export function planStayBackfill(args: {
+  runs: readonly StayRun[]
+  existingStays: readonly ExistingStay[]
+  candidates: readonly StayBookingCandidate[]
+}): StayBackfillPlanEntry[] {
+  const plan = planStayReconciliation({ runs: args.runs, existing: args.existingStays })
+  const stayIdByRun = new Map<StayRun, string>(plan.update.map((u) => [u.run, u.stayId]))
+
+  // A booking belongs to at most one stay — adopting it twice would leave two
+  // stays claiming the same confirmation number.
+  const claimed = new Set<string>()
+
+  return args.runs.map((run) => {
+    const available = args.candidates.filter((c) => !claimed.has(c.id))
+    const match = matchReservationToStay(run, available)
+
+    if (match.kind === "adopt") claimed.add(match.reservationId)
+
+    return {
+      run,
+      stayId: stayIdByRun.get(run) ?? null,
+      adoptReservationId: match.kind === "adopt" ? match.reservationId : null,
+      ambiguousReservationIds: match.kind === "ambiguous" ? match.reservationIds : [],
+    }
+  })
+}
+
 /**
  * Create or refresh the booking row mirroring `stay`, keyed on `stay_id`.
  *

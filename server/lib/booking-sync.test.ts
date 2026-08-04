@@ -6,6 +6,7 @@ const {
   missingBookingFields,
   matchReservationToStay,
   planStayReconciliation,
+  planStayBackfill,
   upsertStayBooking,
   detachStayBooking,
 } = await import("./booking-sync")
@@ -311,5 +312,94 @@ describe("planStayReconciliation", () => {
     assert.equal(plan.create.length, 0)
     assert.equal(plan.remove.length, 0)
     assert.equal(plan.update.length, 1)
+  })
+})
+
+describe("planStayBackfill", () => {
+  const nikko = run({
+    key: "place-abc",
+    placeId: "place-abc",
+    checkIn: "2026-03-22",
+    checkOut: "2026-03-25",
+  })
+
+  it("adopts the user's existing booking instead of creating a second one", () => {
+    const plan = planStayBackfill({
+      runs: [nikko],
+      existingStays: [],
+      candidates: [
+        { id: "r1", name: "Hotel Nikko", startDate: "2026-03-22", endDate: "2026-03-25" },
+      ],
+    })
+
+    assert.equal(plan.length, 1)
+    assert.equal(plan[0]!.stayId, null)
+    assert.equal(plan[0]!.adoptReservationId, "r1")
+    assert.deepEqual(plan[0]!.ambiguousReservationIds, [])
+  })
+
+  it("creates a derived booking when the user never entered one", () => {
+    const plan = planStayBackfill({ runs: [nikko], existingStays: [], candidates: [] })
+
+    assert.equal(plan[0]!.adoptReservationId, null)
+    assert.deepEqual(plan[0]!.ambiguousReservationIds, [])
+  })
+
+  // Running twice must change nothing: the stay already exists and its booking
+  // is already linked, so it is no longer an adoption candidate.
+  it("is idempotent — a second run reuses the stay and adopts nothing", () => {
+    const plan = planStayBackfill({
+      runs: [nikko],
+      existingStays: [
+        { id: "stay-1", key: "place-abc", checkIn: "2026-03-22", checkOut: "2026-03-25" },
+      ],
+      candidates: [],
+    })
+
+    assert.equal(plan.length, 1)
+    assert.equal(plan[0]!.stayId, "stay-1")
+    assert.equal(plan[0]!.adoptReservationId, null)
+  })
+
+  it("leaves a near-match unlinked and reports it as a possible duplicate", () => {
+    const plan = planStayBackfill({
+      runs: [nikko],
+      existingStays: [],
+      candidates: [
+        { id: "r9", name: "Nikko Hotel Tokyo", startDate: "2026-03-22", endDate: "2026-03-25" },
+      ],
+    })
+
+    assert.equal(plan[0]!.adoptReservationId, null)
+    assert.deepEqual(plan[0]!.ambiguousReservationIds, ["r9"])
+  })
+
+  it("never adopts the same booking onto two stays", () => {
+    const second = run({
+      key: "place-abc",
+      placeId: "place-abc",
+      checkIn: "2026-04-10",
+      checkOut: "2026-04-12",
+    })
+    const plan = planStayBackfill({
+      runs: [nikko, second],
+      existingStays: [],
+      candidates: [
+        { id: "r1", name: "Hotel Nikko", startDate: "2026-03-22", endDate: "2026-03-25" },
+      ],
+    })
+
+    assert.equal(plan[0]!.adoptReservationId, "r1")
+    assert.equal(plan[1]!.adoptReservationId, null)
+  })
+
+  it("returns an entry per run so the report can count them", () => {
+    const plan = planStayBackfill({
+      runs: [nikko, run({ key: "place-xyz", checkIn: "2026-03-25", checkOut: "2026-03-27" })],
+      existingStays: [],
+      candidates: [],
+    })
+
+    assert.equal(plan.length, 2)
   })
 })
