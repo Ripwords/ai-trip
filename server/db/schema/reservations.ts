@@ -1,7 +1,8 @@
-import { pgTable, uuid, text, numeric, timestamp, index } from "drizzle-orm/pg-core"
-import { relations } from "drizzle-orm"
+import { pgTable, uuid, text, numeric, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core"
+import { relations, sql } from "drizzle-orm"
 import { encryptedText } from "../custom-types"
 import { trips } from "./trips"
+import { stays } from "./stays"
 import { user } from "./auth-schema"
 
 export const reservations = pgTable(
@@ -12,6 +13,15 @@ export const reservations = pgTable(
       .notNull()
       .references(() => trips.id, { onDelete: "cascade" }),
     type: text("type").notNull().default("other"),
+    // Where this row came from: 'manual' (typed by hand) or 'stay' (mirrored
+    // from a `stays` row). `type` stays the display discriminator — restaurant
+    // and car_rental rows legitimately have no source entity. `source` is what
+    // tells the UI "this row is derived, only prompt for the gaps".
+    // Flights are deliberately absent: they are user-scoped while reservations
+    // are trip-scoped, so mirroring them would leak a member's flights to every
+    // co-editor. See #57.
+    source: text("source").notNull().default("manual"),
+    stayId: uuid("stay_id").references(() => stays.id, { onDelete: "set null" }),
     status: text("status").notNull().default("confirmed"),
     name: text("name").notNull(),
     confirmationNumber: encryptedText("confirmation_number"),
@@ -32,10 +42,16 @@ export const reservations = pgTable(
     index("idx_reservations_type").on(table.type),
     index("idx_reservations_status").on(table.status),
     index("idx_reservations_created_by").on(table.createdById),
+    // Load-bearing: without it every repeated accommodation edit spawns
+    // another booking row for the same stay.
+    uniqueIndex("idx_reservations_stay")
+      .on(table.stayId)
+      .where(sql`stay_id IS NOT NULL`),
   ],
 )
 
 export const reservationsRelations = relations(reservations, ({ one }) => ({
   trip: one(trips, { fields: [reservations.tripId], references: [trips.id] }),
+  stay: one(stays, { fields: [reservations.stayId], references: [stays.id] }),
   createdBy: one(user, { fields: [reservations.createdById], references: [user.id] }),
 }))

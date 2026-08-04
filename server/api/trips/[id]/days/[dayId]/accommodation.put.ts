@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm"
 import { db } from "../../../../../db"
 import { itineraryDays } from "../../../../../db/schema"
 import { dayIdParamsSchema, updateAccommodationSchema } from "../../../../../utils/schemas"
+import { reconcileTripStays } from "../../../../../lib/booking-sync"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -19,11 +20,19 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Day not found" })
   }
 
-  const [updated] = await db
-    .update(itineraryDays)
-    .set(body)
-    .where(eq(itineraryDays.id, dayId))
-    .returning()
+  // One transaction: the day's accommodation columns are the write path, and
+  // reconciling turns them into the canonical stay plus its derived booking.
+  // Half of that landing would leave a stay pointing at nights it no longer has.
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(itineraryDays)
+      .set(body)
+      .where(eq(itineraryDays.id, dayId))
+      .returning()
+
+    await reconcileTripStays(tx, id, session.user.id)
+    return row
+  })
 
   return updated
 })

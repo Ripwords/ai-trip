@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm"
 import { db } from "~~/server/db"
 import { itineraryDays } from "~~/server/db/schema"
+import { reconcileTripStays } from "~~/server/lib/booking-sync"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -20,11 +21,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "One or more days not found" })
   }
 
-  const updated = await db
-    .update(itineraryDays)
-    .set(accommodation)
-    .where(and(eq(itineraryDays.tripId, id), inArray(itineraryDays.id, dayIds)))
-    .returning()
+  // Same transaction as the per-day route: set the day columns, then derive
+  // the stay and its booking from them.
+  const updated = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(itineraryDays)
+      .set(accommodation)
+      .where(and(eq(itineraryDays.tripId, id), inArray(itineraryDays.id, dayIds)))
+      .returning()
+
+    await reconcileTripStays(tx, id, session.user.id)
+    return rows
+  })
 
   return updated
 })

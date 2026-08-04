@@ -324,10 +324,27 @@ export const createReservationSchema = z.object({
   notes: z.string().nullish(),
   startDate: z.string().nullish(),
   endDate: z.string().nullish(),
-  amount: z.string().nullish(),
+  // Was a plain z.string(): "abc" reached Postgres as a 500 and "-50" silently
+  // corrupted every total that summed it — the same defect expenses had.
+  amount: moneyString.nullish(),
 })
 
 export const updateReservationSchema = createReservationSchema.partial()
+
+/**
+ * The editable surface of a *derived* booking (`source !== 'manual'`).
+ *
+ * Name and dates are mirrored from the stay that owns them — editing the hotel
+ * or its nights happens in the itinerary, which is the source of truth. Only
+ * the fields the itinerary can't know are accepted here.
+ */
+export const updateLinkedReservationSchema = z.object({
+  status: reservationStatusEnum.optional(),
+  confirmationNumber: z.string().nullish(),
+  provider: z.string().nullish(),
+  notes: z.string().nullish(),
+  amount: moneyString.nullish(),
+})
 
 export const reservationIdParamsSchema = z.object({
   id: z.string().uuid(),

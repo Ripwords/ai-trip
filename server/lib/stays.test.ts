@@ -2,9 +2,8 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { itineraryDays } from "../db/schema"
 
-const { addCalendarDays, stayKey, groupDaysIntoStayRuns, syncDayAccommodation } = await import(
-  "./stays"
-)
+const { addCalendarDays, stayKey, groupDaysIntoStayRuns, syncDayAccommodation } =
+  await import("./stays")
 type DayAccommodation = import("./stays").DayAccommodation
 type Tx = import("./stays").Tx
 

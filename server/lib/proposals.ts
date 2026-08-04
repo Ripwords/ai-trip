@@ -6,6 +6,7 @@ import { activities, itineraryDays } from "../db/schema"
 import { enrichItinerary, partitionGeocoded } from "./enrich"
 import { guardCostEstimate } from "./cost-guard"
 import { computeAndSaveSegments } from "./segments"
+import { reconcileTripStays } from "./booking-sync"
 import { getDistanceMatrix } from "./google-maps"
 import { computeSchedule, orderDayActivities, parseOpeningTime } from "../utils/schedule"
 import { logTripAction } from "../utils/trip-access"
@@ -551,16 +552,22 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
     }
 
     case "set-accommodation": {
-      await db
-        .update(itineraryDays)
-        .set({
-          accommodationName: proposal.payload.name,
-          accommodationAddress: proposal.payload.address,
-          accommodationLat: proposal.payload.lat,
-          accommodationLng: proposal.payload.lng,
-          accommodationPlaceId: proposal.payload.placeId,
-        })
-        .where(eq(itineraryDays.id, ctx.dayId))
+      // The single apply point for AI-set accommodation, and so the cheapest
+      // place to get generated itineraries into the Bookings tab.
+      await db.transaction(async (tx) => {
+        await tx
+          .update(itineraryDays)
+          .set({
+            accommodationName: proposal.payload.name,
+            accommodationAddress: proposal.payload.address,
+            accommodationLat: proposal.payload.lat,
+            accommodationLng: proposal.payload.lng,
+            accommodationPlaceId: proposal.payload.placeId,
+          })
+          .where(eq(itineraryDays.id, ctx.dayId))
+
+        await reconcileTripStays(tx, ctx.tripId, ctx.userId)
+      })
       message = `Set accommodation to ${proposal.payload.name}`
       break
     }

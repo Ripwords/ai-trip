@@ -2,6 +2,7 @@ import { pgTable, uuid, text, date, timestamp, index, doublePrecision } from "dr
 import { relations } from "drizzle-orm"
 import { trips } from "./trips"
 import { itineraryDays } from "./itineraries"
+import { reservations } from "./reservations"
 
 /**
  * An accommodation booking-worth-of-nights: one contiguous run of days at the
@@ -40,4 +41,5 @@ export const stays = pgTable(
 export const staysRelations = relations(stays, ({ one, many }) => ({
   trip: one(trips, { fields: [stays.tripId], references: [trips.id] }),
   days: many(itineraryDays),
+  reservations: many(reservations),
 }))
