@@ -4,6 +4,7 @@ import { google } from "@ai-sdk/google"
 import { getModel } from "../../lib/ai-config"
 import { sanitizePromptInput } from "../../utils/sanitize"
 import { refundAiCredit } from "../../utils/ai-limits"
+import { layoverTipsCacheKey, timeOfDayBucket } from "../../lib/ai-cache"
 
 const bodySchema = z.object({
   airport: z.string().min(2).max(4).toUpperCase(),
@@ -38,7 +39,7 @@ const generateLayoverTips = defineCachedFunction(
       stopWhen: stepCountIs(5),
       prompt: `You are a travel expert helping a traveler with a ${durationHours}-hour layover at ${airport} (IATA airport code).
 
-Time of arrival: ${timeOfDay || "unknown"}
+Time of arrival (local): ${timeOfDay}
 Visa status: ${visaStatus || "unknown"}
 
 Provide practical, specific advice:
@@ -63,8 +64,7 @@ ${requiresAirportOnly ? "VISA RESTRICTION: the traveler needs a visa for this co
     // Never cache a failed generation (see the FX/research cache lesson).
     validate: (entry: { value?: unknown }) =>
       entry.value != null && typeof entry.value === "object",
-    getKey: (airport: string, durationHours: number, visaStatus: string, _timeOfDay: string) =>
-      `${airport}:${durationHours}:${visaStatus}`,
+    getKey: layoverTipsCacheKey,
   },
 )
 
@@ -84,14 +84,12 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const durationHours = Math.round(body.durationMinutes / 60)
-  const timeOfDay = body.arrivalTime
-    ? new Date(body.arrivalTime).toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      })
-    : "unknown"
+  // Floor, not round: a 179-minute layover is 2 hours, not 3. Rounding up lost the
+  // prompt's "under 3 hours → in-airport options only" instruction (issue #15).
+  const durationHours = Math.floor(body.durationMinutes / 60)
+  // Coarse bucket, used for BOTH the prompt and the cache key so the cached answer
+  // always corresponds to the key it is stored under.
+  const timeOfDay = timeOfDayBucket(body.arrivalTime)
 
   // Consume AFTER body validation + sanitization, so a 400 never costs a
   // credit — same ordering the day-AI and discuss endpoints use, and for the
