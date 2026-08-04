@@ -12,6 +12,19 @@ export const paginationSchema = z.object({
 
 export const tripStatusEnum = z.enum(["upcoming", "ongoing", "completed", "cancelled"])
 
+/**
+ * A decimal money amount, as a string, sized to fit the `numeric(10, 2)`
+ * columns it is written to (8 integer digits + 2 decimals).
+ *
+ * Plain `z.string()` let `"abc"`, `"1e40"` and `""` reach Postgres, which
+ * rejected them with `invalid input syntax for type numeric` / `numeric field
+ * overflow` — surfacing as an unhandled 500 instead of a 400. `"-50"` was
+ * worse: it persisted, and silently corrupted every total that summed it.
+ */
+export const moneyString = z
+  .string()
+  .regex(/^\d{1,8}(\.\d{1,2})?$/, "Must be a positive amount with at most 2 decimal places")
+
 // Not a strict enum — Google Places returns types like "museum", "cafe", "park", etc.
 export const activityTypeEnum = z.string().min(1)
 
@@ -43,7 +56,7 @@ export const updateTripSchema = createTripSchema
   .partial()
   .extend({
     status: tripStatusEnum.optional(),
-    budget: z.string().nullish(),
+    budget: moneyString.nullish(),
     currencyCode: z.string().length(3).optional(),
     tripNotes: z.string().nullish(),
   })
@@ -196,14 +209,18 @@ export const expenseCategoryEnum = z.enum([
 
 export const createExpenseSchema = z.object({
   description: z.string().min(1),
-  amount: z.string(),
+  amount: moneyString,
   category: expenseCategoryEnum.optional(),
   activityId: z.string().uuid().nullish(),
   paidById: z.string().nullish(),
   paidAt: z.string().nullish(),
 })
 
-export const updateExpenseSchema = createExpenseSchema.partial()
+// `.partial()` alone made `{}` a valid body — an empty PUT was accepted and
+// returned 200 having changed nothing. Require at least one field.
+export const updateExpenseSchema = createExpenseSchema
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, { message: "At least one field is required" })
 
 export const expenseIdParamsSchema = z.object({
   id: z.string().uuid(),
