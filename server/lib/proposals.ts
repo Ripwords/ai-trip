@@ -7,7 +7,7 @@ import { enrichItinerary, partitionGeocoded } from "./enrich"
 import { guardCostEstimate } from "./cost-guard"
 import { computeAndSaveSegments } from "./segments"
 import { getDistanceMatrix } from "./google-maps"
-import { computeSchedule, parseOpeningTime } from "../utils/schedule"
+import { computeSchedule, orderDayActivities, parseOpeningTime } from "../utils/schedule"
 import { logTripAction } from "../utils/trip-access"
 import type { TransportMode } from "../utils/transport"
 import type { AIProcessResult } from "./ai"
@@ -155,6 +155,28 @@ export function resolveDayOrder(dayActivityIds: string[], orderedIds?: string[])
   return [...head, ...dayActivityIds.filter((id) => !seen.has(id))]
 }
 
+/**
+ * Re-sort a day's rows so `sortOrder` follows `suggestedTime`. Used after a
+ * reschedule, which changes times without touching order.
+ */
+async function resortDayByTime(dayId: string): Promise<void> {
+  const rows = await db.query.activities.findMany({
+    where: eq(activities.itineraryDayId, dayId),
+    orderBy: [asc(activities.sortOrder)],
+  })
+  const ordered = orderDayActivities(rows)
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < ordered.length; i++) {
+      const row = ordered[i]!
+      if (row.sortOrder === i) continue
+      await tx
+        .update(activities)
+        .set({ sortOrder: i })
+        .where(and(eq(activities.id, row.id), eq(activities.itineraryDayId, dayId)))
+    }
+  })
+}
+
 function timeToMinutes(time: string | null | undefined): number | null {
   if (!time) return null
   const m = time.match(/^(\d{1,2}):(\d{2})/)
@@ -286,6 +308,10 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
         }
       })
       updated = matched
+      // Reschedule rewrites times without touching row order, so the day would
+      // read 09:00 -> 19:00 -> 11:00 until something else re-sorted it. The
+      // generation path already did this; the proposal path did not.
+      if (matched > 0) await resortDayByTime(ctx.dayId)
       message = `Rescheduled ${updated} activit${updated === 1 ? "y" : "ies"}`
       break
     }
