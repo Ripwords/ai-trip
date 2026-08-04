@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { transportModes } from "./transport"
+import { EXPENSE_CATEGORIES } from "../../shared/utils/expense-categories"
 
 export const uuidParamsSchema = z.object({
   id: z.string().uuid(),
@@ -202,15 +203,9 @@ export const updateAccommodationRangeSchema = updateAccommodationSchema.extend({
   dayIds: z.array(z.string().uuid()).min(1),
 })
 
-// Expenses
-export const expenseCategoryEnum = z.enum([
-  "accommodation",
-  "food",
-  "transport",
-  "activity",
-  "shopping",
-  "other",
-])
+// Expenses. Categories come from shared/ so the client picker and badge map
+// cannot drift from what the server accepts.
+export const expenseCategoryEnum = z.enum(EXPENSE_CATEGORIES)
 
 export const createExpenseSchema = z.object({
   description: z.string().min(1),

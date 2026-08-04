@@ -51,16 +51,9 @@ const formCategory = ref("food")
 const formDate = ref(todayCalendarDate())
 const formPaidById = ref<string>("")
 
-const categories = ["accommodation", "food", "transport", "activity", "shopping", "other"]
-
-const categoryBadgeClasses: Record<string, string> = {
-  accommodation: "bg-ocean-50 text-ocean-700",
-  food: "bg-terra-50 text-terra-700",
-  transport: "bg-sand-100 text-sand-700",
-  activity: "bg-ocean-50 text-ocean-700",
-  shopping: "bg-terra-50 text-terra-600",
-  other: "bg-sand-100 text-sand-700",
-}
+// Both come from shared/utils/expense-categories.ts — the same list the server
+// validates against, so the picker can't fall out of sync with the enum.
+const categories = EXPENSE_CATEGORIES
 
 const totalExpenses = computed(() => {
   if (!expenses.value) return 0
@@ -441,7 +434,7 @@ function getMemberName(userId: string | null): string {
             <div class="mt-0.5 flex items-center gap-2 text-xs text-sand-500">
               <span
                 class="inline-block rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="categoryBadgeClasses[expense.category] || 'bg-sand-100 text-sand-700'"
+                :class="expenseCategoryBadgeClasses(expense.category)"
               >
                 {{ formatType(expense.category) }}
               </span>
