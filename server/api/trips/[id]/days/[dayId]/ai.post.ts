@@ -5,7 +5,7 @@ import { trips, itineraryDays, activities, tripIdeas } from "../../../../../db/s
 import { dayIdParamsSchema } from "../../../../../utils/schemas"
 import { processUserRequest, type FlightPromptInput } from "../../../../../lib/ai"
 import { getTripFlightsForUser } from "../../../../../lib/trip-flights"
-import { enrichItinerary } from "../../../../../lib/enrich"
+import { enrichItinerary, partitionGeocoded } from "../../../../../lib/enrich"
 import { computeAndSaveSegments } from "../../../../../lib/segments"
 import { getDistanceMatrix } from "../../../../../lib/google-maps"
 import { consecutiveTravelTimes } from "../../../../../lib/travel-times"
@@ -209,6 +209,8 @@ export default defineEventHandler(async (event) => {
   let updatedCount = 0
   let optimized = false
   let enrichmentFailures = 0
+  /** Names Google could not resolve — surfaced so the traveler knows what was dropped. */
+  let unlocatedNames: string[] = []
 
   // Handle removals
   if (result.removals.length > 0) {
@@ -280,7 +282,6 @@ export default defineEventHandler(async (event) => {
       // A failure here used to be swallowed, returning `success: true, added: 0`
       // over an untouched day: the traveler was charged, the page reported
       // success, and the full-itinerary loop counted the day as generated.
-      // Mirrors applyProposal's add-activities branch, which already re-throws.
       let enriched
       try {
         enriched = await enrichItinerary(
@@ -291,12 +292,21 @@ export default defineEventHandler(async (event) => {
 
         enrichmentFailures = enriched.enrichmentFailures
         const enrichedActivities = enriched.days[0]?.activities ?? []
+        // Never persist an activity Google could not locate: enrich.ts states
+        // the invariant outright — a null-coordinate row is invisible on the
+        // map and skipped by the segments engine. enrichActivity returns a
+        // FULL object with lat/lng null on failure rather than dropping it, so
+        // without this split those rows were inserted, and `addedCount` counted
+        // them — which also defeated the refund guard below in exactly the case
+        // it exists for (every suggestion failed to geocode).
+        const { located, unlocated } = partitionGeocoded(enrichedActivities)
         console.log("[ai.post] After enrich:", {
           count: enrichedActivities.length,
+          located: located.length,
           failures: enrichmentFailures,
         })
 
-        if (enrichedActivities.length > 0) {
+        if (located.length > 0) {
           const currentActivities = await db.query.activities.findMany({
             where: eq(activities.itineraryDayId, dayId),
             orderBy: [asc(activities.sortOrder)],
@@ -307,7 +317,7 @@ export default defineEventHandler(async (event) => {
               : -1
 
           const guardedCosts = await Promise.all(
-            enrichedActivities.map((a) =>
+            located.map((a) =>
               guardCostEstimate({
                 costEstimate: a.costEstimate,
                 type: a.type,
@@ -318,7 +328,7 @@ export default defineEventHandler(async (event) => {
           )
 
           await db.insert(activities).values(
-            enrichedActivities.map((activity, index) => ({
+            located.map((activity, index) => ({
               itineraryDayId: dayId,
               name: activity.name,
               placeId: activity.placeId,
@@ -340,8 +350,9 @@ export default defineEventHandler(async (event) => {
               sortOrder: maxSort + 1 + index,
             })),
           )
-          addedCount = enrichedActivities.length
+          addedCount = located.length
         }
+        unlocatedNames = unlocated.map((a) => a.name)
       } catch (e: unknown) {
         console.error("[ai.post] Enrichment failed:", e)
         // Only bail when the request achieved nothing at all. `modify` removes
@@ -356,6 +367,26 @@ export default defineEventHandler(async (event) => {
             message: "Couldn't look those places up on Google Maps. Please try again.",
           })
         }
+      }
+
+      // Distinct from the exception above: enrichment SUCCEEDED but Google
+      // located nothing, so nothing was inserted and no exception was thrown —
+      // the catch never ran. Same rule applies: only bail when the request
+      // achieved nothing at all, otherwise report the partial result.
+      if (
+        addedCount === 0 &&
+        removedCount === 0 &&
+        updatedCount === 0 &&
+        unlocatedNames.length > 0
+      ) {
+        await refundAiCredit(session.user.id)
+        throw createError({
+          statusCode: 422,
+          message:
+            unlocatedNames.length === 1
+              ? `Couldn't find "${unlocatedNames[0]}" on Google Maps. Try a more specific request.`
+              : "Couldn't find any of those places on Google Maps. Try a more specific request.",
+        })
       }
     }
   }
@@ -509,6 +540,11 @@ export default defineEventHandler(async (event) => {
     optimized,
     enrichmentFailures,
     intent: result.intent,
-    message: result.message,
+    // Name what was dropped. Silently returning a smaller number than the AI
+    // suggested reads as the model under-delivering rather than Google failing.
+    message:
+      unlocatedNames.length > 0
+        ? `${result.message} · couldn't locate ${unlocatedNames.length} (${unlocatedNames.join(", ")})`
+        : result.message,
   }
 })
