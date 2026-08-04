@@ -64,7 +64,13 @@ export type Proposal =
         updates: { activityId: string; suggestedTime: string; estimatedDurationMinutes: number }[]
       }
     })
-  | (ProposalBase & { kind: "optimize-route"; payload: { orderedActivityIds?: string[] } })
+  | (ProposalBase & {
+      kind: "optimize-route"
+      payload: {
+        orderedActivityIds?: string[]
+        orderedActivities?: { id: string; suggestedTime: string }[]
+      }
+    })
   | (ProposalBase & { kind: "reorder-activities"; payload: { orderedActivityIds: string[] } })
   | (ProposalBase & {
       kind: "set-accommodation"

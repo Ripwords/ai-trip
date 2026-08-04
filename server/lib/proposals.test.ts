@@ -15,7 +15,8 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { AIProcessResult } from "./ai"
 
-const { proposalSchema, resultToProposals, applyProposal } = await import("./proposals")
+const { proposalSchema, resultToProposals, applyProposal, resolveDayOrder } =
+  await import("./proposals")
 
 describe("proposalSchema", () => {
   it("accepts an add-activities proposal with a valid payload", () => {
@@ -182,6 +183,52 @@ describe("resultToProposals", () => {
     assert.equal(proposals[0]?.kind, "optimize-route")
   })
 
+  // The AI's optimize pass returns a time per activity alongside the order.
+  // Carrying only the ids threw those times away, so applying the card
+  // reshuffled rows and left the old (often overlapping) times in place.
+  it("carries the AI's optimize times onto the optimize-route payload", () => {
+    const result = blankResult({
+      intent: "optimize",
+      shouldOptimize: true,
+      orderedActivities: [
+        { id: "44444444-4444-4444-8444-444444444444", name: "Temple", suggestedTime: "09:00" },
+        { id: "33333333-3333-4333-8333-333333333333", name: "Museum", suggestedTime: "13:30" },
+      ],
+    })
+    const proposals = resultToProposals(result, dayFixture)
+    if (proposals[0]?.kind !== "optimize-route") throw new Error("wrong kind")
+    assert.deepEqual(proposals[0].payload.orderedActivityIds, [
+      "44444444-4444-4444-8444-444444444444",
+      "33333333-3333-4333-8333-333333333333",
+    ])
+    assert.deepEqual(proposals[0].payload.orderedActivities, [
+      { id: "44444444-4444-4444-8444-444444444444", suggestedTime: "09:00" },
+      { id: "33333333-3333-4333-8333-333333333333", suggestedTime: "13:30" },
+    ])
+  })
+
+  it("drops optimize times that are unparseable rather than persisting them", () => {
+    const result = blankResult({
+      intent: "optimize",
+      shouldOptimize: true,
+      orderedActivities: [
+        { id: "44444444-4444-4444-8444-444444444444", name: "Temple", suggestedTime: "99:99" },
+        { id: "33333333-3333-4333-8333-333333333333", name: "Museum", suggestedTime: "9:05" },
+      ],
+    })
+    const proposals = resultToProposals(result, dayFixture)
+    if (proposals[0]?.kind !== "optimize-route") throw new Error("wrong kind")
+    // Order is still carried for both; only the bad time is dropped, and the
+    // loose "9:05" is normalized to zero-padded HH:MM.
+    assert.deepEqual(proposals[0].payload.orderedActivityIds, [
+      "44444444-4444-4444-8444-444444444444",
+      "33333333-3333-4333-8333-333333333333",
+    ])
+    assert.deepEqual(proposals[0].payload.orderedActivities, [
+      { id: "33333333-3333-4333-8333-333333333333", suggestedTime: "09:05" },
+    ])
+  })
+
   it("returns a set-accommodation proposal when accommodation is present", () => {
     const result = blankResult({
       intent: "accommodation",
@@ -212,6 +259,39 @@ describe("resultToProposals", () => {
     assert.equal(proposals.length, 2)
     const kinds = proposals.map((p) => p.kind).toSorted()
     assert.deepEqual(kinds, ["add-activities", "remove-activities"])
+  })
+})
+
+// optimize-route used to write `sortOrder: i` for ONLY the ids it was given,
+// leaving every unlisted activity on its old sortOrder — a partial list then
+// produced duplicate sortOrder values and a scrambled day. reorder-activities
+// always did this correctly; both now share resolveDayOrder.
+describe("resolveDayOrder", () => {
+  const day = ["a", "b", "c", "d", "e"]
+
+  it("returns every activity exactly once when given a partial order", () => {
+    const order = resolveDayOrder(day, ["d", "b"])
+    assert.deepEqual(order, ["d", "b", "a", "c", "e"])
+    assert.equal(new Set(order).size, day.length)
+  })
+
+  it("keeps unlisted activities in their existing relative order", () => {
+    assert.deepEqual(resolveDayOrder(day, ["e"]), ["e", "a", "b", "c", "d"])
+  })
+
+  it("ignores ids that are not on the day", () => {
+    assert.deepEqual(resolveDayOrder(day, ["zzz", "c"]), ["c", "a", "b", "d", "e"])
+  })
+
+  it("ignores a repeated id rather than emitting it twice", () => {
+    const order = resolveDayOrder(day, ["b", "b", "a"])
+    assert.deepEqual(order, ["b", "a", "c", "d", "e"])
+    assert.equal(new Set(order).size, day.length)
+  })
+
+  it("falls back to the existing order when given no ids", () => {
+    assert.deepEqual(resolveDayOrder(day, []), day)
+    assert.deepEqual(resolveDayOrder(day, undefined), day)
   })
 })
 
