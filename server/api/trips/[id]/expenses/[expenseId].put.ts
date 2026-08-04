@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm"
 import { db } from "../../../../db"
 import { expenses } from "../../../../db/schema"
 import { expenseIdParamsSchema, updateExpenseSchema } from "../../../../utils/schemas"
+import { assertExpenseRefs } from "../../../../lib/expenses"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -18,6 +19,11 @@ export default defineEventHandler(async (event) => {
   if (!expense) {
     throw createError({ statusCode: 404, message: "Expense not found" })
   }
+
+  // Without this, an editor could re-point the expense at an activity in a
+  // different trip, or at a paidById who is not a member of this one. POST has
+  // always checked both; PUT checked neither.
+  await assertExpenseRefs(id, { activityId: body.activityId, paidById: body.paidById })
 
   const { paidAt, ...restBody } = body
   const [updated] = await db

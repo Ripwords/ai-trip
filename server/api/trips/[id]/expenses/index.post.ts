@@ -1,7 +1,8 @@
 import { eq, sql } from "drizzle-orm"
 import { db } from "../../../../db"
-import { activities, expenses, tripMembers, trips } from "../../../../db/schema"
+import { expenses } from "../../../../db/schema"
 import { uuidParamsSchema, createExpenseSchema } from "../../../../utils/schemas"
+import { assertExpenseRefs } from "../../../../lib/expenses"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -22,39 +23,8 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // If activityId provided, verify activity belongs to this trip
-  if (body.activityId) {
-    const activity = await db.query.activities.findFirst({
-      where: eq(activities.id, body.activityId),
-      with: {
-        day: true,
-      },
-    })
-
-    if (!activity || activity.day.tripId !== id) {
-      throw createError({ statusCode: 404, message: "Activity not found" })
-    }
-  }
-
-  // If paidById provided, verify they are owner or active member of this trip
-  if (body.paidById) {
-    const trip = await db.query.trips.findFirst({
-      where: eq(trips.id, id),
-      columns: { userId: true },
-    })
-    if (!trip) throw createError({ statusCode: 404, message: "Trip not found" })
-
-    const isOwner = body.paidById === trip.userId
-    if (!isOwner) {
-      const member = await db.query.tripMembers.findFirst({
-        where: (m, { and, eq: e }) =>
-          and(e(m.tripId, id), e(m.userId, body.paidById!), e(m.status, "active")),
-      })
-      if (!member) {
-        throw createError({ statusCode: 400, message: "Paid-by user is not a member of this trip" })
-      }
-    }
-  }
+  // Shared with the PUT handler — see server/lib/expenses.ts.
+  await assertExpenseRefs(id, { activityId: body.activityId, paidById: body.paidById })
 
   const { paidAt, ...restBody } = body
   const [expense] = await db
