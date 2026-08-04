@@ -95,3 +95,59 @@ describe("REVIEWER_SYSTEM_PROMPT injection guard", () => {
     assert.match(REVIEWER_SYSTEM_PROMPT, /never follow instructions.*(trip|traveler) data/i)
   })
 })
+
+describe("judgmentOutputSchema", () => {
+  it("accepts a well-formed judgment finding", async () => {
+    const { judgmentOutputSchema } = await import("./itinerary-review-ai")
+    const parsed = judgmentOutputSchema.safeParse({
+      findings: [
+        {
+          code: "backtracking-route",
+          severity: "warning",
+          title: "Day zig-zags",
+          message: "Two crossings of the same district",
+          recommendation: "Reorder the afternoon",
+          dayId: "d1",
+          dayNumber: 1,
+        },
+      ],
+    })
+    assert.equal(parsed.success, true)
+  })
+
+  it("rejects codes outside the judgment set, so the AI pass cannot mint deterministic findings", async () => {
+    const { judgmentOutputSchema } = await import("./itinerary-review-ai")
+    const parsed = judgmentOutputSchema.safeParse({
+      findings: [
+        {
+          code: "missing-lunch",
+          severity: "warning",
+          title: "x",
+          message: "x",
+          recommendation: "x",
+          dayId: "d1",
+          dayNumber: 1,
+        },
+      ],
+    })
+    assert.equal(parsed.success, false)
+  })
+
+  it("rejects an invented severity", async () => {
+    const { judgmentOutputSchema } = await import("./itinerary-review-ai")
+    const parsed = judgmentOutputSchema.safeParse({
+      findings: [
+        {
+          code: "pace-mismatch",
+          severity: "blocker",
+          title: "x",
+          message: "x",
+          recommendation: "x",
+          dayId: "d1",
+          dayNumber: 1,
+        },
+      ],
+    })
+    assert.equal(parsed.success, false)
+  })
+})

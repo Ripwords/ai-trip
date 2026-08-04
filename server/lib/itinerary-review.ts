@@ -96,9 +96,21 @@ export interface ItineraryReviewFinding {
   proposal?: Proposal
 }
 
+/**
+ * Outcome of the optional AI judgment pass. Present only when it was requested.
+ * `ran: false` means the deterministic findings are all the caller got, and the
+ * endpoint refunds the credit on that basis.
+ */
+export interface ItineraryReviewJudgmentStatus {
+  ran: boolean
+  /** Short machine-ish reason when `ran` is false, for logs and the refund path. */
+  reason?: string
+}
+
 export interface ItineraryReviewResult {
   scope: ItineraryReviewScope
   dayId?: string
+  judgment?: ItineraryReviewJudgmentStatus
   findings: Record<ItineraryReviewSeverity, ItineraryReviewFinding[]>
   summary: {
     checkedDays: number
