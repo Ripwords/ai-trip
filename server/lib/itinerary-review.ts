@@ -1,5 +1,6 @@
 import { farFromAnchor } from "../utils/geo"
 import { parseOpeningWindow } from "../utils/schedule"
+import type { TripPreferences } from "../db/schema/trips"
 
 export type ItineraryReviewScope = "day" | "trip"
 export type ItineraryReviewSeverity = "critical" | "warning" | "suggestion"
@@ -49,6 +50,12 @@ export interface ReviewableFlight {
 export interface ReviewableTrip {
   id: string
   destination?: string
+  /**
+   * The trip's stored preferences. Unused by the deterministic checker (it never
+   * fires off a soft signal), but the AI judgment pass needs them injected —
+   * its `pace-mismatch` / `interest-mismatch` rules reference them by name.
+   */
+  preferences?: TripPreferences | null
   days: ReviewableDay[]
   /** Optional — callers without user context omit it and skip flight findings. */
   flights?: ReviewableFlight[]
@@ -96,9 +103,21 @@ export interface ItineraryReviewFinding {
   proposal?: Proposal
 }
 
+/**
+ * Outcome of the optional AI judgment pass. Present only when it was requested.
+ * `ran: false` means the deterministic findings are all the caller got, and the
+ * endpoint refunds the credit on that basis.
+ */
+export interface ItineraryReviewJudgmentStatus {
+  ran: boolean
+  /** Short machine-ish reason when `ran` is false, for logs and the refund path. */
+  reason?: string
+}
+
 export interface ItineraryReviewResult {
   scope: ItineraryReviewScope
   dayId?: string
+  judgment?: ItineraryReviewJudgmentStatus
   findings: Record<ItineraryReviewSeverity, ItineraryReviewFinding[]>
   summary: {
     checkedDays: number

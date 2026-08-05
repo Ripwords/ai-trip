@@ -4,15 +4,28 @@ import { aiUsage } from "../db/schema"
 
 const MONTHLY_LIMIT = 100
 
-function getCurrentMonth(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+/**
+ * The `YYYY-MM` bucket a credit is attributed to.
+ *
+ * UTC, not server-local: the old local-time version moved the month boundary with
+ * the deploy region, so the same instant could be attributed to two different
+ * months depending on where the function happened to run.
+ *
+ * Callers that need to settle later MUST capture this at consume time and thread
+ * it through — recomputing it at settle time is exactly the bug in issue #17.
+ */
+export function getUsageMonth(at: Date = new Date()): string {
+  return `${at.getUTCFullYear()}-${String(at.getUTCMonth() + 1).padStart(2, "0")}`
 }
 
 function getResetDate(): string {
   const now = new Date()
-  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-  return nextMonth.toLocaleDateString("en-US", { month: "long", day: "numeric" })
+  const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
+  return nextMonth.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  })
 }
 
 /**
@@ -21,7 +34,7 @@ function getResetDate(): string {
 export async function getAiUsage(
   userId: string,
 ): Promise<{ used: number; limit: number; remaining: number }> {
-  const month = getCurrentMonth()
+  const month = getUsageMonth()
 
   const record = await db.query.aiUsage.findFirst({
     where: and(eq(aiUsage.userId, userId), eq(aiUsage.month, month)),
@@ -32,16 +45,20 @@ export async function getAiUsage(
 }
 
 /**
- * Atomically consume one AI credit. Returns true if successful.
- * Throws 429 if the monthly limit has been reached.
+ * Atomically consume one AI credit. Returns the `YYYY-MM` month the credit was
+ * charged to. Throws 429 if the monthly limit has been reached.
  *
  * Single upsert keyed on the (userId, month) unique index. The WHERE clause on
  * the conflict branch prevents incrementing past the limit, and the lack of any
  * separate INSERT path eliminates a check-then-insert race that previously let
  * two concurrent first-of-month calls each grant themselves a credit.
+ *
+ * The returned month is the reservation handle: pass it to `refundAiCredit` /
+ * `chargeExtraAiCredits` so a turn that starts at 23:59:50 on the last day of the
+ * month and settles seconds later still settles against the row it incremented.
  */
-export async function tryConsumeAiCredit(userId: string): Promise<boolean> {
-  const currentMonthYear = getCurrentMonth()
+export async function tryConsumeAiCredit(userId: string): Promise<string> {
+  const currentMonthYear = getUsageMonth()
 
   const result = await db
     .insert(aiUsage)
@@ -53,7 +70,7 @@ export async function tryConsumeAiCredit(userId: string): Promise<boolean> {
     })
     .returning()
 
-  if (result.length > 0) return true
+  if (result.length > 0) return currentMonthYear
 
   // Conflict matched but setWhere rejected the update → limit hit. Read the
   // current count to build a helpful error message.
@@ -77,10 +94,18 @@ export async function tryConsumeAiCredit(userId: string): Promise<boolean> {
  * next `tryConsumeAiCredit` sees promptCount >= limit and throws 429.
  *
  * `extra` is the count BEYOND the credit already consumed. Non-positive is a no-op.
+ *
+ * `month` is the value `tryConsumeAiCredit` returned for this turn, NOT the month
+ * at settle time: a turn that consumed at 23:59:50 on the last day of the month
+ * and settles at 00:00:05 would otherwise scope its UPDATE by the *next* month,
+ * match zero rows, and hand the extra steps over for free (issue #17).
  */
-export async function chargeExtraAiCredits(userId: string, extra: number): Promise<void> {
+export async function chargeExtraAiCredits(
+  userId: string,
+  extra: number,
+  month: string,
+): Promise<void> {
   if (!Number.isFinite(extra) || extra <= 0) return
-  const month = getCurrentMonth()
   await db
     .update(aiUsage)
     .set({ promptCount: sql`${aiUsage.promptCount} + ${Math.floor(extra)}`, updatedAt: new Date() })
@@ -95,9 +120,12 @@ export async function chargeExtraAiCredits(userId: string, extra: number): Promi
  * a single consume decrements twice and mints the user a free credit. Each
  * request must refund at most once — where a handler has several failure paths,
  * route them all through one guard (see discuss.post.ts's `settleCredits`).
+ *
+ * `month` is the value `tryConsumeAiCredit` returned for this turn. Recomputing
+ * "now" here would match zero rows across a month boundary and silently leave the
+ * user charged (issue #17).
  */
-export async function refundAiCredit(userId: string): Promise<void> {
-  const month = getCurrentMonth()
+export async function refundAiCredit(userId: string, month: string): Promise<void> {
   await db
     .update(aiUsage)
     .set({ promptCount: sql`GREATEST(${aiUsage.promptCount} - 1, 0)`, updatedAt: new Date() })

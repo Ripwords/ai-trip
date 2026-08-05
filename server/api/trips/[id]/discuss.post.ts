@@ -58,7 +58,11 @@ export default defineEventHandler(async (event) => {
   // so every throw above never needs a refund. Every throw below this point
   // is refunded exactly once by the try/catch wrap immediately below (or by
   // the agent generate call's own try/catch, further down).
-  await tryConsumeAiCredit(session.user.id)
+  // The returned month is the reservation handle for the settle calls below: a
+  // turn that consumes at 23:59:50 on the last day of the month can easily settle
+  // after midnight, and recomputing "current month" there would scope the UPDATE
+  // by a row that does not exist yet (issue #17).
+  const usageMonth = await tryConsumeAiCredit(session.user.id)
 
   // A discuss turn is step-metered: 1 credit up front, the remainder charged at
   // the end by creditsForSteps(stepsUsed). BOTH primitives are non-idempotent —
@@ -79,11 +83,11 @@ export default defineEventHandler(async (event) => {
     // trade-off.
     settled = true
     if (!streamedAny) {
-      await refundAiCredit(session.user.id)
+      await refundAiCredit(session.user.id, usageMonth)
       return 0
     }
     const creditsUsed = creditsForSteps(steps)
-    await chargeExtraAiCredits(session.user.id, creditsUsed - 1)
+    await chargeExtraAiCredits(session.user.id, creditsUsed - 1, usageMonth)
     return creditsUsed
   }
 

@@ -107,6 +107,7 @@ const { flightListItems } = useLayoverDetection(
       arrivalAirport: string | null
       departureTime: string | null
       arrivalTime: string | null
+      arrivalTimeLocal?: string | null
       [key: string]: unknown
     }[]
   >,

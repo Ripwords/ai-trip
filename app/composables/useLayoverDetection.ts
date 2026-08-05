@@ -1,14 +1,21 @@
 import { computed, type Ref } from "vue"
 import { iataToCountry } from "../utils/iata-to-country"
 
-interface FlightItem {
+export interface FlightItem {
   id: string
   flightNumber: string
   flightDate: string
   departureAirport: string | null
   arrivalAirport: string | null
+  /** UTC instants from the `timestamp with timezone` columns. */
   departureTime: string | null
   arrivalTime: string | null
+  /**
+   * Wall clock at the ARRIVAL airport as the airline reported it, e.g.
+   * "2026-08-16 11:05+07:00" (`deriveFlightFields`). Null on rows the flight API
+   * never enriched.
+   */
+  arrivalTimeLocal?: string | null
   [key: string]: unknown
 }
 
@@ -20,6 +27,12 @@ export interface LayoverInfo {
   arrivalFlight: FlightItem
   departureFlight: FlightItem
   arrivalTime: string | null
+  /**
+   * The layover airport's local arrival clock. The AI layover-tips prompt buckets
+   * time-of-day off this — the UTC `arrivalTime` alone cannot say whether the
+   * traveler lands at 3am or 3pm without knowing the airport's offset (issue #15).
+   */
+  arrivalTimeLocal: string | null
   departureTime: string | null
   recommendation: "stay" | "tight" | "explore"
   recommendationLabel: string
@@ -114,6 +127,7 @@ export function useLayoverDetection(flights: Ref<FlightItem[] | null>) {
             arrivalFlight: current,
             departureFlight: next,
             arrivalTime: current.arrivalTime,
+            arrivalTimeLocal: current.arrivalTimeLocal ?? null,
             departureTime: next.departureTime,
             recommendation,
             recommendationLabel,

@@ -336,6 +336,17 @@ export default defineNuxtConfig({
         rateLimiter: { tokensPerInterval: 5, interval: 60000 },
       },
     },
+    // The deep (AI judgment) review runs a DeepSeek agent loop with Places and
+    // Distance Matrix tools attached, so it belongs with the other model-calling
+    // endpoints rather than under the global 300/min. The plain deterministic
+    // review shares this route and the panel re-fires it on every day switch,
+    // which is why the budget is 20 rather than the 5 `discuss` gets. The AI
+    // branch is additionally capped by the monthly credit.
+    "/api/trips/*/review": {
+      security: {
+        rateLimiter: { tokensPerInterval: 20, interval: 60000 },
+      },
+    },
     "/api/trips/*/members/invite": {
       security: {
         rateLimiter: { tokensPerInterval: 10, interval: 60000 },

@@ -74,7 +74,10 @@ async function fetchAiTips() {
         airport: props.layover.airport,
         durationMinutes: props.layover.durationMinutes ?? 180,
         visaStatus: visaStatus.value,
-        arrivalTime: props.layover.arrivalTime,
+        // The airport's local wall clock, never the UTC instant: the server
+        // buckets time-of-day textually and cannot recover a local hour from a
+        // `Z` timestamp (issue #15).
+        arrivalTimeLocal: props.layover.arrivalTimeLocal,
       },
     })
     aiTips.value = result
