@@ -119,6 +119,10 @@ useModalA11y(panelRef, {
   isOpen: () => props.open,
   onClose: close,
 })
+
+// Freeze the page behind the modal: without this the list underneath scrolls
+// under the finger and iOS rubber-bands the whole document.
+useBodyScrollLock(() => props.open)
 </script>
 
 <template>
@@ -246,7 +250,7 @@ useModalA11y(panelRef, {
             </button>
             <button
               type="button"
-              class="inline-flex items-center gap-2 rounded-xl bg-terra-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-terra-600 disabled:opacity-50"
+              class="inline-flex items-center gap-2 rounded-xl bg-cta px-4 py-2 text-sm font-medium text-white transition hover:bg-cta-hover disabled:opacity-50"
               :disabled="busy || preview.importableCount === 0"
               @click="confirmImport"
             >
@@ -278,7 +282,7 @@ useModalA11y(panelRef, {
           <div class="flex justify-end">
             <button
               type="button"
-              class="rounded-xl bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600"
+              class="rounded-xl bg-cta px-4 py-2 text-sm font-medium text-white hover:bg-cta-hover"
               @click="close"
             >
               Close

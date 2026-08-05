@@ -131,7 +131,7 @@ const emit = defineEmits<{
   clear: []
 }>()
 
-const inputEl = ref<HTMLInputElement | null>(null)
+const inputEl = ref<HTMLTextAreaElement | null>(null)
 const expanded = ref(false)
 const listEl = ref<HTMLElement | null>(null)
 const userScrolledUp = ref(false)
@@ -143,6 +143,12 @@ function expand() {
   // (which focuses the first focusable node — a header button) so the
   // text input keeps initial focus on open.
   nextTick(() => nextTick(() => inputEl.value?.focus()))
+  // Chat history is restored from the server, so reopening the dock can mount a
+  // transcript that is already taller than the list. The autoscroll watcher only
+  // fires when a message CHANGES, and nothing changes on open — so without this
+  // the sheet opens parked at the oldest message. Jump (no smooth scroll: there
+  // is nothing to follow, the newest reply should simply be what you see).
+  nextTick(() => scrollToBottom(false))
 }
 
 function collapse() {
@@ -158,6 +164,36 @@ useModalA11y(dialogRef, {
   isOpen: () => expanded.value,
   onClose: collapse,
 })
+
+// The sheet is a modal on mobile: without this the page behind it scrolls under
+// the finger and iOS rubber-bands the whole document when the message list hits
+// its end. Held on desktop too, where the dock is a side panel — the page is
+// still not meant to move while a modal dialog owns focus.
+useBodyScrollLock(() => expanded.value)
+
+// ── Composer sizing ─────────────────────────────────────────────────
+// A single-line input made long messages unreadable on a phone (you could only
+// ever see the tail of what you typed). Grow the textarea with its content up
+// to a cap, past which it scrolls internally so the sheet layout stays stable.
+const COMPOSER_MAX_HEIGHT_PX = 120
+
+function resizeComposer() {
+  const el = inputEl.value
+  if (!el) return
+  el.style.height = "auto"
+  el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT_PX)}px`
+}
+
+function onComposerInput(event: Event) {
+  emit("update:input", (event.target as HTMLTextAreaElement).value)
+}
+
+// Covers the paths that change `input` without a keystroke: starter chips,
+// parent clearing it after submit.
+watch(
+  () => props.input,
+  () => nextTick(resizeComposer),
+)
 
 const limitReached = computed(() => (props.usageRemaining ?? 1) <= 0)
 
@@ -428,7 +464,7 @@ const proposalKindMeta: Record<
     <button
       v-if="!expanded"
       type="button"
-      class="pointer-events-auto fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-4 z-[70] flex h-12 w-12 items-center justify-center rounded-full bg-terra-500 text-white shadow-lg transition-colors hover:bg-terra-600 sm:bottom-6 sm:right-6"
+      class="pointer-events-auto fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-4 z-[70] flex h-12 w-12 items-center justify-center rounded-full bg-cta text-white shadow-lg transition-colors hover:bg-cta-hover sm:bottom-6 sm:right-6"
       title="Discuss with AI"
       @click="expand"
     >
@@ -445,24 +481,29 @@ const proposalKindMeta: Record<
       aria-modal="true"
       :aria-labelledby="dialogHeadingId"
       tabindex="-1"
-      class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex max-h-[70vh] min-h-[50vh] flex-col rounded-t-[28px] focus:outline-none md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:max-h-[calc(100vh-2rem)] md:min-h-0 md:w-[400px] md:rounded-3xl"
+      class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex max-h-[70dvh] min-h-[50dvh] flex-col rounded-t-[28px] focus:outline-none md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:max-h-[calc(100dvh-2rem)] md:min-h-0 md:w-[400px] md:rounded-3xl"
       :style="{
         paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
       }"
     >
       <div class="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-sand-400/40 md:hidden" />
 
-      <header class="mx-auto mt-3 flex w-full max-w-[28rem] items-baseline justify-between px-4">
-        <div class="flex items-center gap-2">
-          <Icon name="lucide:sparkles" class="h-4 w-4 text-terra-500" />
-          <span :id="dialogHeadingId" class="text-[10px] uppercase tracking-[0.22em] text-sand-600">
+      <header
+        class="mx-auto mt-3 flex w-full max-w-[28rem] items-center justify-between gap-2 px-4"
+      >
+        <div class="flex min-w-0 items-center gap-2">
+          <Icon name="lucide:sparkles" class="h-4 w-4 shrink-0 text-terra-500" />
+          <span
+            :id="dialogHeadingId"
+            class="truncate text-[10px] uppercase tracking-[0.22em] text-sand-600"
+          >
             From your planner
           </span>
         </div>
-        <div class="flex items-baseline gap-3">
+        <div class="flex shrink-0 items-center gap-1">
           <span
             v-if="usageUsed != null && usageLimit != null"
-            class="text-[10px] uppercase tracking-[0.18em] tabular-nums"
+            class="mr-1 text-[10px] uppercase tracking-[0.18em] tabular-nums"
             :class="(usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-600'"
             :title="`${usageUsed}/${usageLimit} AI prompts used this month`"
           >
@@ -504,7 +545,7 @@ const proposalKindMeta: Record<
           <p class="font-display text-[18px] italic leading-snug text-sand-900">
             Tell me what to change, or pick a suggestion below.
           </p>
-          <p class="text-[11px] text-sand-600">
+          <p class="text-[12px] text-sand-600">
             Each reply uses 1 of your {{ usageLimit ?? 100 }} monthly credits.
           </p>
 
@@ -699,7 +740,9 @@ const proposalKindMeta: Record<
 
       <!-- Quick action chips -->
       <div class="mx-auto w-full max-w-[28rem] px-4 pb-2">
-        <div class="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+        <!-- Wider than the sheet at 320-390px, so the last chip is cut off. Fade
+             the trailing edge so that reads as "swipe for more", not as clipping. -->
+        <div class="dock-chip-row flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
           <button
             v-for="qa in quickActions"
             :key="qa.label"
@@ -726,8 +769,12 @@ const proposalKindMeta: Record<
           :duration="4"
           class="dock-beam w-full"
         >
-          <div class="flex items-center gap-2 rounded-full bg-sand-900 py-2 pl-3 pr-2">
-            <span v-if="loading" class="flex shrink-0 items-end gap-[3px] pl-1" aria-hidden="true">
+          <div class="flex items-end gap-2 rounded-[22px] bg-sand-900 py-2 pl-3 pr-2">
+            <span
+              v-if="loading"
+              class="flex h-11 shrink-0 items-center gap-[3px] pl-1"
+              aria-hidden="true"
+            >
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
               <span class="dock-dot block h-1.5 w-1.5 rounded-full bg-terra-400" />
@@ -735,18 +782,20 @@ const proposalKindMeta: Record<
             <Icon
               v-else
               name="lucide:sparkles"
-              class="h-4 w-4 shrink-0 text-terra-400"
+              class="mb-3.5 h-4 w-4 shrink-0 text-terra-400"
               aria-hidden="true"
             />
-            <input
+            <textarea
               ref="inputEl"
               :value="input"
-              type="text"
+              rows="1"
               :disabled="loading || limitReached"
               :placeholder="placeholder"
-              class="min-w-0 flex-1 border-none bg-transparent text-sm text-sand-50 placeholder:italic placeholder:text-sand-50/70 focus:outline-none disabled:opacity-70"
-              @input="emit('update:input', ($event.target as HTMLInputElement).value)"
-              @keydown.enter.prevent="handleSubmit"
+              aria-label="Message the planner"
+              enterkeyhint="send"
+              class="dock-composer min-w-0 flex-1 resize-none border-none bg-transparent text-sand-50 placeholder:italic placeholder:text-sand-50/70 focus:outline-none disabled:opacity-70"
+              @input="onComposerInput"
+              @keydown.enter.exact.prevent="handleSubmit"
             />
             <button
               type="button"
@@ -796,9 +845,18 @@ const proposalKindMeta: Record<
   z-index: 1;
 }
 
+.dock-sheet {
+  /* Kill the 300ms tap delay across the sheet's controls. */
+  touch-action: manipulation;
+}
+
 .dock-list {
   scrollbar-width: thin;
   scrollbar-color: var(--color-sand-300) transparent;
+  /* Stop scroll chaining: reaching the top/bottom of the transcript must not
+     start scrolling (or rubber-banding) the page behind the sheet. */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .dock-list::-webkit-scrollbar {
   width: 4px;
@@ -1166,6 +1224,15 @@ const proposalKindMeta: Record<
   transform: rotate(-4deg);
 }
 
+.dock-chip-row {
+  container-type: scroll-state;
+}
+@container scroll-state(scrollable: right) {
+  .dock-chip-row {
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%);
+  }
+}
+
 .dock-chip {
   display: inline-flex;
   align-items: center;
@@ -1235,7 +1302,20 @@ const proposalKindMeta: Record<
 }
 
 .dock-beam {
-  border-radius: 9999px;
+  border-radius: 22px;
+}
+
+/* 16px exactly. Anything smaller makes iOS Safari zoom the page on focus, and
+   the viewport meta no longer suppresses that (pinch-zoom is back on, by
+   design). The composer grows via JS up to a cap, then scrolls internally. */
+.dock-composer {
+  font-size: 16px;
+  line-height: 1.4;
+  max-height: 120px;
+  padding: 11px 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
 }
 
 .fab-pop-enter-active,

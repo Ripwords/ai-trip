@@ -200,17 +200,17 @@ defineExpose({
           <span>Where are you staying?</span>
         </div>
         <button
-          class="rounded-lg px-3 py-1.5 text-xs font-medium text-sand-700 hover:bg-sand-200"
+          class="inline-flex min-h-11 items-center rounded-lg px-3 text-xs font-medium text-sand-700 hover:bg-sand-200"
           @click="isEditing = true"
         >
           Set accommodation
         </button>
       </div>
-      <p v-if="previousStayName" class="mt-2 pl-6 text-xs text-sand-400">
+      <p v-if="previousStayName" class="mt-2 pl-6 text-xs text-sand-700">
         <Icon name="lucide:corner-down-right" class="mr-1 inline h-3 w-3 align-[-2px]" />
         From last night: <span class="text-sand-500">{{ previousStayName }}</span>
       </p>
-      <p v-if="arrivalFlight" class="mt-1.5 pl-6 text-xs text-sand-400">
+      <p v-if="arrivalFlight" class="mt-1.5 pl-6 text-xs text-sand-700">
         <Icon name="lucide:plane-landing" class="mr-1 inline h-3 w-3 align-[-2px]" />
         Arriving on
         <span class="font-medium text-sand-600">{{ arrivalFlight.flightNumber }}</span>
@@ -227,7 +227,7 @@ defineExpose({
         </template>
         <template v-if="arrivalFlight.airport"> · {{ arrivalFlight.airport }}</template>
       </p>
-      <p v-if="departureFlight" class="mt-1.5 pl-6 text-xs text-sand-400">
+      <p v-if="departureFlight" class="mt-1.5 pl-6 text-xs text-sand-700">
         <Icon name="lucide:plane-takeoff" class="mr-1 inline h-3 w-3 align-[-2px]" />
         Departing on
         <span class="font-medium text-sand-600">{{ departureFlight.flightNumber }}</span>
@@ -312,7 +312,7 @@ defineExpose({
               Change
             </button>
             <button
-              class="rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600 disabled:opacity-50"
+              class="rounded-lg bg-cta px-3 py-1.5 text-xs font-medium text-white hover:bg-cta-hover disabled:opacity-50"
               :disabled="isSaving"
               @click="handleSave"
             >

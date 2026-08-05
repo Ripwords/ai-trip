@@ -15,8 +15,14 @@ export default defineNuxtConfig({
       meta: [
         {
           name: "viewport",
+          // No `maximum-scale` / `user-scalable=no`: pinch-zoom must stay
+          // available (WCAG 1.4.4). It was previously there to stop iOS
+          // auto-zooming when a sub-16px input takes focus; the fix for that is
+          // 16px form controls, not disabling zoom for everyone. useKeyboardOpen
+          // already ignores visualViewport changes while scale > 1.05, so a
+          // pinch is not mistaken for the keyboard opening.
           content:
-            "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content",
+            "width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content",
         },
         { name: "apple-mobile-web-app-capable", content: "yes" },
         { name: "mobile-web-app-capable", content: "yes" },
@@ -304,6 +310,20 @@ export default defineNuxtConfig({
     "/api/places/search": {
       security: {
         rateLimiter: { tokensPerInterval: 60, interval: 60000 },
+      },
+    },
+    // Session reads are a HOT path: the global auth middleware calls
+    // get-session on nearly every protected navigation, so ~1 request per route
+    // change. The rate limiter keys on `ip + matched route pattern`, meaning a
+    // single shared bucket for everything under /api/auth/**. At 30/min that
+    // tripped after ~25 navigations and returned 429 for a perfectly valid
+    // session — which the middleware then read as "signed out". Give the read
+    // path room; keep the strict budget on the credential endpoints below,
+    // which is what actually needs brute-force protection.
+    "/api/auth/get-session": {
+      security: {
+        rateLimiter: { tokensPerInterval: 300, interval: 60000 },
+        xssValidator: false,
       },
     },
     "/api/auth/**": {

@@ -147,7 +147,7 @@ const paginatedPast = computed(() => {
           v-model="newFlightNumber"
           type="text"
           placeholder="e.g. SQ638"
-          class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-500 focus:border-terra-400 focus:outline-none"
+          class="min-h-11 w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-500 focus:border-terra-400 focus:outline-none"
         />
       </div>
       <div class="min-w-0 flex-1 overflow-hidden">
@@ -158,13 +158,13 @@ const paginatedPast = computed(() => {
           id="new-flight-date"
           v-model="newFlightDate"
           type="date"
-          class="w-full appearance-none rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
+          class="min-h-11 w-full appearance-none rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
         />
       </div>
       <button
         type="submit"
         :disabled="adding || !newFlightNumber || !newFlightDate"
-        class="shrink-0 rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white transition hover:bg-terra-600 disabled:opacity-50"
+        class="min-h-11 shrink-0 rounded-xl bg-cta px-5 text-sm font-medium text-white transition hover:bg-cta-hover disabled:opacity-50"
       >
         {{ adding ? "Adding..." : "Add Flight" }}
       </button>
@@ -173,7 +173,7 @@ const paginatedPast = computed(() => {
     <div class="flex justify-end">
       <button
         type="button"
-        class="inline-flex items-center gap-1.5 rounded-xl border border-sand-200 px-3 py-1.5 text-xs font-medium text-sand-700 transition hover:bg-sand-100"
+        class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-sand-200 px-3 text-xs font-medium text-sand-700 transition hover:bg-sand-100"
         @click="openImportModal"
       >
         <Icon name="lucide:upload" class="h-3.5 w-3.5" />

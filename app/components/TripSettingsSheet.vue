@@ -25,6 +25,12 @@ const emit = defineEmits<{
   tripInfoSaved: [payload: unknown]
 }>()
 
+// On mobile this is a modal bottom sheet over a backdrop, so the page behind it
+// must not scroll under the finger. (Note: unlike the other overlays this sheet
+// still lacks role="dialog"/aria-modal and a focus trap — worth adding, but
+// that is an a11y change beyond the mobile-layout pass.)
+useBodyScrollLock(() => props.open)
+
 // Shared with the per-expense currency picker — see shared/utils/currency.ts.
 const currencies = TRIP_CURRENCIES
 
@@ -191,7 +197,7 @@ onUnmounted(() => {
   >
     <div
       v-if="open"
-      class="fixed inset-x-0 bottom-0 z-[70] max-h-[85vh] overflow-x-hidden overflow-y-auto rounded-t-2xl border border-sand-200 bg-white p-5 shadow-2xl lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-0 lg:h-full lg:max-h-none lg:w-96 lg:rounded-none lg:rounded-l-2xl"
+      class="fixed inset-x-0 bottom-0 z-[70] max-h-[85dvh] overscroll-contain overflow-x-hidden overflow-y-auto rounded-t-2xl border border-sand-200 bg-white p-5 shadow-2xl lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-0 lg:h-full lg:max-h-none lg:w-96 lg:rounded-none lg:rounded-l-2xl"
     >
       <!-- Header -->
       <div class="flex items-center justify-between">
@@ -228,7 +234,7 @@ onUnmounted(() => {
                 type="text"
                 maxlength="100"
                 placeholder="e.g. Honeymoon 2026 (optional)"
-                class="input-focus mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
+                class="input-focus mt-1 block min-h-11 w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
               />
             </div>
 
@@ -239,7 +245,7 @@ onUnmounted(() => {
                   v-model="startDate"
                   type="date"
                   required
-                  class="input-focus mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
+                  class="input-focus mt-1 block min-h-11 w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
                 />
               </div>
               <div>
@@ -248,7 +254,7 @@ onUnmounted(() => {
                   v-model="endDate"
                   type="date"
                   required
-                  class="input-focus mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
+                  class="input-focus mt-1 block min-h-11 w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
                 />
               </div>
             </div>
@@ -275,7 +281,7 @@ onUnmounted(() => {
               <button
                 type="submit"
                 :disabled="savingTripInfo || !canSaveTripInfo"
-                class="rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600 disabled:opacity-50"
+                class="inline-flex min-h-11 items-center rounded-lg bg-cta px-3 text-xs font-medium text-white hover:bg-cta-hover disabled:opacity-50"
               >
                 {{ savingTripInfo ? "Saving..." : "Save changes" }}
               </button>
@@ -295,7 +301,7 @@ onUnmounted(() => {
               <label class="block text-xs font-medium text-sand-500">Budget</label>
               <select
                 :value="trip.preferences?.budget || ''"
-                class="input-focus mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
+                class="input-focus mt-1 block min-h-11 w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
                 @change="
                   emit('updatePreference', 'budget', ($event.target as HTMLSelectElement).value)
                 "
@@ -311,7 +317,7 @@ onUnmounted(() => {
               <label class="block text-xs font-medium text-sand-500">Pace</label>
               <select
                 :value="trip.preferences?.pace || ''"
-                class="input-focus mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
+                class="input-focus mt-1 block min-h-11 w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
                 @change="
                   emit('updatePreference', 'pace', ($event.target as HTMLSelectElement).value)
                 "
@@ -328,7 +334,7 @@ onUnmounted(() => {
               <select
                 :value="trip.currencyCode || 'USD'"
                 :disabled="currencyConverting"
-                class="input-focus mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm disabled:opacity-50"
+                class="input-focus mt-1 block min-h-11 w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm disabled:opacity-50"
                 @change="emit('changeCurrency', ($event.target as HTMLSelectElement).value)"
               >
                 <option v-for="c in currencies" :key="c.code" :value="c.code">
@@ -341,7 +347,7 @@ onUnmounted(() => {
               <label class="block text-xs font-medium text-sand-500">Travel time mode</label>
               <select
                 :value="trip.preferences?.transportMode || 'driving'"
-                class="input-focus mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
+                class="input-focus mt-1 block min-h-11 w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
                 @change="
                   emit(
                     'updatePreference',
@@ -362,7 +368,7 @@ onUnmounted(() => {
                 :value="trip.preferences?.interests?.join(', ') || ''"
                 type="text"
                 placeholder="e.g. temples, street food, nature, nightlife"
-                class="input-focus mt-1 block w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
+                class="input-focus mt-1 block min-h-11 w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
                 @change="
                   emit(
                     'updatePreference',

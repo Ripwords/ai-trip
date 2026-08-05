@@ -29,6 +29,14 @@
   --color-terra-800: #8e2c1a;
   --color-terra-900: #6b2416;
 
+  /* Solid fill for primary CTAs that carry white label text.
+     Deliberately NOT part of the terra ramp: the dark theme mirrors terra
+     (400 <-> 600), so any ramp step would flip to a light tint in dark mode and
+     drop white text to ~2.7:1. This token keeps the same value in both themes.
+     white on #d44425 = 4.51:1, white on #b0341b = 6.26:1 (WCAG AA). */
+  --color-cta: #d44425;
+  --color-cta-hover: #b0341b;
+
   --color-ocean-50: #f0f7f9;
   --color-ocean-100: #d9eef3;
   --color-ocean-200: #b3dde7;
@@ -292,8 +300,13 @@
   outline: none;
 }
 
-/* Prevent iOS Safari auto-zoom on input focus (triggered by font-size < 16px) */
-@media screen and (max-width: 767px) {
+/* Prevent iOS Safari auto-zoom on input focus (triggered by font-size < 16px).
+   The viewport meta deliberately does NOT set maximum-scale — pinch-zoom stays
+   available (WCAG 1.4.4) — so this rule is the only thing keeping focus from
+   yanking the page scale. Gated on pointer coarseness rather than width: a
+   large tablet (iPad at 820pt portrait) auto-zooms exactly like a phone but
+   sits well outside a 767px width query. */
+@media (pointer: coarse) {
   input,
   select,
   textarea,

@@ -93,7 +93,7 @@ onMounted(() => {
             type="button"
             :disabled="signInPending"
             aria-label="Sign in with Google to start planning"
-            class="focus-ring group relative flex items-center gap-2.5 overflow-hidden rounded-xl bg-terra-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-terra-600 hover:shadow-xl hover:shadow-terra-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+            class="focus-ring group relative flex items-center gap-2.5 overflow-hidden rounded-xl bg-cta px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-cta-hover hover:shadow-xl hover:shadow-terra-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
             @click="signInWithGoogle"
           >
             <Icon
@@ -247,7 +247,7 @@ onMounted(() => {
             <div
               class="rounded-2xl border border-sand-200/80 bg-white p-6 shadow-xl shadow-sand-900/5 sm:p-8"
             >
-              <p class="text-xs font-medium uppercase tracking-[0.18em] text-sand-400">
+              <p class="text-xs font-medium uppercase tracking-[0.18em] text-sand-700">
                 You describe
               </p>
               <p class="mt-3 font-display text-xl leading-snug text-sand-900 sm:text-2xl">
@@ -263,20 +263,20 @@ onMounted(() => {
                 <li class="flex items-center gap-3 text-sm text-sand-700">
                   <Icon name="lucide:map-pin" class="h-4 w-4 shrink-0 text-terra-500" />
                   Fushimi Inari Taisha
-                  <span class="ml-auto font-mono text-xs text-sand-400">Day 2, 9:00</span>
+                  <span class="ml-auto font-mono text-xs text-sand-700">Day 2, 9:00</span>
                 </li>
                 <li class="flex items-center gap-3 text-sm text-sand-700">
                   <Icon name="lucide:map-pin" class="h-4 w-4 shrink-0 text-terra-500" />
                   Nishiki Market
-                  <span class="ml-auto font-mono text-xs text-sand-400">Day 2, 12:30</span>
+                  <span class="ml-auto font-mono text-xs text-sand-700">Day 2, 12:30</span>
                 </li>
                 <li class="flex items-center gap-3 text-sm text-sand-700">
                   <Icon name="lucide:map-pin" class="h-4 w-4 shrink-0 text-terra-500" />
                   Kiyomizu-dera
-                  <span class="ml-auto font-mono text-xs text-sand-400">Day 2, 15:00</span>
+                  <span class="ml-auto font-mono text-xs text-sand-700">Day 2, 15:00</span>
                 </li>
               </ul>
-              <p class="mt-5 text-xs text-sand-400">
+              <p class="mt-5 text-xs text-sand-700">
                 Illustrative preview. Every place is verified before it lands in your plan.
               </p>
             </div>
@@ -307,7 +307,7 @@ onMounted(() => {
         >
           <div class="flex items-start gap-3">
             <span
-              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-terra-500 text-xs font-bold text-white"
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cta text-xs font-bold text-white"
               >1</span
             >
             <div class="flex-1">
@@ -652,7 +652,7 @@ onMounted(() => {
                 <div class="mt-4 flex items-center gap-2">
                   <div class="flex -space-x-1.5">
                     <span
-                      class="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-terra-500 text-[10px] font-bold text-white"
+                      class="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-cta text-[10px] font-bold text-white"
                       >PN</span
                     >
                     <span
@@ -755,7 +755,7 @@ onMounted(() => {
           type="button"
           :disabled="signInPending"
           aria-label="Sign in with Google to start planning"
-          class="focus-ring mt-8 inline-flex items-center gap-2.5 rounded-xl bg-terra-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all hover:bg-terra-600 hover:shadow-xl hover:shadow-terra-500/30 disabled:cursor-not-allowed disabled:opacity-70"
+          class="focus-ring mt-8 inline-flex items-center gap-2.5 rounded-xl bg-cta px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all hover:bg-cta-hover hover:shadow-xl hover:shadow-terra-500/30 disabled:cursor-not-allowed disabled:opacity-70"
           @click="signInWithGoogle"
         >
           <Icon

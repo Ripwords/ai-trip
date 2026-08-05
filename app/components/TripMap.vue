@@ -515,7 +515,7 @@ defineExpose({ centerOnActivity, centerOnPoint })
         </button>
         <div
           v-if="filterSheetOpen"
-          class="scrollbar-hide flex max-h-[60vh] w-52 max-w-[75vw] flex-wrap justify-start gap-1 overflow-y-auto rounded-xl border border-sand-200 bg-sand-50/95 p-2 shadow-lg backdrop-blur"
+          class="scrollbar-hide flex max-h-[60dvh] w-52 max-w-[75vw] flex-wrap justify-start gap-1 overflow-y-auto rounded-xl border border-sand-200 bg-sand-50/95 p-2 shadow-lg backdrop-blur"
         >
           <button
             v-for="type in uniqueTypes"

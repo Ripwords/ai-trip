@@ -205,7 +205,7 @@ const dateGridClass = computed(() => {
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-semibold text-sand-900">Reservations</h3>
         <button
-          class="inline-flex items-center gap-1 rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600"
+          class="inline-flex min-h-11 items-center gap-1 rounded-lg bg-cta px-3 text-xs font-medium text-white hover:bg-cta-hover"
           @click="
             () => {
               resetForm()
@@ -376,7 +376,7 @@ const dateGridClass = computed(() => {
           </button>
           <button
             type="submit"
-            class="rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600"
+            class="rounded-lg bg-cta px-4 py-2 text-sm font-medium text-white hover:bg-cta-hover"
           >
             {{ editingId ? "Update" : "Add" }}
           </button>
@@ -410,7 +410,7 @@ const dateGridClass = computed(() => {
                   >
                     {{ formatType(r.type) }}
                   </span>
-                  <span v-if="r.provider" class="text-sand-400">{{ r.provider }}</span>
+                  <span v-if="r.provider" class="text-sand-700">{{ r.provider }}</span>
                   <span
                     v-if="bookingOriginHint(r)"
                     class="inline-flex items-center gap-0.5 rounded-full bg-ocean-50 px-2 py-0.5 text-xs font-medium text-ocean-700"
@@ -425,7 +425,7 @@ const dateGridClass = computed(() => {
                     Needs details
                   </span>
                 </div>
-                <p v-if="needsDetails(r)" class="mt-1 text-xs text-sand-400">
+                <p v-if="needsDetails(r)" class="mt-1 text-xs text-sand-700">
                   Add the {{ missingFieldsSummary(r.missingFields) }} — the rest came from your
                   itinerary.
                 </p>
@@ -454,7 +454,7 @@ const dateGridClass = computed(() => {
                   </span>
                   <span
                     v-if="r.confirmationNumber"
-                    class="flex items-center gap-0.5 font-mono text-sand-400"
+                    class="flex items-center gap-0.5 font-mono text-sand-700"
                   >
                     <Icon name="lucide:hash" class="h-3 w-3" />
                     {{ r.confirmationNumber }}
@@ -486,11 +486,11 @@ const dateGridClass = computed(() => {
               </button>
             </div>
           </div>
-          <p v-if="r.notes" class="mt-1.5 ml-6 text-xs text-sand-400 italic">{{ r.notes }}</p>
+          <p v-if="r.notes" class="mt-1.5 ml-6 text-xs text-sand-700 italic">{{ r.notes }}</p>
         </div>
       </div>
 
-      <p v-else class="mt-4 text-center text-xs text-sand-400">
+      <p v-else class="mt-4 text-center text-xs text-sand-700">
         No reservations yet. Add flights, hotels, and other bookings.
       </p>
     </div>

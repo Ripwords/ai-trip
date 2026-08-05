@@ -69,7 +69,7 @@ watch(results, (val) => {
         :aria-activedescendant="activeIndex >= 0 ? `place-option-${activeIndex}` : undefined"
         aria-autocomplete="list"
         :placeholder="placeholder || 'Search for a place...'"
-        class="peer block w-full rounded-lg border border-sand-300 py-2 pl-9 pr-3 text-sm input-focus"
+        class="peer block min-h-11 w-full rounded-lg border border-sand-300 py-2 pl-9 pr-3 text-sm input-focus"
         @focus="showDropdown = results.length > 0"
         @keydown="onKeydown"
       />

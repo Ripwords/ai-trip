@@ -3,6 +3,10 @@ const { isOpen, options, handleConfirm, handleCancel } = useConfirm()
 
 const panel = ref<HTMLElement | null>(null)
 useModalA11y(panel, { isOpen, onClose: handleCancel })
+
+// Freeze the page behind the dialog. This one matters most: a destructive
+// confirm that slides away under the finger is how people mis-tap "Delete".
+useBodyScrollLock(isOpen)
 </script>
 
 <template>

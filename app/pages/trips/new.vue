@@ -263,7 +263,7 @@ async function handleCreate() {
         type="submit"
         :disabled="!canSubmit"
         :aria-busy="loading"
-        class="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-terra-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-terra-600 focus-ring disabled:opacity-50"
+        class="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-cta px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-cta-hover focus-ring disabled:opacity-50"
       >
         <Icon v-if="loading" name="lucide:loader" class="h-4 w-4 animate-spin" />
         {{ loading ? "Creating..." : "Create Trip" }}

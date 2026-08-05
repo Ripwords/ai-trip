@@ -53,4 +53,41 @@ describe("resolveAuthRedirect", () => {
       null,
     )
   })
+
+  // A failed session lookup is NOT proof of a signed-out user. `/api/auth/**`
+  // shares one 30-req/min rate-limit bucket per IP, so a burst of ordinary
+  // navigation returns 429 for a perfectly valid session. Treating that as
+  // "unauthenticated" bounced signed-in users to the marketing page.
+  describe("when the session state cannot be determined", () => {
+    it("never redirects away from a protected route", () => {
+      for (const path of ["/dashboard", "/trips/abc", "/explore", "/settings"]) {
+        for (const isServer of [true, false]) {
+          assert.equal(
+            resolveAuthRedirect({ path, isAuthenticated: "unknown", isServer }),
+            null,
+            `${path} (isServer=${isServer}) must not bounce on an indeterminate session`,
+          )
+        }
+      }
+    })
+
+    it("never redirects away from the landing page either", () => {
+      assert.equal(
+        resolveAuthRedirect({ path: "/", isAuthenticated: "unknown", isServer: false }),
+        null,
+      )
+      assert.equal(
+        resolveAuthRedirect({ path: "/", isAuthenticated: "unknown", isServer: true }),
+        null,
+      )
+    })
+
+    it("still redirects on a definitive negative", () => {
+      // Guards against "fix" that simply stops redirecting altogether.
+      assert.equal(
+        resolveAuthRedirect({ path: "/dashboard", isAuthenticated: false, isServer: false }),
+        "/",
+      )
+    })
+  })
 })

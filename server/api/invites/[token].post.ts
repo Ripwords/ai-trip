@@ -10,7 +10,16 @@ const paramsSchema = z.object({
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
-  const { token } = await getValidatedRouterParams(event, paramsSchema.parse)
+  // The token comes from a link the user may have truncated when copying, so a
+  // malformed one is an ordinary occurrence and must read as a sentence, not as
+  // a Zod issue array. See server/utils/friendly-error.ts.
+  const { token } = await getValidatedRouterParams(event, (params) =>
+    parseParamsOrFail(
+      params,
+      paramsSchema.parse,
+      "That invite link isn't valid. Ask for a fresh one, or check you copied the whole link.",
+    ),
+  )
 
   // Hash the incoming token to match the stored hash
   const hashedToken = createHash("sha256").update(token).digest("hex")

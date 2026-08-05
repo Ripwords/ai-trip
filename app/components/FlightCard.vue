@@ -214,7 +214,7 @@ function unlinkTrip() {
       </template>
       <template v-else-if="showLinkToTrip">
         <button
-          class="inline-flex items-center gap-1 rounded-full border border-dashed border-sand-300 px-2.5 py-1 text-xs text-sand-500 transition hover:border-sand-400 hover:text-sand-700"
+          class="inline-flex min-h-11 items-center gap-1 rounded-full border border-dashed border-sand-300 px-2.5 text-xs text-sand-700 transition hover:border-sand-400 hover:text-sand-900"
           @click="showTripPicker = true"
         >
           <Icon name="lucide:link" class="h-3 w-3" />

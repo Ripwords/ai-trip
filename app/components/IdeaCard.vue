@@ -110,7 +110,7 @@ function handlePromote() {
       </select>
       <button
         type="button"
-        class="inline-flex min-h-11 items-center rounded-lg bg-terra-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-terra-600"
+        class="inline-flex min-h-11 items-center rounded-lg bg-cta px-2.5 py-1 text-xs font-medium text-white hover:bg-cta-hover"
         @click="handlePromote"
       >
         Move

@@ -1,4 +1,55 @@
+import type { AuthState } from "../utils/auth-redirect"
 import { isGuestOnlyPath, isProtectedPath, resolveAuthRedirect } from "../utils/auth-redirect"
+
+/**
+ * Server-side: the session was already resolved by `server/middleware/auth-session.ts`
+ * using better-auth's `auth.api.getSession({ headers })` — the call the Nuxt
+ * integration guide recommends for server code. Reading it off the request
+ * context costs nothing and, crucially, makes no HTTP request, so it can never
+ * be rate limited into a false "signed out".
+ *
+ * We cannot call `auth.api.getSession` from here directly: this file is app
+ * code that also ships to the browser, and importing `server/lib/auth` would
+ * pull the database client and BETTER_AUTH_SECRET into the client bundle.
+ */
+function authStateFromRequest(): AuthState {
+  const event = useRequestEvent()
+  if (!event) return "unknown"
+  // The key is set (possibly to null) only when the server middleware actually
+  // ran and completed. Absent means it skipped or threw — not a signed-out user.
+  if (!("authSession" in event.context)) return "unknown"
+  return !!event.context.authSession?.user
+}
+
+/**
+ * Client-side: resolved once per app load and cached for the rest of the
+ * session, so route changes cost zero requests. Deliberately NOT seeded from
+ * the SSR payload: `/` is ISR-cached (nuxt.config routeRules), and serialising
+ * one visitor's session into a shared edge-cached payload would leak it to
+ * everyone who lands on the marketing page.
+ *
+ * Staleness is bounded and safe: sign-out navigates externally (full reload,
+ * cache gone), and a session that expires mid-visit surfaces as a 401 from the
+ * API rather than as a wrong redirect.
+ */
+async function authStateFromClient(): Promise<AuthState> {
+  const cached = useState<AuthState | undefined>("auth:state", () => undefined)
+  if (cached.value !== undefined) return cached.value
+
+  try {
+    const session = await $fetch<{ user?: unknown }>("/api/auth/get-session")
+    cached.value = !!session?.user
+  } catch (error) {
+    const status =
+      (error as { status?: number })?.status ?? (error as { statusCode?: number })?.statusCode
+    // Only the server explicitly saying "no session" is definitive. A 429 from
+    // the shared /api/auth/** rate-limit bucket, a 5xx, or an offline browser
+    // must not sign anyone out. Left uncached so the next navigation retries.
+    if (status === 401 || status === 403) cached.value = false
+    else return "unknown"
+  }
+  return cached.value
+}
 
 export default defineNuxtRouteMiddleware(async (to) => {
   // Sign-out redirect carries ?logout=1 — skip the auth check so we don't
@@ -19,17 +70,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // guest-only → /dashboard redirect happens on the client after hydration.
   if (guestOnly && import.meta.server) return
 
-  // useRequestFetch returns a $fetch that auto-forwards cookies/headers
-  // during SSR — unlike authClient.useSession(useFetch) which fails to
-  // detect sessions on the server during middleware.
-  let isAuthenticated = false
-  try {
-    const fetchWithCookies = useRequestFetch()
-    const session = await fetchWithCookies<{ user?: unknown }>("/api/auth/get-session")
-    isAuthenticated = !!session?.user
-  } catch {
-    // Session fetch failed — treat as unauthenticated
-  }
+  const isAuthenticated = import.meta.server ? authStateFromRequest() : await authStateFromClient()
 
   const target = resolveAuthRedirect({
     path: to.path,

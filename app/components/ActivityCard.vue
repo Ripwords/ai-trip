@@ -140,13 +140,16 @@ function formatDuration(minutes: number): string {
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2">
           <span
-            class="flex h-7 w-7 items-center justify-center rounded-full bg-terra-500 text-xs font-bold text-white shadow-sm"
+            class="flex h-7 w-7 items-center justify-center rounded-full bg-cta text-xs font-bold text-white shadow-sm"
           >
             {{ index + 1 }}
           </span>
+          <!-- 28px circle is the right visual weight next to the step number, but
+               it is well under the 44px touch minimum. Extend the hit area with a
+               transparent pseudo-element instead of growing the dot. -->
           <button
             v-if="!readonly"
-            class="drag-handle flex h-7 w-7 cursor-grab items-center justify-center rounded-full bg-sand-100 text-sand-500 transition hover:bg-sand-200 active:cursor-grabbing"
+            class="drag-handle relative flex h-7 w-7 cursor-grab items-center justify-center rounded-full bg-sand-100 text-sand-500 transition before:absolute before:-inset-2 before:content-[''] hover:bg-sand-200 active:cursor-grabbing"
             title="Drag to reorder"
             @click.stop
           >
@@ -171,14 +174,14 @@ function formatDuration(minutes: number): string {
           class="-mr-1.5 -mt-1.5 flex shrink-0 gap-0.5 sm:opacity-0 sm:transition sm:group-hover:opacity-100"
         >
           <button
-            class="rounded-lg p-1.5 text-sand-400 active:bg-terra-50 active:text-terra-600 sm:hover:bg-terra-50 sm:hover:text-terra-600"
+            class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-400 active:bg-terra-50 active:text-terra-600 sm:hover:bg-terra-50 sm:hover:text-terra-600"
             title="Edit"
             @click.stop="emit('edit', activity)"
           >
             <Icon name="lucide:edit" class="h-4 w-4" />
           </button>
           <button
-            class="rounded-lg p-1.5 text-sand-400 active:bg-red-50 active:text-red-600 sm:hover:bg-red-50 sm:hover:text-red-600"
+            class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-400 active:bg-red-50 active:text-red-600 sm:hover:bg-red-50 sm:hover:text-red-600"
             title="Delete"
             @click.stop="emit('delete', activity)"
           >
@@ -230,7 +233,7 @@ function formatDuration(minutes: number): string {
           :href="getGoogleMapsUrl(activity)"
           target="_blank"
           rel="noopener noreferrer"
-          class="inline-flex min-w-0 max-w-full items-center gap-1.5 text-ocean-600 transition hover:text-terra-600"
+          class="-my-3 inline-flex min-w-0 max-w-full items-center gap-1.5 py-3 text-ocean-600 transition hover:text-terra-600"
           title="Open in Google Maps"
           @click.stop
         >
@@ -275,7 +278,7 @@ function formatDuration(minutes: number): string {
           <span
             v-for="p in (participants ?? []).slice(0, 5)"
             :key="p.userId"
-            class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white bg-terra-500 text-[8px] font-bold text-white"
+            class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white bg-cta text-[8px] font-bold text-white"
             :title="p.name"
           >
             {{ getInitials(p.name) }}
