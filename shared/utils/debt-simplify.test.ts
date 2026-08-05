@@ -88,3 +88,29 @@ describe("simplifyDebts", () => {
     assertTransfersSettle(balances, t)
   })
 })
+
+// The zero-sum guard used to round each balance independently *before* summing,
+// so a set that sums to zero exactly could still be rejected. This sits on a
+// GET path with no try/catch above it, so a throw blanked every money figure on
+// the page rather than degrading one panel.
+describe("simplifyDebts — fractional balances", () => {
+  it("accepts balances that sum to zero before rounding", () => {
+    // Rounding each first: round(0.5) = 1, round(-0.5) = -0 -> total 1 -> throw.
+    assert.doesNotThrow(() => simplifyDebts({ a: 0.5, b: -0.5 }))
+  })
+
+  it("still conserves money exactly when balances are fractional", () => {
+    // 10.5 / -4.25 / -6.25 round to 11 / -4 / -6, which sums to 1. The residual
+    // comes off the balance rounding inflated most (a), so a is owed 10 and the
+    // two debtors owe 4 and 6 — conserved exactly, nothing invented.
+    const transfers = simplifyDebts({ a: 10.5, b: -4.25, c: -6.25 })
+    const moved = transfers.reduce((sum, t) => sum + t.amountMinor, 0)
+    assert.equal(moved, 10)
+    for (const t of transfers) assert.ok(Number.isSafeInteger(t.amountMinor))
+    assert.ok(transfers.every((t) => t.amountMinor > 0))
+  })
+
+  it("still rejects input that genuinely does not reconcile", () => {
+    assert.throws(() => simplifyDebts({ a: 100, b: -50 }), /sum to zero/i)
+  })
+})

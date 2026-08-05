@@ -193,7 +193,22 @@ export function summariseTripExpenses(input: SummariseTripExpensesInput): TripEx
     plannedVsActual,
     linkedToActivitiesTotal: out(linkedMinor),
     unlinkedTotal: out(expensesMinor - linkedMinor),
-    settlement: computeSettlement(input.expenses, input.members, currency),
+    settlement: safeSettlement(input, currency),
+  }
+}
+
+/**
+ * The settlement is one panel of many. `simplifyDebts` throws when balances do
+ * not reconcile, and this function feeds every money figure on the trip page —
+ * so an unreconcilable set must degrade that one panel, not blank the total,
+ * the budget, the breakdowns and the burn rate along with it.
+ */
+function safeSettlement(input: SummariseTripExpensesInput, currency: string): Settlement {
+  try {
+    return computeSettlement(input.expenses, input.members, currency)
+  } catch (error: unknown) {
+    console.error("[expense-summary] settlement failed, reporting no transfers:", error)
+    return { balances: [], transfers: [], attributedTotal: 0, unattributedTotal: 0 }
   }
 }
 

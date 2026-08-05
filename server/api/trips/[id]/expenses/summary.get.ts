@@ -56,15 +56,27 @@ export default defineEventHandler(async (event) => {
     listSettlementMembers(id),
   ])
 
-  return summariseTripExpenses({
-    tripCurrencyCode: trip.currencyCode,
-    budget: trip.budget,
-    startDate: trip.startDate,
-    endDate: trip.endDate,
-    today: new Date().toISOString().slice(0, 10),
-    expenses: expenseRows,
-    activities: activityRows,
-    reservations: reservationRows,
-    members,
-  })
+  // Everything the trip page shows about money comes from this one call, so a
+  // throw in the arithmetic blanks the total, the budget, every breakdown and
+  // the burn rate at once. `summariseTripExpenses` already contains a failing
+  // settlement; this is the outer belt for anything it does not anticipate.
+  try {
+    return summariseTripExpenses({
+      tripCurrencyCode: trip.currencyCode,
+      budget: trip.budget,
+      startDate: trip.startDate,
+      endDate: trip.endDate,
+      today: new Date().toISOString().slice(0, 10),
+      expenses: expenseRows,
+      activities: activityRows,
+      reservations: reservationRows,
+      members,
+    })
+  } catch (error: unknown) {
+    console.error("[expenses/summary] could not summarise trip", id, error)
+    throw createError({
+      statusCode: 500,
+      message: "Could not summarise this trip's expenses",
+    })
+  }
 })

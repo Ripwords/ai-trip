@@ -22,16 +22,40 @@ export interface Transfer {
 
 /** @param balances positive = owed money, negative = owes money. */
 export function simplifyDebts(balances: Readonly<Record<string, number>>): Transfer[] {
-  const entries = Object.entries(balances).map(([userId, balance]) => ({
+  const raw = Object.entries(balances)
+
+  // Check the *unrounded* total. Rounding each balance first and then summing
+  // rejects sets that genuinely reconcile: `{ a: 0.5, b: -0.5 }` sums to zero,
+  // but Math.round takes it to `{ a: 1, b: -0 }`, total 1, and threw. Callers
+  // pass integers today, so this was unreachable — but it sits on a GET path,
+  // and "one panel is wrong" is a far better failure than "throw".
+  const rawTotal = raw.reduce((sum, [, balance]) => sum + balance, 0)
+  // A tolerance, not an equality: the input may have been through float
+  // division. Anything above half a minor unit is a real reconciliation bug.
+  if (Math.abs(rawTotal) >= 0.5) {
+    // Failing loudly beats emitting transfers that leave someone permanently
+    // short.
+    throw new Error(`Balances must sum to zero, got ${rawTotal}`)
+  }
+
+  const entries = raw.map(([userId, balance]) => ({
     userId,
     balance: Math.round(balance),
+    /** How far rounding moved this balance, so the residual lands fairly. */
+    lift: Math.round(balance) - balance,
   }))
 
-  const total = entries.reduce((sum, e) => sum + e.balance, 0)
-  if (total !== 0) {
-    // A non-zero total means the caller's split maths didn't reconcile. Failing
-    // loudly beats emitting transfers that leave someone permanently short.
-    throw new Error(`Balances must sum to zero, got ${total}`)
+  // Rounding each balance can leave the integers not summing to zero even when
+  // the inputs did. Take the residual off whichever balance rounding inflated
+  // the most (ties by input order, so the result stays deterministic).
+  let residual = entries.reduce((sum, e) => sum + e.balance, 0)
+  const byLift = [...entries].toSorted((x, y) => y.lift - x.lift)
+  const byDrop = [...entries].toSorted((x, y) => x.lift - y.lift)
+  for (const e of residual > 0 ? byLift : byDrop) {
+    if (residual === 0) break
+    const step = residual > 0 ? -1 : 1
+    e.balance += step
+    residual += step
   }
 
   // Sorting by userId first makes the result deterministic when several people

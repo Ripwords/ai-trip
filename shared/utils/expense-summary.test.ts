@@ -3,6 +3,7 @@ import { describe, it } from "node:test"
 import type { SummariseTripExpensesInput } from "./expense-summary"
 
 const { summariseTripExpenses } = await import("./expense-summary")
+const { computeSettlement } = await import("./settlement")
 
 const members = [
   { userId: "a", user: { name: "Alice" } },
@@ -293,5 +294,50 @@ describe("summariseTripExpenses — empty trip", () => {
     assert.equal(s.projectedTotal, 0)
     assert.deepEqual(s.byCategory, [])
     assert.deepEqual(s.plannedVsActual, [])
+  })
+})
+
+// Every money figure on the trip page comes from this one call, so a throw
+// inside the settlement must not take the total, the budget, the breakdowns
+// and the burn rate with it.
+describe("summariseTripExpenses — settlement failure is contained", () => {
+  it("still reports the totals when the balances cannot reconcile", () => {
+    // A duplicated member is the reachable way in: `paid`/`owed` are Maps and
+    // collapse the repeat, but `balances` is built by mapping over `members`,
+    // so the same balance is emitted twice and the set no longer sums to zero.
+    // `simplifyDebts` rightly refuses it.
+    const dupes = [
+      { userId: "a", user: { name: "Alice" } },
+      { userId: "a", user: { name: "Alice" } },
+      { userId: "b", user: { name: "Bob" } },
+    ]
+    assert.throws(
+      () => computeSettlement([{ amount: "100.00", paidById: "a" }], dupes, "USD"),
+      /sum to zero/i,
+      "precondition: this input really does throw",
+    )
+
+    const original = console.error
+    console.error = () => {}
+    try {
+      const s = summariseTripExpenses(
+        input({
+          expenses: [expense({ amount: "100.00", paidById: "a" })],
+          reservations: [{ amount: "10.00" }],
+          activities: [
+            { id: "act1", name: "Museum", dayNumber: 1, date: "2026-03-01", costEstimate: "25.00" },
+          ],
+          members: dupes,
+        }),
+      )
+      assert.equal(s.expensesTotal, 100)
+      assert.equal(s.reservationsTotal, 10)
+      assert.equal(s.total, 110)
+      assert.equal(s.plannedTotal, 25)
+      assert.deepEqual(s.settlement.transfers, [], "the one broken panel degrades to empty")
+      assert.deepEqual(s.settlement.balances, [])
+    } finally {
+      console.error = original
+    }
   })
 })
