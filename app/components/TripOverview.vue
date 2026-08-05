@@ -68,8 +68,6 @@ const props = defineProps<{
    * Null until the lazy fetch lands.
    */
   summary: TripExpenseSummary | null
-  /** Prepaid booking amounts, so the budget bar counts them too. */
-  totalBookings?: number
   currencyCode: string
   airports?: AirportMarker[]
 }>()
@@ -681,7 +679,6 @@ function formatDayRange(dayNumbers: number[]): string {
         :days="sortedDays"
         :currency-code="currencyCode"
         :summary="summary"
-        :total-bookings="totalBookings"
         :trip-id="tripId"
         @refreshed="emit('refreshed')"
       />

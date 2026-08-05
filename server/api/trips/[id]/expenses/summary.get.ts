@@ -49,8 +49,10 @@ export default defineEventHandler(async (event) => {
       .from(activities)
       .innerJoin(itineraryDays, eq(activities.itineraryDayId, itineraryDays.id))
       .where(eq(itineraryDays.tripId, id)),
+    // `status` comes along so `summariseTripExpenses` can drop cancelled rows —
+    // filtering here instead would put the rule somewhere no unit test reaches.
     db
-      .select({ amount: reservations.amount })
+      .select({ amount: reservations.amount, status: reservations.status })
       .from(reservations)
       .where(eq(reservations.tripId, id)),
     listSettlementMembers(id),

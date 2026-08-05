@@ -17,10 +17,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   "edit-in-itinerary": [dayId: string | null]
+  /** A booking's amount or status changed, so the server-computed total has. */
+  changed: []
 }>()
 
-// Explicit key so the trip page's budget rollup reads the same list and picks
-// up an edited amount when this refreshes.
 const { data: reservations, refresh } = await useFetch<Reservation[]>(
   `/api/trips/${props.tripId}/reservations`,
   { key: `reservations-${props.tripId}` },
@@ -35,7 +35,7 @@ const editingRow = computed(() => reservations.value?.find((r) => r.id === editi
 const formFields = computed<BookingField[]>(() =>
   editingRow.value
     ? editableBookingFields(editingRow.value)
-    : editableBookingFields({ source: "manual", detachedAt: null }),
+    : editableBookingFields({ source: "manual", stayId: null, detachedAt: null }),
 )
 const editingDerived = computed(() => !!editingRow.value && isDerivedBooking(editingRow.value))
 function shows(field: BookingField): boolean {
@@ -148,6 +148,7 @@ async function submitReservation() {
     resetForm()
     showAddForm.value = false
     await refresh()
+    emit("changed")
   } catch (e: unknown) {
     console.error("Failed to save reservation:", e)
   }
@@ -168,6 +169,7 @@ async function deleteReservation(id: string) {
       method: "DELETE",
     })
     await refresh()
+    emit("changed")
   } catch (e: unknown) {
     console.error("Failed to delete reservation:", e)
   }
@@ -179,6 +181,12 @@ function formatCurrency(amount: string): string {
   return formatCurrencyRaw(amount)
 }
 
+// Every `NuxtTime` below passes `time-zone="UTC"` deliberately. `start_date`
+// and `end_date` are `timestamptz`, but a check-in has no time of day: both the
+// manual create route and the stay mirror store the calendar date at UTC
+// midnight. Rendered in the viewer's zone, anyone west of UTC saw check-in a
+// day early — `stays.ts#addCalendarDays` goes to the same trouble for the same
+// reason.
 const showEndDate = computed(
   () => formType.value === "accommodation" || formType.value === "car_rental",
 )
@@ -229,6 +237,7 @@ const dateGridClass = computed(() => {
                 <NuxtTime
                   :datetime="editingRow.startDate"
                   locale="en-US"
+                  time-zone="UTC"
                   month="short"
                   day="numeric"
                 />
@@ -237,6 +246,7 @@ const dateGridClass = computed(() => {
                   <NuxtTime
                     :datetime="editingRow.endDate"
                     locale="en-US"
+                    time-zone="UTC"
                     month="short"
                     day="numeric"
                   />
@@ -425,10 +435,21 @@ const dateGridClass = computed(() => {
                 >
                   <span v-if="r.startDate" class="flex items-center gap-0.5">
                     <Icon name="lucide:calendar" class="h-3 w-3" />
-                    <NuxtTime :datetime="r.startDate" locale="en-US" month="short" day="numeric" />
+                    <NuxtTime
+                      :datetime="r.startDate"
+                      locale="en-US"
+                      time-zone="UTC"
+                      month="short"
+                      day="numeric"
+                    />
                     <template v-if="r.endDate">
                       to
-                      <NuxtTime :datetime="r.endDate" locale="en-US" month="short" day="numeric"
+                      <NuxtTime
+                        :datetime="r.endDate"
+                        locale="en-US"
+                        time-zone="UTC"
+                        month="short"
+                        day="numeric"
                     /></template>
                   </span>
                   <span

@@ -20,8 +20,6 @@ const props = defineProps<{
    * tab showed a completely different number under "Total".
    */
   summary: TripExpenseSummary | null
-  /** Prepaid booking amounts. Counted nowhere before — see the budget rollup. */
-  totalBookings?: number
   tripId?: string
 }>()
 
@@ -34,7 +32,13 @@ const totalActivities = computed(() =>
 )
 
 const totalCost = computed(() => props.summary?.plannedTotal ?? 0)
-const totalSpent = computed(() => props.summary?.total ?? 0)
+
+// The two halves of the one server-computed total. `summary.total` is
+// `expensesTotal + reservationsTotal` already (expense-summary.ts), so the
+// "Spent" line shows the expense half and the "Bookings" line the reservation
+// half — adding either to `summary.total` would count it twice.
+const totalSpent = computed(() => props.summary?.expensesTotal ?? 0)
+const totalBookings = computed(() => props.summary?.reservationsTotal ?? 0)
 
 const totalDays = computed(() => props.days.length)
 
@@ -51,15 +55,15 @@ const typeBreakdown = computed(() => {
 const budgetNum = computed(() => props.summary?.budget ?? null)
 
 // Expenses were the only store the budget bar knew about, so a prepaid hotel
-// booking never moved it. Both count; the breakdown below keeps them legible.
-// The expense half is the server-computed total (#38); bookings are added on
-// top here, which is why `summary.budgetPercent` is deliberately not used.
-const totalCommitted = computed(() => totalSpent.value + (props.totalBookings ?? 0))
+// booking never moved it. `summary.total` counts both (#61), and it is the ONE
+// server-computed total (#38) — this component adds nothing to it. It briefly
+// did, which rendered a €900 hotel as €1,800 committed and inflated the bar.
+const totalCommitted = computed(() => props.summary?.total ?? 0)
 
-const budgetPercent = computed(() => {
-  if (!budgetNum.value || budgetNum.value === 0 || !totalCommitted.value) return 0
-  return (totalCommitted.value / budgetNum.value) * 100
-})
+// Same number every other budget bar on the trip shows (`TripOverview`,
+// `ExpenseTracker`), for the same reason: there is one answer to "how much of
+// the budget is gone", and it comes from the server.
+const budgetPercent = computed(() => props.summary?.budgetPercent ?? 0)
 
 const progressBarColor = computed(() => {
   if (budgetPercent.value >= 100) return "bg-terra-600"
@@ -179,10 +183,7 @@ async function refreshFromGoogle() {
         <span class="text-sand-600">Spent</span>
         <span class="font-semibold text-sand-900">{{ formatCurrency(totalSpent) }}</span>
       </div>
-      <div
-        v-if="totalBookings != null && totalBookings > 0"
-        class="flex items-center justify-between text-sm"
-      >
+      <div v-if="totalBookings > 0" class="flex items-center justify-between text-sm">
         <span class="text-sand-600">Bookings</span>
         <span class="font-semibold text-sand-900">{{ formatCurrency(totalBookings) }}</span>
       </div>

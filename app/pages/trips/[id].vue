@@ -155,15 +155,6 @@ async function refreshExpenses() {
   await Promise.all([refreshExpensesList(), refreshExpenseSummary()])
 }
 
-// Bookings carry their own amounts and were counted in no total anywhere —
-// the budget rollup needs them alongside expenses.
-// Shares its key with ReservationTracker's fetch so editing a booking's amount
-// moves the budget bar without a reload.
-const { data: reservationsList } = useLazyFetch<{ amount: string | null; status: string }[]>(
-  `/api/trips/${tripId}/reservations`,
-  { key: `reservations-${tripId}` },
-)
-
 const { data: tripFlights, refresh: refreshFlights } = useLazyFetch(`/api/trips/${tripId}/flights`)
 
 const sortedTripFlights = computed(() => {
@@ -758,17 +749,6 @@ async function handleTransportModeChange(mode: TransportMode) {
     transportUpdating.value = false
   }
 }
-
-// `reservations.amount` used to be counted nowhere, so a prepaid hotel never
-// moved the budget bar. The expense half of the rollup now comes from the
-// server-computed summary (#38), so only the bookings half is derived here.
-const totalBookings = computed(
-  () =>
-    computeBudgetRollup({
-      expenses: [],
-      reservations: reservationsList.value ?? [],
-    }).bookings,
-)
 
 // Set activeDayId: prioritize today's date > sessionStorage > first day
 watch(
@@ -1757,7 +1737,6 @@ async function recomputeSegments(dayId: string) {
           :trip-id="tripId"
           :sorted-days="sortedDays"
           :summary="expenseSummary ?? null"
-          :total-bookings="totalBookings"
           :currency-code="trip.currencyCode ?? 'USD'"
           :airports="tripAirports"
           @navigate-to-day="handleNavigateToDay"
@@ -2019,6 +1998,7 @@ async function recomputeSegments(dayId: string) {
           :trip-id="tripId"
           :currency-code="trip.currencyCode ?? 'USD'"
           @edit-in-itinerary="handleEditBookingInItinerary"
+          @changed="refreshExpenseSummary"
         />
       </div>
 
