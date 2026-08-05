@@ -169,10 +169,17 @@ export default defineEventHandler(async (event) => {
     // Budget vs actual spend. The agent generates costEstimate values, so it
     // should be able to see what is actually left. Degrades to no budget line
     // on failure rather than blocking the turn.
+    //
+    // Summed over `amountInTripCurrency`, never `amount` (#47): `amount` is in
+    // each expense's OWN currency, so adding a ¥3,200 lunch to a $20 taxi used
+    // to report 3220 as the trip-currency spend. buildSpendLine labels this
+    // figure with the trip's currency, and the projection column is the only
+    // one that is actually in it. It is NOT NULL, so the COALESCE below is
+    // only for the no-rows case.
     let spend: { budget: string | null; spent: number } | undefined
     try {
       const rows = await db
-        .select({ total: sql<string>`COALESCE(SUM(${expenses.amount}), 0)` })
+        .select({ total: sql<string>`COALESCE(SUM(${expenses.amountInTripCurrency}), 0)` })
         .from(expenses)
         .where(eq(expenses.tripId, id))
       spend = { budget: trip.budget ?? null, spent: parseFloat(rows[0]?.total ?? "0") || 0 }

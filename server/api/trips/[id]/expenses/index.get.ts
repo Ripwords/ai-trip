@@ -59,7 +59,11 @@ export default defineEventHandler(async (event) => {
       limit: query.limit + 1,
     }),
     db
-      .select({ matched: count(), total: sum(expenses.amount) })
+      // `amountInTripCurrency`, never `amount`. `amount` is denominated in each
+      // expense's own currency, so summing it added a ¥3,200 lunch to a $20
+      // taxi and got 3220 — which ExpenseTracker then renders with the trip's
+      // currency symbol. Same category error as the summary endpoint (#47).
+      .select({ matched: count(), total: sum(expenses.amountInTripCurrency) })
       .from(expenses)
       .where(and(...filterConditions)),
   ])

@@ -1,3 +1,6 @@
+import { fromMinorUnits, sumMinorUnits, toMinorUnits } from "#shared/utils/money"
+import { currencyDecimals } from "#shared/utils/currency"
+
 interface PdfActivity {
   name: string
   type: string
@@ -27,11 +30,98 @@ interface PdfReservation {
   amount: string | null
 }
 
-interface PdfExpense {
+export interface PdfExpense {
   description: string
+  /** What was actually paid, in `currencyCode`. Never rewritten (#47). */
   amount: string
+  /** NULL on legacy rows whose provenance was never recorded (pre-#47). */
+  currencyCode: string | null
+  /** The trip-currency projection — the only column that may be summed. */
+  amountInTripCurrency: string
   category: string
   paidAt: string | null
+}
+
+/** Trip-currency figures, as decimal strings at the currency's precision. */
+export interface PdfBudgetSummary {
+  total: string
+  byCategory: { category: string; amount: string; percent: number }[]
+  /** `remaining` is always positive; `isOver` says which side of zero it is. */
+  budget: { remaining: string; isOver: boolean } | null
+}
+
+/**
+ * Every aggregate the PDF prints.
+ *
+ * This used to `parseFloat(e.amount)` and add the results up — across
+ * currencies. A EUR trip with a €40 dinner and a ¥3,200 lunch printed
+ * "Spent: €3,240.00 / Over budget" where the app showed €60.64, which is why
+ * #38 ("one answer to what this trip costs") was not actually closed. `amount`
+ * is per-expense currency; `amountInTripCurrency` is the projection, and it is
+ * the only figure that may be summed. Arithmetic in integer minor units, the
+ * same as the rest of the money path.
+ */
+export function summarisePdfExpenses(
+  expenses: readonly PdfExpense[],
+  tripCurrencyCode: string,
+  budget: string | null,
+): PdfBudgetSummary {
+  const byCategory = new Map<string, number>()
+  const amounts: number[] = []
+
+  for (const expense of expenses) {
+    const minor = toMinorUnits(expense.amountInTripCurrency, tripCurrencyCode) ?? 0
+    amounts.push(minor)
+    const category = expense.category || "other"
+    byCategory.set(category, (byCategory.get(category) ?? 0) + minor)
+  }
+
+  const totalMinor = sumMinorUnits(amounts)
+  const budgetMinor = budget != null ? toMinorUnits(budget, tripCurrencyCode) : null
+
+  return {
+    total: fromMinorUnits(totalMinor, tripCurrencyCode),
+    byCategory: [...byCategory.entries()]
+      .toSorted(([, a], [, b]) => b - a)
+      .map(([category, minor]) => ({
+        category,
+        amount: fromMinorUnits(minor, tripCurrencyCode),
+        percent: totalMinor === 0 ? 0 : Math.round((minor / totalMinor) * 100),
+      })),
+    budget:
+      budgetMinor == null
+        ? null
+        : {
+            remaining: fromMinorUnits(Math.abs(budgetMinor - totalMinor), tripCurrencyCode),
+            isOver: budgetMinor - totalMinor < 0,
+          },
+  }
+}
+
+/**
+ * What was actually paid, in the currency it was paid in — the same primary /
+ * secondary pair `ExpenseTracker` renders, so the PDF and the app agree.
+ * A row with no recorded currency is legacy and of unknown provenance, so it is
+ * shown in the trip currency rather than under a symbol we would be guessing.
+ */
+function formatPaidAmount(expense: PdfExpense, tripCurrencyCode: string): string {
+  const code = expense.currencyCode
+  if (code == null) return `${expense.amountInTripCurrency} ${tripCurrencyCode}`
+  const amount = parseFloat(expense.amount)
+  if (!Number.isFinite(amount)) return `${expense.amount} ${code}`
+  const digits = currencyDecimals(code)
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: code,
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(amount)
+    // `Intl` throws a RangeError on a currency code it does not recognise, and
+    // a stored code is only as good as the validation that let it in.
+  } catch {
+    return `${amount.toFixed(digits)} ${code}`
+  }
 }
 
 interface PdfTripData {
@@ -157,39 +247,53 @@ export function useExportPdf() {
         </table>`
     }
 
-    // Build budget section
+    // Build budget section. Every figure below is the trip-currency projection
+    // (#47) — the per-expense `amount` is in its own currency and is only ever
+    // shown on its own row, never added to anything.
     let budgetSection = ""
     if (trip.expenses.length > 0) {
-      const byCategory: Record<string, number> = {}
-      let total = 0
-      for (const e of trip.expenses) {
-        const cat = e.category || "other"
-        byCategory[cat] = (byCategory[cat] ?? 0) + parseFloat(e.amount)
-        total += parseFloat(e.amount)
-      }
+      const summary = summarisePdfExpenses(trip.expenses, trip.currencyCode, trip.budget)
 
-      const catRows = Object.entries(byCategory)
-        .toSorted(([, a], [, b]) => b - a)
+      const catRows = summary.byCategory
         .map(
-          ([cat, amount]) => `<tr>
-            <td>${esc(formatType(cat))}</td>
-            <td>${esc(formatCurrency(String(amount)))}</td>
-            <td>${((amount / total) * 100).toFixed(0)}%</td>
+          (row) => `<tr>
+            <td>${esc(formatType(row.category))}</td>
+            <td>${esc(formatCurrency(row.amount))}</td>
+            <td>${row.percent}%</td>
           </tr>`,
         )
         .join("")
 
+      // What was actually paid, per expense, with the converted figure beside
+      // it — the same pair the expenses tab shows, so the two cannot disagree.
+      const expenseRows = trip.expenses
+        .map((e) => {
+          const converted =
+            e.currencyCode && e.currencyCode !== trip.currencyCode
+              ? `<div class="note">= ${esc(formatCurrency(e.amountInTripCurrency))}</div>`
+              : ""
+          return `<tr>
+            <td>${esc(e.paidAt ?? "-")}</td>
+            <td>${esc(e.description)}</td>
+            <td>${esc(formatType(e.category || "other"))}</td>
+            <td>
+              ${esc(formatPaidAmount(e, trip.currencyCode))}
+              ${converted}
+            </td>
+          </tr>`
+        })
+        .join("")
+
       let budgetSummary = ""
-      if (trip.budget) {
-        const remaining = parseFloat(trip.budget) - total
-        const isOver = remaining < 0
+      if (trip.budget && summary.budget) {
+        const { isOver, remaining } = summary.budget
         budgetSummary = `
           <div class="budget-summary">
             <div><span class="label">Budget:</span> ${esc(formatCurrency(trip.budget))}</div>
-            <div><span class="label">Spent:</span> ${esc(formatCurrency(String(total)))}</div>
+            <div><span class="label">Spent:</span> ${esc(formatCurrency(summary.total))}</div>
             <div class="${isOver ? "over" : "under"}">
               <span class="label">${isOver ? "Over budget:" : "Remaining:"}</span>
-              ${esc(formatCurrency(String(Math.abs(remaining))))}
+              ${esc(formatCurrency(remaining))}
             </div>
           </div>`
       }
@@ -203,12 +307,17 @@ export function useExportPdf() {
             ${catRows}
             <tr class="total-row">
               <td><strong>Total</strong></td>
-              <td><strong>${esc(formatCurrency(String(total)))}</strong></td>
+              <td><strong>${esc(formatCurrency(summary.total))}</strong></td>
               <td><strong>100%</strong></td>
             </tr>
           </tbody>
         </table>
-        ${budgetSummary}`
+        ${budgetSummary}
+        <h2 class="section-title">Expenses</h2>
+        <table>
+          <thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Paid</th></tr></thead>
+          <tbody>${expenseRows}</tbody>
+        </table>`
     }
 
     const html = `<!DOCTYPE html>

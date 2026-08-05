@@ -7,6 +7,7 @@ import type {
 } from "#shared/utils/expense-list"
 import { SPLIT_MODES, type SplitMode } from "#shared/utils/splits"
 import { TRIP_CURRENCIES, currencyDecimals } from "#shared/utils/currency"
+import { fromMinorUnits, toMinorUnits } from "#shared/utils/money"
 
 /** Receipt metadata as the list endpoint embeds it (#48). Never the storage key. */
 interface ExpenseReceipt {
@@ -22,7 +23,8 @@ interface Expense {
   description: string
   /** What was actually paid, in `currencyCode`. Never rewritten (#47). */
   amount: string
-  currencyCode: string
+  /** NULL on legacy rows whose provenance was never recorded (pre-#47). */
+  currencyCode: string | null
   /** The derived trip-currency figure; null only on pre-#47 rows. */
   amountInTripCurrency: string | null
   category: string
@@ -331,26 +333,64 @@ function resetForm() {
   editingExpenseId.value = null
 }
 
+/** A stored `split_mode` is plain text; anything unrecognised means "equal". */
+function toSplitMode(value: string): SplitMode {
+  return SPLIT_MODES.find((mode) => mode === value) ?? "equal"
+}
+
+/**
+ * The stored splits are resolved *amounts*, expressed in whatever unit the
+ * chosen mode speaks: `exact` wants money, `shares` takes any proportional
+ * weight (so the amounts themselves do), and `percent` wants each amount's
+ * share of the old total. Converting rather than forcing the form into `exact`
+ * is what makes "change the amount of a 3-way percent split" possible at all —
+ * percentages and shares are relative, so they survive a new total untouched.
+ */
+function splitValuesForForm(
+  splits: Record<string, string>,
+  mode: SplitMode,
+  currencyCode: string,
+): Record<string, string> {
+  const entries = Object.entries(splits)
+  if (mode === "percent") {
+    const minors = entries.map(([, text]) => toMinorUnits(text, currencyCode) ?? 0)
+    const total = minors.reduce((sum, v) => sum + v, 0)
+    if (total > 0) {
+      return Object.fromEntries(
+        entries.map(([userId], i) => [userId, (((minors[i] ?? 0) / total) * 100).toFixed(2)]),
+      )
+    }
+  }
+  // `exact` and `shares` both read the stored amounts directly.
+  return Object.fromEntries(entries)
+}
+
 function startEdit(expense: Expense) {
   editingExpenseId.value = expense.id
   formDescription.value = expense.description
   // The paid amount and its currency, not the converted view — editing must
   // never quietly replace what the user typed with a projection of it.
   formAmount.value = expense.amount
-  formCurrency.value = expense.currencyCode
+  formCurrency.value = expense.currencyCode ?? props.currencyCode
   formCategory.value = expense.category
   // paidAt is already a plain YYYY-MM-DD calendar date — parsing it into a
   // Date and back reintroduced the UTC/local shift this column exists to avoid.
   formDate.value = expense.paidAt ?? ""
   formPaidById.value = expense.paidById ?? ""
   formActivityId.value = expense.activityId ?? ""
-  // Stored splits are resolved amounts, so `exact` round-trips them exactly and
-  // any other mode's original weights are not recoverable — the resolved
-  // amounts are, and they mean the same thing.
+  // Restore the mode the expense was actually split with. Forcing every edit
+  // back into `exact` pre-filled with the old resolved amounts meant those
+  // amounts summed to the OLD total, so changing the amount failed the exact
+  // -sum check on every save with no way out of the form.
   if (expense.splits) {
-    formSplitMode.value = "exact"
+    const mode = toSplitMode(expense.splitMode)
+    formSplitMode.value = mode
     formParticipantIds.value = Object.keys(expense.splits)
-    formSplitValues.value = { ...expense.splits }
+    formSplitValues.value = splitValuesForForm(
+      expense.splits,
+      mode,
+      expense.currencyCode ?? props.currencyCode,
+    )
   } else {
     formSplitMode.value = "equal"
     formParticipantIds.value = []
@@ -358,6 +398,41 @@ function startEdit(expense: Expense) {
   }
   showAddForm.value = true
 }
+
+/**
+ * An `exact` split is a list of amounts that must add up to the expense total,
+ * so changing the amount invalidates it: the save 400s with a generic error and
+ * the form offers no way out. Re-scale the amounts onto the new total instead,
+ * keeping the proportions the user chose, so what is on screen is always a
+ * valid split of the amount above it. `percent` and `shares` are relative and
+ * need no fix-up, which is exactly why `startEdit` no longer forces `exact`.
+ */
+watch(formAmount, (amount) => {
+  if (formSplitMode.value !== "exact") return
+  const ids = formParticipantIds.value
+  if (ids.length === 0) return
+  const currency = formCurrency.value || props.currencyCode
+  const target = toMinorUnits(String(amount), currency)
+  if (target == null || target <= 0) return
+
+  const current = ids.map(
+    (id) => toMinorUnits(String(formSplitValues.value[id] ?? "0"), currency) ?? 0,
+  )
+  const currentTotal = current.reduce((sum, v) => sum + v, 0)
+  if (currentTotal === target) return
+
+  const scaled =
+    currentTotal > 0
+      ? current.map((v) => Math.round((v * target) / currentTotal))
+      : ids.map(() => Math.floor(target / ids.length))
+  // Rounding can leave the total a unit or two short; the residue goes to the
+  // first participant so the form adds up exactly rather than nearly.
+  scaled[0] = (scaled[0] ?? 0) + (target - scaled.reduce((sum, v) => sum + v, 0))
+
+  formSplitValues.value = Object.fromEntries(
+    ids.map((id, i) => [id, fromMinorUnits(scaled[i] ?? 0, currency)]),
+  )
+})
 
 const toast = useToast()
 
@@ -457,28 +532,50 @@ async function deleteExpense(expenseId: string) {
 const { format: formatCurrencyRaw } = useCurrencyFormat(() => props.currencyCode)
 
 function formatCurrency(amount: number): string {
-  return formatCurrencyRaw(amount)
+  // Every number on this tab goes through here, so a trip whose own currency
+  // code is unrecognised must degrade rather than throw out of the render.
+  try {
+    return formatCurrencyRaw(amount)
+  } catch {
+    return `${amount} ${props.currencyCode}`
+  }
 }
 
 /**
  * Render a paid amount in the currency it was paid in — not the trip's.
  * `useCurrencyFormat` is bound to one code, and the whole point of #47 is that
  * an expense no longer has to share the trip's.
+ *
+ * `Intl.NumberFormat` throws a RangeError on a currency code it does not know,
+ * and this runs inside the render path: one row holding "1a3" (which the old
+ * `z.string().length(3)` validation happily accepted) blanked the entire
+ * expenses tab for every member of the trip, with no UI left to delete the
+ * offending row. An unknown code now degrades to "amount CODE" instead.
  */
 function formatPaid(expense: Expense): string {
   const amount = parseFloat(expense.amount)
-  if (!Number.isFinite(amount)) return expense.amount
-  const digits = currencyDecimals(expense.currencyCode)
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: expense.currencyCode,
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(amount)
+  const code = expense.currencyCode
+  // No recorded currency = a legacy row of unknown provenance. Asserting a
+  // symbol over it would be a guess, so show the trip-currency figure instead.
+  if (code == null)
+    return formatCurrency(parseFloat(expense.amountInTripCurrency ?? expense.amount))
+  if (!Number.isFinite(amount)) return `${expense.amount} ${code}`
+  const digits = currencyDecimals(code)
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: code,
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(amount)
+  } catch {
+    return `${amount.toFixed(digits)} ${code}`
+  }
 }
 
 /** The trip-currency view, shown only when it differs from what was paid. */
 function formatConverted(expense: Expense): string | null {
+  if (expense.currencyCode == null) return null
   if (expense.currencyCode === props.currencyCode) return null
   if (expense.amountInTripCurrency == null) return null
   return formatCurrency(parseFloat(expense.amountInTripCurrency))
