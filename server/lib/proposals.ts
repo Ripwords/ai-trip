@@ -6,7 +6,7 @@ import { activities, itineraryDays } from "../db/schema"
 import { enrichItinerary, partitionGeocoded } from "./enrich"
 import { guardCostEstimate } from "./cost-guard"
 import { computeAndSaveSegments } from "./segments"
-import { reconcileTripStays } from "./booking-sync"
+import { lockTripForStayWrite, reconcileTripStays } from "./booking-sync"
 import { getDistanceMatrix } from "./google-maps"
 import { computeSchedule, orderDayActivities, parseOpeningTime } from "../utils/schedule"
 import { logTripAction } from "../utils/trip-access"
@@ -555,6 +555,9 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
       // The single apply point for AI-set accommodation, and so the cheapest
       // place to get generated itineraries into the Bookings tab.
       await db.transaction(async (tx) => {
+        // Before the day write, never after — see `lockTripForStayWrite`.
+        await lockTripForStayWrite(tx, ctx.tripId)
+
         await tx
           .update(itineraryDays)
           .set({

@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm"
 import { db } from "../../../../../db"
 import { itineraryDays } from "../../../../../db/schema"
 import { dayIdParamsSchema, updateAccommodationSchema } from "../../../../../utils/schemas"
-import { reconcileTripStays } from "../../../../../lib/booking-sync"
+import { lockTripForStayWrite, reconcileTripStays } from "../../../../../lib/booking-sync"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -24,6 +24,9 @@ export default defineEventHandler(async (event) => {
   // reconciling turns them into the canonical stay plus its derived booking.
   // Half of that landing would leave a stay pointing at nights it no longer has.
   const updated = await db.transaction(async (tx) => {
+    // Before the day write, never after — see `lockTripForStayWrite`.
+    await lockTripForStayWrite(tx, id)
+
     const [row] = await tx
       .update(itineraryDays)
       .set(body)

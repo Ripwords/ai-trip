@@ -5,6 +5,7 @@ import { trips, itineraryDays } from "../../db/schema"
 import { uuidParamsSchema, updateTripSchema } from "../../utils/schemas"
 import { enumerateDates } from "../../lib/dates"
 import { getTripWithRelations } from "../../lib/trips"
+import { lockTripForStayWrite, reconcileTripStays } from "../../lib/booking-sync"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -78,67 +79,45 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Apply atomically. neon-http (prod) doesn't support db.transaction but
-    // does support db.batch — which wraps the statement array in a single
-    // atomic SQL transaction. node-postgres (dev) is the reverse.
-    if (import.meta.dev) {
-      await db.transaction(async (tx) => {
-        if (hasDeletes) {
-          await tx
-            .delete(itineraryDays)
-            .where(
-              and(
-                eq(itineraryDays.tripId, id),
-                or(lt(itineraryDays.date, newStart), gt(itineraryDays.date, newEnd)),
-              ),
-            )
-        }
-        if (toInsert.length > 0) {
-          await tx.insert(itineraryDays).values(toInsert)
-        }
-        for (const u of toRenumber) {
-          await tx
-            .update(itineraryDays)
-            .set({ dayNumber: u.dayNumber })
-            .where(eq(itineraryDays.id, u.id))
-        }
-        await tx.update(trips).set(patch).where(eq(trips.id, id))
-      })
-    } else {
-      const ops: unknown[] = []
+    // Apply atomically. `db` is the neon-serverless driver (websocket Pool) in
+    // every environment and supports real transactions; the previous
+    // `import.meta.dev` split fell back to `db.batch`, which exists only on the
+    // neon-*http* driver and would have thrown in production.
+    await db.transaction(async (tx) => {
+      // Before the day writes, never after — see `lockTripForStayWrite`.
+      if (hasDeletes) await lockTripForStayWrite(tx, id)
+
       if (hasDeletes) {
-        ops.push(
-          db
-            .delete(itineraryDays)
-            .where(
-              and(
-                eq(itineraryDays.tripId, id),
-                or(lt(itineraryDays.date, newStart), gt(itineraryDays.date, newEnd)),
-              ),
+        await tx
+          .delete(itineraryDays)
+          .where(
+            and(
+              eq(itineraryDays.tripId, id),
+              or(lt(itineraryDays.date, newStart), gt(itineraryDays.date, newEnd)),
             ),
-        )
+          )
       }
       if (toInsert.length > 0) {
-        ops.push(db.insert(itineraryDays).values(toInsert))
+        await tx.insert(itineraryDays).values(toInsert)
       }
       for (const u of toRenumber) {
-        ops.push(
-          db
-            .update(itineraryDays)
-            .set({ dayNumber: u.dayNumber })
-            .where(eq(itineraryDays.id, u.id)),
-        )
+        await tx
+          .update(itineraryDays)
+          .set({ dayNumber: u.dayNumber })
+          .where(eq(itineraryDays.id, u.id))
       }
-      ops.push(db.update(trips).set(patch).where(eq(trips.id, id)))
+      await tx.update(trips).set(patch).where(eq(trips.id, id))
 
-      // db.batch wraps the array in a single atomic SQL transaction on the
-      // neon-http driver. It is not present on node-postgres, so this branch
-      // is guarded by `!import.meta.dev`.
-      const batchDb = db as unknown as {
-        batch: (ops: readonly [unknown, ...unknown[]]) => Promise<unknown>
+      // Resizing the trip resizes its stays. Deleting days deletes nights out
+      // of a stay's run, and without this the stay keeps a `check_in`/
+      // `check_out` — and a mirrored booking — covering dates that are no
+      // longer in the trip at all. Same transaction as the resize: a stay that
+      // outlived its days is exactly the drift `accommodation_*` being a
+      // read-cache is supposed to make impossible.
+      if (hasDeletes) {
+        await reconcileTripStays(tx, id, session.user.id)
       }
-      await batchDb.batch(ops as [unknown, ...unknown[]])
-    }
+    })
   }
 
   await logTripAction({

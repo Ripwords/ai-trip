@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm"
 import { db } from "~~/server/db"
 import { itineraryDays } from "~~/server/db/schema"
-import { reconcileTripStays } from "~~/server/lib/booking-sync"
+import { lockTripForStayWrite, reconcileTripStays } from "~~/server/lib/booking-sync"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -24,6 +24,9 @@ export default defineEventHandler(async (event) => {
   // Same transaction as the per-day route: set the day columns, then derive
   // the stay and its booking from them.
   const updated = await db.transaction(async (tx) => {
+    // Before the day write, never after — see `lockTripForStayWrite`.
+    await lockTripForStayWrite(tx, id)
+
     const rows = await tx
       .update(itineraryDays)
       .set(accommodation)

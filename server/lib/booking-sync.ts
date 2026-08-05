@@ -1,5 +1,5 @@
-import { and, eq, inArray, isNull } from "drizzle-orm"
-import { itineraryDays, reservations, stays } from "../db/schema"
+import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm"
+import { itineraryDays, reservations, stays, trips } from "../db/schema"
 import {
   addCalendarDays,
   groupDaysIntoStayRuns,
@@ -226,6 +226,45 @@ export function planStayBackfill(args: {
   })
 }
 
+/** What `upsertStayBooking` should do with the rows it found. */
+export type StayBookingWrite =
+  | { kind: "update"; reservationId: string }
+  | { kind: "adopt"; reservationId: string }
+  | { kind: "insert" }
+
+/**
+ * Decide how a stay's booking is written, given the rows already on the trip.
+ *
+ * The `adopt` branch is what stops a detach/re-attach cycle from splitting one
+ * hotel across two booking rows. Clearing a hotel detaches its booking (the row
+ * keeps the PNR and the amount — no automated path may destroy those) and
+ * deletes the stay; re-setting the same hotel used to create a fresh *blank*
+ * derived row beside it, so the trip carried two accommodation bookings for the
+ * same nights and the budget counted the money twice as soon as the user filled
+ * the new one in.
+ *
+ * Adoption is deliberately limited to an exact (normalized) name match, the
+ * same bar the backfill uses: a stay whose name genuinely changed is a
+ * different hotel, and the old row must stay behind as a detached manual
+ * booking rather than have someone else's confirmation number transplanted onto
+ * it. Two rows for two hotels is right; two rows for one hotel is the bug.
+ */
+export function planStayBookingWrite(args: {
+  stay: Pick<StayBookingSource, "name" | "checkIn" | "checkOut">
+  /** Rows already pointing at this stay. */
+  linked: readonly { id: string }[]
+  /** Previously-derived rows whose stay went away (`detached_at` is set). */
+  detached: readonly StayBookingCandidate[]
+}): StayBookingWrite {
+  const [linked] = args.linked
+  if (linked) return { kind: "update", reservationId: linked.id }
+
+  const match = matchReservationToStay(args.stay, args.detached)
+  if (match.kind === "adopt") return { kind: "adopt", reservationId: match.reservationId }
+
+  return { kind: "insert" }
+}
+
 /**
  * Create or refresh the booking row mirroring `stay`, keyed on `stay_id`.
  *
@@ -238,22 +277,73 @@ export async function upsertStayBooking(
   stay: StayBookingSource,
   createdById: string | null,
 ): Promise<void> {
+  // Calendar dates pinned to UTC midnight, matching how the manual create route
+  // stores a `YYYY-MM-DD` (`new Date("2026-03-22")`). A check-in has no time of
+  // day, so every reader must render this column in UTC — see
+  // `ReservationTracker.vue`, which passes `time-zone="UTC"` for exactly this.
   const mirrored = {
     name: stay.name,
     startDate: new Date(`${stay.checkIn}T00:00:00.000Z`),
     endDate: new Date(`${stay.checkOut}T00:00:00.000Z`),
   }
 
-  const [existing] = await tx
+  const linked = await tx
     .select({ id: reservations.id })
     .from(reservations)
     .where(eq(reservations.stayId, stay.id))
 
-  if (existing) {
+  const detachedRows =
+    linked.length > 0
+      ? []
+      : await tx
+          .select({
+            id: reservations.id,
+            name: reservations.name,
+            startDate: reservations.startDate,
+            endDate: reservations.endDate,
+          })
+          .from(reservations)
+          .where(
+            and(
+              eq(reservations.tripId, stay.tripId),
+              eq(reservations.type, "accommodation"),
+              isNull(reservations.stayId),
+              isNotNull(reservations.detachedAt),
+            ),
+          )
+
+  const plan = planStayBookingWrite({
+    stay,
+    linked,
+    detached: detachedRows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      startDate: r.startDate ? r.startDate.toISOString().slice(0, 10) : null,
+      endDate: r.endDate ? r.endDate.toISOString().slice(0, 10) : null,
+    })),
+  })
+
+  if (plan.kind === "update") {
     await tx.update(reservations).set(mirrored).where(eq(reservations.stayId, stay.id))
     return
   }
 
+  if (plan.kind === "adopt") {
+    // Re-link in place. The user's confirmation number, provider, amount,
+    // status and notes are untouched — only the mirrored fields and the link.
+    await tx
+      .update(reservations)
+      .set({ ...mirrored, stayId: stay.id, source: "stay", detachedAt: null })
+      .where(eq(reservations.id, plan.reservationId))
+    return
+  }
+
+  // `onConflictDoUpdate` rather than a bare insert: two editors saving
+  // accommodation on the same stay concurrently both read no row, and the
+  // second insert would otherwise block on `idx_reservations_stay` and then
+  // raise a unique violation at commit — aborting the whole transaction and
+  // losing the edit as a 500. The index is partial, so the conflict target
+  // has to repeat its predicate.
   await tx
     .insert(reservations)
     .values({
@@ -264,7 +354,11 @@ export async function upsertStayBooking(
       stayId: stay.id,
       createdById,
     })
-    .returning()
+    .onConflictDoUpdate({
+      target: reservations.stayId,
+      targetWhere: sql`stay_id is not null`,
+      set: mirrored,
+    })
 }
 
 /**
@@ -277,6 +371,30 @@ export async function detachStayBooking(tx: Tx, stayId: string): Promise<void> {
     .update(reservations)
     .set({ stayId: null, source: "manual", detachedAt: new Date() })
     .where(eq(reservations.stayId, stayId))
+}
+
+/**
+ * Serialize every accommodation write on a trip. **Call this as the FIRST
+ * statement of the transaction, before touching `itinerary_days`.**
+ *
+ * Reconciliation reads every day, plans against every stay, then writes — so
+ * two concurrent edits on *different* days can both see "no stay for this run"
+ * and each create one, leaving two stays, two derived bookings, and
+ * `itinerary_days.stay_id` pointing at whichever committed last. The trip row
+ * is the natural mutex: every accommodation write belongs to exactly one trip.
+ *
+ * The ordering is load-bearing, not stylistic. `reconcileTripStays` re-points
+ * every one of the trip's day rows, so a caller that updated a day *before*
+ * locking would hold a day lock while waiting for the trip lock, while the
+ * transaction holding the trip lock waits for that day — a deadlock, which
+ * Postgres resolves by aborting one editor's save. Taking the trip row first
+ * everywhere gives a single lock order: `trips`, then `itinerary_days`.
+ *
+ * Re-entrant: `reconcileTripStays` calls it too, and a row lock already held by
+ * the same transaction is a no-op.
+ */
+export async function lockTripForStayWrite(tx: Tx, tripId: string): Promise<void> {
+  await tx.select({ id: trips.id }).from(trips).where(eq(trips.id, tripId)).for("update")
 }
 
 /** Point a set of day rows at a stay. */
@@ -298,12 +416,23 @@ async function linkDays(tx: Tx, dayIds: readonly string[], stayId: string): Prom
  *
  * Safe to call repeatedly: unchanged stays are updated in place and their
  * bookings are upserted, never duplicated.
+ *
+ * Must be called inside a transaction that also contains the `accommodation_*`
+ * write it derives from — those columns are a read-cache of `stays` and this is
+ * their only reconciler, so a write that lands without one leaves the itinerary
+ * and the Bookings tab disagreeing with no path back.
  */
 export async function reconcileTripStays(
   tx: Tx,
   tripId: string,
   userId: string | null,
 ): Promise<void> {
+  // A no-op when the caller already took it, which every accommodation route
+  // does before its day write — see `lockTripForStayWrite` for why the order
+  // matters. Repeated here so a future caller that forgets is still serialized
+  // against everything except its own day locks.
+  await lockTripForStayWrite(tx, tripId)
+
   const days = await tx
     .select({
       id: itineraryDays.id,
@@ -353,6 +482,18 @@ export async function reconcileTripStays(
     checkOut: run.checkOut,
   })
 
+  // Removals run FIRST so the creates below can re-adopt what they detach.
+  // Moving the same hotel to different nights is a remove plus a create (the
+  // key matches but the ranges don't overlap), and detaching after creating
+  // would leave the user's PNR on an orphaned row while the new stay mirrored a
+  // blank one beside it.
+  for (const stayId of plan.remove) {
+    // Detach before delete: `ON DELETE SET NULL` would clear the FK but leave
+    // the row claiming to be derived from a stay that no longer exists.
+    await detachStayBooking(tx, stayId)
+    await tx.delete(stays).where(eq(stays.id, stayId))
+  }
+
   for (const { stayId, run } of plan.update) {
     await tx.update(stays).set(fields(run)).where(eq(stays.id, stayId))
     await linkDays(tx, run.dayIds, stayId)
@@ -370,16 +511,18 @@ export async function reconcileTripStays(
     await syncDayAccommodation(tx, { id: created.id, ...fields(run) })
     await upsertStayBooking(tx, { id: created.id, tripId, ...fields(run) }, userId)
   }
-
-  for (const stayId of plan.remove) {
-    // Detach before delete: `ON DELETE SET NULL` would clear the FK but leave
-    // the row claiming to be derived from a stay that no longer exists.
-    await detachStayBooking(tx, stayId)
-    await tx.delete(stays).where(eq(stays.id, stayId))
-  }
 }
 
-/** Unlinked accommodation bookings on a trip, as adoption candidates. */
+/**
+ * Unlinked accommodation bookings on a trip, as *backfill* adoption candidates.
+ *
+ * Rows carrying `detached_at` are excluded: those were derived once and then
+ * unlinked, which is the user clearing a hotel. #59 promises they may then
+ * retype that row's name and dates freely, so re-adopting it would let the next
+ * accommodation write overwrite exactly the fields they were told they owned.
+ * The live path re-adopts detached rows too, but only on an exact name match
+ * (`planStayBookingWrite`) — the backfill has no such signal to lean on here.
+ */
 export async function findAdoptableStayBookings(
   tx: Tx,
   tripId: string,
@@ -397,6 +540,7 @@ export async function findAdoptableStayBookings(
         eq(reservations.tripId, tripId),
         eq(reservations.type, "accommodation"),
         isNull(reservations.stayId),
+        isNull(reservations.detachedAt),
       ),
     )
 

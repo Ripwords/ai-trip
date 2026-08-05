@@ -7,6 +7,7 @@ import { processUserRequest, type FlightPromptInput } from "../../../../../lib/a
 import { getTripFlightsForUser } from "../../../../../lib/trip-flights"
 import { enrichItinerary, partitionGeocoded } from "../../../../../lib/enrich"
 import { computeAndSaveSegments } from "../../../../../lib/segments"
+import { lockTripForStayWrite, reconcileTripStays } from "../../../../../lib/booking-sync"
 import { getDistanceMatrix } from "../../../../../lib/google-maps"
 import { consecutiveTravelTimes } from "../../../../../lib/travel-times"
 import { sanitizePromptInput } from "../../../../../utils/sanitize"
@@ -461,18 +462,32 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Handle accommodation booking
+    // Handle accommodation booking. One transaction with `reconcileTripStays`,
+    // exactly like the accommodation routes and the set-accommodation apply:
+    // `accommodation_*` is a read-cache of `stays`, so writing it without
+    // reconciling leaves the itinerary showing one hotel while `stays` and the
+    // mirrored booking still hold the previous one — and the next accommodation
+    // edit then detaches and deletes the stay whose booking holds the user's
+    // confirmation number and amount.
     if (result.accommodation) {
-      await db
-        .update(itineraryDays)
-        .set({
-          accommodationName: result.accommodation.name,
-          accommodationAddress: result.accommodation.address,
-          accommodationLat: result.accommodation.lat,
-          accommodationLng: result.accommodation.lng,
-          accommodationPlaceId: result.accommodation.placeId,
-        })
-        .where(eq(itineraryDays.id, dayId))
+      const accommodation = result.accommodation
+      await db.transaction(async (tx) => {
+        // Before the day write, never after — see `lockTripForStayWrite`.
+        await lockTripForStayWrite(tx, id)
+
+        await tx
+          .update(itineraryDays)
+          .set({
+            accommodationName: accommodation.name,
+            accommodationAddress: accommodation.address,
+            accommodationLat: accommodation.lat,
+            accommodationLng: accommodation.lng,
+            accommodationPlaceId: accommodation.placeId,
+          })
+          .where(eq(itineraryDays.id, dayId))
+
+        await reconcileTripStays(tx, id, session.user.id)
+      })
     }
 
     // Recompute a coherent schedule whenever the AI changed the day. One pass

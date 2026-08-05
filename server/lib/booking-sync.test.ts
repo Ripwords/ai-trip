@@ -7,6 +7,7 @@ const {
   matchReservationToStay,
   planStayReconciliation,
   planStayBackfill,
+  planStayBookingWrite,
   upsertStayBooking,
   detachStayBooking,
 } = await import("./booking-sync")
@@ -29,27 +30,51 @@ function run(overrides: Partial<StayRun> & Pick<StayRun, "key" | "checkIn" | "ch
 }
 
 interface Recorded {
-  op: "insert" | "update"
+  op: "insert" | "update" | "delete"
   table: unknown
   values: Record<string, unknown>
+  /** Set on an insert that carried an `ON CONFLICT ... DO UPDATE` clause. */
+  onConflictSet?: Record<string, unknown>
+}
+
+interface FakeRows {
+  /** Rows already pointing at the stay — `select({ id })`. */
+  linked?: Record<string, unknown>[]
+  /** Previously-derived rows whose stay went away — the wider projection. */
+  detached?: Record<string, unknown>[]
 }
 
 /**
- * Structural fake for the drizzle transaction handle. `existing` is what a
- * `select ... from reservations` resolves to, which is how the upsert decides
- * between adopting a row and creating one.
+ * Structural fake for the drizzle transaction handle.
+ *
+ * `upsertStayBooking` issues two different selects against `reservations`, so
+ * the fake dispatches on the projection each one asks for rather than handing
+ * both the same rows — a fake that ignores what was asked for can make a wrong
+ * query look right. `delete` exists precisely so a test can assert nothing ever
+ * calls it; without the method, "issues no delete" only proved the fake was
+ * incomplete.
  */
-function makeFakeTx(existing: Record<string, unknown>[] = []) {
+function makeFakeTx(rows: FakeRows | Record<string, unknown>[] = {}) {
+  const { linked = [], detached = [] } = Array.isArray(rows) ? { linked: rows } : rows
   const ops: Recorded[] = []
+
   const fake = {
-    select: () => ({ from: (table: unknown) => ({ where: async () => (table ? existing : []) }) }),
-    insert: (table: unknown) => ({
-      values: (values: Record<string, unknown>) => ({
-        returning: async () => {
-          ops.push({ op: "insert", table, values })
-          return [{ id: "new-reservation", ...values }]
-        },
+    select: (projection: Record<string, unknown>) => ({
+      from: () => ({
+        where: async () => (Object.keys(projection).length === 1 ? linked : detached),
       }),
+    }),
+    insert: (table: unknown) => ({
+      values: (values: Record<string, unknown>) => {
+        const record = (onConflictSet?: Record<string, unknown>) => {
+          ops.push({ op: "insert", table, values, onConflictSet })
+          return [{ id: "new-reservation", ...values }]
+        }
+        return {
+          returning: async () => record(),
+          onConflictDoUpdate: async (args: { set: Record<string, unknown> }) => record(args.set),
+        }
+      },
     }),
     update: (table: unknown) => ({
       set: (values: Record<string, unknown>) => ({
@@ -57,6 +82,11 @@ function makeFakeTx(existing: Record<string, unknown>[] = []) {
           ops.push({ op: "update", table, values })
         },
       }),
+    }),
+    delete: (table: unknown) => ({
+      where: async () => {
+        ops.push({ op: "delete", table, values: {} })
+      },
     }),
   }
   return { tx: fake as unknown as Tx, ops }
@@ -216,6 +246,62 @@ describe("upsertStayBooking", () => {
     assert.deepEqual(ops[0]!.values.startDate, new Date("2026-03-22T00:00:00.000Z"))
     assert.deepEqual(ops[0]!.values.endDate, new Date("2026-03-25T00:00:00.000Z"))
   })
+
+  // Two editors saving accommodation on the same stay both read no row; a bare
+  // insert would then block on `idx_reservations_stay` and raise a unique
+  // violation at commit, aborting the transaction and losing the edit as a 500.
+  it("inserts with ON CONFLICT DO UPDATE so a concurrent writer can't 500 the edit", async () => {
+    const { tx, ops } = makeFakeTx([])
+    await upsertStayBooking(tx, stay, "user-1")
+
+    assert.equal(ops[0]!.op, "insert")
+    assert.deepEqual(ops[0]!.onConflictSet, {
+      name: "Hotel Nikko",
+      startDate: new Date("2026-03-22T00:00:00.000Z"),
+      endDate: new Date("2026-03-25T00:00:00.000Z"),
+    })
+  })
+
+  it("re-links a detached row in place, keeping its confirmation number and amount", async () => {
+    const { tx, ops } = makeFakeTx({
+      linked: [],
+      detached: [
+        {
+          id: "r-old",
+          name: "Hotel Nikko",
+          startDate: new Date("2026-03-22T00:00:00.000Z"),
+          endDate: new Date("2026-03-25T00:00:00.000Z"),
+        },
+      ],
+    })
+    await upsertStayBooking(tx, stay, "user-1")
+
+    assert.deepEqual(
+      ops.map((o) => o.op),
+      ["update"],
+    )
+    assert.equal(ops[0]!.values.stayId, "stay-1")
+    assert.equal(ops[0]!.values.source, "stay")
+    assert.equal(ops[0]!.values.detachedAt, null)
+    assert.equal(ops[0]!.values.name, "Hotel Nikko")
+    for (const field of ["confirmationNumber", "amount", "provider", "status", "notes"]) {
+      assert.ok(!(field in ops[0]!.values), `${field} must survive the re-link`)
+    }
+  })
+
+  it("does not go looking for a detached row when the stay already has one", async () => {
+    const { tx, ops } = makeFakeTx({
+      linked: [{ id: "r1" }],
+      detached: [{ id: "r-old", name: "Hotel Nikko", startDate: null, endDate: null }],
+    })
+    await upsertStayBooking(tx, stay, "user-1")
+
+    assert.deepEqual(
+      ops.map((o) => o.op),
+      ["update"],
+    )
+    assert.equal(ops[0]!.values.stayId, undefined)
+  })
 })
 
 describe("detachStayBooking", () => {
@@ -236,7 +322,90 @@ describe("detachStayBooking", () => {
   it("issues no delete — a paid PNR is never destroyed by an unlink", async () => {
     const { tx, ops } = makeFakeTx()
     await detachStayBooking(tx, "stay-1")
-    assert.ok(ops.every((o) => o.op !== "insert"))
+    // The fake DOES have a `delete`, so this asserts behaviour rather than the
+    // absence of a method. It also must not insert a replacement row.
+    assert.deepEqual(
+      ops.map((o) => o.op),
+      ["update"],
+    )
+  })
+})
+
+describe("planStayBookingWrite", () => {
+  const target = { name: "Hotel Nikko", checkIn: "2026-03-22", checkOut: "2026-03-25" }
+
+  function detached(over: Partial<StayBookingCandidate> = {}): StayBookingCandidate {
+    return {
+      id: "r-detached",
+      name: "Hotel Nikko",
+      startDate: "2026-03-22",
+      endDate: "2026-03-25",
+      ...over,
+    }
+  }
+
+  it("updates the row already linked to the stay", () => {
+    assert.deepEqual(
+      planStayBookingWrite({ stay: target, linked: [{ id: "r1" }], detached: [detached()] }),
+      { kind: "update", reservationId: "r1" },
+    )
+  })
+
+  // Clearing a hotel detaches its booking and deletes the stay; re-setting the
+  // same hotel used to mirror a *blank* second row beside it, so the trip
+  // carried two accommodation bookings for the same nights and the budget
+  // counted the money twice once the user filled the new one in.
+  it("re-adopts the row its own detach left behind rather than inserting a duplicate", () => {
+    assert.deepEqual(planStayBookingWrite({ stay: target, linked: [], detached: [detached()] }), {
+      kind: "adopt",
+      reservationId: "r-detached",
+    })
+  })
+
+  // A stay whose name genuinely changed is a different hotel. The old row keeps
+  // its own name, PNR and amount as a detached manual booking — transplanting
+  // someone else's confirmation number onto it would be strictly worse than
+  // showing two rows for two hotels.
+  it("does not transplant a detached row onto a differently-named stay", () => {
+    assert.deepEqual(
+      planStayBookingWrite({
+        stay: target,
+        linked: [],
+        detached: [detached({ name: "Ryokan Asaba" })],
+      }),
+      { kind: "insert" },
+    )
+  })
+
+  it("re-adopts across a date move — the same hotel on different nights", () => {
+    assert.deepEqual(
+      planStayBookingWrite({
+        stay: target,
+        linked: [],
+        detached: [detached({ startDate: "2026-05-01", endDate: "2026-05-04" })],
+      }),
+      { kind: "adopt", reservationId: "r-detached" },
+    )
+  })
+
+  it("inserts when two detached rows share the name and neither overlaps", () => {
+    assert.deepEqual(
+      planStayBookingWrite({
+        stay: target,
+        linked: [],
+        detached: [
+          detached({ id: "r1", startDate: "2026-05-01", endDate: "2026-05-04" }),
+          detached({ id: "r2", startDate: "2026-06-01", endDate: "2026-06-04" }),
+        ],
+      }),
+      { kind: "insert" },
+    )
+  })
+
+  it("inserts when there is nothing to adopt", () => {
+    assert.deepEqual(planStayBookingWrite({ stay: target, linked: [], detached: [] }), {
+      kind: "insert",
+    })
   })
 })
 
