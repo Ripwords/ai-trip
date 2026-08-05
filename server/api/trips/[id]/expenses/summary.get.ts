@@ -31,6 +31,8 @@ export default defineEventHandler(async (event) => {
       columns: {
         id: true,
         amount: true,
+        currencyCode: true,
+        amountInTripCurrency: true,
         category: true,
         paidAt: true,
         paidById: true,

@@ -55,10 +55,22 @@ export async function convertTripMoney(
   }
 
   // Expenses are NOT rewritten. `amount` + `currencyCode` record what was
-  // actually paid and are immutable; only the trip-currency *projection*
-  // moves. Composing the rates (old expense→old trip, then old trip→new trip)
-  // is exact and needs no per-currency FX lookup, so a trip with expenses in
-  // five currencies still re-projects in one statement.
+  // actually paid and are immutable; only the trip-currency *projection* moves.
+  //
+  // KNOWN BROKEN — this statement is why the PR is marked "needs rework":
+  //
+  // 1. It chains off its own previous output instead of re-deriving from the
+  //    immutable `amount`, so error compounds. $100.00 cycled
+  //    USD→JPY→EUR→USD three times lands on 100.06 with fxRate 1.00076386.
+  //    An earlier version of this comment claimed composition "is exact". It
+  //    is not, and the arithmetic above is the counter-example.
+  // 2. `COALESCE(..., amount)` multiplies a FOREIGN-currency amount by a
+  //    trip-to-trip rate. A ¥3,200 expense on a USD trip switching to EUR
+  //    yields 2944 EUR instead of ~19 EUR — roughly 155x over. The same class
+  //    of fallback sits in expense-summary.ts and settlement.ts.
+  //
+  // The fix is to re-derive from (`amount`, `currencyCode`) → new trip
+  // currency with a real per-currency rate, which cannot be one statement.
   await tx
     .update(expenses)
     .set({

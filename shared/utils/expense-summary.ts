@@ -23,8 +23,11 @@ import { fromMinorUnits, toMinorUnits } from "./money"
 
 export interface SummaryExpense {
   id: string
-  /** Denominated in the trip's currency. */
+  /** What was paid, in `currencyCode`. */
   amount: string
+  currencyCode: string
+  /** The trip-currency projection; null on rows written before #47. */
+  amountInTripCurrency: string | null
   category: string
   paidAt: string | null
   paidById: string | null
@@ -79,6 +82,7 @@ export interface TripExpenseSummary {
   byCategory: { category: string; amount: number }[]
   byDay: { date: string; amount: number }[]
   byPayer: { userId: string; name: string; amount: number }[]
+  byCurrency: { currencyCode: string; amount: number; amountInTripCurrency: number }[]
   /** Spend with no date, excluded from `byDay` so the two reconcile. */
   undatedTotal: number
   tripDays: number
@@ -103,12 +107,14 @@ export function summariseTripExpenses(input: SummariseTripExpensesInput): TripEx
   const byCategory = new Map<string, number>()
   const byDay = new Map<string, number>()
   const byPayer = new Map<string, number>()
+  const byCurrency = new Map<string, { own: number; trip: number }>()
   const actualByActivity = new Map<string, number>()
 
   const activityIds = new Set(input.activities.map((a) => a.id))
 
   for (const e of input.expenses) {
-    const minor = toTrip(e.amount)
+    // Rows predating per-expense currencies have no projection.
+    const minor = toTrip(e.amountInTripCurrency ?? e.amount)
     expensesMinor += minor
 
     byCategory.set(e.category || "other", (byCategory.get(e.category || "other") ?? 0) + minor)
@@ -117,6 +123,11 @@ export function summariseTripExpenses(input: SummariseTripExpensesInput): TripEx
     else undatedMinor += minor
 
     if (e.paidById) byPayer.set(e.paidById, (byPayer.get(e.paidById) ?? 0) + minor)
+
+    const own = byCurrency.get(e.currencyCode) ?? { own: 0, trip: 0 }
+    own.own += toMinorUnits(e.amount, e.currencyCode) ?? 0
+    own.trip += minor
+    byCurrency.set(e.currencyCode, own)
 
     if (e.activityId && activityIds.has(e.activityId)) {
       linkedMinor += minor
@@ -191,6 +202,13 @@ export function summariseTripExpenses(input: SummariseTripExpensesInput): TripEx
         amount: out(minor),
       }))
       .toSorted((a, b) => b.amount - a.amount || a.userId.localeCompare(b.userId)),
+    byCurrency: [...byCurrency.entries()]
+      .map(([currencyCode, sums]) => ({
+        currencyCode,
+        amount: Number(fromMinorUnits(sums.own, currencyCode)),
+        amountInTripCurrency: out(sums.trip),
+      }))
+      .toSorted((a, b) => b.amountInTripCurrency - a.amountInTripCurrency),
     undatedTotal: out(undatedMinor),
     tripDays,
     elapsedDays,

@@ -28,6 +28,8 @@ function input(overrides: Partial<SummariseTripExpensesInput> = {}): SummariseTr
 const expense = (over: Partial<SummariseTripExpensesInput["expenses"][number]> = {}) => ({
   id: "e1",
   amount: "10.00",
+  currencyCode: "USD",
+  amountInTripCurrency: null,
   category: "food",
   paidAt: "2026-03-01",
   paidById: "a",
@@ -174,6 +176,42 @@ describe("summariseTripExpenses — breakdowns", () => {
     assert.deepEqual(s.byPayer, [
       { userId: "b", name: "Bob", amount: 30 },
       { userId: "a", name: "Alice", amount: 10 },
+    ])
+  })
+})
+
+// Issue #47: expenses carry their own currency; the summary reports in the
+// trip's currency using the derived projection, and surfaces what was paid.
+describe("summariseTripExpenses — multi-currency", () => {
+  it("uses the trip-currency projection, not the raw foreign amount", () => {
+    const s = summariseTripExpenses(
+      input({
+        expenses: [expense({ amount: "3200", currencyCode: "JPY", amountInTripCurrency: "20.64" })],
+      }),
+    )
+    assert.equal(s.expensesTotal, 20.64)
+  })
+
+  it("falls back to amount when a legacy row has no projection", () => {
+    const s = summariseTripExpenses(
+      input({ expenses: [expense({ amountInTripCurrency: null, amount: "12.50" })] }),
+    )
+    assert.equal(s.expensesTotal, 12.5)
+  })
+
+  it("reports every currency actually paid in", () => {
+    const s = summariseTripExpenses(
+      input({
+        expenses: [
+          expense({ id: "1", currencyCode: "JPY", amount: "3200", amountInTripCurrency: "20.00" }),
+          expense({ id: "2", currencyCode: "JPY", amount: "800", amountInTripCurrency: "5.00" }),
+          expense({ id: "3", currencyCode: "USD", amount: "9.00", amountInTripCurrency: "9.00" }),
+        ],
+      }),
+    )
+    assert.deepEqual(s.byCurrency, [
+      { currencyCode: "JPY", amount: 4000, amountInTripCurrency: 25 },
+      { currencyCode: "USD", amount: 9, amountInTripCurrency: 9 },
     ])
   })
 })

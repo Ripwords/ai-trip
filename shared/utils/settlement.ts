@@ -12,7 +12,10 @@
  * 1. **Splits are honoured** (#35). The old version divided every expense
  *    equally across every active member, ignoring `expenses.splits` entirely,
  *    so a taxi two of five people took was billed to all five.
- * 2. **Transfers, not just balances** (#36). "Alice is +120, Bob is -80" left
+ * 2. **Multi-currency** (#47). Expenses carry their own currency; settlement
+ *    reports in the trip currency via the derived `amountInTripCurrency`,
+ *    never the raw foreign figure.
+ * 3. **Transfers, not just balances** (#36). "Alice is +120, Bob is -80" left
  *    the group doing the arithmetic by hand.
  *
  * All arithmetic is in integer minor units (see ./money) so the transfers
@@ -35,8 +38,12 @@ export interface SettlementMember {
 }
 
 export interface SettlementExpense {
-  /** What was paid. Denominated in the trip's currency. */
+  /** What was paid, in `currencyCode`. */
   amount: string
+  /** Defaults to the trip currency for rows written before #47. */
+  currencyCode?: string | null
+  /** The derived trip-currency figure; falls back to `amount` when absent. */
+  amountInTripCurrency?: string | null
   paidById?: string | null
   /** Resolved per-participant amounts; null means "equal across all members". */
   splits?: Record<string, string> | null
@@ -92,7 +99,11 @@ export function computeSettlement(
   let unattributedMinor = 0
 
   for (const expense of expenses) {
-    const amountMinor = toMinorUnits(expense.amount, tripCurrencyCode)
+    // The trip-currency projection is the settlement's unit of account. Rows
+    // predating #47 have no projection, so their `amount` is already trip
+    // currency by definition — the old converter rewrote it in place.
+    const source = expense.amountInTripCurrency ?? expense.amount
+    const amountMinor = toMinorUnits(source, tripCurrencyCode)
     if (amountMinor == null) continue
 
     const payerId = expense.paidById
@@ -149,9 +160,11 @@ export function computeSettlement(
 /**
  * Who owes what for one expense, in trip-currency minor units.
  *
- * Stored splits are applied as **ratios** against the expense total rather than
- * used as amounts directly, so they reconcile exactly by construction even when
- * the stored figures were resolved against a different total.
+ * Stored splits are recorded in the expense's *own* currency, so they can't be
+ * used as trip-currency figures directly — converting each share separately
+ * would round each one and they would no longer add up. They are applied as
+ * **ratios** against the trip-currency total instead, which reconciles exactly
+ * by construction.
  *
  * Participants who are no longer members are dropped and their share spread
  * over whoever remains: an uncollectable share would leave the balances not
@@ -165,11 +178,12 @@ function shareOut(
 ): Record<string, number> {
   const stored = expense.splits
   if (stored) {
+    const expenseCurrency = expense.currencyCode ?? tripCurrencyCode
     const participantIds: string[] = []
     const weights: Record<string, number> = {}
     for (const [userId, text] of Object.entries(stored)) {
       if (!memberIds.includes(userId)) continue
-      const weight = toMinorUnits(text, tripCurrencyCode)
+      const weight = toMinorUnits(text, expenseCurrency)
       if (weight == null || weight <= 0) continue
       participantIds.push(userId)
       weights[userId] = weight

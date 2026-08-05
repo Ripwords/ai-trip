@@ -154,18 +154,31 @@ describe("computeSettlement — stored splits", () => {
   })
 })
 
-describe("computeSettlement — zero-decimal currencies", () => {
-  it("reports whole units for a zero-decimal trip currency", () => {
-    const s = computeSettlement([e("3000", "a")], members, "JPY")
+// Issue #47: expenses carry their own currency; the settlement reports in the
+// trip's currency using the derived amount, never the raw foreign one.
+describe("computeSettlement — multi-currency", () => {
+  it("settles on amountInTripCurrency when the expense is foreign", () => {
+    const s = computeSettlement(
+      [e("3200", "a", { currencyCode: "JPY", amountInTripCurrency: "20.00" })],
+      members,
+      "USD",
+    )
+    assert.equal(s.attributedTotal, 20)
     assert.deepEqual(
       s.balances.map((b) => b.balance),
-      [1500, -1500],
+      [10, -10],
     )
   })
 
-  it("applies stored splits as ratios so the shares still reconcile exactly", () => {
+  it("applies stored splits as ratios so the trip-currency shares still reconcile", () => {
     const s = computeSettlement(
-      [e("20.01", "a", { splits: { a: "6.67", b: "6.67", c: "6.67" } })],
+      [
+        e("3000", "a", {
+          currencyCode: "JPY",
+          amountInTripCurrency: "20.01",
+          splits: { a: "1000", b: "1000", c: "1000" },
+        }),
+      ],
       trio,
       "USD",
     )
@@ -174,6 +187,14 @@ describe("computeSettlement — zero-decimal currencies", () => {
       0,
     )
     assert.equal(s.attributedTotal, 20.01)
+  })
+
+  it("reports whole units for a zero-decimal trip currency", () => {
+    const s = computeSettlement([e("3000", "a", { currencyCode: "JPY" })], members, "JPY")
+    assert.deepEqual(
+      s.balances.map((b) => b.balance),
+      [1500, -1500],
+    )
   })
 })
 
