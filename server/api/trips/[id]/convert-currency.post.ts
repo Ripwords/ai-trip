@@ -1,14 +1,16 @@
 import { eq } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../../../db"
-import { trips } from "../../../db/schema"
-import { uuidParamsSchema } from "../../../utils/schemas"
+import { expenses, trips } from "../../../db/schema"
+import { currencyCodeSchema, uuidParamsSchema } from "../../../utils/schemas"
 import { getExchangeRate } from "../../../utils/exchange-rate"
-import { convertTripMoney } from "../../../lib/convert-trip-currency"
+import { convertTripMoney, resolveExpenseProjectionRates } from "../../../lib/convert-trip-currency"
 
 const bodySchema = z.object({
-  from: z.string().length(3),
-  to: z.string().length(3),
+  // Was `z.string().length(3)`, which accepts "1a3" and would store it as the
+  // trip's currency — see server/utils/schemas.ts.
+  from: currencyCodeSchema,
+  to: currencyCodeSchema,
 })
 
 export default defineEventHandler(async (event) => {
@@ -22,7 +24,7 @@ export default defineEventHandler(async (event) => {
     return { converted: false, rate: 1 }
   }
 
-  // Fetch exchange rate BEFORE opening the transaction so a slow/failing
+  // Fetch exchange rates BEFORE opening the transaction so a slow/failing
   // upstream call doesn't hold a DB transaction open. getExchangeRate is
   // cached (6h) and validates the rate (finite, > 0).
   const rate = await getExchangeRate(body.from, body.to)
@@ -32,6 +34,20 @@ export default defineEventHandler(async (event) => {
       message: "Could not fetch exchange rate. Please try again.",
     })
   }
+
+  // Expenses are re-projected from their own immutable `amount`, so each
+  // distinct expense currency needs its own rate into the target — a trip with
+  // a ¥3,200 lunch and a $40 dinner cannot be converted by any single rate.
+  // Resolved out here, and a failure aborts before anything is written.
+  const expenseCurrencyRows = await db
+    .selectDistinct({ currencyCode: expenses.currencyCode })
+    .from(expenses)
+    .where(eq(expenses.tripId, id))
+  const expenseRates = await resolveExpenseProjectionRates(
+    expenseCurrencyRows.map((r) => r.currencyCode),
+    body.to,
+    getExchangeRate,
+  )
 
   // All mutations run in a single transaction so a mid-flight failure can't
   // leave the trip in a half-converted state.
@@ -55,7 +71,30 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    await convertTripMoney(tx, id, rate, body.to)
+    await convertTripMoney(tx, id, {
+      fromCurrency: current.currencyCode,
+      toCurrency: body.to,
+      rate,
+      expenseRates,
+    })
+  })
+
+  await logTripAction({
+    tripId: id,
+    userId: session.user.id,
+    action: "trip_currency_converted",
+    description: `Trip currency changed from ${body.from} to ${body.to}`,
+    // Nothing recorded currency changes before this — not this route, and not
+    // `PUT /api/trips/:id`, which logged the constant string "Trip details
+    // updated" with no metadata. That absence is why migration 0041 cannot say
+    // what currency a pre-#47 expense was paid in, and has to record NULL
+    // instead. Log it now so the next person asking this question has an answer.
+    metadata: {
+      from: body.from,
+      to: body.to,
+      rate,
+      expenseRates: Object.fromEntries(expenseRates),
+    },
   })
 
   return { converted: true, rate }
