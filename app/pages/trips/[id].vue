@@ -148,6 +148,10 @@ async function exportExpensesCsv() {
  */
 const { data: expenseSummary, refresh: refreshExpenseSummary } = useLazyFetch<TripExpenseSummary>(
   `/api/trips/${tripId}/expenses/summary`,
+  // "Today" has to come from the viewer's own calendar. The server used to
+  // derive it from `new Date().toISOString()`, which is UTC, so burn rate and
+  // elapsed days were a day out for everyone east or west of it.
+  { query: { today: todayCalendarDate() } },
 )
 
 /** The list and the summary are two views of the same data; refresh together. */

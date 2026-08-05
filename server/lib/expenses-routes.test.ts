@@ -1586,6 +1586,56 @@ describe("expense splits", () => {
   })
 })
 
+// A PUT names only the fields it is changing. Defaulting the *unnamed* split
+// fields to "equal across everyone" silently destroyed the stored split: the
+// edit form re-sends the values of a 3-way percent split, and the expense came
+// back an equal one. Absent means unchanged, for the mode and the participants
+// alike.
+describe("PUT expense — the split fields it was not given", () => {
+  function percentExpense(overrides: Partial<ExpenseRow> = {}): ExpenseRow {
+    return makeExpense({
+      amount: "100",
+      amountInTripCurrency: "100",
+      splitMode: "percent",
+      splits: { [OWNER_ID]: "75", [EDITOR_ID]: "25" },
+      ...overrides,
+    })
+  }
+
+  it("keeps the stored mode when only the values change", async () => {
+    seed({ expenses: [percentExpense()] })
+    await updateExpense(makeEvent({ body: { splitValues: { [OWNER_ID]: 50, [EDITOR_ID]: 50 } } }))
+    assert.equal(store.expenses[0]?.splitMode, "percent")
+    assert.deepEqual(store.expenses[0]?.splits, { [OWNER_ID]: "50", [EDITOR_ID]: "50" })
+  })
+
+  it("keeps the stored mode when only the participants change", async () => {
+    seed({ expenses: [percentExpense({ splitMode: "shares" })] })
+    await updateExpense(makeEvent({ body: { participantIds: [OWNER_ID, EDITOR_ID] } }))
+    assert.equal(store.expenses[0]?.splitMode, "shares")
+  })
+
+  it("still lets an explicit splitMode win", async () => {
+    seed({ expenses: [percentExpense()] })
+    await updateExpense(
+      makeEvent({ body: { splitMode: "equal", participantIds: [OWNER_ID, EDITOR_ID] } }),
+    )
+    assert.equal(store.expenses[0]?.splitMode, "equal")
+    assert.deepEqual(store.expenses[0]?.splits, { [OWNER_ID]: "50", [EDITOR_ID]: "50" })
+  })
+
+  // `splitMode` is a plain `text` column, so a value that is not one of
+  // SPLIT_MODES can be in there. It used to be cast straight to SplitMode and
+  // written back unchecked — the only unsafe cast in the money path.
+  it("falls back to an equal split when the stored mode is not a known one", async () => {
+    seed({ expenses: [percentExpense({ splitMode: "proportional-ish" })] })
+    await updateExpense(makeEvent({ body: { amount: "200" } }))
+    assert.equal(store.expenses[0]?.splitMode, "equal")
+    // The proportions still come from the stored amounts, not from the mode.
+    assert.deepEqual(store.expenses[0]?.splits, { [OWNER_ID]: "150", [EDITOR_ID]: "50" })
+  })
+})
+
 describe("per-expense currency", () => {
   it("defaults to the trip's currency at a rate of 1", async () => {
     seed()
