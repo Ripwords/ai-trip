@@ -257,12 +257,13 @@ function formatDuration(minutes: number): string {
         >
           {{ formatPriceLevel(activity.priceLevel) }}
         </span>
-        <span
-          v-if="activity.actualCost"
-          class="flex items-center gap-1 text-forest-600 font-medium"
-        >
-          Paid: {{ formatCurrency(activity.actualCost, { compact: true }) }}
-        </span>
+        <!-- `activity.actualCost` is deliberately NOT rendered here (#39). The
+             expense summary derives an activity's actual spend from the
+             expenses linked to it, and the two disagree — they were both on
+             screen at once, with nothing to tell a user which was real. The
+             derived figure wins: it is the one backed by rows someone actually
+             entered. The column stays until a backfill PR turns each
+             `actualCost` into a real expense row. -->
         <span v-if="activity.notes" class="flex items-center gap-1" title="Has notes">
           <Icon name="lucide:sticky-note" class="h-3.5 w-3.5" />
         </span>
