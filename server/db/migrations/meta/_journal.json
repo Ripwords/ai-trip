@@ -232,6 +232,13 @@
       "when": 1785850599917,
       "tag": "0032_sturdy_slipstream",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1785899979353,
+      "tag": "0033_expense_split_mode",
+      "breakpoints": true
     }
   ]
 }

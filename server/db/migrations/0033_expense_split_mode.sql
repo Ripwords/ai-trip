@@ -1,0 +1,1 @@
+ALTER TABLE "expenses" ADD COLUMN "split_mode" text DEFAULT 'equal' NOT NULL;

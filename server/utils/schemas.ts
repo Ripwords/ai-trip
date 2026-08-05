@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { transportModes } from "./transport"
 import { EXPENSE_CATEGORIES } from "../../shared/utils/expense-categories"
+import { SPLIT_MODES } from "../../shared/utils/splits"
 
 export const uuidParamsSchema = z.object({
   id: z.string().uuid(),
@@ -206,6 +207,7 @@ export const updateAccommodationRangeSchema = updateAccommodationSchema.extend({
 // Expenses. Categories come from shared/ so the client picker and badge map
 // cannot drift from what the server accepts.
 export const expenseCategoryEnum = z.enum(EXPENSE_CATEGORIES)
+export const splitModeEnum = z.enum(SPLIT_MODES)
 
 export const createExpenseSchema = z.object({
   description: z.string().min(1),
@@ -213,6 +215,11 @@ export const createExpenseSchema = z.object({
   category: expenseCategoryEnum.optional(),
   activityId: z.string().uuid().nullish(),
   paidById: z.string().nullish(),
+  // How this expense is shared (#35). `participantIds` omitted means everyone
+  // on the trip; anything else is stored resolved in `expenses.splits`.
+  splitMode: splitModeEnum.optional(),
+  participantIds: z.array(z.string()).max(50).optional(),
+  splitValues: z.record(z.string(), z.number().finite()).optional(),
   // A calendar date, not an instant — the `paid_at` column is a `date`.
   // Legacy clients may still send a full ISO timestamp; take its date part
   // rather than rejecting, since that is exactly what used to be stored.

@@ -47,10 +47,15 @@ interface ExpenseRow {
   tripId: string
   activityId: string | null
   description: string
+  /** Denominated in the trip's currency. */
   amount: string
   category: string
   paidById: string | null
   paidAt: string | null
+  /** How `splits` was derived (#35). */
+  splitMode: string
+  /** Resolved per-participant amounts; null = equal across everyone. */
+  splits: Record<string, string> | null
   createdAt: Date
 }
 
@@ -58,6 +63,8 @@ interface TripRow {
   id: string
   userId: string
   currencyCode: string
+  /** The owner's user row, joined by `listSettlementMembers`. */
+  user: { id: string; name: string }
   /** The counter the fix in #42 introduces. Harmless while unused. */
   expenseCount: number
 }
@@ -67,6 +74,7 @@ interface MemberRow {
   userId: string
   role: "editor" | "viewer"
   status: "active" | "pending"
+  user: { id: string; name: string }
 }
 
 interface ActivityRow {
@@ -110,10 +118,30 @@ function emptyStore(): Store {
 function seed(overrides: Partial<Store> = {}): void {
   store = {
     ...emptyStore(),
-    trips: [{ id: TRIP_ID, userId: OWNER_ID, currencyCode: "JPY", expenseCount: 0 }],
+    trips: [
+      {
+        id: TRIP_ID,
+        userId: OWNER_ID,
+        currencyCode: "JPY",
+        user: { id: OWNER_ID, name: "Olivia Owner" },
+        expenseCount: 0,
+      },
+    ],
     members: [
-      { tripId: TRIP_ID, userId: EDITOR_ID, role: "editor", status: "active" },
-      { tripId: TRIP_ID, userId: VIEWER_ID, role: "viewer", status: "active" },
+      {
+        tripId: TRIP_ID,
+        userId: EDITOR_ID,
+        role: "editor",
+        status: "active",
+        user: { id: EDITOR_ID, name: "Eddie Editor" },
+      },
+      {
+        tripId: TRIP_ID,
+        userId: VIEWER_ID,
+        role: "viewer",
+        status: "active",
+        user: { id: VIEWER_ID, name: "Vera Viewer" },
+      },
     ],
     ...overrides,
   }
@@ -130,6 +158,8 @@ function makeExpense(overrides: Partial<ExpenseRow> = {}): ExpenseRow {
     category: "food",
     paidById: null,
     paidAt: "2026-08-04",
+    splitMode: "equal",
+    splits: null,
     createdAt: new Date("2026-08-04T00:00:00Z"),
     ...overrides,
   }
@@ -255,6 +285,8 @@ function makeClient(ctx: TxContext) {
             category: (values.category as string) ?? "other",
             paidById: (values.paidById as string | null) ?? null,
             paidAt: (values.paidAt as string | null) ?? null,
+            splitMode: (values.splitMode as string) ?? "equal",
+            splits: (values.splits as Record<string, string> | null) ?? null,
             createdAt: new Date(),
           }
           store.expenses.push(row)
@@ -305,6 +337,7 @@ const original = {
   transaction: db.transaction,
   tripsFindFirst: db.query.trips.findFirst,
   membersFindFirst: db.query.tripMembers.findFirst,
+  membersFindMany: db.query.tripMembers.findMany,
   expensesFindFirst: db.query.expenses.findFirst,
   expensesFindMany: db.query.expenses.findMany,
   activitiesFindFirst: db.query.activities.findFirst,
@@ -341,6 +374,13 @@ function installFakeDb(): void {
     ops.push("query.trips.findFirst")
     return store.trips.find((t) => t.id === request.tripId)
   }) as unknown as typeof db.query.trips.findFirst
+
+  db.query.tripMembers.findMany = (async () => {
+    ops.push("query.tripMembers.findMany")
+    return store.members
+      .filter((m) => m.tripId === request.tripId && m.status === "active")
+      .map((m) => structuredClone(m))
+  }) as unknown as typeof db.query.tripMembers.findMany
 
   db.query.tripMembers.findFirst = (async () => {
     ops.push("query.tripMembers.findFirst")
@@ -381,6 +421,7 @@ function restoreDb(): void {
   db.transaction = original.transaction
   db.query.trips.findFirst = original.tripsFindFirst
   db.query.tripMembers.findFirst = original.membersFindFirst
+  db.query.tripMembers.findMany = original.membersFindMany
   db.query.expenses.findFirst = original.expensesFindFirst
   db.query.expenses.findMany = original.expensesFindMany
   db.query.activities.findFirst = original.activitiesFindFirst
@@ -403,6 +444,7 @@ interface NitroGlobals {
   requireAuth?: unknown
   requireTripAccess?: unknown
   logTripAction?: unknown
+  $fetch?: unknown
 }
 
 const globals = globalThis as NitroGlobals
@@ -641,13 +683,33 @@ describe("POST expenses", () => {
 
 function seedAtCount(count: number): void {
   seed({
-    trips: [{ id: TRIP_ID, userId: OWNER_ID, currencyCode: "JPY", expenseCount: count }],
+    trips: [
+      {
+        id: TRIP_ID,
+        userId: OWNER_ID,
+        currencyCode: "JPY",
+        user: { id: OWNER_ID, name: "Olivia Owner" },
+        expenseCount: count,
+      },
+    ],
     expenses: Array.from({ length: count }, (_, i) =>
       makeExpense({ id: crypto.randomUUID(), createdAt: new Date(2026, 0, 1, 0, i) }),
     ),
     members: [
-      { tripId: TRIP_ID, userId: EDITOR_ID, role: "editor", status: "active" },
-      { tripId: TRIP_ID, userId: VIEWER_ID, role: "viewer", status: "active" },
+      {
+        tripId: TRIP_ID,
+        userId: EDITOR_ID,
+        role: "editor",
+        status: "active",
+        user: { id: EDITOR_ID, name: "Eddie Editor" },
+      },
+      {
+        tripId: TRIP_ID,
+        userId: VIEWER_ID,
+        role: "viewer",
+        status: "active",
+        user: { id: VIEWER_ID, name: "Vera Viewer" },
+      },
     ],
   })
 }
@@ -780,6 +842,121 @@ describe("PUT expense", () => {
     assert.equal(store.expenses[0]?.paidAt, "2026-08-04")
     await updateExpense(makeEvent({ body: { paidAt: null } }))
     assert.equal(store.expenses[0]?.paidAt, null)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The money model — issues #35 (splits) and #39 (activity link)
+// ---------------------------------------------------------------------------
+
+describe("expense splits", () => {
+  // The tracker used to hardcode an equal split across every active member, so
+  // a taxi two of five people took was charged to all five. A NULL `splits`
+  // still means "everyone", but now that is a choice rather than the only path.
+  it("stores no split when the expense is shared by everyone", async () => {
+    seed()
+    await createExpense(makeEvent({ body: validBody() }))
+    assert.equal(store.expenses[0]?.splits, null)
+    assert.equal(store.expenses[0]?.splitMode, "equal")
+  })
+
+  it("stores resolved amounts once the participant set is narrowed", async () => {
+    seed()
+    await createExpense(
+      makeEvent({
+        body: validBody({ amount: "90", participantIds: [OWNER_ID, EDITOR_ID] }),
+      }),
+    )
+    // JPY has no minor unit, so the halves are whole yen.
+    assert.deepEqual(store.expenses[0]?.splits, { [OWNER_ID]: "45", [EDITOR_ID]: "45" })
+  })
+
+  it("resolves a shares split into amounts that sum to the expense", async () => {
+    seed()
+    await createExpense(
+      makeEvent({
+        body: validBody({
+          amount: "100",
+          splitMode: "shares",
+          participantIds: [OWNER_ID, EDITOR_ID, VIEWER_ID],
+          splitValues: { [OWNER_ID]: 1, [EDITOR_ID]: 1, [VIEWER_ID]: 1 },
+        }),
+      }),
+    )
+    const splits = store.expenses[0]?.splits ?? {}
+    assert.equal(
+      Object.values(splits).reduce((sum, v) => sum + Number(v), 0),
+      100,
+    )
+  })
+
+  it("rejects a participant who is not on the trip", async () => {
+    seed()
+    await assertStatus(
+      createExpense(makeEvent({ body: validBody({ participantIds: [OWNER_ID, STRANGER_ID] }) })),
+      400,
+    )
+    assert.equal(store.expenses.length, 0)
+  })
+
+  it("rejects exact splits that do not add up to the expense", async () => {
+    seed()
+    await assertStatus(
+      createExpense(
+        makeEvent({
+          body: validBody({
+            amount: "100",
+            splitMode: "exact",
+            participantIds: [OWNER_ID, EDITOR_ID],
+            splitValues: { [OWNER_ID]: 60, [EDITOR_ID]: 30 },
+          }),
+        }),
+      ),
+      400,
+    )
+  })
+
+  // A stored split is a set of resolved amounts against a particular total.
+  // Leaving it untouched when the amount changes would leave the expense not
+  // adding up, so PUT re-resolves it, preserving the proportions.
+  it("re-resolves a stored split when the amount changes", async () => {
+    seed({
+      expenses: [
+        makeExpense({
+          amount: "100",
+          splitMode: "exact",
+          splits: { [OWNER_ID]: "75", [EDITOR_ID]: "25" },
+        }),
+      ],
+    })
+    await updateExpense(makeEvent({ body: { amount: "200" } }))
+    assert.deepEqual(store.expenses[0]?.splits, { [OWNER_ID]: "150", [EDITOR_ID]: "50" })
+  })
+
+  it("clears the split when the participants are cleared", async () => {
+    seed({
+      expenses: [makeExpense({ splits: { [OWNER_ID]: "6", [EDITOR_ID]: "6" } })],
+    })
+    await updateExpense(makeEvent({ body: { splitMode: "equal", participantIds: [] } }))
+    assert.equal(store.expenses[0]?.splits, null)
+  })
+})
+
+describe("activity link", () => {
+  // `expenses.activityId` had a column, an index and a relation, and no code
+  // path ever set it, so estimated and actual cost never met.
+  it("stores the activity an expense belongs to", async () => {
+    seed({ activities: [{ id: ACTIVITY_ID, day: { tripId: TRIP_ID } }] })
+    await createExpense(
+      makeEvent({ activityId: ACTIVITY_ID, body: validBody({ activityId: ACTIVITY_ID }) }),
+    )
+    assert.equal(store.expenses[0]?.activityId, ACTIVITY_ID)
+  })
+
+  it("clears the link when sent null", async () => {
+    seed({ expenses: [makeExpense({ activityId: ACTIVITY_ID })] })
+    await updateExpense(makeEvent({ body: { activityId: null } }))
+    assert.equal(store.expenses[0]?.activityId, null)
   })
 })
 
