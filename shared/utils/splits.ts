@@ -16,6 +16,13 @@ import { fromMinorUnits, toMinorUnits } from "./money"
 export const SPLIT_MODES = ["equal", "exact", "shares", "percent"] as const
 export type SplitMode = (typeof SPLIT_MODES)[number]
 
+/**
+ * How far a `percent` split may drift from 100 before it is rejected.
+ * Percentages arrive as JS numbers from a form, so 33.33 + 33.33 + 33.34
+ * lands a hair off 100 and three thirds entered as 33.333 land 0.001 short.
+ */
+const PERCENT_TOLERANCE = 0.01
+
 export interface ResolveSplitsInput {
   /** The expense total, in the expense's own currency's minor units. */
   amountMinor: number
@@ -26,6 +33,13 @@ export interface ResolveSplitsInput {
    * Per-participant input, meaning depends on `mode`:
    * `shares` = weights, `percent` = percentages, `exact` = minor units.
    * Ignored for `equal`.
+   *
+   * Rejected with a plain `Error` (callers turn it into a 400) when the input
+   * cannot be honoured as stated: negative or non-finite values in any mode,
+   * `exact` values that don't sum to the amount, `percent` values that don't
+   * sum to 100, or an all-zero `shares`/`percent` form. Nothing is silently
+   * clamped or rescaled — a split the user did not ask for is a bug, not a
+   * fallback.
    */
   values?: Readonly<Record<string, number>>
 }
@@ -54,18 +68,36 @@ export function resolveSplits(input: ResolveSplitsInput): ResolvedSplits {
   const weights = participantIds.map((id) => {
     if (mode === "equal") return 1
     const v = values?.[id] ?? 0
-    // Negative weights are meaningless and would let one person's share
-    // silently inflate everyone else's; clamp rather than throw.
-    return Number.isFinite(v) && v > 0 ? v : 0
+    // A negative or NaN weight is never a typo the code should guess at: the
+    // old version clamped it to 0, silently rewriting what the user stated.
+    if (!Number.isFinite(v)) {
+      throw new Error(`${mode} splits must be finite numbers (got ${String(v)} for "${id}")`)
+    }
+    if (v < 0) {
+      throw new Error(`${mode} splits cannot be negative (got ${v} for "${id}")`)
+    }
+    return v
   })
 
   const weightTotal = weights.reduce((a, b) => a + b, 0)
-  // All-zero weights (e.g. a percent form submitted empty) would divide by
-  // zero. Degrade to an equal split rather than producing NaN.
-  const effective = weightTotal > 0 ? weights : participantIds.map(() => 1)
-  const effectiveTotal = weightTotal > 0 ? weightTotal : participantIds.length
 
-  return distributeByLargestRemainder(amountMinor, participantIds, effective, effectiveTotal)
+  // Percentages are absolute, not relative: 50 + 30 means 20% is unallocated,
+  // not "scale these up to fill the expense". Normalising them the way shares
+  // are normalised turned 50/30 of 100.00 into 62.50/37.50, quietly
+  // reallocating money the user deliberately left out. `exact` has always
+  // rejected the analogous mismatch; `percent` now matches it. The tolerance
+  // absorbs float dust from form inputs (33.33 x 3 = 99.99).
+  if (mode === "percent" && Math.abs(weightTotal - 100) > PERCENT_TOLERANCE) {
+    throw new Error(`Percent splits must sum to 100 (${weightTotal} ≠ 100)`)
+  }
+
+  // Shares are genuinely relative, so normalising them is correct — but an
+  // all-zero form is a mistake, not an instruction to split equally.
+  if (weightTotal <= 0) {
+    throw new Error(`${mode} splits must include at least one non-zero value`)
+  }
+
+  return distributeByLargestRemainder(amountMinor, participantIds, weights, weightTotal)
 }
 
 /**

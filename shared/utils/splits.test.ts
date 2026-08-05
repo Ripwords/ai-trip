@@ -74,14 +74,57 @@ describe("resolveSplits — shares", () => {
     assert.deepEqual(r, { a: 333, b: 667 })
   })
 
-  it("falls back to equal when every share is zero", () => {
+  it("keeps a zero-weight participant at zero rather than dropping them", () => {
     const r = resolveSplits({
       amountMinor: 900,
       mode: "shares",
       participantIds: ["a", "b", "c"],
-      values: { a: 0, b: 0, c: 0 },
+      values: { a: 1, b: 2, c: 0 },
     })
-    assert.deepEqual(r, { a: 300, b: 300, c: 300 })
+    assert.deepEqual(r, { a: 300, b: 600, c: 0 })
+    assert.equal(sum(r), 900)
+  })
+
+  // Used to degrade to an equal split, which invents an allocation nobody
+  // stated. An all-empty shares form is a mistake, not an instruction.
+  it("throws when every share is zero instead of degrading to equal", () => {
+    assert.throws(
+      () =>
+        resolveSplits({
+          amountMinor: 900,
+          mode: "shares",
+          participantIds: ["a", "b", "c"],
+          values: { a: 0, b: 0, c: 0 },
+        }),
+      /non-zero/i,
+    )
+  })
+
+  // Negatives were silently clamped to 0, quietly rewriting the input.
+  it("throws on a negative share rather than clamping it to zero", () => {
+    assert.throws(
+      () =>
+        resolveSplits({
+          amountMinor: 900,
+          mode: "shares",
+          participantIds: ["a", "b"],
+          values: { a: 3, b: -1 },
+        }),
+      /negative/i,
+    )
+  })
+
+  it("throws on a non-finite share", () => {
+    assert.throws(
+      () =>
+        resolveSplits({
+          amountMinor: 900,
+          mode: "shares",
+          participantIds: ["a", "b"],
+          values: { a: 1, b: Number.NaN },
+        }),
+      /finite/i,
+    )
   })
 })
 
@@ -97,14 +140,104 @@ describe("resolveSplits — percent", () => {
     assert.deepEqual(r, { a: 3333, b: 3333, c: 3334 })
   })
 
-  it("normalises percentages that do not add to 100", () => {
+  it("accepts a whole-number split that lands exactly on 100", () => {
+    const r = resolveSplits({
+      amountMinor: 10000,
+      mode: "percent",
+      participantIds: ["a", "b"],
+      values: { a: 60, b: 40 },
+    })
+    assert.deepEqual(r, { a: 6000, b: 4000 })
+  })
+
+  // The bug: percentages were normalised by whatever they happened to total,
+  // so 50 + 30 became 62.5 / 37.5 — silently reallocating the 20% the user
+  // deliberately left unassigned. It must be rejected, not reinterpreted.
+  it("throws when the percentages leave part of the expense unallocated", () => {
+    assert.throws(
+      () =>
+        resolveSplits({
+          amountMinor: 10000,
+          mode: "percent",
+          participantIds: ["a", "b"],
+          values: { a: 50, b: 30 },
+        }),
+      /must sum to 100/i,
+    )
+  })
+
+  it("does not produce the old rescaled 6250/3750 for 50 + 30", () => {
+    let result: Record<string, number> | null = null
+    try {
+      result = resolveSplits({
+        amountMinor: 10000,
+        mode: "percent",
+        participantIds: ["a", "b"],
+        values: { a: 50, b: 30 },
+      })
+    } catch {
+      result = null
+    }
+    assert.equal(result, null)
+  })
+
+  it("throws when the percentages overshoot 100", () => {
+    assert.throws(
+      () =>
+        resolveSplits({
+          amountMinor: 6000,
+          mode: "percent",
+          participantIds: ["a", "b"],
+          values: { a: 50, b: 150 },
+        }),
+      /must sum to 100/i,
+    )
+  })
+
+  it("tolerates float dust around 100", () => {
+    const r = resolveSplits({
+      amountMinor: 10000,
+      mode: "percent",
+      participantIds: ["a", "b", "c"],
+      values: { a: 33.333, b: 33.333, c: 33.333 },
+    })
+    assert.equal(sum(r), 10000)
+  })
+
+  it("throws when every percentage is zero", () => {
+    assert.throws(
+      () =>
+        resolveSplits({
+          amountMinor: 6000,
+          mode: "percent",
+          participantIds: ["a", "b"],
+          values: { a: 0, b: 0 },
+        }),
+      /must sum to 100/i,
+    )
+  })
+
+  it("throws on a negative percentage", () => {
+    assert.throws(
+      () =>
+        resolveSplits({
+          amountMinor: 6000,
+          mode: "percent",
+          participantIds: ["a", "b"],
+          values: { a: 110, b: -10 },
+        }),
+      /negative/i,
+    )
+  })
+
+  it("allows a participant recorded at 0%", () => {
     const r = resolveSplits({
       amountMinor: 6000,
       mode: "percent",
-      participantIds: ["a", "b"],
-      values: { a: 50, b: 150 },
+      participantIds: ["a", "b", "c"],
+      values: { a: 100, b: 0, c: 0 },
     })
-    assert.deepEqual(r, { a: 1500, b: 4500 })
+    assert.deepEqual(r, { a: 6000, b: 0, c: 0 })
   })
 })
 
