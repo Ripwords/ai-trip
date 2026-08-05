@@ -1,4 +1,8 @@
 import { ref } from "vue"
+import type {
+  GenerationRunStartResponse,
+  GenerationRunStateResponse,
+} from "#shared/utils/generation-run-contract"
 import { planGenerationRun } from "../utils/generation-plan"
 import { buildDayPromptFromOutline, type OutlineDayEntry } from "../utils/outline-prompt"
 
@@ -6,13 +10,6 @@ type DayWithActivities = {
   id: string
   dayNumber: number
   activities: { id: string }[]
-}
-
-interface OutlineResponse {
-  outline: {
-    days: OutlineDayEntry[]
-    avoidRepeats: string[]
-  }
 }
 
 const GENERIC_PROMPT = "Plan this day with a good mix of activities, food, and sightseeing"
@@ -36,24 +33,61 @@ export function useGenerateFullItinerary(tripId: string) {
   const currentDayLabel = ref("")
   const errorMessage = ref("")
   const noticeMessage = ref("")
+  /** Credits this run has billed so far, updated as the loop advances. */
+  const creditsSpent = ref(0)
+  /** Credits left this month, decremented alongside `creditsSpent`. */
+  const creditsRemaining = ref<number | undefined>(undefined)
+  /** Days a previous, interrupted run still has left. Zero when there is none. */
+  const resumableDays = ref(0)
 
-  async function generateDay(dayId: string, prompt: string): Promise<void> {
+  async function generateDay(dayId: string, prompt: string, runId: string): Promise<void> {
     await $fetch(`/api/trips/${tripId}/days/${dayId}/ai`, {
       method: "POST",
-      body: { prompt, intent: "fill_gaps" },
+      body: { prompt, intent: "fill_gaps", runId },
     })
   }
 
-  async function run(days: DayWithActivities[], aiRemaining?: number): Promise<boolean> {
-    // Sorted ascending so the loop below is in day order by construction: each
-    // day persists before the next starts, and the day AI's own cross-day
-    // dedup depends on seeing what came before.
-    const emptyDays = days
-      .filter((d) => d.activities.length === 0)
-      .toSorted((a, b) => a.dayNumber - b.dayNumber)
-    const plan = planGenerationRun(emptyDays.length, aiRemaining)
-    if (plan.mode === "none") return false
+  /**
+   * Free look at the trip's live run. Called before the confirm dialog so the
+   * traveler is quoted the price of RESUMING (N) rather than of starting over
+   * (N+1) — and on page load, so a reopened tab can offer to pick up.
+   */
+  async function loadRunState(): Promise<GenerationRunStateResponse | null> {
+    try {
+      const state = await $fetch<GenerationRunStateResponse>(`/api/trips/${tripId}/generation-run`)
+      resumableDays.value = state.run?.remaining.length ?? 0
+      creditsRemaining.value = state.aiUsage.remaining
+      return state
+    } catch {
+      // A run peek must never block generation; fall back to starting fresh.
+      resumableDays.value = 0
+      return null
+    }
+  }
 
+  /** Abandon the live run so the next generate starts from a fresh plan. */
+  async function discardRun(): Promise<void> {
+    try {
+      await $fetch(`/api/trips/${tripId}/generation-run`, { method: "DELETE" })
+    } finally {
+      resumableDays.value = 0
+    }
+  }
+
+  async function run(days: DayWithActivities[], aiRemaining?: number): Promise<boolean> {
+    const emptyDayCount = days.filter((d) => d.activities.length === 0).length
+
+    // Costs nothing, so it happens before the confirm: resuming reuses a plan
+    // that has already been paid for, and quoting N+1 for it would be a lie.
+    const state = await loadRunState()
+    const resumable = state?.run && state.run.remaining.length > 0 ? state.run : null
+    const dayCount = resumable ? resumable.remaining.length : emptyDayCount
+    const remainingCredits = state?.aiUsage.remaining ?? aiRemaining
+
+    const plan = planGenerationRun(dayCount, remainingCredits, {
+      outlineAlreadyPaid: Boolean(resumable),
+    })
+    if (plan.mode === "none") return false
     if (!(await confirm(plan.confirm))) return false
 
     running.value = true
@@ -62,40 +96,52 @@ export function useGenerateFullItinerary(tripId: string) {
     currentDayIndex.value = 0
     currentDayLabel.value = ""
     // Set from the plan up front so progress UI never renders "Day 1 of 0"
-    // while the outline fetch (which can take several seconds) is in flight.
+    // while the run request (which can take several seconds while the outline
+    // is generated) is in flight.
     totalDays.value = plan.dayCount
 
     try {
-      // Outline is best-effort: any failure — including a 200 with zero usable
-      // days — downgrades to generic prompts rather than blocking generation.
-      let outlineByDayId = new Map<string, OutlineDayEntry>()
-      let avoidRepeats: string[] = []
-      if (plan.mode === "outline") {
-        try {
-          const res = await $fetch<OutlineResponse>(`/api/trips/${tripId}/generate-outline`, {
-            method: "POST",
-            body: {},
-          })
-          if (res.outline.days.length === 0) {
-            noticeMessage.value = OUTLINE_FALLBACK_NOTICE
-          } else {
-            outlineByDayId = new Map(res.outline.days.map((d) => [d.dayId, d]))
-            avoidRepeats = res.outline.avoidRepeats
-          }
-        } catch {
-          noticeMessage.value = OUTLINE_FALLBACK_NOTICE
-        }
+      // One call starts a run or picks up the trip's existing one. The server
+      // decides which, and charges the outline credit at most once per run.
+      let started: GenerationRunStartResponse
+      try {
+        started = await $fetch<GenerationRunStartResponse>(`/api/trips/${tripId}/generation-run`, {
+          method: "POST",
+          // `generic` means the traveler can't afford the plan on top of the
+          // days, so don't buy one.
+          body: { skipOutline: plan.mode === "generic" },
+        })
+      } catch (e) {
+        errorMessage.value =
+          statusOf(e) === 429
+            ? "You're out of AI prompts this month."
+            : "Couldn't start generation. Please try again."
+        return false
       }
 
-      // Sequential and in day order on purpose: each day persists before the next
-      // starts, so the day AI's own cross-day dedup sees what came before.
-      const targets = emptyDays.slice(0, plan.dayCount)
+      creditsSpent.value = started.summary.creditsCharged
+      creditsRemaining.value = started.aiUsage.remaining
+      if (plan.mode === "outline" && !started.outline) {
+        noticeMessage.value = OUTLINE_FALLBACK_NOTICE
+      }
+
+      const outlineByDayId = new Map<string, OutlineDayEntry>(
+        (started.outline?.days ?? []).map((d) => [d.dayId, d]),
+      )
+      const avoidRepeats = started.outline?.avoidRepeats ?? []
+
+      // Sequential and in day order on purpose — NOT merely to be gentle on
+      // quota. Each day persists before the next starts, and the day AI's
+      // cross-day dedup reads what came before; generating in parallel would
+      // let two days pick the same restaurant. The server returns `remaining`
+      // already sorted by day number.
+      const targets = started.remaining.slice(0, plan.dayCount)
       totalDays.value = targets.length
       const failed: number[] = []
 
       for (let i = 0; i < targets.length; i++) {
         const day = targets[i]!
-        const entry = outlineByDayId.get(day.id)
+        const entry = outlineByDayId.get(day.dayId)
         currentDayIndex.value = i
         currentDayLabel.value = entry
           ? `Day ${day.dayNumber} — ${entry.theme}`
@@ -103,13 +149,22 @@ export function useGenerateFullItinerary(tripId: string) {
 
         const prompt = entry ? buildDayPromptFromOutline(entry, avoidRepeats) : GENERIC_PROMPT
         try {
-          await generateDay(day.id, prompt)
+          await generateDay(day.dayId, prompt, started.runId)
+          creditsSpent.value += 1
+          if (creditsRemaining.value !== undefined) creditsRemaining.value -= 1
         } catch (e) {
+          const status = statusOf(e)
+          // 409: another tab holds this day. Not a failure of ours — leaving it
+          // out of `failed` keeps it available to the next resume.
+          if (status === 409) continue
           // A 400 means the outline-derived prompt tripped the server's prompt
-          // sanitizer — retry the day once with the plain prompt.
-          if (statusOf(e) === 400 && prompt !== GENERIC_PROMPT) {
+          // sanitizer — retry the day once with the plain prompt. The day's
+          // claim was already released as failed, so the retry re-claims it.
+          if (status === 400 && prompt !== GENERIC_PROMPT) {
             try {
-              await generateDay(day.id, GENERIC_PROMPT)
+              await generateDay(day.dayId, GENERIC_PROMPT, started.runId)
+              creditsSpent.value += 1
+              if (creditsRemaining.value !== undefined) creditsRemaining.value -= 1
               continue
             } catch {
               failed.push(day.dayNumber)
@@ -122,10 +177,11 @@ export function useGenerateFullItinerary(tripId: string) {
 
       if (failed.length > 0) {
         const dayList = failed.join(", ")
-        errorMessage.value = `Generated ${targets.length - failed.length} of ${targets.length} days. Day ${dayList} failed — try again manually.`
+        errorMessage.value = `Generated ${targets.length - failed.length} of ${targets.length} days. Day ${dayList} failed — press Generate again to retry just those days; you won't be charged for the days that worked.`
       }
 
       currentDayLabel.value = ""
+      await loadRunState()
       return true
     } finally {
       running.value = false
@@ -134,11 +190,16 @@ export function useGenerateFullItinerary(tripId: string) {
 
   return {
     run,
+    loadRunState,
+    discardRun,
     running,
     currentDayIndex,
     totalDays,
     currentDayLabel,
     errorMessage,
     noticeMessage,
+    creditsSpent,
+    creditsRemaining,
+    resumableDays,
   }
 }

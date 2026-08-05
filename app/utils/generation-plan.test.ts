@@ -110,3 +110,44 @@ describe("planGenerationRun", () => {
     assert.deepEqual(plan, { mode: "none" })
   })
 })
+
+describe("planGenerationRun resuming a paid-for run", () => {
+  const resuming = { outlineAlreadyPaid: true } as const
+
+  it("quotes N prompts, not N + 1, and says the plan is already paid for", () => {
+    const plan = planGenerationRun(4, 10, resuming)
+    assert.equal(plan.mode, "outline")
+    const message = plan.mode === "outline" ? plan.confirm.message : ""
+    assert.match(message, /Uses 4 AI prompts \(1 per day\)/)
+    assert.doesNotMatch(message, /5 AI prompts/)
+    assert.match(message, /already paid for/)
+    assert.equal(plan.mode === "outline" ? plan.confirm.title : "", "Resume generating itinerary")
+  })
+
+  it("keeps the outline path when credits cover the days but not days + 1", () => {
+    // 4 days, 4 credits: a fresh run would drop to generic here, but the plan
+    // has already been bought, so all 4 days can still be generated from it.
+    const plan = planGenerationRun(4, 4, resuming)
+    assert.equal(plan.mode, "outline")
+    assert.equal(plan.mode === "outline" && plan.dayCount, 4)
+  })
+
+  it("still caps the day count when credits run short", () => {
+    const plan = planGenerationRun(6, 2, resuming)
+    assert.equal(plan.mode, "generic")
+    assert.equal(plan.mode === "generic" && plan.dayCount, 2)
+    const message = plan.mode === "generic" ? plan.confirm.message : ""
+    assert.match(message, /6 more days needs 6 prompts/)
+    assert.doesNotMatch(message, /7 prompts/)
+  })
+
+  it("attempts one day at zero remaining so the server 429 surfaces", () => {
+    const plan = planGenerationRun(3, 0, resuming)
+    assert.equal(plan.mode, "generic")
+    assert.equal(plan.mode === "generic" && plan.dayCount, 1)
+  })
+
+  it("is unchanged when there is nothing left to generate", () => {
+    assert.deepEqual(planGenerationRun(0, 10, resuming), { mode: "none" })
+  })
+})

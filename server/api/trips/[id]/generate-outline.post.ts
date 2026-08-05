@@ -1,15 +1,11 @@
-import { eq } from "drizzle-orm"
-import { db } from "../../../db"
-import { tripIdeas } from "../../../db/schema"
 import { uuidParamsSchema } from "../../../utils/schemas"
 import { refundAiCredit } from "../../../utils/ai-limits"
 import { getTripWithRelations } from "../../../lib/trips"
-import { getTripFlightsForUser } from "../../../lib/trip-flights"
+import type { TripOutline } from "../../../lib/trip-outline"
 import {
-  buildTripOutline,
-  type TripOutline,
-  type TripOutlineInput,
-} from "../../../lib/trip-outline"
+  assertDistinctEmptyDayNumbers,
+  buildOutlineForTrip,
+} from "../../../lib/trip-outline-request"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -22,32 +18,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Trip not found" })
   }
 
-  const sortedDays = trip.days.toSorted((a, b) => a.dayNumber - b.dayNumber)
-  const hasEmptyDay = sortedDays.some((d) => d.activities.length === 0)
+  const hasEmptyDay = trip.days.some((d) => d.activities.length === 0)
   if (!hasEmptyDay) {
     // 400 BEFORE any credit spend — nothing to outline.
     throw createError({ statusCode: 400, message: "This trip has no empty days to plan." })
   }
 
-  // Defense-in-depth: itinerary_days has no unique constraint on (trip_id, day_number)
-  // — only a non-unique index. buildTripOutline keys its empty-day lookup Map by
-  // dayNumber, so two empty days sharing a dayNumber would silently collapse to one
-  // dayId and send that day's plan to the wrong day (or drop a day's plan entirely).
-  // This should never happen given how days are numbered on write, but if it ever
-  // does, fail loudly BEFORE spending a credit rather than risk a misdirected outline.
-  const emptyDayNumbers = sortedDays
-    .filter((d) => d.activities.length === 0)
-    .map((d) => d.dayNumber)
-  if (new Set(emptyDayNumbers).size !== emptyDayNumbers.length) {
-    const duplicates = emptyDayNumbers.filter((n, i) => emptyDayNumbers.indexOf(n) !== i)
-    console.error(
-      `[generate-outline] duplicate dayNumber(s) among empty days for trip ${id}: ${[...new Set(duplicates)].join(", ")}`,
-    )
-    throw createError({
-      statusCode: 500,
-      message: "This trip's days are in an inconsistent state. Please contact support.",
-    })
-  }
+  // Defense-in-depth: itinerary_days has no unique constraint on
+  // (trip_id, day_number). Throws BEFORE any credit is spent.
+  assertDistinctEmptyDayNumbers(trip)
 
   // Consume AFTER auth + access + existence + empty-day checks, so every throw
   // above never needs a refund. Every throw below is refunded exactly once by
@@ -56,41 +35,7 @@ export default defineEventHandler(async (event) => {
 
   let outline: TripOutline
   try {
-    const savedIdeas = await db.query.tripIdeas.findMany({
-      where: eq(tripIdeas.tripId, id),
-      columns: { name: true, type: true, description: true },
-    })
-
-    const flights = await getTripFlightsForUser({ tripId: id, userId: session.user.id })
-
-    const input: TripOutlineInput = {
-      destination: trip.destination,
-      startDate: trip.startDate,
-      endDate: trip.endDate,
-      preferences: trip.preferences ?? undefined,
-      tripNotes: trip.tripNotes,
-      savedIdeas,
-      days: sortedDays.map((d) => ({
-        dayId: d.id,
-        dayNumber: d.dayNumber,
-        date: d.date,
-        isEmpty: d.activities.length === 0,
-        existingActivityNames: d.activities.map((a) => a.name),
-        accommodationName: d.accommodationName,
-      })),
-      // Same shape the day-AI and discuss endpoints send — including the local
-      // times, which buildFlightsCtx prefers over UTC.
-      flights: flights.map((f) => ({
-        departureAirport: f.departureAirport,
-        arrivalAirport: f.arrivalAirport,
-        departureTimeUtc: f.departureTime?.toISOString() ?? null,
-        arrivalTimeUtc: f.arrivalTime?.toISOString() ?? null,
-        departureTimeLocal: f.departureTimeLocal,
-        arrivalTimeLocal: f.arrivalTimeLocal,
-      })),
-    }
-
-    outline = await buildTripOutline(input)
+    outline = await buildOutlineForTrip(trip, session.user.id)
 
     await logTripAction({
       tripId: id,

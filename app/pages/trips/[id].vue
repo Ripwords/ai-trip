@@ -852,6 +852,8 @@ const {
   currentDayLabel: generatingDayLabel,
   errorMessage: generateErrorMessage,
   noticeMessage: generateNoticeMessage,
+  creditsSpent: generateCreditsSpent,
+  creditsRemaining: generateCreditsRemaining,
 } = useGenerateFullItinerary(tripId)
 
 async function refreshAiUsage() {
@@ -2086,6 +2088,12 @@ async function recomputeSegments(dayId: string) {
             <span class="opacity-60"
               >({{ generatingDayIndex + 1 }} of {{ generatingDayTotal }})</span
             >
+            <!-- Running cost, so the price of a long run is never a surprise. -->
+            <span v-if="generateCreditsSpent > 0" class="opacity-60">
+              · {{ generateCreditsSpent }} used<template v-if="generateCreditsRemaining != null"
+                >, {{ generateCreditsRemaining }} left</template
+              >
+            </span>
           </span>
         </div>
       </div>
