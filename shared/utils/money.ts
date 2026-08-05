@@ -32,22 +32,34 @@ export function toMinorUnits(amount: string, currencyCode: string): number | nul
   return sign === "-" ? -value : value
 }
 
+/**
+ * The number of minor units in one major unit — `10 ** decimals`.
+ *
+ * Derived rather than hardcoded to `100`: `currencyDecimals` is the single
+ * place that knows a currency's exponent, and a hardcoded `/ 100` here would
+ * silently truncate the moment it learns about a third decimal. See
+ * `THREE_DECIMAL_CURRENCIES` in ./currency for why none are accepted today.
+ */
+export function minorUnitFactor(currencyCode: string): number {
+  return 10 ** currencyDecimals(currencyCode)
+}
+
 /** `12345` -> `"123.45"`, DB-ready at the currency's precision. */
 export function fromMinorUnits(minor: number, currencyCode: string): string {
   const decimals = currencyDecimals(currencyCode)
   if (decimals === 0) return String(Math.round(minor))
 
+  const factor = minorUnitFactor(currencyCode)
   const sign = minor < 0 ? "-" : ""
   const abs = Math.abs(Math.round(minor))
-  const whole = Math.floor(abs / 100)
-  const rest = abs % 100
-  return `${sign}${whole}.${String(rest).padStart(2, "0")}`
+  const whole = Math.floor(abs / factor)
+  const rest = abs % factor
+  return `${sign}${whole}.${String(rest).padStart(decimals, "0")}`
 }
 
 /** For values that are already JS numbers (form inputs, API rates). */
 export function minorUnitsFromNumber(amount: number, currencyCode: string): number {
-  const factor = currencyDecimals(currencyCode) === 0 ? 1 : 100
-  return Math.round(amount * factor)
+  return Math.round(amount * minorUnitFactor(currencyCode))
 }
 
 /** Convenience so callers don't hand-roll a reduce over integers. */
@@ -69,7 +81,5 @@ export function multiplyMinorUnits(
   rate: number,
   toCurrency: string,
 ): number {
-  const fromFactor = currencyDecimals(fromCurrency) === 0 ? 1 : 100
-  const toFactor = currencyDecimals(toCurrency) === 0 ? 1 : 100
-  return Math.round((minor / fromFactor) * rate * toFactor)
+  return Math.round((minor / minorUnitFactor(fromCurrency)) * rate * minorUnitFactor(toCurrency))
 }
