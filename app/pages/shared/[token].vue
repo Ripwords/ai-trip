@@ -177,7 +177,7 @@ function mapsLinkFor(activity: SharedActivity): string {
           class="focus-ring inline-flex min-h-11 shrink-0 items-center rounded-full px-4 py-2.5 text-sm font-medium transition active:scale-95"
           :class="
             day.id === currentDayId
-              ? 'bg-terra-500 text-white shadow-sm'
+              ? 'bg-cta text-white shadow-sm'
               : 'bg-sand-100 text-sand-600 hover:bg-sand-200'
           "
           @click="activeDayId = day.id"
@@ -216,7 +216,7 @@ function mapsLinkFor(activity: SharedActivity): string {
           >
             <div class="flex items-start gap-3">
               <span
-                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-terra-500 text-xs font-bold text-white"
+                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cta text-xs font-bold text-white"
               >
                 {{ index + 1 }}
               </span>
@@ -238,7 +238,7 @@ function mapsLinkFor(activity: SharedActivity): string {
                     :href="mapsLinkFor(activity)"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="inline-flex min-w-0 max-w-full items-center gap-1.5 text-ocean-600 transition hover:text-terra-600"
+                    class="-my-3 inline-flex min-w-0 max-w-full items-center gap-1.5 py-3 text-ocean-600 transition hover:text-terra-600"
                     :title="activity.address"
                     @click.stop
                   >

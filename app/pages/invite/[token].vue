@@ -44,8 +44,8 @@ async function acceptInvite() {
     success.value = true
     setTimeout(() => navigateTo(`/trips/${result.tripId}`), 1500)
   } catch (e: unknown) {
-    const err = e as { data?: { message?: string } }
-    error.value = err.data?.message ?? "Failed to accept invite"
+    const err = e as { data?: { message?: string }; statusMessage?: string }
+    error.value = humanMessage(err.data?.message, "We couldn't accept that invite.")
   } finally {
     loading.value = false
   }
@@ -84,7 +84,10 @@ onMounted(() => {
         </div>
         <h2 class="font-display text-xl text-sand-900">Invite Error</h2>
         <p class="text-sm text-sand-600">{{ error }}</p>
-        <NuxtLink to="/dashboard" class="mt-4 inline-block text-sm text-terra-600 underline">
+        <NuxtLink
+          to="/dashboard"
+          class="mt-4 inline-flex min-h-11 items-center justify-center text-sm text-terra-600 underline"
+        >
           Go to dashboard
         </NuxtLink>
       </div>

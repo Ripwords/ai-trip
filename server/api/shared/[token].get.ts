@@ -8,7 +8,16 @@ const paramsSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const { token } = await getValidatedRouterParams(event, paramsSchema.parse)
+  // A malformed share token is indistinguishable, to the visitor, from an
+  // expired one — both should read as "this link doesn't work", never as a Zod
+  // issue array. See server/utils/friendly-error.ts.
+  const { token } = await getValidatedRouterParams(event, (params) =>
+    parseParamsOrFail(
+      params,
+      paramsSchema.parse,
+      "That share link isn't valid. Check you copied the whole link.",
+    ),
+  )
 
   const trip = await db.query.trips.findFirst({
     where: eq(trips.shareToken, token),
