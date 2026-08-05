@@ -19,9 +19,10 @@ import {
 import {
   researchCacheKey,
   isCacheableResearch,
-  normalizeResearchDestination,
+  researchSearchLocation,
   researchIntent,
   RESEARCH_INTENT_FOCUS,
+  type ResearchLocation,
 } from "./ai-cache"
 import { filterDuplicateActivities } from "../utils/activity-dedup"
 
@@ -344,20 +345,22 @@ const mastra = new Mastra({
 // day. 24h TTL; failures (empty string) are never cached so a transient web
 // failure can't stick (see Phase 1 FX-cache lesson).
 //
-// The search runs on the SAME normalized city + coarse intent bucket the cache
-// key is built from, never the raw prompt. Keying on the raw prompt meant the
-// cache practically never hit (issue #31) — and generating off inputs the key
-// does not capture would serve one prompt's answer under another prompt's key.
+// The key is derived from the trip's destination identity (countryCode +
+// destination, both constant for a trip) plus a coarse intent bucket, never the
+// raw prompt — keying on the raw prompt meant the cache practically never hit
+// (issue #31). The SEARCH runs on the destination as written: the key's
+// normalization must never leak into the query, or a US trip ends up literally
+// searching "recommendations in ca, usa".
 const doResearch = defineCachedFunction(
-  async (destination: string, userContext?: string): Promise<string> => {
-    const city = normalizeResearchDestination(destination) || destination.trim()
+  async (location: ResearchLocation, userContext?: string): Promise<string> => {
+    const place = researchSearchLocation(location) || "the destination"
     const intent = researchIntent(userContext)
     const focus = RESEARCH_INTENT_FOCUS[intent]
-    logger.info("[research] Searching for", { city, intent })
+    logger.info("[research] Searching for", { place, intent })
     try {
       const agent = mastra.getAgent("planner")
       const response = await agent.generate(
-        `Search the web for local hidden gems, authentic restaurants, and traveler recommendations in ${city}.${focus ? ` Focus on: ${focus}.` : ""}`,
+        `Search the web for local hidden gems, authentic restaurants, and traveler recommendations in ${place}.${focus ? ` Focus on: ${focus}.` : ""}`,
       )
       logger.info("[research] Done", { length: response.text.length })
       // If sanitization rejects the result (injection pattern / over-length), drop
@@ -368,9 +371,9 @@ const doResearch = defineCachedFunction(
         logger.warn("[research] Sanitization dropped results, proceeding without research")
         return ""
       }
-      // The attribute carries the normalized city, which is letters/spaces/commas
-      // only — a raw dayLocation could have closed the attribute.
-      return `<research_results source="web_search" destination="${city}" focus="${intent}">\n${sanitizedResults}\n</research_results>`
+      // researchSearchLocation already strips the characters that could close
+      // the attribute (" < > &).
+      return `<research_results source="web_search" destination="${place}" focus="${intent}">\n${sanitizedResults}\n</research_results>`
     } catch (e) {
       logger.error("[research] Web search failed, proceeding without research", {
         error: String(e),
@@ -382,8 +385,8 @@ const doResearch = defineCachedFunction(
     maxAge: 60 * 60 * 24,
     name: "aiResearch",
     group: "ai",
-    getKey: (destination: string, userContext?: string) =>
-      researchCacheKey(destination, userContext),
+    getKey: (location: ResearchLocation, userContext?: string) =>
+      researchCacheKey(location, userContext),
     validate: (entry: { value?: string }) => isCacheableResearch(entry.value),
   },
 )
@@ -394,6 +397,8 @@ async function handleAdd(
   params: {
     prompt: string
     destination: string
+    /** Identity + query for the cached web-research pass. See ResearchLocation. */
+    researchLocation: ResearchLocation
     date: string
     dayNumber: number
     currencyCode: string
@@ -418,7 +423,7 @@ async function handleAdd(
   })
 
   // Step 1: Research via agent (with web search tool)
-  const research = await doResearch(params.destination, params.prompt)
+  const research = await doResearch(params.researchLocation, params.prompt)
 
   // Step 2: Generate structured output with full day context
   let existingCtx = ""
@@ -506,6 +511,8 @@ async function handleFillGaps(
   params: {
     prompt: string
     destination: string
+    /** Identity + query for the cached web-research pass. See ResearchLocation. */
+    researchLocation: ResearchLocation
     date: string
     dayNumber: number
     currencyCode: string
@@ -535,7 +542,7 @@ async function handleFillGaps(
   const existingNames = params.existingActivities.map((a) => a.name.toLowerCase().trim())
 
   // Step 1: Research via agent (with web search)
-  const research = await doResearch(params.destination, params.prompt)
+  const research = await doResearch(params.researchLocation, params.prompt)
 
   // Step 2: Generate structured output via AI SDK (reliable)
   let existingCtx = ""
@@ -758,6 +765,8 @@ Ensure activity times don't overlap each other. The segments engine handles trav
 async function handleAccommodation(params: {
   prompt: string
   destination: string
+  /** Identity + query for the cached web-research pass. See ResearchLocation. */
+  researchLocation: ResearchLocation
   preferences?: TripPreferences
   nearbyActivities?: { name: string; address?: string | null }[]
 }): Promise<{
@@ -771,7 +780,7 @@ async function handleAccommodation(params: {
 
   // Step 1: Research via agent
   const research = await doResearch(
-    params.destination,
+    params.researchLocation,
     `hotels accommodation airbnb ${params.prompt}`,
   )
 
@@ -834,6 +843,13 @@ export async function processUserRequest(params: {
   intent: "add" | "remove" | "modify" | "optimize" | "reschedule" | "fill_gaps" | "accommodation"
   destination: string
   tripDestination: string
+  /**
+   * `trips.countryCode` — part of the research cache-key identity, so two trips
+   * to "Paris" in different countries never share a cached research block.
+   */
+  countryCode?: string | null
+  /** Display name for `countryCode`, appended to the web-search query only. */
+  countryName?: string | null
   tripId: string
   dayId: string
   transportMode: TransportMode
@@ -876,6 +892,15 @@ export async function processUserRequest(params: {
     "the destination"
   params = { ...params, destination: safeDestination }
 
+  // One identity for the whole request. `destination` is constant for a trip, so
+  // every day's differently-worded prompt lands on the same research cache key —
+  // the hit rate issue #31 was actually about — without any address parsing.
+  const researchLocation: ResearchLocation = {
+    destination: safeDestination,
+    countryCode: params.countryCode,
+    countryName: params.countryName,
+  }
+
   // Live USD→trip-currency rate for prompt anchors. Null degrades to static
   // hints inside buildCurrencyCtx — never blocks generation.
   const usdRate = await getExchangeRate("USD", params.currencyCode)
@@ -901,6 +926,7 @@ export async function processUserRequest(params: {
         const { activities } = await handleAdd({
           prompt: params.prompt,
           destination: params.destination,
+          researchLocation,
           date: params.date,
           dayNumber: params.dayNumber,
           currencyCode: params.currencyCode,
@@ -948,6 +974,7 @@ export async function processUserRequest(params: {
         const { activities } = await handleAdd({
           prompt: params.prompt,
           destination: params.destination,
+          researchLocation,
           date: params.date,
           dayNumber: params.dayNumber,
           currencyCode: params.currencyCode,
@@ -1021,6 +1048,7 @@ export async function processUserRequest(params: {
         const accom = await handleAccommodation({
           prompt: params.prompt,
           destination: params.destination,
+          researchLocation,
           preferences: params.preferences,
           nearbyActivities: params.existingActivities.map((a) => ({
             name: a.name,
@@ -1036,6 +1064,7 @@ export async function processUserRequest(params: {
         const { activities, timeUpdates } = await handleFillGaps({
           prompt: params.prompt,
           destination: params.destination,
+          researchLocation,
           date: params.date,
           dayNumber: params.dayNumber,
           currencyCode: params.currencyCode,

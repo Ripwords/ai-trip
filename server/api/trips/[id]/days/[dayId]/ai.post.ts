@@ -10,6 +10,7 @@ import { computeAndSaveSegments } from "../../../../../lib/segments"
 import { getDistanceMatrix } from "../../../../../lib/google-maps"
 import { consecutiveTravelTimes } from "../../../../../lib/travel-times"
 import { sanitizePromptInput } from "../../../../../utils/sanitize"
+import { countryByAlpha2 } from "~/data/countries"
 import { normalizeTransportMode } from "../../../../../utils/transport"
 import { guardCostEstimate } from "../../../../../lib/cost-guard"
 import { filterDuplicateActivities } from "../../../../../utils/activity-dedup"
@@ -153,6 +154,11 @@ export default defineEventHandler(async (event) => {
       intent,
       destination: dayLocation,
       tripDestination: trip.destination,
+      // Research cache identity + search query. `destination` is free text (the
+      // trip name, or a country name); the country code disambiguates two trips
+      // to the same-named city, and the country name sharpens the web search.
+      countryCode: trip.countryCode,
+      countryName: trip.countryCode ? (countryByAlpha2.get(trip.countryCode)?.name ?? null) : null,
       tripId: id,
       dayId,
       transportMode,
