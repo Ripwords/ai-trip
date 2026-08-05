@@ -308,10 +308,22 @@ function makeClient(ctx: TxContext) {
   })
 
   const del = () => ({
-    where: async () => {
-      ops.push("delete expenses")
-      const index = store.expenses.findIndex((e) => e.id === request.expenseId)
-      if (index >= 0) store.expenses.splice(index, 1)
+    // Real DELETE is atomic: whoever removes the row gets it back from
+    // RETURNING and everyone else gets nothing. The fake has to model that,
+    // otherwise a delete that removed nothing is indistinguishable from one
+    // that did — which is exactly the bug the counter had.
+    where: (): Terminal<ExpenseRow[]> => {
+      const run = async (): Promise<ExpenseRow[]> => {
+        ops.push("delete expenses")
+        // The handler's WHERE is (id, tripId) — the delete is now the existence
+        // check, so the fake has to honour both halves of it.
+        const index = store.expenses.findIndex(
+          (e) => e.id === request.expenseId && e.tripId === request.tripId,
+        )
+        if (index < 0) return []
+        return store.expenses.splice(index, 1)
+      }
+      return terminal(run, [])
     },
   })
 
@@ -981,6 +993,33 @@ describe("DELETE expense", () => {
   it("404s when the expense belongs to another trip", async () => {
     seed({ expenses: [makeExpense({ tripId: OTHER_TRIP_ID })] })
     await assertStatus(deleteExpense(makeEvent()), 404)
+  })
+
+  // #42, the mirror of the racing-insert bug. The existence check ran outside
+  // the transaction and the slot was released unconditionally, so two deletes
+  // of the same row both passed the check and both decremented — permanently
+  // inflating the trip's remaining capacity past the number of rows it holds.
+  it("releases exactly one slot when two deletes of the same row race", async () => {
+    seedAtCount(3)
+    const doomed = store.expenses[0]
+    assert.ok(doomed)
+
+    const results = await Promise.allSettled([
+      deleteExpense(makeEvent({ expenseId: doomed.id })),
+      deleteExpense(makeEvent({ expenseId: doomed.id })),
+    ])
+
+    assert.equal(store.expenses.length, 2, "only one row is actually removed")
+    assert.equal(
+      store.trips[0]?.expenseCount,
+      2,
+      "the counter must match the row count, not undercount it",
+    )
+    assert.equal(
+      results.filter((r) => r.status === "fulfilled").length,
+      1,
+      "exactly one delete reports success",
+    )
   })
 
   // A collaborator deleting someone else's row moves real money in the
