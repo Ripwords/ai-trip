@@ -293,7 +293,7 @@ function formatDayRange(dayNumbers: number[]): string {
 <template>
   <div class="relative">
     <!-- Mobile: stacked map -->
-    <div class="h-[65vh] overflow-hidden rounded-2xl shadow-lg lg:hidden">
+    <div class="h-[65dvh] overflow-hidden rounded-2xl shadow-lg lg:hidden">
       <ClientOnly>
         <TripOverviewMap
           :days="sortedDays"
@@ -306,7 +306,7 @@ function formatDayRange(dayNumbers: number[]): string {
 
     <!-- Desktop: map + sidebar in a clipped container -->
     <div
-      class="hidden lg:relative lg:mx-auto lg:block lg:h-[calc(100vh-220px)] lg:overflow-hidden lg:rounded-2xl lg:shadow-lg"
+      class="hidden lg:relative lg:mx-auto lg:block lg:h-[calc(100dvh-220px)] lg:overflow-hidden lg:rounded-2xl lg:shadow-lg"
     >
       <!-- Map fills entire container -->
       <div class="absolute inset-0">
@@ -442,7 +442,7 @@ function formatDayRange(dayNumbers: number[]): string {
               <button
                 v-for="day in sortedDays"
                 :key="day.id"
-                class="ov-day-row focus-ring group flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition"
+                class="ov-day-row focus-ring group flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition"
                 :class="{ 'ov-day-row-active': selectedDayId === day.id }"
                 @click="toggleDaySelection(day.id)"
               >
@@ -466,11 +466,11 @@ function formatDayRange(dayNumbers: number[]): string {
                   </span>
                   <div
                     v-if="day.accommodationName"
-                    class="day-sub truncate text-[11px] max-w-[160px]"
+                    class="day-sub truncate text-[12px] max-w-[160px]"
                   >
                     {{ day.accommodationName }}
                   </div>
-                  <div v-else-if="!day.activities.length" class="day-sub text-[11px] italic">
+                  <div v-else-if="!day.activities.length" class="day-sub text-[12px] italic">
                     Nothing planned
                   </div>
                 </div>
@@ -607,7 +607,7 @@ function formatDayRange(dayNumbers: number[]): string {
           <button
             v-for="day in sortedDays"
             :key="day.id"
-            class="ov-day-row focus-ring group flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition"
+            class="ov-day-row focus-ring group flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition"
             :class="{ 'ov-day-row-active': selectedDayId === day.id }"
             @click="toggleDaySelection(day.id)"
           >
@@ -629,10 +629,10 @@ function formatDayRange(dayNumbers: number[]): string {
               <span v-if="day.activities.length > 0" class="day-meta ml-1.5 text-[11px]">
                 {{ day.activities.length }} {{ day.activities.length === 1 ? "spot" : "spots" }}
               </span>
-              <div v-if="day.accommodationName" class="day-sub truncate text-[11px]">
+              <div v-if="day.accommodationName" class="day-sub truncate text-[12px]">
                 {{ day.accommodationName }}
               </div>
-              <div v-else-if="!day.activities.length" class="day-sub text-[11px] italic">
+              <div v-else-if="!day.activities.length" class="day-sub text-[12px] italic">
                 Nothing planned
               </div>
             </div>
@@ -668,7 +668,7 @@ function formatDayRange(dayNumbers: number[]): string {
             </span>
             <div class="min-w-0 flex-1">
               <p class="text-sm font-medium text-sand-800 truncate">{{ group.name }}</p>
-              <p class="text-[11px] text-sand-400">{{ formatDayRange(group.dayNumbers) }}</p>
+              <p class="text-[11px] text-sand-700">{{ formatDayRange(group.dayNumbers) }}</p>
             </div>
           </div>
         </div>

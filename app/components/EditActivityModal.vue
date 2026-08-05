@@ -82,6 +82,10 @@ useModalA11y(dialogRef, {
   onClose: () => emit("close"),
 })
 
+// Freeze the page behind the modal: without this the list underneath scrolls
+// under the finger and iOS rubber-bands the whole document.
+useBodyScrollLock(() => props.open)
+
 function handleSave() {
   emit("save", {
     name: name.value,
@@ -116,7 +120,7 @@ function handleSave() {
               v-model="name"
               type="text"
               required
-              class="mt-1 block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+              class="mt-1 block min-h-11 w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
             />
           </div>
 
@@ -125,7 +129,7 @@ function handleSave() {
             <textarea
               v-model="description"
               rows="3"
-              class="mt-1 block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+              class="mt-1 block min-h-11 w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
             />
           </div>
 
@@ -135,7 +139,7 @@ function handleSave() {
               <input
                 v-model="suggestedTime"
                 type="time"
-                class="mt-1 block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+                class="mt-1 block min-h-11 w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
               />
             </div>
             <div>
@@ -144,7 +148,7 @@ function handleSave() {
                 v-model.number="estimatedDurationMinutes"
                 type="number"
                 min="0"
-                class="mt-1 block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+                class="mt-1 block min-h-11 w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
               />
             </div>
           </div>
@@ -156,7 +160,7 @@ function handleSave() {
               >
               <div class="relative mt-1">
                 <span
-                  class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-sand-400"
+                  class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-sand-700"
                 >
                   {{ symbolText }}
                 </span>
@@ -165,7 +169,7 @@ function handleSave() {
                   type="text"
                   inputmode="decimal"
                   placeholder="0"
-                  class="block w-full rounded-lg border border-sand-300 py-2 pl-8 pr-3 text-sm input-focus"
+                  class="block min-h-11 w-full rounded-lg border border-sand-300 py-2 pl-8 pr-3 text-sm input-focus"
                 />
               </div>
             </div>
@@ -182,7 +186,7 @@ function handleSave() {
               v-model="notes"
               rows="2"
               placeholder="Any notes about this activity..."
-              class="mt-1 block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+              class="mt-1 block min-h-11 w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
             />
           </div>
 
@@ -212,7 +216,7 @@ function handleSave() {
           <div class="flex justify-end gap-3 pt-2">
             <button
               type="button"
-              class="rounded-lg border border-sand-300 px-4 py-2 text-sm font-medium text-sand-700 hover:bg-sand-50"
+              class="inline-flex min-h-11 items-center rounded-lg border border-sand-300 px-4 text-sm font-medium text-sand-700 hover:bg-sand-50"
               @click="emit('close')"
             >
               Cancel
@@ -220,7 +224,7 @@ function handleSave() {
             <button
               type="submit"
               :disabled="saving"
-              class="inline-flex items-center gap-1.5 rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600 disabled:opacity-50"
+              class="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-cta px-4 text-sm font-medium text-white hover:bg-cta-hover disabled:opacity-50"
             >
               <Icon v-if="saving" name="lucide:loader" class="h-4 w-4 animate-spin" />
               {{ saving ? "Saving..." : "Save" }}

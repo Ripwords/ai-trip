@@ -722,10 +722,10 @@ function resetZoom() {
 /* On mobile portrait, give the map more height by default */
 @media (max-width: 639px) {
   .scratch-map {
-    min-height: 50vh;
+    min-height: 50dvh;
   }
   .scratch-map svg {
-    min-height: 50vh;
+    min-height: 50dvh;
   }
 }
 </style>

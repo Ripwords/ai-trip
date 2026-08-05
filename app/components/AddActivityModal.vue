@@ -26,6 +26,10 @@ useModalA11y(dialogRef, {
   onClose: () => emit("close"),
 })
 
+// Freeze the page behind the modal: without this the list underneath scrolls
+// under the finger and iOS rubber-bands the whole document.
+useBodyScrollLock(() => props.open)
+
 // Manual mode fields
 const name = ref("")
 const type = ref("attraction")
@@ -124,19 +128,15 @@ function resetForm() {
         <!-- Mode toggle -->
         <div class="mt-4 flex rounded-lg border border-sand-200 p-0.5">
           <button
-            class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition"
-            :class="
-              mode === 'search' ? 'bg-terra-500 text-white' : 'text-sand-600 hover:text-sand-900'
-            "
+            class="min-h-11 flex-1 rounded-md px-3 text-sm font-medium transition"
+            :class="mode === 'search' ? 'bg-cta text-white' : 'text-sand-600 hover:text-sand-900'"
             @click="mode = 'search'"
           >
             Search place
           </button>
           <button
-            class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition"
-            :class="
-              mode === 'manual' ? 'bg-terra-500 text-white' : 'text-sand-600 hover:text-sand-900'
-            "
+            class="min-h-11 flex-1 rounded-md px-3 text-sm font-medium transition"
+            :class="mode === 'manual' ? 'bg-cta text-white' : 'text-sand-600 hover:text-sand-900'"
             @click="mode = 'manual'"
           >
             Manual entry
@@ -157,7 +157,7 @@ function resetForm() {
           <div class="flex justify-end gap-3 pt-2">
             <button
               type="button"
-              class="rounded-lg border border-sand-300 px-4 py-2 text-sm font-medium text-sand-700 hover:bg-sand-50"
+              class="inline-flex min-h-11 items-center rounded-lg border border-sand-300 px-4 text-sm font-medium text-sand-700 hover:bg-sand-50"
               @click="emit('close')"
             >
               Cancel
@@ -165,7 +165,7 @@ function resetForm() {
             <button
               type="button"
               :disabled="!selectedPlace || submitting"
-              class="inline-flex items-center gap-1.5 rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600 disabled:opacity-50"
+              class="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-cta px-4 text-sm font-medium text-white hover:bg-cta-hover disabled:opacity-50"
               @click="handleSearchSubmit"
             >
               <Icon v-if="submitting" name="lucide:loader" class="h-4 w-4 animate-spin" />
@@ -210,7 +210,7 @@ function resetForm() {
           <div class="flex justify-end gap-3 pt-2">
             <button
               type="button"
-              class="rounded-lg border border-sand-300 px-4 py-2 text-sm font-medium text-sand-700 hover:bg-sand-50"
+              class="inline-flex min-h-11 items-center rounded-lg border border-sand-300 px-4 text-sm font-medium text-sand-700 hover:bg-sand-50"
               @click="emit('close')"
             >
               Cancel
@@ -218,7 +218,7 @@ function resetForm() {
             <button
               type="submit"
               :disabled="submitting"
-              class="inline-flex items-center gap-1.5 rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600 disabled:opacity-50"
+              class="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-cta px-4 text-sm font-medium text-white hover:bg-cta-hover disabled:opacity-50"
             >
               <Icon v-if="submitting" name="lucide:loader" class="h-4 w-4 animate-spin" />
               {{ submitting ? "Adding..." : "Add" }}

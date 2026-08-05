@@ -1569,7 +1569,7 @@ async function recomputeSegments(dayId: string) {
         <div class="flex min-w-0 flex-1 items-start gap-2">
           <NuxtLink
             to="/dashboard"
-            class="mt-1 shrink-0 rounded-lg p-1.5 text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+            class="mt-1 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
           >
             <Icon name="lucide:arrow-left" class="h-5 w-5" />
           </NuxtLink>
@@ -1768,10 +1768,10 @@ async function recomputeSegments(dayId: string) {
                     :key="day.id"
                     :data-day-id="day.id"
                     type="button"
-                    class="relative flex h-12 w-10 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terra-400"
+                    class="relative flex h-12 w-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terra-400"
                     :class="
                       day.id === activeDayId
-                        ? 'bg-terra-500 text-white shadow-sm shadow-terra-500/30'
+                        ? 'bg-cta text-white shadow-sm shadow-terra-500/30'
                         : day.date === todayDate
                           ? 'text-terra-600 hover:bg-sand-100'
                           : 'text-sand-600 hover:bg-sand-100'
@@ -1818,7 +1818,7 @@ async function recomputeSegments(dayId: string) {
                 class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md transition disabled:opacity-50 focus-ring"
                 :class="
                   activeTransportMode === mode.value
-                    ? 'bg-terra-500 text-white shadow-sm'
+                    ? 'bg-cta text-white shadow-sm'
                     : 'text-sand-500 hover:bg-sand-200/60 hover:text-sand-700'
                 "
                 @click="handleTransportModeChange(mode.value)"
@@ -1857,7 +1857,7 @@ async function recomputeSegments(dayId: string) {
           <div class="flex flex-col gap-6 lg:flex-row">
             <!-- Left: Ideas + Accommodation + Activities -->
             <div
-              class="flex-1 space-y-4 pb-24 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-4 lg:pb-6 scrollbar-thin"
+              class="flex-1 space-y-4 pb-24 lg:max-h-[calc(100dvh-320px)] lg:overflow-y-auto lg:pr-4 lg:pb-6 scrollbar-thin"
             >
               <!-- Ideas bucket (hidden for viewers) -->
               <IdeasBucket
@@ -1938,7 +1938,7 @@ async function recomputeSegments(dayId: string) {
             <!-- Right: Map -->
             <div class="order-first lg:order-none lg:w-[480px] lg:shrink-0">
               <div
-                class="h-[250px] overflow-hidden rounded-2xl shadow-lg sm:h-[300px] lg:sticky lg:top-8 lg:h-[calc(100vh-320px)]"
+                class="h-[250px] overflow-hidden rounded-2xl shadow-lg sm:h-[300px] lg:sticky lg:top-8 lg:h-[calc(100dvh-320px)]"
               >
                 <TripMap
                   ref="tripMapRef"
@@ -2033,7 +2033,7 @@ async function recomputeSegments(dayId: string) {
               v-model="tripFlightNumber"
               type="text"
               placeholder="e.g. SQ638"
-              class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
+              class="min-h-11 w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
             />
           </div>
           <div class="min-w-0 flex-1 overflow-hidden">
@@ -2041,13 +2041,13 @@ async function recomputeSegments(dayId: string) {
             <input
               v-model="tripFlightDate"
               type="date"
-              class="w-full appearance-none rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
+              class="min-h-11 w-full appearance-none rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
             />
           </div>
           <button
             type="submit"
             :disabled="addingTripFlight || !tripFlightNumber || !tripFlightDate"
-            class="shrink-0 rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white transition hover:bg-terra-600 disabled:opacity-50"
+            class="min-h-11 shrink-0 rounded-xl bg-cta px-5 text-sm font-medium text-white transition hover:bg-cta-hover disabled:opacity-50"
           >
             {{ addingTripFlight ? "Adding..." : "Add Flight" }}
           </button>

@@ -69,7 +69,7 @@ function handleSetType(type: VisitType) {
       role="dialog"
       aria-modal="true"
       :aria-labelledby="desktopHeadingId"
-      class="absolute inset-y-0 right-0 z-10 hidden w-full max-w-sm flex-col border-l border-sand-200 bg-white shadow-xl sm:flex"
+      class="absolute inset-y-0 right-0 z-10 hidden w-full max-w-sm flex-col border-l border-sand-200 bg-white shadow-xl [@media(min-width:640px)and(min-height:560px)]:flex"
     >
       <!-- Header -->
       <div class="flex items-center justify-between border-b border-sand-200 px-5 py-4">
@@ -201,8 +201,8 @@ function handleSetType(type: VisitType) {
       role="dialog"
       aria-modal="true"
       :aria-labelledby="mobileHeadingId"
-      class="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl border-t border-sand-200 bg-white shadow-2xl sm:hidden"
-      style="max-height: 60vh"
+      class="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl border-t border-sand-200 bg-white shadow-2xl [@media(min-width:640px)and(min-height:560px)]:hidden"
+      style="max-height: 60dvh"
     >
       <!-- Header -->
       <div class="flex items-center justify-between px-5 pb-3 pt-4">
@@ -305,6 +305,10 @@ function handleSetType(type: VisitType) {
     leave-from-class="opacity-100"
     leave-to-class="opacity-0"
   >
-    <div v-if="country" class="fixed inset-0 z-40 bg-black/20 sm:hidden" @click="emit('close')" />
+    <div
+      v-if="country"
+      class="fixed inset-0 z-40 bg-black/20 [@media(min-width:640px)and(min-height:560px)]:hidden"
+      @click="emit('close')"
+    />
   </Transition>
 </template>
