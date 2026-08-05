@@ -4,7 +4,10 @@ import type { FetchError } from "ofetch"
 function extractErrorMessage(e: unknown, fallback: string): string {
   if (e && typeof e === "object" && "data" in e) {
     const data = (e as FetchError<{ statusMessage?: string; message?: string }>).data
-    const msg = data?.statusMessage ?? data?.message
+    // Route through humanMessage: a server that validates params with
+    // `schema.parse` puts a stringified ZodError here, which must never reach
+    // the user. See app/utils/human-message.ts.
+    const msg = humanMessage(data?.statusMessage ?? data?.message, "")
     if (msg) return msg
   }
   if (e instanceof Error && e.message) return e.message
