@@ -109,3 +109,53 @@ export function editableBookingFields(
 ): BookingField[] {
   return [...(isDerivedBooking(row) ? DERIVED_FIELDS : MANUAL_FIELDS)]
 }
+
+/** Raw form state, as the inputs hold it — all strings, dates `datetime-local`. */
+export interface BookingFormValues {
+  type: string
+  status: string
+  name: string
+  confirmationNumber: string
+  provider: string
+  notes: string
+  startDate: string
+  endDate: string
+  amount: string
+}
+
+/**
+ * The request body for a booking form submit.
+ *
+ * Only the fields the row actually owns are sent: a derived row that posted its
+ * mirrored name or dates is rejected with a 409, because those belong to the
+ * stay and are changed in the itinerary. `row` is null when adding a new
+ * booking, which is always manual.
+ */
+export function buildBookingBody(
+  values: BookingFormValues,
+  row: Pick<BookingRow, "source" | "detachedAt"> | null,
+): Record<string, unknown> {
+  // Empty optional inputs are omitted rather than sent as "", which the money
+  // and date validators would reject.
+  const blank = (value: string) => (value === "" ? undefined : value)
+  const instant = (value: string) => (value === "" ? undefined : new Date(value).toISOString())
+
+  const all: Record<BookingField, unknown> = {
+    type: values.type,
+    status: values.status,
+    name: values.name,
+    confirmationNumber: blank(values.confirmationNumber),
+    provider: blank(values.provider),
+    notes: blank(values.notes),
+    startDate: instant(values.startDate),
+    endDate: instant(values.endDate),
+    amount: blank(values.amount),
+  }
+
+  const fields = row ? editableBookingFields(row) : [...MANUAL_FIELDS]
+  const body: Record<string, unknown> = {}
+  for (const field of fields) {
+    body[field] = all[field]
+  }
+  return body
+}

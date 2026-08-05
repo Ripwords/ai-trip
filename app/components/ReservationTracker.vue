@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   bookingOriginHint,
+  buildBookingBody,
   editableBookingFields,
   isDerivedBooking,
   missingFieldsSummary,
@@ -115,25 +116,23 @@ function startEdit(r: Reservation) {
 async function submitReservation() {
   if (!formName.value.trim()) return
   try {
-    // Only send what this row's card is allowed to own. A derived row that
+    // Only sends what this row's card is allowed to own. A derived row that
     // posted its mirrored name or dates would be rejected with a 409 — those
     // belong to the stay, and the itinerary is where they're changed.
-    const all: Record<BookingField, unknown> = {
-      type: formType.value,
-      status: formStatus.value,
-      name: formName.value,
-      confirmationNumber: formConfirmation.value || undefined,
-      provider: formProvider.value || undefined,
-      notes: formNotes.value || undefined,
-      startDate: formStartDate.value ? new Date(formStartDate.value).toISOString() : undefined,
-      endDate: formEndDate.value ? new Date(formEndDate.value).toISOString() : undefined,
-      amount:
-        formAmount.value === "" || formAmount.value == null ? undefined : String(formAmount.value),
-    }
-    const body: Record<string, unknown> = {}
-    for (const field of formFields.value) {
-      body[field] = all[field]
-    }
+    const body = buildBookingBody(
+      {
+        type: formType.value,
+        status: formStatus.value,
+        name: formName.value,
+        confirmationNumber: formConfirmation.value,
+        provider: formProvider.value,
+        notes: formNotes.value,
+        startDate: formStartDate.value,
+        endDate: formEndDate.value,
+        amount: formAmount.value,
+      },
+      editingRow.value,
+    )
 
     if (editingId.value) {
       await $fetch(`/api/trips/${props.tripId}/reservations/${editingId.value}`, {

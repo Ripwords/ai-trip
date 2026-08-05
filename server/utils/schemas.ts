@@ -315,7 +315,7 @@ export const reservationTypeEnum = z.enum([
 
 export const reservationStatusEnum = z.enum(["confirmed", "pending", "cancelled"])
 
-export const createReservationSchema = z.object({
+const reservationFields = z.object({
   type: reservationTypeEnum,
   status: reservationStatusEnum.optional(),
   name: z.string().min(1),
@@ -329,7 +329,23 @@ export const createReservationSchema = z.object({
   amount: moneyString.nullish(),
 })
 
-export const updateReservationSchema = createReservationSchema.partial()
+/**
+ * A check-out before its check-in is never what the user meant, and it made
+ * the booking sort meaningless. Only checked when both dates are present, so a
+ * partial update that touches one of them isn't compared against nothing.
+ */
+function datesInOrder(value: { startDate?: string | null; endDate?: string | null }): boolean {
+  if (!value.startDate || !value.endDate) return true
+  return new Date(value.startDate).getTime() <= new Date(value.endDate).getTime()
+}
+
+const DATE_ORDER_ISSUE = { message: "End date must not precede the start date", path: ["endDate"] }
+
+export const createReservationSchema = reservationFields.refine(datesInOrder, DATE_ORDER_ISSUE)
+
+export const updateReservationSchema = reservationFields
+  .partial()
+  .refine(datesInOrder, DATE_ORDER_ISSUE)
 
 /**
  * The editable surface of a *derived* booking (`source !== 'manual'`).

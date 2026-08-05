@@ -12,6 +12,22 @@ const MIRRORED_FIELDS = ["type", "name", "startDate", "endDate"] as const
 
 type ReservationUpdate = Partial<typeof reservations.$inferInsert>
 
+/**
+ * `readValidatedBody` turns a schema throw into a 400 for us; parsing by hand
+ * here does not, so a bad amount escaped as an unhandled 500. Which schema
+ * applies isn't known until the row is loaded, so the wrapper has to be ours.
+ */
+function parseBody<T>(parse: (input: unknown) => T, raw: unknown): T {
+  try {
+    return parse(raw)
+  } catch (error) {
+    throw createError({
+      statusCode: 400,
+      message: error instanceof Error ? error.message : "Bad Request",
+    })
+  }
+}
+
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const { id, reservationId } = await getValidatedRouterParams(
@@ -35,7 +51,7 @@ export default defineEventHandler(async (event) => {
   let values: ReservationUpdate
 
   if (reservation.source === "manual") {
-    const { startDate, endDate, ...rest } = updateReservationSchema.parse(raw)
+    const { startDate, endDate, ...rest } = parseBody(updateReservationSchema.parse, raw)
     values = {
       ...rest,
       ...(startDate !== undefined ? { startDate: startDate ? new Date(startDate) : null } : {}),
@@ -52,7 +68,7 @@ export default defineEventHandler(async (event) => {
         message: `This booking is linked to your itinerary. Change ${attempted.join(", ")} in the itinerary, not here.`,
       })
     }
-    values = updateLinkedReservationSchema.parse(raw)
+    values = parseBody(updateLinkedReservationSchema.parse, raw)
   }
 
   const [updated] = await db
