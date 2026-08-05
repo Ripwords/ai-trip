@@ -315,7 +315,7 @@ export const reservationTypeEnum = z.enum([
 
 export const reservationStatusEnum = z.enum(["confirmed", "pending", "cancelled"])
 
-export const createReservationSchema = z.object({
+const reservationFields = z.object({
   type: reservationTypeEnum,
   status: reservationStatusEnum.optional(),
   name: z.string().min(1),
@@ -324,10 +324,48 @@ export const createReservationSchema = z.object({
   notes: z.string().nullish(),
   startDate: z.string().nullish(),
   endDate: z.string().nullish(),
-  amount: z.string().nullish(),
+  // Was a plain z.string(): "abc" reached Postgres as a 500 and "-50" silently
+  // corrupted every total that summed it — the same defect expenses had.
+  amount: moneyString.nullish(),
 })
 
-export const updateReservationSchema = createReservationSchema.partial()
+/**
+ * A check-out before its check-in is never what the user meant, and it made
+ * the booking sort meaningless. Only checked when both dates are present, so a
+ * partial update that touches one of them isn't compared against nothing.
+ */
+/**
+ * Only decidable when the body carries both dates — a partial update sending
+ * one of them has to be compared against the stored row, which a schema cannot
+ * see. `PUT /api/trips/:id/reservations/:reservationId` does that half.
+ */
+function datesInOrder(value: { startDate?: string | null; endDate?: string | null }): boolean {
+  if (!value.startDate || !value.endDate) return true
+  return new Date(value.startDate).getTime() <= new Date(value.endDate).getTime()
+}
+
+const DATE_ORDER_ISSUE = { message: "End date must not precede the start date", path: ["endDate"] }
+
+export const createReservationSchema = reservationFields.refine(datesInOrder, DATE_ORDER_ISSUE)
+
+export const updateReservationSchema = reservationFields
+  .partial()
+  .refine(datesInOrder, DATE_ORDER_ISSUE)
+
+/**
+ * The editable surface of a *derived* booking (`source !== 'manual'`).
+ *
+ * Name and dates are mirrored from the stay that owns them — editing the hotel
+ * or its nights happens in the itinerary, which is the source of truth. Only
+ * the fields the itinerary can't know are accepted here.
+ */
+export const updateLinkedReservationSchema = z.object({
+  status: reservationStatusEnum.optional(),
+  confirmationNumber: z.string().nullish(),
+  provider: z.string().nullish(),
+  notes: z.string().nullish(),
+  amount: moneyString.nullish(),
+})
 
 export const reservationIdParamsSchema = z.object({
   id: z.string().uuid(),

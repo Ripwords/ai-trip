@@ -32,7 +32,13 @@ const totalActivities = computed(() =>
 )
 
 const totalCost = computed(() => props.summary?.plannedTotal ?? 0)
-const totalSpent = computed(() => props.summary?.total ?? 0)
+
+// The two halves of the one server-computed total. `summary.total` is
+// `expensesTotal + reservationsTotal` already (expense-summary.ts), so the
+// "Spent" line shows the expense half and the "Bookings" line the reservation
+// half — adding either to `summary.total` would count it twice.
+const totalSpent = computed(() => props.summary?.expensesTotal ?? 0)
+const totalBookings = computed(() => props.summary?.reservationsTotal ?? 0)
 
 const totalDays = computed(() => props.days.length)
 
@@ -47,6 +53,16 @@ const typeBreakdown = computed(() => {
 })
 
 const budgetNum = computed(() => props.summary?.budget ?? null)
+
+// Expenses were the only store the budget bar knew about, so a prepaid hotel
+// booking never moved it. `summary.total` counts both (#61), and it is the ONE
+// server-computed total (#38) — this component adds nothing to it. It briefly
+// did, which rendered a €900 hotel as €1,800 committed and inflated the bar.
+const totalCommitted = computed(() => props.summary?.total ?? 0)
+
+// Same number every other budget bar on the trip shows (`TripOverview`,
+// `ExpenseTracker`), for the same reason: there is one answer to "how much of
+// the budget is gone", and it comes from the server.
 const budgetPercent = computed(() => props.summary?.budgetPercent ?? 0)
 
 const progressBarColor = computed(() => {
@@ -158,7 +174,7 @@ async function refreshFromGoogle() {
     </p>
 
     <!-- Budget & Spend -->
-    <div v-if="budgetNum || totalSpent" class="mt-4 space-y-2 border-t border-sand-200 pt-4">
+    <div v-if="budgetNum || totalCommitted" class="mt-4 space-y-2 border-t border-sand-200 pt-4">
       <div v-if="budgetNum" class="flex items-center justify-between text-sm">
         <span class="text-sand-600">Budget</span>
         <span class="font-semibold text-sand-900">{{ formatCurrency(budgetNum) }}</span>
@@ -167,7 +183,11 @@ async function refreshFromGoogle() {
         <span class="text-sand-600">Spent</span>
         <span class="font-semibold text-sand-900">{{ formatCurrency(totalSpent) }}</span>
       </div>
-      <div v-if="budgetNum && totalSpent" class="mt-1">
+      <div v-if="totalBookings > 0" class="flex items-center justify-between text-sm">
+        <span class="text-sand-600">Bookings</span>
+        <span class="font-semibold text-sand-900">{{ formatCurrency(totalBookings) }}</span>
+      </div>
+      <div v-if="budgetNum && totalCommitted" class="mt-1">
         <div class="h-1.5 w-full rounded-full bg-sand-200">
           <div
             class="h-1.5 rounded-full transition-all"

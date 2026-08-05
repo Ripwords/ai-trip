@@ -16,6 +16,7 @@
     "db:push": "bun run auth:gen && drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
     "db:re-encrypt": "tsx server/db/re-encrypt-data.ts",
+    "db:backfill-stays": "tsx server/db/backfill-stays.ts",
     "db:seed-test": "tsx server/db/seed-test-data.ts",
     "docker:dev": "docker compose -f docker/docker-compose.dev.yml up -d",
     "pwa:assets": "pwa-assets-generator",

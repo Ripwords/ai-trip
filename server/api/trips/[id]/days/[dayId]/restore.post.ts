@@ -4,6 +4,7 @@ import { db } from "../../../../../db"
 import { activities, itineraryDays } from "../../../../../db/schema"
 import { dayIdParamsSchema } from "../../../../../utils/schemas"
 import { computeAndSaveSegments } from "../../../../../lib/segments"
+import { lockTripForStayWrite, reconcileTripStays } from "../../../../../lib/booking-sync"
 
 const activitySnapshotSchema = z.object({
   name: z.string(),
@@ -83,29 +84,29 @@ export default defineEventHandler(async (event) => {
     actualCost: a.actualCost,
   }))
 
-  // Atomic delete + re-insert. neon-http (prod) uses db.batch; node-postgres
-  // (dev) uses db.transaction.
-  if (import.meta.dev) {
-    await db.transaction(async (tx) => {
-      await tx.delete(activities).where(eq(activities.itineraryDayId, dayId))
-      if (insertValues.length > 0) {
-        await tx.insert(activities).values(insertValues)
-      }
-    })
-  } else {
-    const ops: unknown[] = [db.delete(activities).where(eq(activities.itineraryDayId, dayId))]
-    if (insertValues.length > 0) {
-      ops.push(db.insert(activities).values(insertValues))
-    }
-    const batchDb = db as unknown as {
-      batch: (ops: readonly [unknown, ...unknown[]]) => Promise<unknown>
-    }
-    await batchDb.batch(ops as [unknown, ...unknown[]])
-  }
+  // Atomic delete + re-insert, plus the accommodation restore and the stay
+  // reconciliation it implies. `db` is the neon-serverless driver (websocket
+  // Pool) in every environment, which supports real transactions — the previous
+  // `import.meta.dev` split called `db.batch`, which only exists on the
+  // neon-*http* driver and would have thrown in production.
+  //
+  // The reconcile is not optional: undoing a `set-accommodation` proposal
+  // rewrites `accommodation_*`, and those columns are a read-cache of `stays`.
+  // Restoring them without reconciling leaves `stays` and the mirrored booking
+  // holding the hotel the user just undid.
+  await db.transaction(async (tx) => {
+    // Before the day write, never after — see `lockTripForStayWrite`.
+    if (body.accommodation) await lockTripForStayWrite(tx, id)
 
-  if (body.accommodation) {
-    await db.update(itineraryDays).set(body.accommodation).where(eq(itineraryDays.id, dayId))
-  }
+    await tx.delete(activities).where(eq(activities.itineraryDayId, dayId))
+    if (insertValues.length > 0) {
+      await tx.insert(activities).values(insertValues)
+    }
+    if (body.accommodation) {
+      await tx.update(itineraryDays).set(body.accommodation).where(eq(itineraryDays.id, dayId))
+      await reconcileTripStays(tx, id, session.user.id)
+    }
+  })
 
   // Recompute travel segments (accommodation anchors the day's route, so this
   // must run after the update above).

@@ -49,7 +49,7 @@ export interface SummariseTripExpensesInput {
   today: string
   expenses: readonly SummaryExpense[]
   activities: readonly SummaryActivity[]
-  reservations: readonly { amount: string | null }[]
+  reservations: readonly { amount: string | null; status: string }[]
   members: readonly SettlementMember[]
 }
 
@@ -124,8 +124,14 @@ export function summariseTripExpenses(input: SummariseTripExpensesInput): TripEx
     }
   }
 
+  // A cancelled booking is money that is not committed, so it must not move
+  // the budget bar. This lived in a client-side rollup until #61's double-count
+  // was found; the server total is the only total now, so the rule lives here.
   let reservationsMinor = 0
-  for (const r of input.reservations) reservationsMinor += toTrip(r.amount)
+  for (const r of input.reservations) {
+    if (r.status === "cancelled") continue
+    reservationsMinor += toTrip(r.amount)
+  }
 
   let plannedMinor = 0
   const plannedVsActual: PlannedVsActual[] = []

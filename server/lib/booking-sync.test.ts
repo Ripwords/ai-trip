@@ -1,0 +1,578 @@
+import assert from "node:assert/strict"
+import { describe, it } from "node:test"
+import { reservations } from "../db/schema"
+
+const {
+  missingBookingFields,
+  matchReservationToStay,
+  planStayReconciliation,
+  planStayBackfill,
+  planStayBookingWrite,
+  upsertStayBooking,
+  detachStayBooking,
+} = await import("./booking-sync")
+
+type StayBookingCandidate = import("./booking-sync").StayBookingCandidate
+type StayBookingSource = import("./booking-sync").StayBookingSource
+type Tx = import("./stays").Tx
+type StayRun = import("./stays").StayRun
+
+function run(overrides: Partial<StayRun> & Pick<StayRun, "key" | "checkIn" | "checkOut">): StayRun {
+  return {
+    name: "Hotel Nikko",
+    placeId: null,
+    address: null,
+    lat: null,
+    lng: null,
+    dayIds: [],
+    ...overrides,
+  }
+}
+
+interface Recorded {
+  op: "insert" | "update" | "delete"
+  table: unknown
+  values: Record<string, unknown>
+  /** Set on an insert that carried an `ON CONFLICT ... DO UPDATE` clause. */
+  onConflictSet?: Record<string, unknown>
+}
+
+interface FakeRows {
+  /** Rows already pointing at the stay — `select({ id })`. */
+  linked?: Record<string, unknown>[]
+  /** Previously-derived rows whose stay went away — the wider projection. */
+  detached?: Record<string, unknown>[]
+}
+
+/**
+ * Structural fake for the drizzle transaction handle.
+ *
+ * `upsertStayBooking` issues two different selects against `reservations`, so
+ * the fake dispatches on the projection each one asks for rather than handing
+ * both the same rows — a fake that ignores what was asked for can make a wrong
+ * query look right. `delete` exists precisely so a test can assert nothing ever
+ * calls it; without the method, "issues no delete" only proved the fake was
+ * incomplete.
+ */
+function makeFakeTx(rows: FakeRows | Record<string, unknown>[] = {}) {
+  const { linked = [], detached = [] } = Array.isArray(rows) ? { linked: rows } : rows
+  const ops: Recorded[] = []
+
+  const fake = {
+    select: (projection: Record<string, unknown>) => ({
+      from: () => ({
+        where: async () => (Object.keys(projection).length === 1 ? linked : detached),
+      }),
+    }),
+    insert: (table: unknown) => ({
+      values: (values: Record<string, unknown>) => {
+        const record = (onConflictSet?: Record<string, unknown>) => {
+          ops.push({ op: "insert", table, values, onConflictSet })
+          return [{ id: "new-reservation", ...values }]
+        }
+        return {
+          returning: async () => record(),
+          onConflictDoUpdate: async (args: { set: Record<string, unknown> }) => record(args.set),
+        }
+      },
+    }),
+    update: (table: unknown) => ({
+      set: (values: Record<string, unknown>) => ({
+        where: async () => {
+          ops.push({ op: "update", table, values })
+        },
+      }),
+    }),
+    delete: (table: unknown) => ({
+      where: async () => {
+        ops.push({ op: "delete", table, values: {} })
+      },
+    }),
+  }
+  return { tx: fake as unknown as Tx, ops }
+}
+
+const stay: StayBookingSource = {
+  id: "stay-1",
+  tripId: "trip-1",
+  name: "Hotel Nikko",
+  checkIn: "2026-03-22",
+  checkOut: "2026-03-25",
+}
+
+describe("missingBookingFields", () => {
+  it("lists every gap a derived row still needs from the user", () => {
+    assert.deepEqual(
+      missingBookingFields({ confirmationNumber: null, provider: null, amount: null }),
+      ["confirmationNumber", "provider", "amount"],
+    )
+  })
+
+  it("drops fields the user has already filled in", () => {
+    assert.deepEqual(
+      missingBookingFields({ confirmationNumber: "ABC123", provider: null, amount: "900.00" }),
+      ["provider"],
+    )
+  })
+
+  it("treats whitespace as missing", () => {
+    assert.deepEqual(
+      missingBookingFields({ confirmationNumber: "  ", provider: "  ", amount: null }),
+      ["confirmationNumber", "provider", "amount"],
+    )
+  })
+
+  it("returns nothing when the booking is complete", () => {
+    assert.deepEqual(
+      missingBookingFields({
+        confirmationNumber: "ABC123",
+        provider: "Booking.com",
+        amount: "900.00",
+      }),
+      [],
+    )
+  })
+})
+
+describe("matchReservationToStay", () => {
+  function candidate(over: Partial<StayBookingCandidate> = {}): StayBookingCandidate {
+    return {
+      id: "r1",
+      name: "Hotel Nikko",
+      startDate: "2026-03-22",
+      endDate: "2026-03-25",
+      ...over,
+    }
+  }
+
+  it("adopts a single exact name match", () => {
+    assert.deepEqual(matchReservationToStay(stay, [candidate()]), {
+      kind: "adopt",
+      reservationId: "r1",
+    })
+  })
+
+  it("matches names case- and whitespace-insensitively", () => {
+    assert.deepEqual(matchReservationToStay(stay, [candidate({ name: "  hotel NIKKO " })]), {
+      kind: "adopt",
+      reservationId: "r1",
+    })
+  })
+
+  it("breaks a name tie with date overlap", () => {
+    const result = matchReservationToStay(stay, [
+      candidate({ id: "r1", startDate: "2026-04-10", endDate: "2026-04-12" }),
+      candidate({ id: "r2" }),
+    ])
+    assert.deepEqual(result, { kind: "adopt", reservationId: "r2" })
+  })
+
+  it("reports ambiguity when two same-named rows both overlap", () => {
+    const result = matchReservationToStay(stay, [candidate({ id: "r1" }), candidate({ id: "r2" })])
+    assert.deepEqual(result, { kind: "ambiguous", reservationIds: ["r1", "r2"] })
+  })
+
+  // The whole point of the ambiguity rule: attaching the wrong PNR to the
+  // wrong stay is worse than leaving the row alone for the user to link.
+  it("never auto-merges a differently-named row on date overlap alone", () => {
+    const result = matchReservationToStay(stay, [candidate({ id: "r9", name: "Ryokan Asaba" })])
+    assert.deepEqual(result, { kind: "ambiguous", reservationIds: ["r9"] })
+  })
+
+  it("returns none when nothing matches by name or dates", () => {
+    const result = matchReservationToStay(stay, [
+      candidate({ id: "r9", name: "Ryokan Asaba", startDate: "2026-09-01", endDate: "2026-09-03" }),
+    ])
+    assert.deepEqual(result, { kind: "none" })
+  })
+
+  it("returns none for an empty candidate list", () => {
+    assert.deepEqual(matchReservationToStay(stay, []), { kind: "none" })
+  })
+})
+
+describe("upsertStayBooking", () => {
+  it("creates a derived booking when the stay has none", async () => {
+    const { tx, ops } = makeFakeTx([])
+    await upsertStayBooking(tx, stay, "user-1")
+
+    assert.equal(ops.length, 1)
+    assert.equal(ops[0]!.op, "insert")
+    assert.equal(ops[0]!.table, reservations)
+    assert.equal(ops[0]!.values.source, "stay")
+    assert.equal(ops[0]!.values.type, "accommodation")
+    assert.equal(ops[0]!.values.stayId, "stay-1")
+    assert.equal(ops[0]!.values.name, "Hotel Nikko")
+    assert.equal(ops[0]!.values.createdById, "user-1")
+  })
+
+  it("is idempotent — a second run updates the existing row instead of inserting", async () => {
+    const { tx, ops } = makeFakeTx([
+      { id: "r1", stayId: "stay-1", source: "stay", confirmationNumber: null, amount: null },
+    ])
+    await upsertStayBooking(tx, stay, "user-1")
+
+    assert.equal(ops.length, 1)
+    assert.equal(ops[0]!.op, "update")
+    assert.equal(ops[0]!.values.name, "Hotel Nikko")
+  })
+
+  // The mirrored fields are the stay's to own; the money and the PNR are the
+  // user's, and no automated path may overwrite them.
+  it("never touches the user-entered confirmation number, provider, amount or status", async () => {
+    const { tx, ops } = makeFakeTx([
+      {
+        id: "r1",
+        stayId: "stay-1",
+        source: "stay",
+        confirmationNumber: "ABC123",
+        amount: "900.00",
+        provider: "Booking.com",
+        status: "confirmed",
+      },
+    ])
+    await upsertStayBooking(tx, stay, "user-1")
+
+    const written = Object.keys(ops[0]!.values)
+    for (const field of ["confirmationNumber", "amount", "provider", "status", "notes"]) {
+      assert.ok(!written.includes(field), `${field} must not be rewritten by the sync`)
+    }
+  })
+
+  it("mirrors the stay's dates onto the booking", async () => {
+    const { tx, ops } = makeFakeTx([])
+    await upsertStayBooking(tx, stay, "user-1")
+
+    assert.deepEqual(ops[0]!.values.startDate, new Date("2026-03-22T00:00:00.000Z"))
+    assert.deepEqual(ops[0]!.values.endDate, new Date("2026-03-25T00:00:00.000Z"))
+  })
+
+  // Two editors saving accommodation on the same stay both read no row; a bare
+  // insert would then block on `idx_reservations_stay` and raise a unique
+  // violation at commit, aborting the transaction and losing the edit as a 500.
+  it("inserts with ON CONFLICT DO UPDATE so a concurrent writer can't 500 the edit", async () => {
+    const { tx, ops } = makeFakeTx([])
+    await upsertStayBooking(tx, stay, "user-1")
+
+    assert.equal(ops[0]!.op, "insert")
+    assert.deepEqual(ops[0]!.onConflictSet, {
+      name: "Hotel Nikko",
+      startDate: new Date("2026-03-22T00:00:00.000Z"),
+      endDate: new Date("2026-03-25T00:00:00.000Z"),
+    })
+  })
+
+  it("re-links a detached row in place, keeping its confirmation number and amount", async () => {
+    const { tx, ops } = makeFakeTx({
+      linked: [],
+      detached: [
+        {
+          id: "r-old",
+          name: "Hotel Nikko",
+          startDate: new Date("2026-03-22T00:00:00.000Z"),
+          endDate: new Date("2026-03-25T00:00:00.000Z"),
+        },
+      ],
+    })
+    await upsertStayBooking(tx, stay, "user-1")
+
+    assert.deepEqual(
+      ops.map((o) => o.op),
+      ["update"],
+    )
+    assert.equal(ops[0]!.values.stayId, "stay-1")
+    assert.equal(ops[0]!.values.source, "stay")
+    assert.equal(ops[0]!.values.detachedAt, null)
+    assert.equal(ops[0]!.values.name, "Hotel Nikko")
+    for (const field of ["confirmationNumber", "amount", "provider", "status", "notes"]) {
+      assert.ok(!(field in ops[0]!.values), `${field} must survive the re-link`)
+    }
+  })
+
+  it("does not go looking for a detached row when the stay already has one", async () => {
+    const { tx, ops } = makeFakeTx({
+      linked: [{ id: "r1" }],
+      detached: [{ id: "r-old", name: "Hotel Nikko", startDate: null, endDate: null }],
+    })
+    await upsertStayBooking(tx, stay, "user-1")
+
+    assert.deepEqual(
+      ops.map((o) => o.op),
+      ["update"],
+    )
+    assert.equal(ops[0]!.values.stayId, undefined)
+  })
+})
+
+describe("detachStayBooking", () => {
+  it("clears the link and flips the row back to manual without deleting it", async () => {
+    const { tx, ops } = makeFakeTx()
+    await detachStayBooking(tx, "stay-1")
+
+    assert.equal(ops.length, 1)
+    assert.equal(ops[0]!.op, "update")
+    assert.equal(ops[0]!.table, reservations)
+    assert.equal(ops[0]!.values.stayId, null)
+    assert.equal(ops[0]!.values.source, "manual")
+    // Stamped so the Bookings tab can say "no longer linked" rather than
+    // letting the row silently pass for hand-typed.
+    assert.ok(ops[0]!.values.detachedAt instanceof Date)
+  })
+
+  it("issues no delete — a paid PNR is never destroyed by an unlink", async () => {
+    const { tx, ops } = makeFakeTx()
+    await detachStayBooking(tx, "stay-1")
+    // The fake DOES have a `delete`, so this asserts behaviour rather than the
+    // absence of a method. It also must not insert a replacement row.
+    assert.deepEqual(
+      ops.map((o) => o.op),
+      ["update"],
+    )
+  })
+})
+
+describe("planStayBookingWrite", () => {
+  const target = { name: "Hotel Nikko", checkIn: "2026-03-22", checkOut: "2026-03-25" }
+
+  function detached(over: Partial<StayBookingCandidate> = {}): StayBookingCandidate {
+    return {
+      id: "r-detached",
+      name: "Hotel Nikko",
+      startDate: "2026-03-22",
+      endDate: "2026-03-25",
+      ...over,
+    }
+  }
+
+  it("updates the row already linked to the stay", () => {
+    assert.deepEqual(
+      planStayBookingWrite({ stay: target, linked: [{ id: "r1" }], detached: [detached()] }),
+      { kind: "update", reservationId: "r1" },
+    )
+  })
+
+  // Clearing a hotel detaches its booking and deletes the stay; re-setting the
+  // same hotel used to mirror a *blank* second row beside it, so the trip
+  // carried two accommodation bookings for the same nights and the budget
+  // counted the money twice once the user filled the new one in.
+  it("re-adopts the row its own detach left behind rather than inserting a duplicate", () => {
+    assert.deepEqual(planStayBookingWrite({ stay: target, linked: [], detached: [detached()] }), {
+      kind: "adopt",
+      reservationId: "r-detached",
+    })
+  })
+
+  // A stay whose name genuinely changed is a different hotel. The old row keeps
+  // its own name, PNR and amount as a detached manual booking — transplanting
+  // someone else's confirmation number onto it would be strictly worse than
+  // showing two rows for two hotels.
+  it("does not transplant a detached row onto a differently-named stay", () => {
+    assert.deepEqual(
+      planStayBookingWrite({
+        stay: target,
+        linked: [],
+        detached: [detached({ name: "Ryokan Asaba" })],
+      }),
+      { kind: "insert" },
+    )
+  })
+
+  it("re-adopts across a date move — the same hotel on different nights", () => {
+    assert.deepEqual(
+      planStayBookingWrite({
+        stay: target,
+        linked: [],
+        detached: [detached({ startDate: "2026-05-01", endDate: "2026-05-04" })],
+      }),
+      { kind: "adopt", reservationId: "r-detached" },
+    )
+  })
+
+  it("inserts when two detached rows share the name and neither overlaps", () => {
+    assert.deepEqual(
+      planStayBookingWrite({
+        stay: target,
+        linked: [],
+        detached: [
+          detached({ id: "r1", startDate: "2026-05-01", endDate: "2026-05-04" }),
+          detached({ id: "r2", startDate: "2026-06-01", endDate: "2026-06-04" }),
+        ],
+      }),
+      { kind: "insert" },
+    )
+  })
+
+  it("inserts when there is nothing to adopt", () => {
+    assert.deepEqual(planStayBookingWrite({ stay: target, linked: [], detached: [] }), {
+      kind: "insert",
+    })
+  })
+})
+
+describe("planStayReconciliation", () => {
+  const existing = [
+    { id: "stay-1", key: "place-abc", checkIn: "2026-03-22", checkOut: "2026-03-25" },
+  ]
+
+  it("creates a stay for a run with nothing to match", () => {
+    const plan = planStayReconciliation({
+      runs: [run({ key: "place-abc", checkIn: "2026-03-22", checkOut: "2026-03-25" })],
+      existing: [],
+    })
+
+    assert.equal(plan.create.length, 1)
+    assert.equal(plan.update.length, 0)
+    assert.equal(plan.remove.length, 0)
+  })
+
+  it("updates in place when the run just grew another night", () => {
+    const plan = planStayReconciliation({
+      runs: [run({ key: "place-abc", checkIn: "2026-03-22", checkOut: "2026-03-26" })],
+      existing,
+    })
+
+    assert.equal(plan.create.length, 0)
+    assert.deepEqual(plan.update, [
+      {
+        stayId: "stay-1",
+        run: run({ key: "place-abc", checkIn: "2026-03-22", checkOut: "2026-03-26" }),
+      },
+    ])
+    assert.equal(plan.remove.length, 0)
+  })
+
+  // Splitting one run into two must keep the booking (and its PNR) attached to
+  // the larger half rather than dropping both and re-creating.
+  it("keeps the existing stay on the most-overlapping half when a run splits", () => {
+    const plan = planStayReconciliation({
+      runs: [
+        run({ key: "place-abc", checkIn: "2026-03-22", checkOut: "2026-03-24" }),
+        run({ key: "place-abc", checkIn: "2026-03-26", checkOut: "2026-03-27" }),
+      ],
+      existing,
+    })
+
+    assert.equal(plan.update.length, 1)
+    assert.equal(plan.update[0]!.stayId, "stay-1")
+    assert.equal(plan.update[0]!.run.checkIn, "2026-03-22")
+    assert.equal(plan.create.length, 1)
+    assert.equal(plan.create[0]!.checkIn, "2026-03-26")
+    assert.equal(plan.remove.length, 0)
+  })
+
+  it("removes a stay whose run is gone", () => {
+    const plan = planStayReconciliation({ runs: [], existing })
+    assert.deepEqual(plan.remove, ["stay-1"])
+  })
+
+  it("never reuses a stay for a run under a different key", () => {
+    const plan = planStayReconciliation({
+      runs: [run({ key: "place-xyz", checkIn: "2026-03-22", checkOut: "2026-03-25" })],
+      existing,
+    })
+
+    assert.equal(plan.update.length, 0)
+    assert.equal(plan.create.length, 1)
+    assert.deepEqual(plan.remove, ["stay-1"])
+  })
+
+  it("is idempotent — replanning an already-reconciled trip is a no-op update", () => {
+    const plan = planStayReconciliation({
+      runs: [run({ key: "place-abc", checkIn: "2026-03-22", checkOut: "2026-03-25" })],
+      existing,
+    })
+
+    assert.equal(plan.create.length, 0)
+    assert.equal(plan.remove.length, 0)
+    assert.equal(plan.update.length, 1)
+  })
+})
+
+describe("planStayBackfill", () => {
+  const nikko = run({
+    key: "place-abc",
+    placeId: "place-abc",
+    checkIn: "2026-03-22",
+    checkOut: "2026-03-25",
+  })
+
+  it("adopts the user's existing booking instead of creating a second one", () => {
+    const plan = planStayBackfill({
+      runs: [nikko],
+      existingStays: [],
+      candidates: [
+        { id: "r1", name: "Hotel Nikko", startDate: "2026-03-22", endDate: "2026-03-25" },
+      ],
+    })
+
+    assert.equal(plan.length, 1)
+    assert.equal(plan[0]!.stayId, null)
+    assert.equal(plan[0]!.adoptReservationId, "r1")
+    assert.deepEqual(plan[0]!.ambiguousReservationIds, [])
+  })
+
+  it("creates a derived booking when the user never entered one", () => {
+    const plan = planStayBackfill({ runs: [nikko], existingStays: [], candidates: [] })
+
+    assert.equal(plan[0]!.adoptReservationId, null)
+    assert.deepEqual(plan[0]!.ambiguousReservationIds, [])
+  })
+
+  // Running twice must change nothing: the stay already exists and its booking
+  // is already linked, so it is no longer an adoption candidate.
+  it("is idempotent — a second run reuses the stay and adopts nothing", () => {
+    const plan = planStayBackfill({
+      runs: [nikko],
+      existingStays: [
+        { id: "stay-1", key: "place-abc", checkIn: "2026-03-22", checkOut: "2026-03-25" },
+      ],
+      candidates: [],
+    })
+
+    assert.equal(plan.length, 1)
+    assert.equal(plan[0]!.stayId, "stay-1")
+    assert.equal(plan[0]!.adoptReservationId, null)
+  })
+
+  it("leaves a near-match unlinked and reports it as a possible duplicate", () => {
+    const plan = planStayBackfill({
+      runs: [nikko],
+      existingStays: [],
+      candidates: [
+        { id: "r9", name: "Nikko Hotel Tokyo", startDate: "2026-03-22", endDate: "2026-03-25" },
+      ],
+    })
+
+    assert.equal(plan[0]!.adoptReservationId, null)
+    assert.deepEqual(plan[0]!.ambiguousReservationIds, ["r9"])
+  })
+
+  it("never adopts the same booking onto two stays", () => {
+    const second = run({
+      key: "place-abc",
+      placeId: "place-abc",
+      checkIn: "2026-04-10",
+      checkOut: "2026-04-12",
+    })
+    const plan = planStayBackfill({
+      runs: [nikko, second],
+      existingStays: [],
+      candidates: [
+        { id: "r1", name: "Hotel Nikko", startDate: "2026-03-22", endDate: "2026-03-25" },
+      ],
+    })
+
+    assert.equal(plan[0]!.adoptReservationId, "r1")
+    assert.equal(plan[1]!.adoptReservationId, null)
+  })
+
+  it("returns an entry per run so the report can count them", () => {
+    const plan = planStayBackfill({
+      runs: [nikko, run({ key: "place-xyz", checkIn: "2026-03-25", checkOut: "2026-03-27" })],
+      existingStays: [],
+      candidates: [],
+    })
+
+    assert.equal(plan.length, 2)
+  })
+})

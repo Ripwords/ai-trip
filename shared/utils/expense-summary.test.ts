@@ -44,7 +44,10 @@ describe("summariseTripExpenses — the one true total", () => {
     const s = summariseTripExpenses(
       input({
         expenses: [expense({ amount: "40.00" })],
-        reservations: [{ amount: "60.00" }, { amount: null }],
+        reservations: [
+          { amount: "60.00", status: "confirmed" },
+          { amount: null, status: "confirmed" },
+        ],
         activities: [
           { id: "act1", name: "Museum", dayNumber: 1, date: "2026-03-01", costEstimate: "25.00" },
         ],
@@ -54,6 +57,38 @@ describe("summariseTripExpenses — the one true total", () => {
     assert.equal(s.reservationsTotal, 60)
     assert.equal(s.total, 100)
     assert.equal(s.plannedTotal, 25)
+  })
+
+  // `total` is `expensesTotal + reservationsTotal`, so any component that adds
+  // bookings to `total` counts them twice — a EUR 900 hotel rendered as EUR
+  // 1,800 committed, with the budget bar inflated to match. `TripStats` did.
+  it("already includes reservations in total, so nothing may add them again", () => {
+    const s = summariseTripExpenses(
+      input({
+        expenses: [expense({ amount: "40.00" })],
+        reservations: [{ amount: "900.00", status: "confirmed" }],
+        budget: "1000.00",
+      }),
+    )
+    assert.equal(s.total, s.expensesTotal + s.reservationsTotal)
+    assert.equal(s.total, 940)
+    assert.equal(s.budgetPercent, 94)
+  })
+
+  // A cancelled booking is money that is not committed.
+  it("excludes cancelled bookings from the total and the budget", () => {
+    const s = summariseTripExpenses(
+      input({
+        reservations: [
+          { amount: "900.00", status: "cancelled" },
+          { amount: "100.00", status: "pending" },
+        ],
+        budget: "1000.00",
+      }),
+    )
+    assert.equal(s.reservationsTotal, 100)
+    assert.equal(s.total, 100)
+    assert.equal(s.budgetPercent, 10)
   })
 
   it("adds cents without float drift", () => {
@@ -323,7 +358,7 @@ describe("summariseTripExpenses — settlement failure is contained", () => {
       const s = summariseTripExpenses(
         input({
           expenses: [expense({ amount: "100.00", paidById: "a" })],
-          reservations: [{ amount: "10.00" }],
+          reservations: [{ amount: "10.00", status: "confirmed" }],
           activities: [
             { id: "act1", name: "Museum", dayNumber: 1, date: "2026-03-01", costEstimate: "25.00" },
           ],
