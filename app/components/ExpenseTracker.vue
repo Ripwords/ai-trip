@@ -6,6 +6,7 @@ import type {
   ExpenseSortOrder,
 } from "#shared/utils/expense-list"
 import { SPLIT_MODES, type SplitMode } from "#shared/utils/splits"
+import { TRIP_CURRENCIES, currencyDecimals } from "#shared/utils/currency"
 
 /** Receipt metadata as the list endpoint embeds it (#48). Never the storage key. */
 interface ExpenseReceipt {
@@ -19,8 +20,11 @@ interface ExpenseReceipt {
 interface Expense {
   id: string
   description: string
-  /** Denominated in the trip's currency. */
+  /** What was actually paid, in `currencyCode`. Never rewritten (#47). */
   amount: string
+  currencyCode: string
+  /** The derived trip-currency figure; null only on pre-#47 rows. */
+  amountInTripCurrency: string | null
   category: string
   activityId: string | null
   paidById: string | null
@@ -98,6 +102,7 @@ const submittingExpense = ref(false)
 const uid = useId()
 const descriptionId = `${uid}-description`
 const amountId = `${uid}-amount`
+const currencyId = `${uid}-currency`
 const categoryId = `${uid}-category`
 const dateId = `${uid}-date`
 const paidById = `${uid}-paid-by`
@@ -240,6 +245,7 @@ async function deleteReceipt(expenseId: string, receipt: ExpenseReceipt) {
 // Form fields
 const formDescription = ref("")
 const formAmount = ref("")
+const formCurrency = ref(props.currencyCode)
 const formCategory = ref("food")
 const formDate = ref(todayCalendarDate())
 const formPaidById = ref<string>("")
@@ -253,6 +259,8 @@ const formSplitValues = ref<Record<string, string>>({})
 // validates against, so the picker can't fall out of sync with the enum.
 const categories = EXPENSE_CATEGORIES
 const splitModes = SPLIT_MODES
+// Shared with TripSettingsSheet's trip-currency picker.
+const currencies = TRIP_CURRENCIES
 
 const splitModeLabels: Record<SplitMode, string> = {
   equal: "Split equally",
@@ -280,6 +288,12 @@ const transfers = computed(() => props.summary?.settlement.transfers ?? [])
 const unattributedTotal = computed(() => props.summary?.settlement.unattributedTotal ?? 0)
 /** Planned estimate vs actual spend per activity (#39). */
 const plannedVsActual = computed(() => props.summary?.plannedVsActual ?? [])
+/** Only worth showing once more than one currency is actually in play (#47). */
+const byCurrency = computed(() => {
+  const rows = props.summary?.byCurrency ?? []
+  return rows.length > 1 ? rows : []
+})
+
 /** The people a split may name. */
 const splittableMembers = computed(() => props.members ?? [])
 const canSplit = computed(() => splittableMembers.value.length > 1)
@@ -306,6 +320,7 @@ watch(
 function resetForm() {
   formDescription.value = ""
   formAmount.value = ""
+  formCurrency.value = props.currencyCode
   formCategory.value = "food"
   formDate.value = todayCalendarDate()
   formPaidById.value = ""
@@ -319,7 +334,10 @@ function resetForm() {
 function startEdit(expense: Expense) {
   editingExpenseId.value = expense.id
   formDescription.value = expense.description
+  // The paid amount and its currency, not the converted view — editing must
+  // never quietly replace what the user typed with a projection of it.
   formAmount.value = expense.amount
+  formCurrency.value = expense.currencyCode
   formCategory.value = expense.category
   // paidAt is already a plain YYYY-MM-DD calendar date — parsing it into a
   // Date and back reintroduced the UTC/local shift this column exists to avoid.
@@ -369,6 +387,7 @@ async function submitExpense() {
     const body: Record<string, unknown> = {
       description: formDescription.value,
       amount: formAmount.value,
+      currencyCode: formCurrency.value || undefined,
       category: formCategory.value,
       paidAt: formDate.value || undefined,
       paidById: formPaidById.value || undefined,
@@ -439,6 +458,30 @@ const { format: formatCurrencyRaw } = useCurrencyFormat(() => props.currencyCode
 
 function formatCurrency(amount: number): string {
   return formatCurrencyRaw(amount)
+}
+
+/**
+ * Render a paid amount in the currency it was paid in — not the trip's.
+ * `useCurrencyFormat` is bound to one code, and the whole point of #47 is that
+ * an expense no longer has to share the trip's.
+ */
+function formatPaid(expense: Expense): string {
+  const amount = parseFloat(expense.amount)
+  if (!Number.isFinite(amount)) return expense.amount
+  const digits = currencyDecimals(expense.currencyCode)
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: expense.currencyCode,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(amount)
+}
+
+/** The trip-currency view, shown only when it differs from what was paid. */
+function formatConverted(expense: Expense): string | null {
+  if (expense.currencyCode === props.currencyCode) return null
+  if (expense.amountInTripCurrency == null) return null
+  return formatCurrency(parseFloat(expense.amountInTripCurrency))
 }
 
 function getMemberName(userId: string | null): string {
@@ -570,6 +613,28 @@ function getMemberName(userId: string | null): string {
         {{ formatCurrency(unattributedTotal) }} not included — no payer recorded. Edit those
         expenses to set who paid.
       </p>
+    </div>
+
+    <!-- Currencies actually paid in. Only shown once there is more than one,
+         which is when the trip-currency total stops being self-explanatory. -->
+    <div v-if="byCurrency.length > 0" class="rounded-2xl border border-sand-200 bg-white p-6">
+      <h3 class="text-sm font-semibold text-sand-900">Currencies</h3>
+      <div class="mt-3 space-y-2">
+        <div
+          v-for="row in byCurrency"
+          :key="row.currencyCode"
+          class="flex items-center justify-between text-sm"
+        >
+          <span class="text-sand-700">{{ row.currencyCode }}</span>
+          <span class="tabular-nums text-sand-600">
+            {{ row.amount }} {{ row.currencyCode }}
+            <span class="text-sand-400">=</span>
+            <span class="font-medium text-sand-900">
+              {{ formatCurrency(row.amountInTripCurrency) }}
+            </span>
+          </span>
+        </div>
+      </div>
     </div>
 
     <!-- Planned vs actual. `expenses.activityId` had a column, an index and a
@@ -763,6 +828,22 @@ function getMemberName(userId: string | null): string {
             />
           </div>
           <div>
+            <!-- What was actually paid, in the currency it was paid in. The
+                 trip currency is a reporting projection, not a constraint. -->
+            <label :for="currencyId" class="mb-1 block text-xs font-medium text-sand-600">
+              Currency
+            </label>
+            <select
+              :id="currencyId"
+              v-model="formCurrency"
+              class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+            >
+              <option v-for="c in currencies" :key="c.code" :value="c.code">
+                {{ c.code }}
+              </option>
+            </select>
+          </div>
+          <div>
             <label :for="categoryId" class="mb-1 block text-xs font-medium text-sand-600">
               Category
             </label>
@@ -936,8 +1017,18 @@ function getMemberName(userId: string | null): string {
               </div>
             </div>
             <div class="flex items-center gap-1.5">
-              <span class="text-sm font-semibold text-sand-900 tabular-nums">
-                {{ formatCurrency(parseFloat(expense.amount)) }}
+              <span class="text-right">
+                <!-- What was paid, in the currency paid. The converted figure is
+                     secondary and never replaces it. -->
+                <span class="block text-sm font-semibold text-sand-900 tabular-nums">
+                  {{ formatPaid(expense) }}
+                </span>
+                <span
+                  v-if="formatConverted(expense)"
+                  class="block text-xs text-sand-500 tabular-nums"
+                >
+                  {{ formatConverted(expense) }}
+                </span>
               </span>
               <button
                 type="button"
