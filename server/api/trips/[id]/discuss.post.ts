@@ -24,6 +24,7 @@ import type { FlightPromptInput } from "../../../lib/ai"
 import { stampGroup } from "../../../lib/proposal-targeting"
 import type { Proposal } from "../../../lib/proposals"
 import { mapChunk, toSseFrame } from "../../../lib/discuss-stream"
+import { persistChatTurn } from "../../../lib/trip-chat"
 
 const discussBodySchema = z.object({
   messages: z
@@ -97,6 +98,11 @@ export default defineEventHandler(async (event) => {
   let transportMode: ReturnType<typeof normalizeTransportMode>
   let days: { id: string; dayNumber: number }[]
   let proposalCollector: Proposal[]
+  // The user's own words for this turn, captured BEFORE the trip context is
+  // prefixed onto the last user message below. Persisting the prefixed copy
+  // would put a wall of generated itinerary state in the transcript and replay
+  // a stale snapshot of it on every later turn.
+  let latestUserContent = ""
   try {
     // Reject if ANY message (incl. client-supplied assistant turns) contains an
     // injection attempt; normalize only user turns (assistant markdown is kept verbatim).
@@ -110,6 +116,7 @@ export default defineEventHandler(async (event) => {
     if (cleanMessages.some((m) => m.role === "user" && !m.content)) {
       throw createError({ statusCode: 400, message: "Message contains disallowed content." })
     }
+    latestUserContent = cleanMessages.findLast((m) => m.role === "user")?.content ?? ""
 
     transportMode = normalizeTransportMode(trip.preferences?.transportMode)
 
@@ -335,7 +342,12 @@ export default defineEventHandler(async (event) => {
       const streamedAny = streamedText.trim().length > 0 || proposalCollector.length > 0
 
       if (controller.signal.aborted) {
-        // Metered even when cancelled: those steps were really spent.
+        // Metered even when cancelled: those steps were really spent. NOT
+        // persisted, though — `streamedText` here is a sentence cut off
+        // mid-word, and the client replays history into the next turn's
+        // context, so storing it would poison the thread as well as show a
+        // truncated reply forever. persistChatTurn enforces that itself; the
+        // call is simply not made on this path.
         await settleCredits(streamedAny, stepsUsed)
         await stream.close()
         return
@@ -362,6 +374,30 @@ export default defineEventHandler(async (event) => {
         }),
       )
       doneSent = true
+
+      // Persist the completed turn. Deliberately AFTER settleCredits and after
+      // `done` shipped: the credit accounting and the client's view of the turn
+      // are both already final, so nothing here can move them. persistChatTurn
+      // never throws for exactly that reason — a throw would fall into the
+      // catch below, which would re-enter the (guarded, non-idempotent) settle
+      // and could push an `error` frame for a turn the client saw succeed.
+      //
+      // Gated on `streamedAny` — the same predicate the refund branch uses. A
+      // refunded turn's `final.message` is the "I ran out of room ... this
+      // prompt wasn't counted" apology; recording it would put a refunded
+      // non-answer in the transcript and replay it as model context forever.
+      await persistChatTurn({
+        tripId: id,
+        userId: session.user.id,
+        userContent: latestUserContent,
+        // `final.message` rather than raw `streamedText`: it is exactly what the
+        // client rendered (including the proposal-only lead-in), so history and
+        // the live bubble can never disagree.
+        assistantContent: streamedAny ? final.message : "",
+        toolCallSummary: toolLines,
+        proposals: groupedProposals,
+        aborted: false,
+      })
 
       console.log(
         `[discuss] activeDay=${dayId ?? "none"} proposals=[${groupedProposals
