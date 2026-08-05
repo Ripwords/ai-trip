@@ -549,6 +549,35 @@ const activeTransportMode = computed<TransportMode>(
 
 const transportUpdating = ref(false)
 
+// Compact transport picker (mobile only — see the itinerary controls row).
+const showTransportMenu = ref(false)
+const transportMenuRef = ref<HTMLElement | null>(null)
+const activeTransportOption = computed(
+  () =>
+    transportModeOptions.find((m) => m.value === activeTransportMode.value) ??
+    transportModeOptions[0]!,
+)
+const activeTransportIcon = computed(() => activeTransportOption.value.icon)
+const activeTransportLabel = computed(() => activeTransportOption.value.label)
+
+function closeTransportMenuOnOutsideClick(e: MouseEvent) {
+  if (!showTransportMenu.value) return
+  if (!transportMenuRef.value?.contains(e.target as Node)) showTransportMenu.value = false
+}
+function closeTransportMenuOnEscape(e: KeyboardEvent) {
+  if (e.key === "Escape") showTransportMenu.value = false
+}
+onMounted(() => {
+  if (!import.meta.client) return
+  document.addEventListener("click", closeTransportMenuOnOutsideClick)
+  document.addEventListener("keydown", closeTransportMenuOnEscape)
+})
+onUnmounted(() => {
+  if (!import.meta.client) return
+  document.removeEventListener("click", closeTransportMenuOnOutsideClick)
+  document.removeEventListener("keydown", closeTransportMenuOnEscape)
+})
+
 async function recomputeSegmentsForAllDays() {
   await Promise.all(
     sortedDays.value
@@ -1565,28 +1594,22 @@ async function recomputeSegments(dayId: string) {
     <!-- Trip detail -->
     <div v-else>
       <!-- Header -->
-      <div class="flex items-start justify-between gap-3">
-        <div class="flex min-w-0 flex-1 items-start gap-2">
+      <!-- items-center, not items-start: the back button is a 44px touch target
+           and the title only ~32px tall, so aligning their tops left the arrow
+           sitting visibly low against the title. The optional destination
+           prompt moved below the row so it cannot reintroduce the offset. -->
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex min-w-0 flex-1 items-center gap-1">
           <NuxtLink
             to="/dashboard"
-            class="mt-1 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
+            aria-label="Back to dashboard"
+            class="-ml-2 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-sand-700"
           >
             <Icon name="lucide:arrow-left" class="h-5 w-5" />
           </NuxtLink>
-          <div class="min-w-0">
-            <h1 class="truncate font-display text-2xl text-sand-900 sm:text-3xl">
-              {{ tripDisplayName }}
-            </h1>
-            <button
-              v-if="!trip.countryCode && !isViewer"
-              type="button"
-              class="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-terra-50 px-2.5 py-1 text-xs font-medium text-terra-700 transition hover:bg-terra-100"
-              @click="openSettings('country')"
-            >
-              <Icon name="lucide:map-pin" class="h-3.5 w-3.5" />
-              Set a destination
-            </button>
-          </div>
+          <h1 class="min-w-0 truncate font-display text-2xl text-sand-900 sm:text-3xl">
+            {{ tripDisplayName }}
+          </h1>
         </div>
 
         <div class="flex shrink-0 items-center gap-0.5">
@@ -1728,8 +1751,19 @@ async function recomputeSegments(dayId: string) {
         </div>
       </div>
 
-      <!-- Tabs -->
-      <div class="mt-6">
+      <button
+        v-if="!trip.countryCode && !isViewer"
+        type="button"
+        class="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-terra-50 px-2.5 text-xs font-medium text-terra-700 transition hover:bg-terra-100"
+        @click="openSettings('country')"
+      >
+        <Icon name="lucide:map-pin" class="h-3.5 w-3.5" />
+        Set a destination
+      </button>
+
+      <!-- Tabs. Tighter on mobile: mt-6 left a conspicuous band of dead space
+           between the title and the tab row on a phone. -->
+      <div class="mt-3 sm:mt-6">
         <TripDetailTabs v-model="activeTab" />
       </div>
 
@@ -1748,9 +1782,9 @@ async function recomputeSegments(dayId: string) {
         />
       </div>
 
-      <div v-else-if="activeTab === 'itinerary'" class="mt-6">
+      <div v-else-if="activeTab === 'itinerary'" class="mt-3 sm:mt-6">
         <!-- Day strip + controls in one band -->
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 sm:gap-3">
           <ClientOnly>
             <div
               ref="dayStripRef"
@@ -1804,8 +1838,69 @@ async function recomputeSegments(dayId: string) {
           <div class="h-8 w-px shrink-0 bg-sand-200/70 dark:bg-white/10" aria-hidden="true" />
 
           <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+            <!-- Mobile: the four-way segmented control ate ~180px of a 390px
+                 row, leaving only about three dates visible. Dates are the
+                 primary control here, so on small screens this collapses to a
+                 single button that opens the same options with real labels. -->
+            <div ref="transportMenuRef" class="relative sm:hidden">
+              <button
+                type="button"
+                :disabled="transportUpdating"
+                class="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-lg bg-sand-100/60 px-2 text-sand-700 transition disabled:opacity-50 focus-ring dark:bg-white/[0.04]"
+                aria-haspopup="menu"
+                :aria-expanded="showTransportMenu"
+                :aria-label="`Travel times: ${activeTransportLabel}. Change mode`"
+                @click.stop="showTransportMenu = !showTransportMenu"
+              >
+                <Icon :name="activeTransportIcon" class="h-4 w-4" />
+                <Icon name="lucide:chevron-down" class="h-3 w-3 text-sand-500" />
+              </button>
+              <Transition
+                enter-active-class="duration-150 ease-out"
+                enter-from-class="opacity-0 scale-95"
+                enter-to-class="opacity-100 scale-100"
+                leave-active-class="duration-100 ease-in"
+                leave-from-class="opacity-100 scale-100"
+                leave-to-class="opacity-0 scale-95"
+              >
+                <div
+                  v-if="showTransportMenu"
+                  role="menu"
+                  class="absolute right-0 top-full z-30 mt-1 w-44 origin-top-right rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
+                >
+                  <button
+                    v-for="mode in transportModeOptions"
+                    :key="mode.value"
+                    type="button"
+                    role="menuitemradio"
+                    :aria-checked="activeTransportMode === mode.value"
+                    class="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm transition hover:bg-sand-50 focus-ring"
+                    :class="
+                      activeTransportMode === mode.value
+                        ? 'font-medium text-sand-900'
+                        : 'text-sand-700'
+                    "
+                    @click="
+                      () => {
+                        handleTransportModeChange(mode.value)
+                        showTransportMenu = false
+                      }
+                    "
+                  >
+                    <Icon :name="mode.icon" class="h-4 w-4 text-sand-500" />
+                    {{ mode.label }}
+                    <Icon
+                      v-if="activeTransportMode === mode.value"
+                      name="lucide:check"
+                      class="ml-auto h-3.5 w-3.5 text-terra-500"
+                    />
+                  </button>
+                </div>
+              </Transition>
+            </div>
+
             <div
-              class="flex items-center gap-0.5 rounded-lg bg-sand-100/60 p-0.5 dark:bg-white/[0.04]"
+              class="hidden items-center gap-0.5 rounded-lg bg-sand-100/60 p-0.5 sm:flex dark:bg-white/[0.04]"
             >
               <button
                 v-for="mode in transportModeOptions"
