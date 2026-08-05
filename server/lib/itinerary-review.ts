@@ -1,5 +1,6 @@
 import { farFromAnchor } from "../utils/geo"
 import { parseOpeningWindow } from "../utils/schedule"
+import type { TripPreferences } from "../db/schema/trips"
 
 export type ItineraryReviewScope = "day" | "trip"
 export type ItineraryReviewSeverity = "critical" | "warning" | "suggestion"
@@ -49,6 +50,12 @@ export interface ReviewableFlight {
 export interface ReviewableTrip {
   id: string
   destination?: string
+  /**
+   * The trip's stored preferences. Unused by the deterministic checker (it never
+   * fires off a soft signal), but the AI judgment pass needs them injected —
+   * its `pace-mismatch` / `interest-mismatch` rules reference them by name.
+   */
+  preferences?: TripPreferences | null
   days: ReviewableDay[]
   /** Optional — callers without user context omit it and skip flight findings. */
   flights?: ReviewableFlight[]

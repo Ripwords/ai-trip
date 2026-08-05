@@ -84,21 +84,38 @@ export default defineEventHandler(async (event) => {
 
   const usageMonth = await tryConsumeAiCredit(session.user.id)
 
-  const result = await reviewItineraryWithJudgment(reviewable, body, {
-    tripId: id,
-    dayId: activeDayId,
-    transportMode: normalizeTransportMode(trip.preferences?.transportMode),
-    currencyCode: trip.currencyCode ?? "USD",
-    // Without this the review tools cannot load the user's flights.
-    userId: session.user.id,
-  })
+  // Everything after the consume is inside the refund guard. reviewItineraryWithJudgment
+  // is designed to degrade rather than throw, but it is not the only thing that
+  // runs here — the deterministic pass, mergeFindings and groupBySeverity all sit
+  // on this path, and an unguarded throw would have returned a 500 while keeping
+  // the credit.
+  try {
+    const result = await reviewItineraryWithJudgment(reviewable, body, {
+      tripId: id,
+      dayId: activeDayId,
+      transportMode: normalizeTransportMode(trip.preferences?.transportMode),
+      currencyCode: trip.currencyCode ?? "USD",
+      // Without this the review tools cannot load the user's flights.
+      userId: session.user.id,
+    })
 
-  // reviewItineraryWithJudgment degrades to deterministic-only rather than
-  // throwing, so the refund hangs off its status flag: the traveler paid for the
-  // judgment pass and did not get one.
-  if (!result.judgment?.ran) {
+    // reviewItineraryWithJudgment degrades to deterministic-only rather than
+    // throwing, so the refund hangs off its status flag: the traveler paid for the
+    // judgment pass and did not get one.
+    if (!result.judgment?.ran) {
+      await refundAiCredit(session.user.id, usageMonth)
+    }
+
+    return result
+  } catch (error) {
     await refundAiCredit(session.user.id, usageMonth)
+    console.error("[review.post] deep review failed after the credit was consumed:", error)
+    if (error instanceof Error && error.message === "Day not found") {
+      throw createError({ statusCode: 404, message: "Day not found" })
+    }
+    throw createError({
+      statusCode: 502,
+      message: "Couldn't run the deep review right now. Please try again.",
+    })
   }
-
-  return result
 })
