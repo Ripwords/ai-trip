@@ -13,6 +13,7 @@ const aiDockSource = read("./components/AiDock.vue")
 const tripSettingsSheetSource = read("./components/TripSettingsSheet.vue")
 const countryDetailPanelSource = read("./components/CountryDetailPanel.vue")
 const tripOverviewSource = read("./components/TripOverview.vue")
+const keyboardInsetSource = read("./composables/useKeyboardInset.ts")
 
 // Static (non-`d`) viewport height units resolve against the LARGE viewport on
 // mobile Safari/Chrome: they do not shrink when the browser chrome or the
@@ -61,8 +62,42 @@ describe("AI dock (mobile chat sheet)", () => {
       [],
       "the dock sheet must use dvh so the keyboard cannot push the composer off-screen",
     )
-    assert.match(aiDockSource, /max-h-\[70dvh\]/)
-    assert.match(aiDockSource, /min-h-\[50dvh\]/)
+    assert.match(aiDockSource, /70dvh/)
+    assert.match(aiDockSource, /50dvh/)
+  })
+
+  it("lifts the sheet above the iOS keyboard rather than trusting dvh alone", () => {
+    // iOS Safari ignores `interactive-widget=resizes-content` and composites the
+    // keyboard over the page, so dvh keeps reporting the full screen and the
+    // composer ends up behind the keyboard. Only visualViewport reveals this,
+    // and only on a real device — headless Chrome cannot reproduce it.
+    assert.match(aiDockSource, /useKeyboardInset\(\)/, "must measure the keyboard inset")
+    assert.match(
+      aiDockSource,
+      /bottom:\s*lifted\s*\?/,
+      "sheet must be offset by the keyboard inset when one is present",
+    )
+    assert.match(
+      aiDockSource,
+      /viewportHeight/,
+      "max-height must be derived from the visual viewport, not the layout viewport",
+    )
+    assert.match(
+      keyboardInsetSource,
+      /window\.innerHeight\s*-\s*vv\.height\s*-\s*vv\.offsetTop/,
+      "inset must account for iOS scrolling the visual viewport (offsetTop)",
+    )
+    assert.match(
+      keyboardInsetSource,
+      /vv\.scale\s*>\s*1\.05/,
+      "pinch-zoom must not be mistaken for the keyboard",
+    )
+  })
+
+  it("keeps the desktop side panel free of the mobile inline geometry", () => {
+    // Inline styles beat the md: utility classes that position the side panel.
+    assert.match(aiDockSource, /if \(!isCompact\.value\) return \{\}/)
+    assert.match(aiDockSource, /max-width:\s*767px/)
   })
 
   it("composes messages in an auto-growing textarea, not a single-line input", () => {

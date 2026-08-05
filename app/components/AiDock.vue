@@ -151,6 +151,55 @@ useModalA11y(dialogRef, {
 // still not meant to move while a modal dialog owns focus.
 useBodyScrollLock(() => expanded.value)
 
+// ── Sheet geometry ──────────────────────────────────────────────────
+// `dvh` alone is not enough. iOS Safari ignores `interactive-widget=
+// resizes-content` and composites the keyboard OVER the page, so `70dvh` keeps
+// measuring the full screen and the composer ends up behind the keyboard —
+// invisible on a real iPhone while looking perfectly fine in headless Chrome.
+// Lift the sheet by the measured keyboard inset and size it against the visual
+// viewport instead. On Android the inset is ~0 and this reduces to the dvh
+// behaviour it replaces.
+const { inset: keyboardInset, viewportHeight } = useKeyboardInset()
+
+// Above `md` the dock is a right-anchored side panel positioned entirely by
+// utility classes (md:top-4 / md:bottom-4 / md:max-h-…). Inline styles would
+// beat those, so the geometry below must apply to the bottom sheet only.
+const isCompact = ref(true)
+let compactQuery: MediaQueryList | null = null
+function syncCompact(e: MediaQueryList | MediaQueryListEvent) {
+  isCompact.value = e.matches
+}
+onMounted(() => {
+  if (!import.meta.client) return
+  compactQuery = window.matchMedia("(max-width: 767px)")
+  syncCompact(compactQuery)
+  compactQuery.addEventListener("change", syncCompact)
+})
+onBeforeUnmount(() => compactQuery?.removeEventListener("change", syncCompact))
+
+const sheetStyle = computed(() => {
+  if (!isCompact.value) return {}
+
+  const usable = viewportHeight.value || 0
+  const lifted = keyboardInset.value > 0
+
+  return {
+    bottom: lifted ? `${keyboardInset.value}px` : "0px",
+    // With the keyboard up, every pixel counts: drop the 50dvh floor so the
+    // sheet can shrink to whatever is left, and cap it to the visible strip.
+    maxHeight: usable > 0 ? `${Math.round(usable * (lifted ? 0.92 : 0.7))}px` : "70dvh",
+    minHeight: lifted ? "0px" : "50dvh",
+    // The keyboard already occupies the home-indicator area, so the safe-area
+    // pad is only wanted when the sheet is actually resting on the screen edge.
+    paddingBottom: lifted ? "0.5rem" : "calc(env(safe-area-inset-bottom, 0px) + 0.5rem)",
+  }
+})
+
+// Keep the newest message in view as the keyboard opens and the sheet shrinks.
+watch(keyboardInset, () => {
+  if (expanded.value && !userScrolledUp.value) nextTick(() => scrollToBottom(false))
+})
+
 // ── Composer sizing ─────────────────────────────────────────────────
 // A single-line input made long messages unreadable on a phone (you could only
 // ever see the tail of what you typed). Grow the textarea with its content up
@@ -428,10 +477,8 @@ const proposalKindMeta: Record<
       aria-modal="true"
       :aria-labelledby="dialogHeadingId"
       tabindex="-1"
-      class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex max-h-[70dvh] min-h-[50dvh] flex-col rounded-t-[28px] focus:outline-none md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:max-h-[calc(100dvh-2rem)] md:min-h-0 md:w-[400px] md:rounded-3xl"
-      :style="{
-        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
-      }"
+      class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex flex-col rounded-t-[28px] focus:outline-none md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:max-h-[calc(100dvh-2rem)] md:min-h-0 md:w-[400px] md:rounded-3xl"
+      :style="sheetStyle"
     >
       <div class="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-sand-400/40 md:hidden" />
 
