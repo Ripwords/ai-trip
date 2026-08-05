@@ -239,6 +239,13 @@
       "when": 1785899979353,
       "tag": "0033_expense_split_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1785902796244,
+      "tag": "0034_expense_list_indexes",
+      "breakpoints": true
     }
   ]
 }

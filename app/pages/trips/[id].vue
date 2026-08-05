@@ -7,6 +7,7 @@ import { countryByAlpha2 } from "~/data/countries"
 import { parseSseFrames } from "../../utils/sse-parse"
 import type { DiscussSseEvent } from "#shared/utils/discuss-sse"
 import type { TripExpenseSummary } from "#shared/utils/expense-summary"
+import type { ExpenseListParams } from "#shared/utils/expense-list"
 
 definePageMeta({ layout: "app" })
 
@@ -58,19 +59,87 @@ const { data: ideas, refresh: refreshIdeas } = useLazyFetch<
   }[]
 >(`/api/trips/${tripId}/ideas`)
 
-const { data: expensesList, refresh: refreshExpensesList } = useLazyFetch<
-  {
-    id: string
-    description: string
-    amount: string
-    category: string
-    activityId: string | null
-    paidById: string | null
-    paidAt: string | null
-    splitMode: string
-    splits: Record<string, string> | null
-  }[]
->(`/api/trips/${tripId}/expenses`)
+/**
+ * Filter/sort state for the expense list (#49). It is a query object rather
+ * than a client-side filter: `useLazyFetch` refetches when it changes, so the
+ * database does the work and the browser never holds rows it is not showing.
+ */
+const expenseQuery = ref<ExpenseListParams>({
+  category: "",
+  payerId: "",
+  from: "",
+  to: "",
+  sort: "createdAt",
+  order: "desc",
+  limit: String(EXPENSE_PAGE_SIZE_DEFAULT),
+})
+
+const { data: expensePage, refresh: refreshExpensesList } = useLazyFetch(
+  `/api/trips/${tripId}/expenses`,
+  { query: expenseQuery },
+)
+
+/** Pages fetched by "Load more"; the first page lives in `expensePage`. */
+type LoadedExpense = NonNullable<typeof expensePage.value>["items"][number]
+const extraExpenses = ref<LoadedExpense[]>([])
+const expenseCursor = ref<string | null>(null)
+const loadingMoreExpenses = ref(false)
+
+watch(expensePage, (page) => {
+  extraExpenses.value = []
+  expenseCursor.value = page?.nextCursor ?? null
+})
+
+const expensesList = computed<LoadedExpense[]>(() => [
+  ...(expensePage.value?.items ?? []),
+  ...extraExpenses.value,
+])
+
+async function loadMoreExpenses() {
+  const cursor = expenseCursor.value
+  if (!cursor || loadingMoreExpenses.value) return
+  loadingMoreExpenses.value = true
+  try {
+    const page = await $fetch(`/api/trips/${tripId}/expenses`, {
+      query: { ...expenseQuery.value, cursor },
+    })
+    extraExpenses.value = [...extraExpenses.value, ...page.items]
+    expenseCursor.value = page.nextCursor
+  } catch (e: unknown) {
+    console.error("Failed to load more expenses:", e)
+    toastError("Couldn't load more expenses. Please try again.")
+  } finally {
+    loadingMoreExpenses.value = false
+  }
+}
+
+/**
+ * Every matching expense, not just the loaded pages — CSV and PDF must export
+ * what the user filtered to, not what happens to be scrolled into view. The
+ * per-trip cap is 200 rows, which is also the maximum page size, so this is
+ * always a single request.
+ */
+async function fetchAllFilteredExpenses(): Promise<LoadedExpense[]> {
+  const page = await $fetch(`/api/trips/${tripId}/expenses`, {
+    query: { ...expenseQuery.value, limit: String(EXPENSE_PAGE_SIZE_MAX), cursor: "" },
+  })
+  return page.items
+}
+
+const { downloadCsv } = useExportExpenses()
+
+async function exportExpensesCsv() {
+  try {
+    downloadCsv(
+      trip.value?.destination ?? "trip",
+      await fetchAllFilteredExpenses(),
+      trip.value?.currencyCode ?? "USD",
+    )
+  } catch (e: unknown) {
+    console.error("Failed to export expenses:", e)
+    toastError("Couldn't export the expenses. Please try again.")
+  }
+}
 
 /**
  * The single server-computed answer to "what does this trip cost" (#38).
@@ -280,7 +349,8 @@ async function handleExportPdf() {
       currencyCode: trip.value.currencyCode ?? "USD",
       budget: trip.value.budget ?? null,
       days: sortedDays.value,
-      expenses: expensesList.value ?? [],
+      // The whole filtered set, not the pages loaded so far (#49).
+      expenses: await fetchAllFilteredExpenses(),
       reservations,
     })
   } catch (e: unknown) {
@@ -1850,11 +1920,19 @@ async function recomputeSegments(dayId: string) {
           :budget="trip.budget ?? null"
           :currency-code="trip.currencyCode ?? 'USD'"
           :members="tripMembers?.filter((m) => m.status === 'active') ?? []"
-          :expenses="expensesList ?? []"
+          :expenses="expensesList"
           :summary="expenseSummary ?? null"
           :activities="allActivities"
+          :filters="expenseQuery"
+          :filtered-count="expensePage?.filteredCount ?? 0"
+          :filtered-total="expensePage?.filteredTotal ?? 0"
+          :has-more="expenseCursor !== null"
+          :loading-more="loadingMoreExpenses"
           @budget-updated="refresh"
           @expenses-changed="refreshExpenses"
+          @update:filters="expenseQuery = $event"
+          @load-more="loadMoreExpenses"
+          @export-csv="exportExpensesCsv"
         />
       </div>
 

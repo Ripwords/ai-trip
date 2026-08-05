@@ -41,7 +41,12 @@ export const expenses = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index("idx_expenses_trip_id").on(table.tripId),
+    // The list endpoint's two sort orders (#49), each with the `id` tie-break
+    // the keyset pagination compares on. Both start with `trip_id`, so they
+    // also serve the plain `where trip_id = ?` lookups the standalone
+    // `idx_expenses_trip_id` used to cover — it was dropped as redundant.
+    index("idx_expenses_trip_created_at").on(table.tripId, table.createdAt.desc(), table.id.desc()),
+    index("idx_expenses_trip_paid_at").on(table.tripId, table.paidAt.desc(), table.id.desc()),
     index("idx_expenses_activity_id").on(table.activityId),
     index("idx_expenses_paid_by").on(table.paidById),
   ],

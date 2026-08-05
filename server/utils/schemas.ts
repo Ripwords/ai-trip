@@ -2,6 +2,12 @@ import { z } from "zod"
 import { transportModes } from "./transport"
 import { EXPENSE_CATEGORIES } from "../../shared/utils/expense-categories"
 import { SPLIT_MODES } from "../../shared/utils/splits"
+import {
+  EXPENSE_PAGE_SIZE_DEFAULT,
+  EXPENSE_PAGE_SIZE_MAX,
+  EXPENSE_SORT_FIELDS,
+  EXPENSE_SORT_ORDERS,
+} from "../../shared/utils/expense-list"
 
 export const uuidParamsSchema = z.object({
   id: z.string().uuid(),
@@ -256,6 +262,40 @@ export const expenseIdParamsSchema = z.object({
   id: z.string().uuid(),
   expenseId: z.string().uuid(),
 })
+
+/**
+ * `GET /api/trips/:id/expenses` query string — issue #49.
+ *
+ * A form that submits an untouched `<select>` sends `?category=`, so an empty
+ * string has to mean "not filtered" rather than "filter by the empty category";
+ * otherwise the list 400s the moment a filter is cleared.
+ */
+const blankIsAbsent = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((value) => (value === "" ? undefined : value), schema.optional())
+
+const calendarDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be a YYYY-MM-DD date")
+
+export const expenseListQuerySchema = z
+  .object({
+    category: blankIsAbsent(expenseCategoryEnum),
+    // Free-form because user ids are BetterAuth strings, not uuids, plus the
+    // `"none"` sentinel for expenses with no payer recorded.
+    payerId: blankIsAbsent(z.string().min(1).max(255)),
+    from: blankIsAbsent(calendarDate),
+    to: blankIsAbsent(calendarDate),
+    sort: z.enum(EXPENSE_SORT_FIELDS).default("createdAt"),
+    order: z.enum(EXPENSE_SORT_ORDERS).default("desc"),
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(EXPENSE_PAGE_SIZE_MAX)
+      .default(EXPENSE_PAGE_SIZE_DEFAULT),
+    cursor: blankIsAbsent(z.string().max(512)),
+  })
+  .refine((v) => !v.from || !v.to || v.from <= v.to, {
+    message: "`from` must not be after `to`",
+  })
 
 // Reservations
 export const reservationTypeEnum = z.enum([

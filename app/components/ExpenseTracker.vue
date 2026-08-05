@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import type { TripExpenseSummary } from "#shared/utils/expense-summary"
+import type {
+  ExpenseListParams,
+  ExpenseSortField,
+  ExpenseSortOrder,
+} from "#shared/utils/expense-list"
 import { SPLIT_MODES, type SplitMode } from "#shared/utils/splits"
 
 interface Expense {
@@ -47,14 +52,27 @@ const props = defineProps<{
   summary: TripExpenseSummary | null
   /** For linking an expense to a planned activity (#39). */
   activities?: ExpenseActivity[]
+  /**
+   * Server-side filter/sort state (#49). The rows in `expenses` are the pages
+   * fetched under these parameters, so the controls below change the query
+   * rather than filtering an array the browser already downloaded.
+   */
+  filters: ExpenseListParams
+  /** Rows matching the filter across every page, and their sum. */
+  filteredCount: number
+  filteredTotal: number
+  /** Whether another page exists. */
+  hasMore: boolean
+  loadingMore?: boolean
 }>()
 
 const emit = defineEmits<{
   budgetUpdated: []
   expensesChanged: []
+  "update:filters": [ExpenseListParams]
+  loadMore: []
+  exportCsv: []
 }>()
-
-const { downloadCsv } = useExportExpenses()
 
 const expenses = computed(() => props.expenses)
 /** Ask the page to refetch; it owns the data. Fire-and-forget by design. */
@@ -75,6 +93,55 @@ const dateId = `${uid}-date`
 const paidById = `${uid}-paid-by`
 const activityFieldId = `${uid}-activity`
 const splitModeId = `${uid}-split-mode`
+const filterCategoryId = `${uid}-filter-category`
+const filterPayerId = `${uid}-filter-payer`
+const filterFromId = `${uid}-filter-from`
+const filterToId = `${uid}-filter-to`
+const filterSortId = `${uid}-filter-sort`
+
+const EMPTY_FILTERS: ExpenseListParams = {
+  category: "",
+  payerId: "",
+  from: "",
+  to: "",
+  sort: "createdAt",
+  order: "desc",
+  limit: String(EXPENSE_PAGE_SIZE_DEFAULT),
+}
+
+function setFilter<K extends keyof ExpenseListParams>(key: K, value: ExpenseListParams[K]) {
+  emit("update:filters", { ...props.filters, [key]: value })
+}
+
+/** The sort control is one `<select>` over the (field, order) pair. */
+const sortValue = computed({
+  get: () => `${props.filters.sort}:${props.filters.order}`,
+  set: (value: string) => {
+    const [sort, order] = value.split(":") as [ExpenseSortField, ExpenseSortOrder]
+    emit("update:filters", { ...props.filters, sort, order })
+  },
+})
+
+const sortOptions: { value: string; label: string }[] = [
+  { value: "createdAt:desc", label: "Recently added" },
+  { value: "createdAt:asc", label: "Oldest added" },
+  { value: "paidAt:desc", label: "Date — newest" },
+  { value: "paidAt:asc", label: "Date — oldest" },
+  { value: "amount:desc", label: "Amount — highest" },
+  { value: "amount:asc", label: "Amount — lowest" },
+]
+
+const filtersActive = computed(
+  () =>
+    Boolean(props.filters.category) ||
+    Boolean(props.filters.payerId) ||
+    Boolean(props.filters.from) ||
+    Boolean(props.filters.to),
+)
+
+function clearFilters() {
+  emit("update:filters", { ...EMPTY_FILTERS, sort: props.filters.sort, order: props.filters.order })
+}
 
 // Form fields
 const formDescription = ref("")
@@ -447,10 +514,10 @@ function getMemberName(userId: string | null): string {
         <h3 class="text-sm font-semibold text-sand-900">Expenses</h3>
         <div class="flex items-center gap-2">
           <button
-            v-if="expenses?.length"
+            v-if="filteredCount > 0"
             class="inline-flex items-center gap-1 rounded-lg border border-sand-200 px-2.5 py-1.5 text-xs font-medium text-sand-600 hover:bg-sand-50"
             title="Export as CSV"
-            @click="downloadCsv(tripName, expenses ?? [], currencyCode)"
+            @click="emit('exportCsv')"
           >
             <Icon name="lucide:download" class="h-3 w-3" />
             <span class="hidden sm:inline">CSV</span>
@@ -469,6 +536,103 @@ function getMemberName(userId: string | null): string {
           </button>
         </div>
       </div>
+
+      <!-- Filter / sort bar (#49). Every control below is a query parameter on
+           the list endpoint; nothing here filters an array in the browser. -->
+      <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div>
+          <label :for="filterCategoryId" class="mb-1 block text-xs font-medium text-sand-600">
+            Category
+          </label>
+          <select
+            :id="filterCategoryId"
+            :value="filters.category"
+            class="block w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs input-focus"
+            @change="setFilter('category', ($event.target as HTMLSelectElement).value)"
+          >
+            <option value="">All categories</option>
+            <option v-for="cat in categories" :key="cat" :value="cat">
+              {{ formatType(cat) }}
+            </option>
+          </select>
+        </div>
+
+        <div v-if="members && members.length > 1">
+          <label :for="filterPayerId" class="mb-1 block text-xs font-medium text-sand-600">
+            Paid by
+          </label>
+          <select
+            :id="filterPayerId"
+            :value="filters.payerId"
+            class="block w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs input-focus"
+            @change="setFilter('payerId', ($event.target as HTMLSelectElement).value)"
+          >
+            <option value="">Anyone</option>
+            <option v-for="m in members" :key="m.userId" :value="m.userId">
+              {{ m.user.name }}
+            </option>
+            <option value="none">No payer recorded</option>
+          </select>
+        </div>
+
+        <div>
+          <label :for="filterSortId" class="mb-1 block text-xs font-medium text-sand-600">
+            Sort
+          </label>
+          <select
+            :id="filterSortId"
+            v-model="sortValue"
+            class="block w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs input-focus"
+          >
+            <option v-for="option in sortOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label :for="filterFromId" class="mb-1 block text-xs font-medium text-sand-600">
+            From
+          </label>
+          <input
+            :id="filterFromId"
+            :value="filters.from"
+            type="date"
+            class="block w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs input-focus"
+            @change="setFilter('from', ($event.target as HTMLInputElement).value)"
+          />
+        </div>
+
+        <div>
+          <label :for="filterToId" class="mb-1 block text-xs font-medium text-sand-600">To</label>
+          <input
+            :id="filterToId"
+            :value="filters.to"
+            type="date"
+            class="block w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs input-focus"
+            @change="setFilter('to', ($event.target as HTMLInputElement).value)"
+          />
+        </div>
+
+        <div v-if="filtersActive" class="flex items-end">
+          <button
+            type="button"
+            class="min-h-9 w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs font-medium text-sand-700 hover:bg-sand-50"
+            @click="clearFilters"
+          >
+            Clear filters
+          </button>
+        </div>
+      </div>
+
+      <!-- What the filter selected. The trip's own total stays above, server
+           computed and unfiltered — a budget or settlement derived from a
+           subset of the expenses would be wrong, not merely narrower. -->
+      <p v-if="filtersActive" class="mt-2 text-xs text-sand-500 tabular-nums">
+        {{ filteredCount }} matching {{ filteredCount === 1 ? "expense" : "expenses" }} ·
+        {{ formatCurrency(filteredTotal) }}
+        <span class="text-sand-400">(trip total above is unfiltered)</span>
+      </p>
 
       <!-- Add/Edit form -->
       <form
@@ -699,7 +863,21 @@ function getMemberName(userId: string | null): string {
         </div>
       </div>
 
-      <p v-else class="mt-4 text-center text-xs text-sand-400">No expenses tracked yet.</p>
+      <p v-else class="mt-4 text-center text-xs text-sand-400">
+        {{ filtersActive ? "No expenses match these filters." : "No expenses tracked yet." }}
+      </p>
+
+      <!-- Cursor pagination (#49): the rows above are one page, not the trip. -->
+      <div v-if="hasMore" class="mt-3 text-center">
+        <button
+          type="button"
+          :disabled="loadingMore"
+          class="min-h-11 rounded-lg border border-sand-300 px-4 py-2 text-xs font-medium text-sand-700 hover:bg-sand-50 disabled:opacity-50"
+          @click="emit('loadMore')"
+        >
+          {{ loadingMore ? "Loading…" : `Load more (${filteredCount - expenses.length} left)` }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
