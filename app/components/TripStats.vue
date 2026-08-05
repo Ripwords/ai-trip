@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { TripExpenseSummary } from "#shared/utils/expense-summary"
+
 interface Activity {
   type: string
   costEstimate: string | null
@@ -11,9 +13,13 @@ interface Day {
 
 const props = defineProps<{
   days: Day[]
-  budget?: string | null
   currencyCode?: string
-  totalExpenses?: number
+  /**
+   * The one server-computed cost picture (#38). This component used to show
+   * `activities.costEstimate` under the label "Est. Cost" while the expenses
+   * tab showed a completely different number under "Total".
+   */
+  summary: TripExpenseSummary | null
   tripId?: string
 }>()
 
@@ -25,17 +31,8 @@ const totalActivities = computed(() =>
   props.days.reduce((sum, day) => sum + day.activities.length, 0),
 )
 
-const totalCost = computed(() => {
-  let sum = 0
-  for (const day of props.days) {
-    for (const activity of day.activities) {
-      if (activity.costEstimate) {
-        sum += parseFloat(activity.costEstimate)
-      }
-    }
-  }
-  return sum
-})
+const totalCost = computed(() => props.summary?.plannedTotal ?? 0)
+const totalSpent = computed(() => props.summary?.total ?? 0)
 
 const totalDays = computed(() => props.days.length)
 
@@ -49,12 +46,8 @@ const typeBreakdown = computed(() => {
   return counts
 })
 
-const budgetNum = computed(() => (props.budget ? parseFloat(props.budget) : null))
-
-const budgetPercent = computed(() => {
-  if (!budgetNum.value || budgetNum.value === 0 || !props.totalExpenses) return 0
-  return (props.totalExpenses / budgetNum.value) * 100
-})
+const budgetNum = computed(() => props.summary?.budget ?? null)
+const budgetPercent = computed(() => props.summary?.budgetPercent ?? 0)
 
 const progressBarColor = computed(() => {
   if (budgetPercent.value >= 100) return "bg-terra-600"
@@ -165,19 +158,16 @@ async function refreshFromGoogle() {
     </p>
 
     <!-- Budget & Spend -->
-    <div v-if="budgetNum || totalExpenses" class="mt-4 space-y-2 border-t border-sand-200 pt-4">
+    <div v-if="budgetNum || totalSpent" class="mt-4 space-y-2 border-t border-sand-200 pt-4">
       <div v-if="budgetNum" class="flex items-center justify-between text-sm">
         <span class="text-sand-600">Budget</span>
         <span class="font-semibold text-sand-900">{{ formatCurrency(budgetNum) }}</span>
       </div>
-      <div
-        v-if="totalExpenses != null && totalExpenses > 0"
-        class="flex items-center justify-between text-sm"
-      >
+      <div v-if="totalSpent > 0" class="flex items-center justify-between text-sm">
         <span class="text-sand-600">Spent</span>
-        <span class="font-semibold text-sand-900">{{ formatCurrency(totalExpenses) }}</span>
+        <span class="font-semibold text-sand-900">{{ formatCurrency(totalSpent) }}</span>
       </div>
-      <div v-if="budgetNum && totalExpenses" class="mt-1">
+      <div v-if="budgetNum && totalSpent" class="mt-1">
         <div class="h-1.5 w-full rounded-full bg-sand-200">
           <div
             class="h-1.5 rounded-full transition-all"

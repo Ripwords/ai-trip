@@ -6,6 +6,7 @@ import type { ChatMessage } from "~/components/AiDock.vue"
 import { countryByAlpha2 } from "~/data/countries"
 import { parseSseFrames } from "../../utils/sse-parse"
 import type { DiscussSseEvent } from "#shared/utils/discuss-sse"
+import type { TripExpenseSummary } from "#shared/utils/expense-summary"
 
 definePageMeta({ layout: "app" })
 
@@ -57,16 +58,33 @@ const { data: ideas, refresh: refreshIdeas } = useLazyFetch<
   }[]
 >(`/api/trips/${tripId}/ideas`)
 
-const { data: expensesList, refresh: refreshExpenses } = useLazyFetch<
+const { data: expensesList, refresh: refreshExpensesList } = useLazyFetch<
   {
     id: string
     description: string
     amount: string
     category: string
+    activityId: string | null
     paidById: string | null
     paidAt: string | null
+    splitMode: string
+    splits: Record<string, string> | null
   }[]
 >(`/api/trips/${tripId}/expenses`)
+
+/**
+ * The single server-computed answer to "what does this trip cost" (#38).
+ * Three components used to each add up their own version of this in the
+ * browser and disagree; they now all render these numbers.
+ */
+const { data: expenseSummary, refresh: refreshExpenseSummary } = useLazyFetch<TripExpenseSummary>(
+  `/api/trips/${tripId}/expenses/summary`,
+)
+
+/** The list and the summary are two views of the same data; refresh together. */
+async function refreshExpenses() {
+  await Promise.all([refreshExpensesList(), refreshExpenseSummary()])
+}
 
 const { data: tripFlights, refresh: refreshFlights } = useLazyFetch(`/api/trips/${tripId}/flights`)
 
@@ -649,11 +667,6 @@ async function handleTransportModeChange(mode: TransportMode) {
     transportUpdating.value = false
   }
 }
-
-const totalExpenses = computed(() => {
-  if (!expensesList.value) return 0
-  return expensesList.value.reduce((sum, e) => sum + parseFloat(e.amount), 0)
-})
 
 // Set activeDayId: prioritize today's date > sessionStorage > first day
 watch(
@@ -1596,8 +1609,7 @@ async function recomputeSegments(dayId: string) {
           :trip="trip"
           :trip-id="tripId"
           :sorted-days="sortedDays"
-          :expenses-list="expensesList ?? []"
-          :total-expenses="totalExpenses"
+          :summary="expenseSummary ?? null"
           :currency-code="trip.currencyCode ?? 'USD'"
           :airports="tripAirports"
           @navigate-to-day="handleNavigateToDay"
@@ -1838,6 +1850,8 @@ async function recomputeSegments(dayId: string) {
           :currency-code="trip.currencyCode ?? 'USD'"
           :members="tripMembers?.filter((m) => m.status === 'active') ?? []"
           :expenses="expensesList ?? []"
+          :summary="expenseSummary ?? null"
+          :activities="allActivities"
           @budget-updated="refresh"
           @expenses-changed="refreshExpenses"
         />
