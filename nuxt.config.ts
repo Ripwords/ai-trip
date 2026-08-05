@@ -355,6 +355,14 @@ export default defineNuxtConfig({
         rateLimiter: { tokensPerInterval: 20, interval: 60000 },
       },
     },
+    // Starting a run can spend an outline credit and calls Gemini, so it gets
+    // the same burst limit as the other model-backed endpoints. The free GET
+    // shares it: a tab polls this at most once per generate press.
+    "/api/trips/*/generation-run": {
+      security: {
+        rateLimiter: { tokensPerInterval: 10, interval: 60000 },
+      },
+    },
     "/api/trips/*/members/invite": {
       security: {
         rateLimiter: { tokensPerInterval: 10, interval: 60000 },
