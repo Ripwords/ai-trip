@@ -1,6 +1,20 @@
 <script setup lang="ts">
 import type { TripExpenseSummary } from "#shared/utils/expense-summary"
+import type {
+  ExpenseListParams,
+  ExpenseSortField,
+  ExpenseSortOrder,
+} from "#shared/utils/expense-list"
 import { SPLIT_MODES, type SplitMode } from "#shared/utils/splits"
+
+/** Receipt metadata as the list endpoint embeds it (#48). Never the storage key. */
+interface ExpenseReceipt {
+  id: string
+  fileName: string
+  mimeType: string
+  sizeBytes: number
+  url: string
+}
 
 interface Expense {
   id: string
@@ -14,6 +28,7 @@ interface Expense {
   splitMode: string
   /** Resolved per-participant amounts; null means "equal across everyone". */
   splits: Record<string, string> | null
+  attachments: ExpenseReceipt[]
 }
 
 interface ExpenseActivity {
@@ -47,14 +62,27 @@ const props = defineProps<{
   summary: TripExpenseSummary | null
   /** For linking an expense to a planned activity (#39). */
   activities?: ExpenseActivity[]
+  /**
+   * Server-side filter/sort state (#49). The rows in `expenses` are the pages
+   * fetched under these parameters, so the controls below change the query
+   * rather than filtering an array the browser already downloaded.
+   */
+  filters: ExpenseListParams
+  /** Rows matching the filter across every page, and their sum. */
+  filteredCount: number
+  filteredTotal: number
+  /** Whether another page exists. */
+  hasMore: boolean
+  loadingMore?: boolean
 }>()
 
 const emit = defineEmits<{
   budgetUpdated: []
   expensesChanged: []
+  "update:filters": [ExpenseListParams]
+  loadMore: []
+  exportCsv: []
 }>()
-
-const { downloadCsv } = useExportExpenses()
 
 const expenses = computed(() => props.expenses)
 /** Ask the page to refetch; it owns the data. Fire-and-forget by design. */
@@ -75,6 +103,139 @@ const dateId = `${uid}-date`
 const paidById = `${uid}-paid-by`
 const activityFieldId = `${uid}-activity`
 const splitModeId = `${uid}-split-mode`
+const filterCategoryId = `${uid}-filter-category`
+const filterPayerId = `${uid}-filter-payer`
+const filterFromId = `${uid}-filter-from`
+const filterToId = `${uid}-filter-to`
+const filterSortId = `${uid}-filter-sort`
+
+const EMPTY_FILTERS: ExpenseListParams = {
+  category: "",
+  payerId: "",
+  from: "",
+  to: "",
+  sort: "createdAt",
+  order: "desc",
+  limit: String(EXPENSE_PAGE_SIZE_DEFAULT),
+}
+
+function setFilter<K extends keyof ExpenseListParams>(key: K, value: ExpenseListParams[K]) {
+  emit("update:filters", { ...props.filters, [key]: value })
+}
+
+/** The sort control is one `<select>` over the (field, order) pair. */
+const sortValue = computed({
+  get: () => `${props.filters.sort}:${props.filters.order}`,
+  set: (value: string) => {
+    const [sort, order] = value.split(":") as [ExpenseSortField, ExpenseSortOrder]
+    emit("update:filters", { ...props.filters, sort, order })
+  },
+})
+
+const sortOptions: { value: string; label: string }[] = [
+  { value: "createdAt:desc", label: "Recently added" },
+  { value: "createdAt:asc", label: "Oldest added" },
+  { value: "paidAt:desc", label: "Date — newest" },
+  { value: "paidAt:asc", label: "Date — oldest" },
+  { value: "amount:desc", label: "Amount — highest" },
+  { value: "amount:asc", label: "Amount — lowest" },
+]
+
+const filtersActive = computed(
+  () =>
+    Boolean(props.filters.category) ||
+    Boolean(props.filters.payerId) ||
+    Boolean(props.filters.from) ||
+    Boolean(props.filters.to),
+)
+
+function clearFilters() {
+  emit("update:filters", { ...EMPTY_FILTERS, sort: props.filters.sort, order: props.filters.order })
+}
+
+// ---------------------------------------------------------------------------
+// Receipts (#48)
+// ---------------------------------------------------------------------------
+
+const receiptInput = ref<HTMLInputElement | null>(null)
+const uploadingFor = ref<string | null>(null)
+/** The receipt open in the lightbox, if any. */
+const openReceipt = ref<ExpenseReceipt | null>(null)
+/** Which expense the hidden file input is currently acting for. */
+const receiptTargetExpenseId = ref<string | null>(null)
+
+const receiptAccept = RECEIPT_ALLOWED_MIME_TYPES.join(",")
+
+function isImageReceipt(receipt: ExpenseReceipt): boolean {
+  return receipt.mimeType.startsWith("image/")
+}
+
+function chooseReceipt(expenseId: string) {
+  receiptTargetExpenseId.value = expenseId
+  receiptInput.value?.click()
+}
+
+async function onReceiptChosen(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  const expenseId = receiptTargetExpenseId.value
+  // Reset immediately: without this, picking the same file twice in a row fires
+  // no `change` event and the upload silently does not happen.
+  input.value = ""
+  if (!file || !expenseId) return
+
+  // The server enforces this too, on the bytes rather than on a claim — this is
+  // only so an obvious mistake does not cost an upload.
+  if (file.size > RECEIPT_MAX_BYTES) {
+    toast.error(`Receipts must be ${RECEIPT_MAX_MB} MB or smaller.`)
+    return
+  }
+
+  uploadingFor.value = expenseId
+  try {
+    const body = new FormData()
+    body.append("file", file)
+    await $fetch(`/api/trips/${props.tripId}/expenses/${expenseId}/attachments`, {
+      method: "POST",
+      body,
+    })
+    refresh()
+  } catch (e: unknown) {
+    console.error("Failed to upload receipt:", e)
+    toast.error("Couldn't attach that receipt. JPEG, PNG, WebP and PDF are supported.")
+  } finally {
+    uploadingFor.value = null
+    receiptTargetExpenseId.value = null
+  }
+}
+
+/** The lightbox knows the receipt; the endpoint needs the expense too. */
+function deleteOpenReceipt() {
+  const receipt = openReceipt.value
+  if (!receipt) return
+  const owner = props.expenses.find((e) => e.attachments.some((a) => a.id === receipt.id))
+  if (owner) void deleteReceipt(owner.id, receipt)
+}
+
+async function deleteReceipt(expenseId: string, receipt: ExpenseReceipt) {
+  const ok = await confirm({
+    title: "Delete receipt",
+    message: `Delete ${receipt.fileName}? This cannot be undone.`,
+    confirmText: "Delete",
+    destructive: true,
+  })
+  if (!ok) return
+  try {
+    await $fetch(`/api/trips/${props.tripId}/expenses/${expenseId}/attachments/${receipt.id}`, {
+      method: "DELETE",
+    })
+    openReceipt.value = null
+    refresh()
+  } catch (e: unknown) {
+    console.error("Failed to delete receipt:", e)
+    toast.error("Couldn't delete that receipt. Please try again.")
+  }
+}
 
 // Form fields
 const formDescription = ref("")
@@ -447,10 +608,10 @@ function getMemberName(userId: string | null): string {
         <h3 class="text-sm font-semibold text-sand-900">Expenses</h3>
         <div class="flex items-center gap-2">
           <button
-            v-if="expenses?.length"
+            v-if="filteredCount > 0"
             class="inline-flex items-center gap-1 rounded-lg border border-sand-200 px-2.5 py-1.5 text-xs font-medium text-sand-600 hover:bg-sand-50"
             title="Export as CSV"
-            @click="downloadCsv(tripName, expenses ?? [], currencyCode)"
+            @click="emit('exportCsv')"
           >
             <Icon name="lucide:download" class="h-3 w-3" />
             <span class="hidden sm:inline">CSV</span>
@@ -469,6 +630,103 @@ function getMemberName(userId: string | null): string {
           </button>
         </div>
       </div>
+
+      <!-- Filter / sort bar (#49). Every control below is a query parameter on
+           the list endpoint; nothing here filters an array in the browser. -->
+      <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div>
+          <label :for="filterCategoryId" class="mb-1 block text-xs font-medium text-sand-600">
+            Category
+          </label>
+          <select
+            :id="filterCategoryId"
+            :value="filters.category"
+            class="block w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs input-focus"
+            @change="setFilter('category', ($event.target as HTMLSelectElement).value)"
+          >
+            <option value="">All categories</option>
+            <option v-for="cat in categories" :key="cat" :value="cat">
+              {{ formatType(cat) }}
+            </option>
+          </select>
+        </div>
+
+        <div v-if="members && members.length > 1">
+          <label :for="filterPayerId" class="mb-1 block text-xs font-medium text-sand-600">
+            Paid by
+          </label>
+          <select
+            :id="filterPayerId"
+            :value="filters.payerId"
+            class="block w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs input-focus"
+            @change="setFilter('payerId', ($event.target as HTMLSelectElement).value)"
+          >
+            <option value="">Anyone</option>
+            <option v-for="m in members" :key="m.userId" :value="m.userId">
+              {{ m.user.name }}
+            </option>
+            <option value="none">No payer recorded</option>
+          </select>
+        </div>
+
+        <div>
+          <label :for="filterSortId" class="mb-1 block text-xs font-medium text-sand-600">
+            Sort
+          </label>
+          <select
+            :id="filterSortId"
+            v-model="sortValue"
+            class="block w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs input-focus"
+          >
+            <option v-for="option in sortOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label :for="filterFromId" class="mb-1 block text-xs font-medium text-sand-600">
+            From
+          </label>
+          <input
+            :id="filterFromId"
+            :value="filters.from"
+            type="date"
+            class="block w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs input-focus"
+            @change="setFilter('from', ($event.target as HTMLInputElement).value)"
+          />
+        </div>
+
+        <div>
+          <label :for="filterToId" class="mb-1 block text-xs font-medium text-sand-600">To</label>
+          <input
+            :id="filterToId"
+            :value="filters.to"
+            type="date"
+            class="block w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs input-focus"
+            @change="setFilter('to', ($event.target as HTMLInputElement).value)"
+          />
+        </div>
+
+        <div v-if="filtersActive" class="flex items-end">
+          <button
+            type="button"
+            class="min-h-9 w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs font-medium text-sand-700 hover:bg-sand-50"
+            @click="clearFilters"
+          >
+            Clear filters
+          </button>
+        </div>
+      </div>
+
+      <!-- What the filter selected. The trip's own total stays above, server
+           computed and unfiltered — a budget or settlement derived from a
+           subset of the expenses would be wrong, not merely narrower. -->
+      <p v-if="filtersActive" class="mt-2 text-xs text-sand-500 tabular-nums">
+        {{ filteredCount }} matching {{ filteredCount === 1 ? "expense" : "expenses" }} ·
+        {{ formatCurrency(filteredTotal) }}
+        <span class="text-sand-400">(trip total above is unfiltered)</span>
+      </p>
 
       <!-- Add/Edit form -->
       <form
@@ -648,58 +906,181 @@ function getMemberName(userId: string | null): string {
         <div
           v-for="expense in expenses"
           :key="expense.id"
-          class="flex items-center justify-between rounded-xl border border-sand-200 px-3 py-2"
+          class="rounded-xl border border-sand-200 px-3 py-2"
         >
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-sand-900 truncate">{{ expense.description }}</p>
-            <div class="mt-0.5 flex items-center gap-2 text-xs text-sand-500">
-              <span
-                class="inline-block rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="expenseCategoryBadgeClasses(expense.category)"
-              >
-                {{ formatType(expense.category) }}
-              </span>
-              <!-- Rendered from the date parts directly: <NuxtTime> resolves in
+          <div class="flex items-center justify-between">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-sand-900 truncate">{{ expense.description }}</p>
+              <div class="mt-0.5 flex items-center gap-2 text-xs text-sand-500">
+                <span
+                  class="inline-block rounded-full px-2 py-0.5 text-xs font-medium"
+                  :class="expenseCategoryBadgeClasses(expense.category)"
+                >
+                  {{ formatType(expense.category) }}
+                </span>
+                <!-- Rendered from the date parts directly: <NuxtTime> resolves in
                    the viewer's timezone, which re-introduces the off-by-one. -->
-              <span v-if="expense.paidAt">{{ formatCalendarDate(expense.paidAt) }}</span>
-              <span v-if="expense.paidById && members && members.length > 1" class="text-sand-400">
-                paid by {{ getMemberName(expense.paidById) }}
+                <span v-if="expense.paidAt">{{ formatCalendarDate(expense.paidAt) }}</span>
+                <span
+                  v-if="expense.paidById && members && members.length > 1"
+                  class="text-sand-400"
+                >
+                  paid by {{ getMemberName(expense.paidById) }}
+                </span>
+                <span v-if="expense.activityId" class="text-sand-400">
+                  · {{ activityName(expense.activityId) }}
+                </span>
+                <span v-if="expense.splits" class="text-sand-400">
+                  · split {{ Object.keys(expense.splits).length }} ways
+                </span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-sm font-semibold text-sand-900 tabular-nums">
+                {{ formatCurrency(parseFloat(expense.amount)) }}
               </span>
-              <span v-if="expense.activityId" class="text-sand-400">
-                · {{ activityName(expense.activityId) }}
-              </span>
-              <span v-if="expense.splits" class="text-sand-400">
-                · split {{ Object.keys(expense.splits).length }} ways
-              </span>
+              <button
+                type="button"
+                class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-terra-500 active:scale-95 focus-ring"
+                title="Edit"
+                aria-label="Edit expense"
+                @click="startEdit(expense)"
+              >
+                <Icon name="lucide:edit" class="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-red-500 active:scale-95 focus-ring"
+                title="Delete"
+                aria-label="Delete expense"
+                @click="deleteExpense(expense.id)"
+              >
+                <Icon name="lucide:trash-2" class="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
-          <div class="flex items-center gap-1.5">
-            <span class="text-sm font-semibold text-sand-900 tabular-nums">
-              {{ formatCurrency(parseFloat(expense.amount)) }}
-            </span>
+
+          <!-- Receipts (#48). Served from our own origin and gated on trip
+               membership — never from the public share link. -->
+          <div class="mt-2 flex flex-wrap items-center gap-2">
             <button
+              v-for="receipt in expense.attachments"
+              :key="receipt.id"
               type="button"
-              class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-terra-500 active:scale-95 focus-ring"
-              title="Edit"
-              aria-label="Edit expense"
-              @click="startEdit(expense)"
+              class="group relative overflow-hidden rounded-lg border border-sand-200 focus-ring"
+              :title="receipt.fileName"
+              :aria-label="`Open receipt ${receipt.fileName}`"
+              @click="openReceipt = receipt"
             >
-              <Icon name="lucide:edit" class="h-3.5 w-3.5" />
+              <img
+                v-if="isImageReceipt(receipt)"
+                :src="receipt.url"
+                :alt="receipt.fileName"
+                class="h-10 w-10 object-cover"
+                loading="lazy"
+              />
+              <span
+                v-else
+                class="flex h-10 w-14 items-center justify-center gap-1 bg-sand-50 text-[10px] font-medium text-sand-600"
+              >
+                <Icon name="lucide:file-text" class="h-3.5 w-3.5" />
+                PDF
+              </span>
             </button>
+
             <button
               type="button"
-              class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-red-500 active:scale-95 focus-ring"
-              title="Delete"
-              aria-label="Delete expense"
-              @click="deleteExpense(expense.id)"
+              :disabled="uploadingFor === expense.id"
+              class="inline-flex min-h-9 items-center gap-1 rounded-lg border border-dashed border-sand-300 px-2 py-1.5 text-xs font-medium text-sand-500 hover:bg-sand-50 disabled:opacity-50"
+              @click="chooseReceipt(expense.id)"
             >
-              <Icon name="lucide:trash-2" class="h-3.5 w-3.5" />
+              <Icon name="lucide:paperclip" class="h-3 w-3" />
+              {{ uploadingFor === expense.id ? "Uploading…" : "Receipt" }}
             </button>
           </div>
         </div>
       </div>
 
-      <p v-else class="mt-4 text-center text-xs text-sand-400">No expenses tracked yet.</p>
+      <p v-else class="mt-4 text-center text-xs text-sand-400">
+        {{ filtersActive ? "No expenses match these filters." : "No expenses tracked yet." }}
+      </p>
+
+      <!-- One input for the whole list; `chooseReceipt` records which row it
+           is acting for. -->
+      <input
+        ref="receiptInput"
+        type="file"
+        class="hidden"
+        :accept="receiptAccept"
+        @change="onReceiptChosen"
+      />
+
+      <!-- Receipt lightbox. A PDF is not embedded: it opens in its own tab,
+           where the browser's own viewer handles it. -->
+      <div
+        v-if="openReceipt"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="openReceipt.fileName"
+        @click.self="openReceipt = null"
+        @keydown.esc="openReceipt = null"
+      >
+        <div class="max-h-full w-full max-w-2xl overflow-auto rounded-2xl bg-white p-4">
+          <div class="flex items-start justify-between gap-3">
+            <p class="min-w-0 truncate text-sm font-medium text-sand-900">
+              {{ openReceipt.fileName }}
+            </p>
+            <button
+              type="button"
+              class="min-h-9 min-w-9 shrink-0 rounded text-sand-500 hover:text-sand-800 focus-ring"
+              aria-label="Close receipt"
+              @click="openReceipt = null"
+            >
+              <Icon name="lucide:x" class="h-4 w-4" />
+            </button>
+          </div>
+
+          <img
+            v-if="isImageReceipt(openReceipt)"
+            :src="openReceipt.url"
+            :alt="openReceipt.fileName"
+            class="mt-3 max-h-[70vh] w-full rounded-lg object-contain"
+          />
+          <a
+            v-else
+            :href="openReceipt.url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="mt-3 inline-flex items-center gap-1 rounded-lg border border-sand-300 px-3 py-2 text-sm font-medium text-sand-700 hover:bg-sand-50"
+          >
+            <Icon name="lucide:download" class="h-4 w-4" />
+            Download {{ openReceipt.fileName }}
+          </a>
+
+          <div class="mt-4 flex justify-end">
+            <button
+              type="button"
+              class="min-h-9 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+              @click="deleteOpenReceipt"
+            >
+              Delete receipt
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cursor pagination (#49): the rows above are one page, not the trip. -->
+      <div v-if="hasMore" class="mt-3 text-center">
+        <button
+          type="button"
+          :disabled="loadingMore"
+          class="min-h-11 rounded-lg border border-sand-300 px-4 py-2 text-xs font-medium text-sand-700 hover:bg-sand-50 disabled:opacity-50"
+          @click="emit('loadMore')"
+        >
+          {{ loadingMore ? "Loading…" : `Load more (${filteredCount - expenses.length} left)` }}
+        </button>
+      </div>
     </div>
   </div>
 </template>

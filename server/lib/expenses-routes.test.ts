@@ -12,10 +12,16 @@
  * authz boundaries and the audit trail are genuinely exercised; everything they
  * touch is the fake database in this file.
  *
- * Fake-db limitations, deliberately kept simple: drizzle `where` clauses are
- * opaque objects here, so the fake resolves rows against the request recorded
- * by `makeEvent` rather than by interpreting SQL. Concurrency tests therefore
- * use a single trip and a single user.
+ * Fake-db limitations, deliberately kept simple: for the write paths, drizzle
+ * `where` clauses are opaque objects here, so the fake resolves rows against
+ * the request recorded by `makeEvent` rather than by interpreting SQL.
+ * Concurrency tests therefore use a single trip and a single user.
+ *
+ * The *read* path is the exception. `GET /expenses` gained filtering, sorting
+ * and pagination (#49), and a fake that ignores `where` would pass no matter
+ * what the handler asked for — the exact failure mode a recent audit of this
+ * repo found. So the list fake compiles the drizzle condition to Postgres text
+ * with the real dialect and evaluates it against each row (`matchesSql` below).
  */
 
 // Never let this file reach a real database: the fake replaces every method it
@@ -24,10 +30,14 @@ process.env.DATABASE_URL = "postgres://user:pass@localhost:5432/db"
 
 import assert from "node:assert/strict"
 import { afterEach, describe, it } from "bun:test"
+import type { SQL } from "drizzle-orm"
+import { PgDialect } from "drizzle-orm/pg-core"
 
 const { db } = await import("../db")
 const schema = await import("../db/schema")
 const { requireTripAccess, logTripAction } = await import("../utils/trip-access")
+const { decodeExpenseCursor } = await import("../../shared/utils/expense-list")
+type ExpenseListPage<T> = import("../../shared/utils/expense-list").ExpenseListPage<T>
 
 /** The cap issue #42 is about. Duplicated here on purpose: the test asserts the
  *  externally-observable limit, not whatever constant the implementation uses. */
@@ -90,9 +100,23 @@ interface LogRow {
   metadata?: Record<string, unknown>
 }
 
+/** Just enough of a receipt row for the list endpoint to embed it (#48). */
+interface AttachmentRow {
+  id: string
+  expenseId: string
+  tripId: string
+  storageKey: string
+  fileName: string
+  mimeType: string
+  sizeBytes: number
+  uploadedById: string | null
+  createdAt: Date
+}
+
 interface Store {
   trips: TripRow[]
   expenses: ExpenseRow[]
+  attachments: AttachmentRow[]
   members: MemberRow[]
   activities: ActivityRow[]
   log: LogRow[]
@@ -112,7 +136,7 @@ let ops: string[] = []
 let request: CurrentRequest = { tripId: TRIP_ID, expenseId: EXPENSE_ID, userId: OWNER_ID }
 
 function emptyStore(): Store {
-  return { trips: [], expenses: [], members: [], activities: [], log: [] }
+  return { trips: [], expenses: [], attachments: [], members: [], activities: [], log: [] }
 }
 
 function seed(overrides: Partial<Store> = {}): void {
@@ -163,6 +187,207 @@ function makeExpense(overrides: Partial<ExpenseRow> = {}): ExpenseRow {
     createdAt: new Date("2026-08-04T00:00:00Z"),
     ...overrides,
   }
+}
+
+// ---------------------------------------------------------------------------
+// A tiny Postgres expression evaluator
+// ---------------------------------------------------------------------------
+//
+// Enough of the language to run the conditions server/lib/expense-list.ts
+// builds — `and`/`or`, parentheses, comparisons against a bound parameter, and
+// `is [not] null` — against an in-memory row. Anything outside that grammar
+// throws rather than being quietly treated as `true`, so a handler that starts
+// emitting SQL this cannot evaluate fails loudly instead of appearing to work.
+
+const dialect = new PgDialect()
+
+/** Postgres column name → the field on `ExpenseRow`. */
+const COLUMN_FIELDS = {
+  id: "id",
+  trip_id: "tripId",
+  activity_id: "activityId",
+  description: "description",
+  amount: "amount",
+  category: "category",
+  paid_by_id: "paidById",
+  paid_at: "paidAt",
+  created_at: "createdAt",
+} as const satisfies Record<string, keyof ExpenseRow>
+
+type ColumnName = keyof typeof COLUMN_FIELDS
+
+function columnValue(row: ExpenseRow, column: ColumnName): unknown {
+  return row[COLUMN_FIELDS[column]]
+}
+
+/** Postgres compares `numeric` numerically and `timestamptz` as an instant;
+ *  comparing either as a JS string would silently order them wrongly. */
+function comparable(column: ColumnName, value: unknown): number | string {
+  if (value instanceof Date) return value.getTime()
+  if (column === "amount") return Number(value)
+  if (column === "created_at") return new Date(String(value)).getTime()
+  return String(value)
+}
+
+const TOKEN_RE = /\s*("[a-z_]+"\."[a-z_]+"|\$\d+|<=|>=|<>|!=|[<>=]|\(|\)|[a-z]+)/gy
+
+function tokenize(sql: string): string[] {
+  const tokens: string[] = []
+  TOKEN_RE.lastIndex = 0
+  while (TOKEN_RE.lastIndex < sql.length) {
+    const match = TOKEN_RE.exec(sql)
+    if (!match?.[1]) throw new Error(`unparsable SQL near: ${sql.slice(TOKEN_RE.lastIndex)}`)
+    tokens.push(match[1])
+  }
+  return tokens
+}
+
+function parseColumn(token: string): ColumnName {
+  const name = token.split(".")[1]?.replaceAll('"', "")
+  if (!name || !(name in COLUMN_FIELDS)) throw new Error(`unknown column: ${token}`)
+  return name as ColumnName
+}
+
+/**
+ * Evaluate a compiled condition against one row.
+ *
+ * Recursive descent: or < and < primary. Kept deliberately small — it exists to
+ * make the `where` clause real, not to reimplement Postgres.
+ */
+function evaluate(tokens: string[], params: unknown[], row: ExpenseRow): boolean {
+  let at = 0
+  const peek = () => tokens[at]
+  const take = () => {
+    const token = tokens[at]
+    if (token === undefined) throw new Error("unexpected end of SQL")
+    at += 1
+    return token
+  }
+  const expect = (token: string) => {
+    const actual = take()
+    if (actual !== token) throw new Error(`expected ${token}, got ${actual}`)
+  }
+
+  function orExpr(): boolean {
+    let result = andExpr()
+    while (peek() === "or") {
+      take()
+      // No short-circuit: every branch must parse, so a malformed one is caught.
+      const right = andExpr()
+      result = result || right
+    }
+    return result
+  }
+
+  function andExpr(): boolean {
+    let result = primary()
+    while (peek() === "and") {
+      take()
+      const right = primary()
+      result = result && right
+    }
+    return result
+  }
+
+  function primary(): boolean {
+    if (peek() === "(") {
+      take()
+      const inner = orExpr()
+      expect(")")
+      return inner
+    }
+    const column = parseColumn(take())
+    const value = columnValue(row, column)
+
+    if (peek() === "is") {
+      take()
+      const negated = peek() === "not"
+      if (negated) take()
+      expect("null")
+      const isNull = value === null || value === undefined
+      return negated ? !isNull : isNull
+    }
+
+    const operator = take()
+    const placeholder = take()
+    const index = Number(placeholder.slice(1)) - 1
+    const bound = params[index]
+    if (!placeholder.startsWith("$") || Number.isNaN(index) || index < 0) {
+      throw new Error(`expected a bound parameter, got ${placeholder}`)
+    }
+    // Postgres: any comparison with NULL is NULL, which is not true.
+    if (value === null || value === undefined) return false
+
+    const left = comparable(column, value)
+    const right = comparable(column, bound)
+    switch (operator) {
+      case "=":
+        return left === right
+      case "<":
+        return left < right
+      case ">":
+        return left > right
+      case "<=":
+        return left <= right
+      case ">=":
+        return left >= right
+      case "<>":
+      case "!=":
+        return left !== right
+      default:
+        throw new Error(`unsupported operator: ${operator}`)
+    }
+  }
+
+  const result = orExpr()
+  if (at !== tokens.length) throw new Error(`trailing SQL: ${tokens.slice(at).join(" ")}`)
+  return result
+}
+
+function matchesSql(condition: SQL | undefined, row: ExpenseRow): boolean {
+  if (!condition) return true
+  const compiled = dialect.sqlToQuery(condition)
+  return evaluate(tokenize(compiled.sql), compiled.params, row)
+}
+
+interface OrderTerm {
+  column: ColumnName
+  descending: boolean
+  nullsLast: boolean
+}
+
+/** Parse `"expenses"."paid_at" desc nulls last` and friends. */
+function parseOrderBy(terms: SQL[]): OrderTerm[] {
+  return terms.map((term) => {
+    const text = dialect.sqlToQuery(term).sql
+    const tokens = tokenize(text)
+    const column = parseColumn(tokens[0] ?? "")
+    const descending = tokens.includes("desc")
+    const nullsLast = tokens.includes("nulls") && tokens.includes("last")
+    return { column, descending, nullsLast }
+  })
+}
+
+function compareBy(terms: OrderTerm[], a: ExpenseRow, b: ExpenseRow): number {
+  for (const term of terms) {
+    const left = columnValue(a, term.column)
+    const right = columnValue(b, term.column)
+    const leftNull = left === null || left === undefined
+    const rightNull = right === null || right === undefined
+    if (leftNull || rightNull) {
+      if (leftNull && rightNull) continue
+      // Postgres defaults: NULLS LAST for ASC, NULLS FIRST for DESC — unless
+      // the query said otherwise, which is precisely what #49 relies on.
+      const nullsLast = term.nullsLast || !term.descending
+      return leftNull === nullsLast ? 1 : -1
+    }
+    const l = comparable(term.column, left)
+    const r = comparable(term.column, right)
+    if (l === r) continue
+    const ordered = l < r ? -1 : 1
+    return term.descending ? -ordered : ordered
+  }
+  return 0
 }
 
 // ---------------------------------------------------------------------------
@@ -327,13 +552,24 @@ function makeClient(ctx: TxContext) {
     },
   })
 
+  // `select({ matched: count(), total: sum(amount) })` — the aggregate the list
+  // endpoint runs alongside the page (#49). It honours the same compiled
+  // condition the page does, so "the filter applies to the rows but not to the
+  // count" cannot pass.
   const select = () => ({
     from: () => ({
-      where: async () => {
-        // The full-table count issue #42 is about. Recorded so a test can
-        // assert the insert path stopped doing it.
+      where: async (condition?: SQL) => {
         ops.push("select count(*) from expenses")
-        return [{ count: store.expenses.filter((e) => e.tripId === request.tripId).length }]
+        const matching = store.expenses.filter((e) => matchesSql(condition, e))
+        return [
+          {
+            count: matching.length,
+            matched: matching.length,
+            total: matching.length
+              ? matching.reduce((sum, e) => sum + Number(e.amount), 0).toFixed(2)
+              : null,
+          },
+        ]
       },
     }),
   })
@@ -352,6 +588,7 @@ const original = {
   membersFindMany: db.query.tripMembers.findMany,
   expensesFindFirst: db.query.expenses.findFirst,
   expensesFindMany: db.query.expenses.findMany,
+  attachmentsFindMany: db.query.expenseAttachments.findMany,
   activitiesFindFirst: db.query.activities.findFirst,
 }
 
@@ -411,13 +648,29 @@ function installFakeDb(): void {
     return row ? { ...row } : undefined
   }) as unknown as typeof db.query.expenses.findFirst
 
-  db.query.expenses.findMany = (async () => {
+  // Unlike the write-path fakes, this one really applies the handler's `where`,
+  // `orderBy` and `limit` — see the evaluator above. Nothing about the trip
+  // scoping is assumed here: it comes from the condition the handler built.
+  db.query.expenses.findMany = (async (args?: { where?: SQL; orderBy?: SQL[]; limit?: number }) => {
     ops.push("query.expenses.findMany")
-    return store.expenses
-      .filter((e) => e.tripId === request.tripId)
-      .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .map((e) => structuredClone(e))
+    const matching = store.expenses.filter((e) => matchesSql(args?.where, e))
+    const terms = parseOrderBy(args?.orderBy ?? [])
+    const ordered = terms.length
+      ? matching.toSorted((a, b) => compareBy(terms, a, b))
+      : matching.slice()
+    const limited = args?.limit === undefined ? ordered : ordered.slice(0, args.limit)
+    return limited.map((e) => structuredClone(e))
   }) as unknown as typeof db.query.expenses.findMany
+
+  // The list endpoint embeds each row's receipts (#48). The trip/expense
+  // scoping of attachments is exercised properly in
+  // expense-attachments-routes.test.ts; here the fake only has to supply them.
+  db.query.expenseAttachments.findMany = (async () => {
+    ops.push("query.expenseAttachments.findMany")
+    return store.attachments
+      .filter((a) => a.tripId === request.tripId)
+      .map((a) => structuredClone(a))
+  }) as unknown as typeof db.query.expenseAttachments.findMany
 
   db.query.activities.findFirst = (async () => {
     ops.push("query.activities.findFirst")
@@ -436,6 +689,7 @@ function restoreDb(): void {
   db.query.tripMembers.findMany = original.membersFindMany
   db.query.expenses.findFirst = original.expensesFindFirst
   db.query.expenses.findMany = original.expensesFindMany
+  db.query.expenseAttachments.findMany = original.attachmentsFindMany
   db.query.activities.findFirst = original.activitiesFindFirst
 }
 
@@ -444,7 +698,13 @@ function restoreDb(): void {
 // ---------------------------------------------------------------------------
 
 interface FakeEvent {
-  context: { params: Record<string, string>; body: unknown; userId: string | null }
+  context: {
+    params: Record<string, string>
+    /** Always strings — a real query string has no other type. */
+    query: Record<string, string>
+    body: unknown
+    userId: string | null
+  }
 }
 
 type Validate<T> = (input: unknown) => T
@@ -452,6 +712,7 @@ type Validate<T> = (input: unknown) => T
 interface NitroGlobals {
   defineEventHandler?: unknown
   getValidatedRouterParams?: unknown
+  getValidatedQuery?: unknown
   readValidatedBody?: unknown
   requireAuth?: unknown
   requireTripAccess?: unknown
@@ -465,6 +726,9 @@ globals.defineEventHandler = (handler: unknown) => handler
 
 globals.getValidatedRouterParams = async <T>(event: FakeEvent, validate: Validate<T>) =>
   validated(() => validate(event.context.params))
+
+globals.getValidatedQuery = async <T>(event: FakeEvent, validate: Validate<T>) =>
+  validated(() => validate(event.context.query))
 
 globals.readValidatedBody = async <T>(event: FakeEvent, validate: Validate<T>) =>
   validated(() => validate(event.context.body))
@@ -502,8 +766,12 @@ type Handler<T> = (event: FakeEvent) => Promise<T>
 // `defineEventHandler` is the identity stub above, so the default export is the
 // raw handler; its declared `EventHandler` type describes the Nitro-wrapped
 // form, hence the cast.
+type ListedExpense = ExpenseRow & {
+  attachments: { id: string; fileName: string; url: string }[]
+}
+
 const listExpenses = (await import("../api/trips/[id]/expenses/index.get"))
-  .default as unknown as Handler<ExpenseRow[]>
+  .default as unknown as Handler<ExpenseListPage<ListedExpense>>
 const createExpense = (await import("../api/trips/[id]/expenses/index.post"))
   .default as unknown as Handler<ExpenseRow | undefined>
 const updateExpense = (await import("../api/trips/[id]/expenses/[expenseId].put"))
@@ -517,6 +785,7 @@ interface EventOptions {
   expenseId?: string
   activityId?: string
   body?: unknown
+  query?: Record<string, string>
 }
 
 function makeEvent(options: EventOptions = {}): FakeEvent {
@@ -525,7 +794,12 @@ function makeEvent(options: EventOptions = {}): FakeEvent {
   const userId = options.userId === undefined ? OWNER_ID : options.userId
   request = { tripId, expenseId, userId: userId ?? "", activityId: options.activityId }
   return {
-    context: { params: { id: tripId, expenseId }, body: options.body, userId },
+    context: {
+      params: { id: tripId, expenseId },
+      query: options.query ?? {},
+      body: options.body,
+      userId,
+    },
   }
 }
 
@@ -559,7 +833,7 @@ describe("GET expenses", () => {
     })
     const result = await listExpenses(makeEvent())
     assert.deepEqual(
-      result.map((e) => e.id),
+      result.items.map((e) => e.id),
       ["new", "old"],
     )
   })
@@ -567,7 +841,7 @@ describe("GET expenses", () => {
   it("is readable by a viewer — reading expenses is not an editor action", async () => {
     seed({ expenses: [makeExpense()] })
     const result = await listExpenses(makeEvent({ userId: VIEWER_ID }))
-    assert.equal(result.length, 1)
+    assert.equal(result.items.length, 1)
   })
 
   it("rejects an unauthenticated request before touching the database", async () => {
@@ -589,6 +863,331 @@ describe("GET expenses", () => {
   it("rejects a non-uuid trip id", async () => {
     seed()
     await assertStatus(listExpenses(makeEvent({ tripId: "not-a-uuid" })), 400)
+  })
+
+  // One query for the page, not one per row (#48).
+  it("embeds each row's receipts, and an empty list when there are none", async () => {
+    seed({
+      expenses: [makeExpense({ id: "with" }), makeExpense({ id: "without" })],
+      attachments: [
+        {
+          id: "receipt-1",
+          expenseId: "with",
+          tripId: TRIP_ID,
+          storageKey: "receipts/x",
+          fileName: "receipt.png",
+          mimeType: "image/png",
+          sizeBytes: 12,
+          uploadedById: OWNER_ID,
+          createdAt: new Date("2026-08-04T00:00:00Z"),
+        },
+      ],
+    })
+    const result = await listExpenses(makeEvent())
+    const withReceipt = result.items.find((e) => e.id === "with")
+    const withoutReceipt = result.items.find((e) => e.id === "without")
+    assert.equal(withReceipt?.attachments.length, 1)
+    assert.equal(withReceipt?.attachments[0]?.fileName, "receipt.png")
+    assert.equal(
+      withReceipt?.attachments[0]?.url,
+      `/api/trips/${TRIP_ID}/expenses/with/attachments/receipt-1`,
+    )
+    assert.ok(
+      !("storageKey" in (withReceipt?.attachments[0] ?? {})),
+      "the storage key must not reach the client",
+    )
+    assert.deepEqual(withoutReceipt?.attachments, [])
+    assert.equal(
+      ops.filter((op) => op === "query.expenseAttachments.findMany").length,
+      1,
+      "receipts for the page cost one query, not one per row",
+    )
+  })
+
+  // The scoping is not an assumption of the fake — the fake evaluates whatever
+  // condition the handler built, so a handler that forgot `trip_id` fails here.
+  it("never returns another trip's expenses", async () => {
+    seed({
+      expenses: [makeExpense({ id: "mine" }), makeExpense({ id: "theirs", tripId: OTHER_TRIP_ID })],
+    })
+    const result = await listExpenses(makeEvent())
+    assert.deepEqual(
+      result.items.map((e) => e.id),
+      ["mine"],
+    )
+    assert.equal(result.filteredCount, 1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Filtering, sorting and pagination — issue #49
+// ---------------------------------------------------------------------------
+
+function seedMixed(): void {
+  seed({
+    expenses: [
+      makeExpense({
+        id: "ramen",
+        description: "Ramen",
+        amount: "12.00",
+        category: "food",
+        paidById: OWNER_ID,
+        paidAt: "2026-08-02",
+        createdAt: new Date("2026-08-02T09:00:00Z"),
+      }),
+      makeExpense({
+        id: "taxi",
+        description: "Taxi",
+        amount: "40.00",
+        category: "transport",
+        paidById: EDITOR_ID,
+        paidAt: "2026-08-05",
+        createdAt: new Date("2026-08-05T09:00:00Z"),
+      }),
+      makeExpense({
+        id: "hotel",
+        description: "Hotel",
+        amount: "300.00",
+        category: "accommodation",
+        paidById: OWNER_ID,
+        paidAt: "2026-08-01",
+        createdAt: new Date("2026-08-01T09:00:00Z"),
+      }),
+      makeExpense({
+        id: "mystery",
+        description: "Mystery",
+        amount: "7.00",
+        category: "other",
+        paidById: null,
+        paidAt: null,
+        createdAt: new Date("2026-08-06T09:00:00Z"),
+      }),
+    ],
+  })
+  store.expenses.push(
+    makeExpense({
+      id: "elsewhere",
+      tripId: OTHER_TRIP_ID,
+      description: "Someone else's ramen",
+      amount: "999.00",
+      category: "food",
+      paidById: OWNER_ID,
+      paidAt: "2026-08-02",
+    }),
+  )
+}
+
+function ids(page: ExpenseListPage<ListedExpense>): string[] {
+  return page.items.map((e) => e.id)
+}
+
+describe("GET expenses — filtering", () => {
+  it("filters by category, and only within this trip", async () => {
+    seedMixed()
+    const result = await listExpenses(makeEvent({ query: { category: "food" } }))
+    assert.deepEqual(ids(result), ["ramen"])
+    assert.equal(result.filteredCount, 1)
+    assert.equal(result.filteredTotal, 12)
+  })
+
+  it("filters by payer", async () => {
+    seedMixed()
+    const result = await listExpenses(makeEvent({ query: { payerId: EDITOR_ID } }))
+    assert.deepEqual(ids(result), ["taxi"])
+  })
+
+  it("filters to expenses with no payer recorded", async () => {
+    seedMixed()
+    const result = await listExpenses(makeEvent({ query: { payerId: "none" } }))
+    assert.deepEqual(ids(result), ["mystery"])
+  })
+
+  it("filters by an inclusive date range, excluding undated rows", async () => {
+    seedMixed()
+    const result = await listExpenses(
+      makeEvent({ query: { from: "2026-08-02", to: "2026-08-05", sort: "paidAt", order: "asc" } }),
+    )
+    assert.deepEqual(ids(result), ["ramen", "taxi"])
+    assert.equal(result.filteredCount, 2)
+    assert.equal(result.filteredTotal, 52)
+  })
+
+  it("includes the boundary dates themselves", async () => {
+    seedMixed()
+    const result = await listExpenses(
+      makeEvent({ query: { from: "2026-08-01", to: "2026-08-01" } }),
+    )
+    assert.deepEqual(ids(result), ["hotel"])
+  })
+
+  it("combines filters conjunctively", async () => {
+    seedMixed()
+    const result = await listExpenses(
+      makeEvent({ query: { category: "food", payerId: EDITOR_ID } }),
+    )
+    assert.deepEqual(ids(result), [])
+    assert.equal(result.filteredCount, 0)
+    assert.equal(result.filteredTotal, 0)
+  })
+
+  it("treats a cleared filter (`?category=`) as no filter, not as an error", async () => {
+    seedMixed()
+    const result = await listExpenses(
+      makeEvent({ query: { category: "", payerId: "", from: "", to: "", cursor: "" } }),
+    )
+    assert.equal(result.filteredCount, 4)
+  })
+
+  it("rejects a category that is not one of ours", async () => {
+    seedMixed()
+    await assertStatus(listExpenses(makeEvent({ query: { category: "bribes" } })), 400)
+  })
+
+  it("rejects a malformed date", async () => {
+    seedMixed()
+    await assertStatus(listExpenses(makeEvent({ query: { from: "last tuesday" } })), 400)
+  })
+
+  it("rejects a range that runs backwards", async () => {
+    seedMixed()
+    await assertStatus(
+      listExpenses(makeEvent({ query: { from: "2026-08-10", to: "2026-08-01" } })),
+      400,
+    )
+  })
+})
+
+describe("GET expenses — sorting", () => {
+  it("sorts by amount descending", async () => {
+    seedMixed()
+    const result = await listExpenses(makeEvent({ query: { sort: "amount", order: "desc" } }))
+    assert.deepEqual(ids(result), ["hotel", "taxi", "ramen", "mystery"])
+  })
+
+  // "9.00" > "40.00" as text. Sorting money as a string is the classic way to
+  // get this wrong, so the seed deliberately mixes digit counts.
+  it("sorts amounts numerically, not as text", async () => {
+    seedMixed()
+    const result = await listExpenses(makeEvent({ query: { sort: "amount", order: "asc" } }))
+    assert.deepEqual(ids(result), ["mystery", "ramen", "taxi", "hotel"])
+  })
+
+  it("sorts by paid date, with undated expenses last in both directions", async () => {
+    seedMixed()
+    const descending = await listExpenses(makeEvent({ query: { sort: "paidAt", order: "desc" } }))
+    assert.deepEqual(ids(descending), ["taxi", "ramen", "hotel", "mystery"])
+    const ascending = await listExpenses(makeEvent({ query: { sort: "paidAt", order: "asc" } }))
+    assert.deepEqual(ids(ascending), ["hotel", "ramen", "taxi", "mystery"])
+  })
+
+  it("rejects an unknown sort column", async () => {
+    seedMixed()
+    await assertStatus(listExpenses(makeEvent({ query: { sort: "description" } })), 400)
+  })
+
+  it("rejects an unknown order", async () => {
+    seedMixed()
+    await assertStatus(listExpenses(makeEvent({ query: { order: "sideways" } })), 400)
+  })
+})
+
+describe("GET expenses — pagination", () => {
+  it("returns a page plus a cursor, and no more rows than asked for", async () => {
+    seedMixed()
+    const page = await listExpenses(
+      makeEvent({ query: { sort: "paidAt", order: "desc", limit: "2" } }),
+    )
+    assert.deepEqual(ids(page), ["taxi", "ramen"])
+    assert.ok(page.nextCursor)
+    // The probe row must never leak into the response.
+    assert.equal(page.items.length, 2)
+  })
+
+  it("walks every row exactly once across pages, including the undated tail", async () => {
+    seedMixed()
+    const seen: string[] = []
+    let cursor: string | null = null
+    for (let guard = 0; guard < 10; guard += 1) {
+      const query: Record<string, string> = { sort: "paidAt", order: "desc", limit: "1" }
+      if (cursor) query.cursor = cursor
+      const page: ExpenseListPage<ListedExpense> = await listExpenses(makeEvent({ query }))
+      seen.push(...ids(page))
+      cursor = page.nextCursor
+      if (!cursor) break
+    }
+    assert.deepEqual(seen, ["taxi", "ramen", "hotel", "mystery"])
+  })
+
+  it("paginates a filtered list without losing the filter", async () => {
+    seedMixed()
+    const first = await listExpenses(
+      makeEvent({ query: { payerId: OWNER_ID, sort: "paidAt", order: "asc", limit: "1" } }),
+    )
+    assert.deepEqual(ids(first), ["hotel"])
+    assert.ok(first.nextCursor)
+    const second = await listExpenses(
+      makeEvent({
+        query: {
+          payerId: OWNER_ID,
+          sort: "paidAt",
+          order: "asc",
+          limit: "1",
+          cursor: first.nextCursor,
+        },
+      }),
+    )
+    assert.deepEqual(ids(second), ["ramen"])
+    assert.equal(second.nextCursor, null, "owner paid for exactly two of these")
+  })
+
+  // The aggregate must see the filter but *not* the cursor: a count that shrank
+  // as you paged would be a page count, not a result count.
+  it("reports the whole filtered set on every page, not just the page in hand", async () => {
+    seedMixed()
+    const first = await listExpenses(makeEvent({ query: { limit: "1" } }))
+    assert.equal(first.items.length, 1)
+    assert.equal(first.filteredCount, 4)
+    assert.equal(first.filteredTotal, 359)
+
+    const second = await listExpenses(
+      makeEvent({ query: { limit: "1", cursor: first.nextCursor ?? "" } }),
+    )
+    assert.equal(second.filteredCount, 4, "the count must not shrink as pages are consumed")
+    assert.equal(second.filteredTotal, 359)
+  })
+
+  it("stops with a null cursor when the last row is on the page", async () => {
+    seedMixed()
+    const page = await listExpenses(makeEvent({ query: { limit: "4" } }))
+    assert.equal(page.items.length, 4)
+    assert.equal(page.nextCursor, null)
+  })
+
+  it("issues a cursor that names the sort it belongs to", async () => {
+    seedMixed()
+    const page = await listExpenses(makeEvent({ query: { sort: "amount", limit: "1" } }))
+    assert.equal(decodeExpenseCursor(page.nextCursor ?? "")?.field, "amount")
+  })
+
+  it("refuses a cursor from a different sort rather than paging wrongly", async () => {
+    seedMixed()
+    const page = await listExpenses(makeEvent({ query: { sort: "amount", limit: "1" } }))
+    await assertStatus(
+      listExpenses(makeEvent({ query: { sort: "paidAt", cursor: page.nextCursor ?? "" } })),
+      400,
+    )
+  })
+
+  it("refuses a forged cursor", async () => {
+    seedMixed()
+    await assertStatus(listExpenses(makeEvent({ query: { cursor: "not-a-cursor" } })), 400)
+  })
+
+  it("refuses a limit outside the allowed range", async () => {
+    seedMixed()
+    for (const limit of ["0", "-1", "201", "abc"]) {
+      await assertStatus(listExpenses(makeEvent({ query: { limit } })), 400)
+    }
   })
 })
 
