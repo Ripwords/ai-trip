@@ -25,18 +25,30 @@ function input(overrides: Partial<SummariseTripExpensesInput> = {}): SummariseTr
   }
 }
 
-const expense = (over: Partial<SummariseTripExpensesInput["expenses"][number]> = {}) => ({
-  id: "e1",
-  amount: "10.00",
-  currencyCode: "USD",
-  amountInTripCurrency: null,
-  category: "food",
-  paidAt: "2026-03-01",
-  paidById: "a",
-  activityId: null,
-  splits: null,
-  ...over,
-})
+/**
+ * `amountInTripCurrency` defaults to `amount`, which is what the column holds
+ * whenever an expense was paid in the trip's own currency — the case for every
+ * fixture that does not say otherwise. A foreign expense must set it
+ * explicitly, because there is no rate here to derive it from.
+ *
+ * These fixtures used to default it to `null`, which is how the old
+ * `amountInTripCurrency ?? amount` fallback survived: almost every assertion in
+ * this file was silently exercising the fallback rather than the projection.
+ */
+const expense = (over: Partial<SummariseTripExpensesInput["expenses"][number]> = {}) => {
+  const base = {
+    id: "e1",
+    amount: "10.00",
+    currencyCode: "USD" as string | null,
+    category: "food",
+    paidAt: "2026-03-01" as string | null,
+    paidById: "a" as string | null,
+    activityId: null as string | null,
+    splits: null as Record<string, string> | null,
+    ...over,
+  }
+  return { ...base, amountInTripCurrency: over.amountInTripCurrency ?? base.amount }
+}
 
 describe("summariseTripExpenses — the one true total", () => {
   // Issue #38: ExpenseTracker summed expenses, TripStats summed activity
@@ -192,11 +204,33 @@ describe("summariseTripExpenses — multi-currency", () => {
     assert.equal(s.expensesTotal, 20.64)
   })
 
-  it("falls back to amount when a legacy row has no projection", () => {
+  // A row predating #47 has no recorded denomination (migration 0041). Its
+  // projection is still NOT NULL — the migration backfilled it with `amount`
+  // verbatim — so the total is unchanged, but the currency is reported as
+  // unknown rather than silently claimed to be the trip's.
+  it("reports an unknown-provenance row without asserting a currency for it", () => {
     const s = summariseTripExpenses(
-      input({ expenses: [expense({ amountInTripCurrency: null, amount: "12.50" })] }),
+      input({
+        expenses: [expense({ currencyCode: null, amount: "12.50", amountInTripCurrency: "12.50" })],
+      }),
     )
     assert.equal(s.expensesTotal, 12.5)
+    assert.deepEqual(s.byCurrency, [
+      { currencyCode: "UNKNOWN", amount: 12.5, amountInTripCurrency: 12.5 },
+    ])
+  })
+
+  // The bug this file's fixtures used to hide: `amount` is denominated in the
+  // *expense's* currency, so reading it as trip currency counted a ¥3,200 lunch
+  // as $3,200.00 — 100x over — on any trip with a foreign expense.
+  it("never counts a foreign `amount` as though it were trip currency", () => {
+    const s = summariseTripExpenses(
+      input({
+        expenses: [expense({ currencyCode: "JPY", amount: "3200", amountInTripCurrency: "20.65" })],
+      }),
+    )
+    assert.equal(s.expensesTotal, 20.65)
+    assert.notEqual(s.expensesTotal, 3200)
   })
 
   it("reports every currency actually paid in", () => {
@@ -385,7 +419,12 @@ describe("summariseTripExpenses — settlement failure is contained", () => {
       { userId: "b", user: { name: "Bob" } },
     ]
     assert.throws(
-      () => computeSettlement([{ amount: "100.00", paidById: "a" }], dupes, "USD"),
+      () =>
+        computeSettlement(
+          [{ amount: "100.00", amountInTripCurrency: "100.00", paidById: "a" }],
+          dupes,
+          "USD",
+        ),
       /sum to zero/i,
       "precondition: this input really does throw",
     )

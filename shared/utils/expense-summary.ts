@@ -21,13 +21,22 @@
 import { computeSettlement, type Settlement, type SettlementMember } from "./settlement"
 import { fromMinorUnits, toMinorUnits } from "./money"
 
+/**
+ * A row whose `currencyCode` is NULL predates #47 and its denomination was
+ * never recorded — see migration 0041. It is grouped under this key in
+ * `byCurrency` rather than being silently folded into the trip's own currency,
+ * which would assert exactly the thing that migration refuses to assert.
+ */
+export const UNKNOWN_CURRENCY = "UNKNOWN"
+
 export interface SummaryExpense {
   id: string
   /** What was paid, in `currencyCode`. */
   amount: string
-  currencyCode: string
-  /** The trip-currency projection; null on rows written before #47. */
-  amountInTripCurrency: string | null
+  /** NULL means "provenance unknown" — a row predating #47. */
+  currencyCode: string | null
+  /** The trip-currency projection. Always present: the column is NOT NULL. */
+  amountInTripCurrency: string
   category: string
   paidAt: string | null
   paidById: string | null
@@ -113,8 +122,12 @@ export function summariseTripExpenses(input: SummariseTripExpensesInput): TripEx
   const activityIds = new Set(input.activities.map((a) => a.id))
 
   for (const e of input.expenses) {
-    // Rows predating per-expense currencies have no projection.
-    const minor = toTrip(e.amountInTripCurrency ?? e.amount)
+    // `amountInTripCurrency` only. This used to be
+    // `e.amountInTripCurrency ?? e.amount`, and `amount` is denominated in the
+    // *expense's* currency — so a ¥3,200 row on a USD trip was parsed with USD
+    // decimals and counted as $3,200.00, 100x over. The column is NOT NULL now
+    // precisely so there is nothing to fall back to.
+    const minor = toTrip(e.amountInTripCurrency)
     expensesMinor += minor
 
     byCategory.set(e.category || "other", (byCategory.get(e.category || "other") ?? 0) + minor)
@@ -124,10 +137,15 @@ export function summariseTripExpenses(input: SummariseTripExpensesInput): TripEx
 
     if (e.paidById) byPayer.set(e.paidById, (byPayer.get(e.paidById) ?? 0) + minor)
 
-    const own = byCurrency.get(e.currencyCode) ?? { own: 0, trip: 0 }
-    own.own += toMinorUnits(e.amount, e.currencyCode) ?? 0
-    own.trip += minor
-    byCurrency.set(e.currencyCode, own)
+    // An unknown-provenance row has no currency to state, so its `amount` is
+    // not a figure in any known unit — only its trip-currency projection is
+    // meaningful. Report the projection on both sides of the bucket rather than
+    // parsing `amount` as though the trip's currency were its own.
+    const code = e.currencyCode ?? UNKNOWN_CURRENCY
+    const bucket = byCurrency.get(code) ?? { own: 0, trip: 0 }
+    bucket.own += e.currencyCode == null ? minor : (toMinorUnits(e.amount, e.currencyCode) ?? 0)
+    bucket.trip += minor
+    byCurrency.set(code, bucket)
 
     if (e.activityId && activityIds.has(e.activityId)) {
       linkedMinor += minor
@@ -205,7 +223,9 @@ export function summariseTripExpenses(input: SummariseTripExpensesInput): TripEx
     byCurrency: [...byCurrency.entries()]
       .map(([currencyCode, sums]) => ({
         currencyCode,
-        amount: Number(fromMinorUnits(sums.own, currencyCode)),
+        amount: Number(
+          fromMinorUnits(sums.own, currencyCode === UNKNOWN_CURRENCY ? currency : currencyCode),
+        ),
         amountInTripCurrency: out(sums.trip),
       }))
       .toSorted((a, b) => b.amountInTripCurrency - a.amountInTripCurrency),
@@ -232,7 +252,13 @@ function safeSettlement(input: SummariseTripExpensesInput, currency: string): Se
     return computeSettlement(input.expenses, input.members, currency)
   } catch (error: unknown) {
     console.error("[expense-summary] settlement failed, reporting no transfers:", error)
-    return { balances: [], transfers: [], attributedTotal: 0, unattributedTotal: 0 }
+    return {
+      balances: [],
+      transfers: [],
+      attributedTotal: 0,
+      unattributedTotal: 0,
+      uncollectableTotal: 0,
+    }
   }
 }
 

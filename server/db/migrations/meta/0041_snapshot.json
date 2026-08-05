@@ -1,5 +1,5 @@
 {
-  "id": "ef5e48af-678e-45bc-b916-a6f5b2c69b4b",
+  "id": "f23da22e-0ad4-4fb7-a975-04f21ad41887",
   "prevId": "48690b74-ef05-4591-97f0-203b4a41e701",
   "version": "7",
   "dialect": "postgresql",
@@ -1505,7 +1505,7 @@
         },
         "amount": {
           "name": "amount",
-          "type": "numeric(10, 2)",
+          "type": "numeric(16, 2)",
           "primaryKey": false,
           "notNull": true
         },
@@ -1513,21 +1513,19 @@
           "name": "currency_code",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'USD'"
+          "notNull": false
         },
         "fx_rate": {
           "name": "fx_rate",
           "type": "numeric(18, 8)",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'1'"
+          "notNull": false
         },
         "amount_in_trip_currency": {
           "name": "amount_in_trip_currency",
-          "type": "numeric(12, 2)",
+          "type": "numeric(16, 2)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "category": {
           "name": "category",
@@ -1699,7 +1697,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "expenses_currency_provenance_check": {
+          "name": "expenses_currency_provenance_check",
+          "value": "(\"expenses\".\"currency_code\" IS NULL) = (\"expenses\".\"fx_rate\" IS NULL)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.flight_api_cache": {
