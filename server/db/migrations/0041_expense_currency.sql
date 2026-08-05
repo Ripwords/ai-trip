@@ -1,5 +1,16 @@
 -- Per-expense currency (#47).
 --
+-- Written to be safely re-runnable (`IF NOT EXISTS`, the CHECK in a
+-- DO ... EXCEPTION block), matching 0034-0040 on the branches below this one.
+-- Production does NOT currently have any of these columns, so unlike those
+-- files this one is not repairing damage that already happened -- it is
+-- insurance. Preview deploys used to run `vercel-build` (`nuxt build &&
+-- drizzle-kit migrate`) straight against production, which is how the rest of
+-- this stack ended up half-applied there; a re-runnable migration is the only
+-- thing that makes a partially-applied deploy recoverable without hand-editing
+-- production. The gate added on PR #68 stops new instances of the problem, but
+-- costs nothing to defend against here too.
+--
 -- `amount` is widened from numeric(10,2) first. The old ceiling was
 -- 99,999,999.99, which is roughly USD 3,800 once the amount is denominated in
 -- VND. While a trip had exactly one currency that was only reachable by a
@@ -8,12 +19,12 @@
 -- overflow` that surfaces as an unhandled 500.
 ALTER TABLE "expenses" ALTER COLUMN "amount" SET DATA TYPE numeric(16, 2);--> statement-breakpoint
 
-ALTER TABLE "expenses" ADD COLUMN "currency_code" text;--> statement-breakpoint
-ALTER TABLE "expenses" ADD COLUMN "fx_rate" numeric(18, 8);--> statement-breakpoint
+ALTER TABLE "expenses" ADD COLUMN IF NOT EXISTS "currency_code" text;--> statement-breakpoint
+ALTER TABLE "expenses" ADD COLUMN IF NOT EXISTS "fx_rate" numeric(18, 8);--> statement-breakpoint
 -- Added nullable here and made NOT NULL at the bottom of this file, once every
 -- existing row has a value. `ADD COLUMN ... NOT NULL` with no default fails
 -- outright on a non-empty table.
-ALTER TABLE "expenses" ADD COLUMN "amount_in_trip_currency" numeric(16, 2);--> statement-breakpoint
+ALTER TABLE "expenses" ADD COLUMN IF NOT EXISTS "amount_in_trip_currency" numeric(16, 2);--> statement-breakpoint
 
 -- ---------------------------------------------------------------------------
 -- Backfill. Hand-written, and deliberately does NOT claim to know which
@@ -76,4 +87,7 @@ UPDATE "expenses" SET "amount_in_trip_currency" = "amount"
 -- rather than something every new reader has to remember not to write.
 ALTER TABLE "expenses" ALTER COLUMN "amount_in_trip_currency" SET NOT NULL;--> statement-breakpoint
 
-ALTER TABLE "expenses" ADD CONSTRAINT "expenses_currency_provenance_check" CHECK (("expenses"."currency_code" IS NULL) = ("expenses"."fx_rate" IS NULL));
+DO $$ BEGIN
+	ALTER TABLE "expenses" ADD CONSTRAINT "expenses_currency_provenance_check" CHECK (("expenses"."currency_code" IS NULL) = ("expenses"."fx_rate" IS NULL));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
