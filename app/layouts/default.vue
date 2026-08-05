@@ -28,7 +28,7 @@ function signInWithGoogle() {
   <div class="flex min-h-dvh flex-col bg-sand-50">
     <header class="glass sticky top-0 z-50 border-b border-sand-200/50">
       <nav class="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
-        <NuxtLink to="/" class="flex items-center gap-2">
+        <NuxtLink to="/" class="flex min-h-11 items-center gap-2">
           <NuxtImg src="/image.png" alt="AI Trip" class="h-8 w-8 rounded-lg" loading="eager" />
           <span class="font-display text-lg text-sand-900">AI Trip</span>
         </NuxtLink>
@@ -48,7 +48,7 @@ function signInWithGoogle() {
             <NuxtLink
               v-if="isLoggedIn"
               to="/dashboard"
-              class="focus-ring rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-terra-600 hover:shadow-md"
+              class="focus-ring inline-flex min-h-11 items-center rounded-xl bg-cta px-5 text-sm font-medium text-white shadow-sm transition-all hover:bg-cta-hover hover:shadow-md"
             >
               Dashboard
             </NuxtLink>
@@ -56,7 +56,7 @@ function signInWithGoogle() {
               v-else
               type="button"
               :disabled="signInPending"
-              class="focus-ring flex items-center gap-2 rounded-xl bg-terra-500 px-5 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-terra-600 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
+              class="focus-ring flex min-h-11 items-center gap-2 rounded-xl bg-cta px-5 text-sm font-medium text-white shadow-sm transition-all hover:bg-cta-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
               @click="signInWithGoogle"
             >
               <Icon
@@ -90,7 +90,7 @@ function signInWithGoogle() {
             </button>
             <template #fallback>
               <span
-                class="rounded-xl bg-terra-500/60 px-5 py-2 text-sm font-medium text-white shadow-sm"
+                class="rounded-xl bg-cta/60 px-5 py-2 text-sm font-medium text-white shadow-sm"
                 aria-hidden="true"
               >
                 &nbsp;

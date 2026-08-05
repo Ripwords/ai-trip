@@ -262,11 +262,11 @@ function checkedCount(checklist: Checklist): number {
         v-model="newListName"
         type="text"
         placeholder="New checklist name..."
-        class="block flex-1 rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+        class="block min-h-11 flex-1 rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
         @keydown.enter="createChecklist"
       />
       <button
-        class="rounded-lg bg-terra-500 px-3 py-2 text-sm font-medium text-white hover:bg-terra-600"
+        class="inline-flex min-h-11 items-center rounded-lg bg-cta px-3 text-sm font-medium text-white hover:bg-cta-hover"
         @click="createChecklist"
       >
         Add
@@ -303,7 +303,7 @@ function checkedCount(checklist: Checklist): number {
             </template>
             <template v-else>
               {{ checklist.name }}
-              <span v-if="checklist.items.length" class="text-xs font-normal text-sand-400">
+              <span v-if="checklist.items.length" class="text-xs font-normal text-sand-700">
                 ({{ checkedCount(checklist) }}/{{ checklist.items.length }})
               </span>
             </template>
@@ -367,7 +367,7 @@ function checkedCount(checklist: Checklist): number {
             />
             <button
               type="submit"
-              class="rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600"
+              class="rounded-lg bg-cta px-3 py-1.5 text-xs font-medium text-white hover:bg-cta-hover"
             >
               Save
             </button>
@@ -422,7 +422,7 @@ function checkedCount(checklist: Checklist): number {
                   <span
                     v-else
                     class="min-w-0 truncate"
-                    :class="item.checked ? 'text-sand-400 line-through' : 'text-sand-700'"
+                    :class="item.checked ? 'text-sand-700 line-through' : 'text-sand-700'"
                     @dblclick.prevent="startEditItem(item)"
                   >
                     {{ item.text }}
@@ -479,7 +479,7 @@ function checkedCount(checklist: Checklist): number {
                 <span
                   v-else
                   class="min-w-0 truncate"
-                  :class="item.checked ? 'text-sand-400 line-through' : 'text-sand-700'"
+                  :class="item.checked ? 'text-sand-700 line-through' : 'text-sand-700'"
                   @dblclick.prevent="startEditItem(item)"
                 >
                   {{ item.text }}
@@ -530,7 +530,7 @@ function checkedCount(checklist: Checklist): number {
       </div>
     </div>
 
-    <p v-else class="mt-4 text-center text-xs text-sand-400">
+    <p v-else class="mt-4 text-center text-xs text-sand-700">
       No checklists yet. Create one above.
     </p>
 
@@ -574,7 +574,7 @@ function checkedCount(checklist: Checklist): number {
               >
                 <div class="flex items-center justify-between">
                   <span class="text-sm font-medium text-sand-900">{{ tmpl.name }}</span>
-                  <span class="flex items-center gap-1 text-xs text-sand-400">
+                  <span class="flex items-center gap-1 text-xs text-sand-700">
                     <Icon
                       v-if="tmpl.isGlobal"
                       name="lucide:globe"
@@ -589,7 +589,7 @@ function checkedCount(checklist: Checklist): number {
                 </p>
               </button>
             </div>
-            <p v-else class="mt-4 text-center text-sm text-sand-400">No templates available yet.</p>
+            <p v-else class="mt-4 text-center text-sm text-sand-700">No templates available yet.</p>
           </div>
         </div>
       </Transition>

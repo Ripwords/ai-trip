@@ -48,6 +48,10 @@ useModalA11y(panelRef, {
   onClose: close,
 })
 
+// Freeze the page behind the modal: without this the list underneath scrolls
+// under the finger and iOS rubber-bands the whole document.
+useBodyScrollLock(() => props.open)
+
 watch(
   () => props.open,
   (val) => {
@@ -102,7 +106,7 @@ watch(
               v-model="search"
               type="text"
               placeholder="Search trips..."
-              class="w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-500 focus:border-terra-400 focus:outline-none"
+              class="min-h-11 w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-500 focus:border-terra-400 focus:outline-none"
             />
           </div>
 

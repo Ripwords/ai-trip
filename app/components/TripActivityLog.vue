@@ -104,12 +104,12 @@ const visiblePages = computed(() => {
               {{ log.description }}
             </span>
           </div>
-          <p class="mt-0.5 text-xs text-sand-400">{{ formatTime(log.createdAt) }}</p>
+          <p class="mt-0.5 text-xs text-sand-700">{{ formatTime(log.createdAt) }}</p>
         </div>
       </div>
     </div>
 
-    <p v-else class="mt-4 text-center text-xs text-sand-400">No activity yet</p>
+    <p v-else class="mt-4 text-center text-xs text-sand-700">No activity yet</p>
 
     <!-- Pagination -->
     <div
@@ -132,7 +132,7 @@ const visiblePages = computed(() => {
         type="button"
         :aria-current="p === page ? 'page' : undefined"
         class="h-8 w-8 rounded-lg text-xs font-medium transition"
-        :class="p === page ? 'bg-terra-500 text-white' : 'text-sand-600 hover:bg-sand-100'"
+        :class="p === page ? 'bg-cta text-white' : 'text-sand-600 hover:bg-sand-100'"
         @click="goToPage(p)"
       >
         {{ p }}

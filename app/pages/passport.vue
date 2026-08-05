@@ -102,13 +102,13 @@ const periodLabel = computed(() =>
       <div class="mt-2 flex flex-wrap justify-center gap-2">
         <NuxtLink
           to="/flights"
-          class="rounded-full bg-terra-500 px-4 py-2 text-xs font-semibold text-sand-50 transition hover:bg-terra-400"
+          class="inline-flex min-h-11 items-center rounded-full bg-terra-500 px-4 text-xs font-semibold text-sand-50 transition hover:bg-terra-400"
         >
           Add flights
         </NuxtLink>
         <NuxtLink
           to="/explore"
-          class="passport-empty-outline rounded-full border px-4 py-2 text-xs font-semibold transition"
+          class="passport-empty-outline inline-flex min-h-11 items-center rounded-full border px-4 text-xs font-semibold transition"
         >
           Mark countries
         </NuxtLink>

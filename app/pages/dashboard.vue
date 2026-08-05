@@ -323,7 +323,7 @@ const dashboardBriefing = computed(() =>
         <h1 class="font-display text-2xl text-sand-900 sm:text-3xl">My Trips</h1>
         <NuxtLink
           to="/trips/new"
-          class="inline-flex items-center gap-1.5 rounded-xl bg-terra-500 px-3.5 py-2 text-sm font-medium text-white shadow-md shadow-terra-500/15 transition hover:bg-terra-600 hover:shadow-lg hover:shadow-terra-500/20 sm:gap-2 sm:px-5 sm:py-2.5"
+          class="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-cta px-3.5 py-2 text-sm font-medium text-white shadow-md shadow-terra-500/15 transition hover:bg-cta-hover hover:shadow-lg hover:shadow-terra-500/20 sm:gap-2 sm:px-5 sm:py-2.5"
         >
           <Icon name="lucide:plus" class="h-4 w-4" />
           <span class="hidden sm:inline">New Trip</span>
@@ -346,7 +346,7 @@ const dashboardBriefing = computed(() =>
         </p>
         <NuxtLink
           to="/trips/new"
-          class="mt-6 inline-flex items-center gap-2 rounded-xl bg-terra-500 px-6 py-3 text-sm font-medium text-white shadow-md shadow-terra-500/15 transition hover:bg-terra-600 hover:shadow-lg hover:shadow-terra-500/20"
+          class="mt-6 inline-flex items-center gap-2 rounded-xl bg-cta px-6 py-3 text-sm font-medium text-white shadow-md shadow-terra-500/15 transition hover:bg-cta-hover hover:shadow-lg hover:shadow-terra-500/20"
         >
           <Icon name="lucide:plus" class="h-4 w-4" />
           Create your first trip
@@ -426,7 +426,7 @@ const dashboardBriefing = computed(() =>
                 >
                   {{ getTripStatus(trip.startDate, trip.endDate, trip.status).label }}
                 </span>
-                <span class="text-xs text-sand-400">
+                <span class="text-xs text-sand-700">
                   {{ getDayCount(trip.startDate, trip.endDate) }} days
                 </span>
               </div>
@@ -459,7 +459,7 @@ const dashboardBriefing = computed(() =>
             :key="p"
             type="button"
             class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-sm font-medium transition focus-ring"
-            :class="p === page ? 'bg-terra-500 text-white' : 'text-sand-500 hover:bg-sand-50'"
+            :class="p === page ? 'bg-cta text-white' : 'text-sand-500 hover:bg-sand-50'"
             :aria-label="`Page ${p}`"
             :aria-current="p === page ? 'page' : undefined"
             @click="page = p"

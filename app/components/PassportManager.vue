@@ -278,7 +278,7 @@ function isExpiringSoon(date: string): boolean {
               <button
                 type="button"
                 :disabled="savingEdit"
-                class="inline-flex items-center gap-1.5 rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600 disabled:opacity-50"
+                class="inline-flex items-center gap-1.5 rounded-lg bg-cta px-3 py-1.5 text-xs font-medium text-white hover:bg-cta-hover disabled:opacity-50"
                 @click="saveEdit(passport.id)"
               >
                 <Icon v-if="savingEdit" name="lucide:loader" class="h-3 w-3 animate-spin" />
@@ -301,7 +301,7 @@ function isExpiringSoon(date: string): boolean {
           <select
             :id="countryFieldId"
             v-model="newCountryCode"
-            class="w-full appearance-none rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
+            class="min-h-11 w-full appearance-none rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
           >
             <option value="" disabled>Select country</option>
             <option v-for="opt in countryOptions" :key="opt.value" :value="opt.value">
@@ -318,7 +318,7 @@ function isExpiringSoon(date: string): boolean {
             :value="newPassportNumber"
             type="text"
             placeholder="Passport number"
-            class="w-full rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm font-mono uppercase text-sand-900 placeholder:normal-case placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
+            class="min-h-11 w-full rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm font-mono uppercase text-sand-900 placeholder:normal-case placeholder:text-sand-400 focus:border-terra-400 focus:outline-none"
             @input="newPassportNumber = ($event.target as HTMLInputElement).value.toUpperCase()"
           />
         </div>
@@ -330,7 +330,7 @@ function isExpiringSoon(date: string): boolean {
             :id="expiryFieldId"
             v-model="newExpiryDate"
             type="date"
-            class="w-full rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
+            class="min-h-11 w-full rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
           />
         </div>
       </div>
@@ -338,7 +338,7 @@ function isExpiringSoon(date: string): boolean {
         <button
           type="button"
           :disabled="!newCountryCode || adding"
-          class="inline-flex items-center gap-1.5 rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-terra-600 disabled:opacity-50"
+          class="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-cta px-4 text-sm font-medium text-white transition hover:bg-cta-hover disabled:opacity-50"
           @click="addPassport"
         >
           <Icon v-if="adding" name="lucide:loader" class="h-3.5 w-3.5 animate-spin" />

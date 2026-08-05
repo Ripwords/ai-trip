@@ -225,7 +225,7 @@ onMounted(() => {
 
         <button
           type="button"
-          class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-terra-500 px-3 text-sm font-medium text-white transition hover:bg-terra-600 disabled:cursor-not-allowed disabled:opacity-60"
+          class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-cta px-3 text-sm font-medium text-white transition hover:bg-cta-hover disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="loading"
           @click="runReview()"
         >
@@ -239,7 +239,7 @@ onMounted(() => {
       <div class="inline-flex w-fit rounded-lg border border-sand-200 bg-sand-50 p-1">
         <button
           type="button"
-          class="rounded-md px-3 py-1.5 text-sm transition"
+          class="inline-flex min-h-11 items-center rounded-md px-3 text-sm transition"
           :class="
             scope === 'trip' ? 'bg-white font-medium text-sand-900 shadow-sm' : 'text-sand-500'
           "
@@ -249,7 +249,7 @@ onMounted(() => {
         </button>
         <button
           type="button"
-          class="rounded-md px-3 py-1.5 text-sm transition"
+          class="inline-flex min-h-11 items-center rounded-md px-3 text-sm transition"
           :class="
             scope === 'day' ? 'bg-white font-medium text-sand-900 shadow-sm' : 'text-sand-500'
           "

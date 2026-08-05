@@ -44,7 +44,9 @@ onUnmounted(() => {
 
 <template>
   <div role="tablist" class="flex items-end gap-x-4 border-b border-sand-200 sm:gap-x-6">
-    <div class="min-w-0 flex-1 overflow-x-auto scrollbar-hide">
+    <!-- The scroller clips the last label mid-word at 390px. Fade the trailing
+         edge so that reads as "there is more, swipe" rather than as a bug. -->
+    <div class="tab-scroller min-w-0 flex-1 overflow-x-auto scrollbar-hide">
       <div class="flex items-end gap-x-4 pb-px sm:gap-x-6">
         <button
           v-for="tab in primaryTabs"
@@ -52,11 +54,11 @@ onUnmounted(() => {
           type="button"
           role="tab"
           :aria-selected="modelValue === tab.value"
-          class="relative shrink-0 rounded-sm py-2.5 text-sm transition focus-ring"
+          class="relative inline-flex min-h-11 shrink-0 items-center rounded-sm text-sm transition focus-ring"
           :class="
             modelValue === tab.value
               ? 'font-medium text-sand-900'
-              : 'text-sand-500 hover:text-sand-800'
+              : 'text-sand-700 hover:text-sand-900'
           "
           @click="pick(tab.value)"
         >
@@ -75,11 +77,11 @@ onUnmounted(() => {
         aria-haspopup="menu"
         :aria-expanded="overflowOpen"
         aria-label="More tabs"
-        class="relative inline-flex items-center gap-1 rounded-sm py-2.5 text-sm transition focus-ring"
+        class="relative inline-flex min-h-11 items-center gap-1 rounded-sm text-sm transition focus-ring"
         :class="
           overflowTabs.some((t) => t.value === modelValue)
             ? 'font-medium text-sand-900'
-            : 'text-sand-500 hover:text-sand-800'
+            : 'text-sand-700 hover:text-sand-900'
         "
         @click.stop="overflowOpen = !overflowOpen"
       >
@@ -108,7 +110,7 @@ onUnmounted(() => {
             type="button"
             role="tab"
             :aria-selected="modelValue === tab.value"
-            class="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-sand-50 focus-ring"
+            class="flex min-h-11 w-full items-center justify-between px-3 text-left text-sm transition hover:bg-sand-50 focus-ring"
             :class="modelValue === tab.value ? 'font-medium text-sand-900' : 'text-sand-700'"
             @click.stop="pick(tab.value)"
           >
@@ -124,3 +126,21 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Only fade once the row actually overflows: `scroll-state` keeps the mask off
+   at desktop widths where every tab fits. Falls back to no mask where the query
+   is unsupported, which is the current (unfaded) behaviour. */
+.tab-scroller {
+  scroll-snap-type: x proximity;
+  container-type: scroll-state;
+}
+.tab-scroller > * > * {
+  scroll-snap-align: start;
+}
+@container scroll-state(scrollable: right) {
+  .tab-scroller {
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  }
+}
+</style>

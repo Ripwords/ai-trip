@@ -220,7 +220,7 @@ function timeToMinutes(time: string): number | null {
 
       <button
         v-if="!readonly"
-        class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-terra-200 py-2.5 text-sm text-sand-600 transition hover:border-terra-400 hover:text-terra-500 focus-ring"
+        class="mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-terra-200 text-sm text-sand-600 transition hover:border-terra-400 hover:text-terra-500 focus-ring"
         @click="emit('addActivity', day.id)"
       >
         <Icon name="lucide:plus" class="h-3 w-3" />

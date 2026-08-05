@@ -293,7 +293,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
             <!-- Disclaimer -->
             <div class="flex items-start gap-1.5 border-t border-sand-100 bg-sand-50/50 px-4 py-2">
               <Icon name="lucide:info" class="mt-px h-3 w-3 shrink-0 text-sand-300" />
-              <p class="text-[11px] leading-snug text-sand-400">
+              <p class="text-[11px] leading-snug text-sand-700">
                 AI-generated from web search. Always verify with official embassy or immigration
                 sources before travelling.
               </p>

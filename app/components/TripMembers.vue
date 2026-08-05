@@ -129,7 +129,7 @@ const roleBadgeClass: Record<string, string> = {
       <h3 class="text-sm font-semibold text-sand-900">Trip Members</h3>
       <button
         v-if="currentRole === 'owner' || currentRole === 'editor'"
-        class="inline-flex items-center gap-1 rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600"
+        class="inline-flex min-h-11 items-center gap-1 rounded-lg bg-cta px-3 text-xs font-medium text-white hover:bg-cta-hover"
         @click="showInvite = !showInvite"
       >
         <Icon name="lucide:user-plus" class="h-3 w-3" />
@@ -163,7 +163,7 @@ const roleBadgeClass: Record<string, string> = {
       <button
         type="submit"
         :disabled="inviteLoading"
-        class="rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600 disabled:opacity-50"
+        class="rounded-lg bg-cta px-3 py-1.5 text-xs font-medium text-white hover:bg-cta-hover disabled:opacity-50"
       >
         {{ inviteLoading ? "Sending..." : "Send invite" }}
       </button>
@@ -231,7 +231,7 @@ const roleBadgeClass: Record<string, string> = {
       v-if="pendingInvites.length > 0 && currentRole === 'owner'"
       class="mt-4 border-t border-sand-100 pt-4"
     >
-      <h4 class="text-xs font-medium uppercase tracking-wide text-sand-400">Pending Invites</h4>
+      <h4 class="text-xs font-medium uppercase tracking-wide text-sand-700">Pending Invites</h4>
       <div class="mt-2 space-y-1">
         <div
           v-for="invite in pendingInvites"
@@ -246,13 +246,13 @@ const roleBadgeClass: Record<string, string> = {
             </div>
             <div>
               <p class="text-sm text-sand-700">{{ invite.invitedEmail }}</p>
-              <p class="text-xs text-sand-400">
+              <p class="text-xs text-sand-700">
                 {{ formatType(invite.role) }} · {{ formatExpiry(invite.expiresAt) }}
               </p>
             </div>
           </div>
           <button
-            class="rounded-lg border border-sand-200 px-2.5 py-1 text-xs font-medium text-sand-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+            class="inline-flex min-h-11 items-center rounded-lg border border-sand-200 px-2.5 text-xs font-medium text-sand-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
             @click="handleRemove(invite)"
           >
             Revoke

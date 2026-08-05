@@ -612,12 +612,12 @@ function getMemberName(userId: string | null): string {
           v-model="budgetInput"
           type="text"
           placeholder="e.g. 2000"
-          class="block flex-1 rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+          class="block min-h-11 flex-1 rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
         />
         <button
           type="button"
           :disabled="savingBudget"
-          class="min-h-11 rounded-lg bg-terra-500 px-3 py-2 text-sm font-medium text-white hover:bg-terra-600 disabled:opacity-50"
+          class="min-h-11 rounded-lg bg-cta px-3 py-2 text-sm font-medium text-white hover:bg-cta-hover disabled:opacity-50"
           @click="saveBudget"
         >
           {{ savingBudget ? "Saving..." : "Save" }}
@@ -725,7 +725,7 @@ function getMemberName(userId: string | null): string {
           <span class="text-sand-700">{{ row.currencyCode }}</span>
           <span class="tabular-nums text-sand-600">
             {{ row.amount }} {{ row.currencyCode }}
-            <span class="text-sand-400">=</span>
+            <span class="text-sand-700">=</span>
             <span class="font-medium text-sand-900">
               {{ formatCurrency(row.amountInTripCurrency) }}
             </span>
@@ -771,7 +771,7 @@ function getMemberName(userId: string | null): string {
         <div class="flex items-center gap-2">
           <button
             v-if="filteredCount > 0"
-            class="inline-flex items-center gap-1 rounded-lg border border-sand-200 px-2.5 py-1.5 text-xs font-medium text-sand-600 hover:bg-sand-50"
+            class="inline-flex min-h-11 items-center gap-1 rounded-lg border border-sand-200 px-2.5 text-xs font-medium text-sand-600 hover:bg-sand-50"
             title="Export as CSV"
             @click="emit('exportCsv')"
           >
@@ -779,7 +779,7 @@ function getMemberName(userId: string | null): string {
             <span class="hidden sm:inline">CSV</span>
           </button>
           <button
-            class="inline-flex items-center gap-1 rounded-lg bg-terra-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-terra-600"
+            class="inline-flex min-h-11 items-center gap-1 rounded-lg bg-cta px-3 text-xs font-medium text-white hover:bg-cta-hover"
             @click="
               () => {
                 resetForm()
@@ -803,7 +803,7 @@ function getMemberName(userId: string | null): string {
           <select
             :id="filterCategoryId"
             :value="filters.category"
-            class="block w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs input-focus"
+            class="block min-h-11 w-full rounded-lg border border-sand-300 px-2 text-xs input-focus"
             @change="setFilter('category', ($event.target as HTMLSelectElement).value)"
           >
             <option value="">All categories</option>
@@ -820,7 +820,7 @@ function getMemberName(userId: string | null): string {
           <select
             :id="filterPayerId"
             :value="filters.payerId"
-            class="block w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs input-focus"
+            class="block min-h-11 w-full rounded-lg border border-sand-300 px-2 text-xs input-focus"
             @change="setFilter('payerId', ($event.target as HTMLSelectElement).value)"
           >
             <option value="">Anyone</option>
@@ -838,7 +838,7 @@ function getMemberName(userId: string | null): string {
           <select
             :id="filterSortId"
             v-model="sortValue"
-            class="block w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs input-focus"
+            class="block min-h-11 w-full rounded-lg border border-sand-300 px-2 text-xs input-focus"
           >
             <option v-for="option in sortOptions" :key="option.value" :value="option.value">
               {{ option.label }}
@@ -854,7 +854,7 @@ function getMemberName(userId: string | null): string {
             :id="filterFromId"
             :value="filters.from"
             type="date"
-            class="block w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs input-focus"
+            class="block min-h-11 w-full rounded-lg border border-sand-300 px-2 text-xs input-focus"
             @change="setFilter('from', ($event.target as HTMLInputElement).value)"
           />
         </div>
@@ -865,7 +865,7 @@ function getMemberName(userId: string | null): string {
             :id="filterToId"
             :value="filters.to"
             type="date"
-            class="block w-full rounded-lg border border-sand-300 px-2 py-1.5 text-xs input-focus"
+            class="block min-h-11 w-full rounded-lg border border-sand-300 px-2 text-xs input-focus"
             @change="setFilter('to', ($event.target as HTMLInputElement).value)"
           />
         </div>
@@ -887,7 +887,7 @@ function getMemberName(userId: string | null): string {
       <p v-if="filtersActive" class="mt-2 text-xs text-sand-500 tabular-nums">
         {{ filteredCount }} matching {{ filteredCount === 1 ? "expense" : "expenses" }} ·
         {{ formatCurrency(filteredTotal) }}
-        <span class="text-sand-400">(trip total above is unfiltered)</span>
+        <span class="text-sand-700">(trip total above is unfiltered)</span>
       </p>
 
       <!-- Add/Edit form -->
@@ -1072,7 +1072,7 @@ function getMemberName(userId: string | null): string {
           <button
             type="submit"
             :disabled="submittingExpense"
-            class="min-h-11 rounded-lg bg-terra-500 px-4 py-2 text-sm font-medium text-white hover:bg-terra-600 disabled:opacity-50"
+            class="min-h-11 rounded-lg bg-cta px-4 py-2 text-sm font-medium text-white hover:bg-cta-hover disabled:opacity-50"
           >
             {{ submittingExpense ? "Saving..." : editingExpenseId ? "Update" : "Add" }}
           </button>
@@ -1105,10 +1105,10 @@ function getMemberName(userId: string | null): string {
                 >
                   paid by {{ getMemberName(expense.paidById) }}
                 </span>
-                <span v-if="expense.activityId" class="text-sand-400">
+                <span v-if="expense.activityId" class="text-sand-700">
                   · {{ activityName(expense.activityId) }}
                 </span>
-                <span v-if="expense.splits" class="text-sand-400">
+                <span v-if="expense.splits" class="text-sand-700">
                   · split {{ Object.keys(expense.splits).length }} ways
                 </span>
               </div>
@@ -1189,7 +1189,7 @@ function getMemberName(userId: string | null): string {
         </div>
       </div>
 
-      <p v-else class="mt-4 text-center text-xs text-sand-400">
+      <p v-else class="mt-4 text-center text-xs text-sand-700">
         {{ filtersActive ? "No expenses match these filters." : "No expenses tracked yet." }}
       </p>
 
@@ -1233,7 +1233,7 @@ function getMemberName(userId: string | null): string {
             v-if="isImageReceipt(openReceipt)"
             :src="openReceipt.url"
             :alt="openReceipt.fileName"
-            class="mt-3 max-h-[70vh] w-full rounded-lg object-contain"
+            class="mt-3 max-h-[70dvh] w-full rounded-lg object-contain"
           />
           <a
             v-else
