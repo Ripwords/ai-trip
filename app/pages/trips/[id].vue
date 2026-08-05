@@ -809,6 +809,41 @@ const aiInput = ref("")
 const aiMessages = ref<ChatMessage[]>([])
 const aiUsage = ref<{ used: number; limit: number; remaining: number } | null>(null)
 
+// The persisted transcript. `server: false` on purpose: this is per-user data
+// keyed on the session cookie, and anything fetched during SSR is serialised
+// into the rendered payload. This route is not ISR today, but the landing page
+// is, and a cached render containing one member's conversation is not a bug you
+// get to notice — so the request only ever happens in the browser. The type
+// comes from the route handler via Nuxt's typed `$fetch`; it is not restated.
+const { data: chatHistory, refresh: refreshChatHistory } = useLazyFetch(
+  `/api/trips/${tripId}/chat`,
+  { server: false },
+)
+
+// Hydrate the dock once, when history lands. Guarded on an empty thread so a
+// slow history response can never clobber a turn the user already started —
+// and so a later `refresh()` doesn't wipe the live conversation.
+watch(
+  chatHistory,
+  (rows) => {
+    if (!rows || rows.length === 0 || aiMessages.value.length > 0) return
+    aiMessages.value = rows.map((r) => ({
+      id: r.id,
+      role: r.role,
+      content: r.content,
+      toolCallSummary: r.toolCallSummary,
+      proposals: r.proposals,
+      // Restored proposals are shown as already-resolved (the dock hides
+      // dismissed cards). Applying a card from a previous session would re-run
+      // a change that was very likely already applied, duplicating activities —
+      // and nothing records which ones were. Non-actionable is the safe read.
+      proposalStates: Object.fromEntries(r.proposals.map((p) => [p.id, "dismissed" as const])),
+      timestamp: new Date(r.createdAt).getTime(),
+    }))
+  },
+  { immediate: true },
+)
+
 const {
   run: runFullItinerary,
   running: generatingItinerary,
@@ -1275,6 +1310,14 @@ async function handleAiClear() {
   }
   aiMessages.value = []
   aiInput.value = ""
+  try {
+    // Clear the stored thread too, otherwise the conversation reappears on the
+    // next refresh and "Clear" is purely cosmetic.
+    await $fetch(`/api/trips/${tripId}/chat`, { method: "DELETE" })
+    await refreshChatHistory()
+  } catch {
+    toastError("Cleared here, but couldn't clear the saved history. It may come back on refresh.")
+  }
 }
 
 async function handleUpdateDayNotes(notes: string) {
