@@ -34,6 +34,8 @@ export interface BookingRow {
   startDate: string | null
   endDate: string | null
   amount: string | null
+  /** The stay this row mirrors, or null once it has been unlinked. */
+  stayId: string | null
   detachedAt: string | null
   /** First night of the linked stay, for the "Edit in itinerary" jump. */
   itineraryDayId: string | null
@@ -67,9 +69,17 @@ const GAP_LABELS: Record<BookingGapField, string> = {
   amount: "amount",
 }
 
-/** True when the itinerary, not the user, owns this row's name and dates. */
-export function isDerivedBooking(row: Pick<BookingRow, "source">): boolean {
-  return row.source !== "manual"
+/**
+ * True when the itinerary, not the user, owns this row's name and dates.
+ *
+ * Both halves matter. `reservations.stay_id` is `ON DELETE SET NULL`, so a stay
+ * removed by anything other than `reconcileTripStays` leaves `source = 'stay'`
+ * behind with no stay to point at. Keying on `source` alone made that row
+ * permanently uneditable: the card hid the fields the stay owns, and the PUT
+ * 409'd on them — for a stay that no longer exists. No stay, no owner.
+ */
+export function isDerivedBooking(row: Pick<BookingRow, "source" | "stayId">): boolean {
+  return row.source !== "manual" && row.stayId !== null
 }
 
 /**
@@ -77,7 +87,9 @@ export function isDerivedBooking(row: Pick<BookingRow, "source">): boolean {
  * than quietly passing for hand-typed — its stay went away, but its
  * confirmation number and amount did not.
  */
-export function bookingOriginHint(row: Pick<BookingRow, "source" | "detachedAt">): string | null {
+export function bookingOriginHint(
+  row: Pick<BookingRow, "source" | "stayId" | "detachedAt">,
+): string | null {
   if (isDerivedBooking(row)) return "From itinerary"
   if (row.detachedAt) return "No longer linked"
   return null
@@ -87,7 +99,9 @@ export function bookingOriginHint(row: Pick<BookingRow, "source" | "detachedAt">
  * Whether to badge a row as incomplete. Only derived rows qualify: a manual
  * booking without a confirmation number is a choice, not an omission.
  */
-export function needsDetails(row: Pick<BookingRow, "source" | "missingFields">): boolean {
+export function needsDetails(
+  row: Pick<BookingRow, "source" | "stayId" | "missingFields">,
+): boolean {
   return isDerivedBooking(row) && row.missingFields.length > 0
 }
 
@@ -105,7 +119,7 @@ export function missingFieldsSummary(fields: readonly BookingGapField[]): string
 
 /** Which form fields a row's card should render. */
 export function editableBookingFields(
-  row: Pick<BookingRow, "source" | "detachedAt">,
+  row: Pick<BookingRow, "source" | "stayId" | "detachedAt">,
 ): BookingField[] {
   return [...(isDerivedBooking(row) ? DERIVED_FIELDS : MANUAL_FIELDS)]
 }
@@ -133,7 +147,7 @@ export interface BookingFormValues {
  */
 export function buildBookingBody(
   values: BookingFormValues,
-  row: Pick<BookingRow, "source" | "detachedAt"> | null,
+  row: Pick<BookingRow, "source" | "stayId" | "detachedAt"> | null,
 ): Record<string, unknown> {
   // Empty optional inputs are omitted rather than sent as "", which the money
   // and date validators would reject.

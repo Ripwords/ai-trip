@@ -176,6 +176,74 @@ function terminal<T>(run: () => Promise<T>, defaultValue: T): Terminal<T> {
 }
 // oxlint-enable no-thenable
 
+// ---------------------------------------------------------------------------
+// `where` interpretation
+//
+// A fake whose `update` ignores its `where` and just rewrites "the row this
+// request is about" will pass whatever the handler targets — including the
+// wrong row. Drizzle's `eq()` flattens to a chunk list of
+// `Column, " = ", Param`, so the equalities are readable, and the fake resolves
+// rows against them like the database would.
+// ---------------------------------------------------------------------------
+
+/** `reservations` DB column name → the key on `ReservationRow`. */
+const COLUMN_TO_FIELD: Record<string, keyof ReservationRow> = {
+  id: "id",
+  trip_id: "tripId",
+  stay_id: "stayId",
+  type: "type",
+  source: "source",
+  status: "status",
+  name: "name",
+}
+
+interface ChunkNode {
+  queryChunks?: unknown[]
+  name?: string
+  value?: unknown
+}
+
+function equalitiesIn(clause: unknown): { column: string; value: unknown }[] {
+  const found: { column: string; value: unknown }[] = []
+  let pendingColumn: string | null = null
+
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      for (const child of node) walk(child)
+      return
+    }
+    if (!node || typeof node !== "object") return
+    const n = node as ChunkNode
+    if (Array.isArray(n.queryChunks)) {
+      walk(n.queryChunks)
+      return
+    }
+    const kind = node.constructor?.name ?? ""
+    if (typeof n.name === "string" && kind !== "StringChunk") {
+      pendingColumn = n.name
+      return
+    }
+    if (kind === "Param" && pendingColumn) {
+      found.push({ column: pendingColumn, value: n.value })
+      pendingColumn = null
+    }
+  }
+
+  walk(clause)
+  return found
+}
+
+/** Every equality in the clause must hold — the fake's stand-in for `AND`. */
+function matchesWhere(row: ReservationRow, clause: unknown): boolean {
+  const equalities = equalitiesIn(clause)
+  assert.ok(equalities.length > 0, "a write must be scoped by a where clause the fake understands")
+  return equalities.every(({ column, value }) => {
+    const field = COLUMN_TO_FIELD[column]
+    assert.ok(field, `unmapped column in a reservations where clause: ${column}`)
+    return row[field] === value
+  })
+}
+
 function makeClient() {
   const insert = (table: unknown) => ({
     values: (values: Record<string, unknown>) => {
@@ -212,9 +280,9 @@ function makeClient() {
 
   const update = () => ({
     set: (values: Record<string, unknown>) => ({
-      where: () =>
+      where: (clause: unknown) =>
         terminal(async (): Promise<ReservationRow[]> => {
-          const row = store.reservations.find((r) => r.id === request.reservationId)
+          const row = store.reservations.find((r) => matchesWhere(r, clause))
           if (!row) return []
           Object.assign(row, values)
           return [{ ...row }]
@@ -223,8 +291,8 @@ function makeClient() {
   })
 
   const del = () => ({
-    where: async () => {
-      const index = store.reservations.findIndex((r) => r.id === request.reservationId)
+    where: async (clause: unknown) => {
+      const index = store.reservations.findIndex((r) => matchesWhere(r, clause))
       if (index >= 0) store.reservations.splice(index, 1)
     },
   })
@@ -704,6 +772,61 @@ describe("PUT reservations", () => {
     await updateReservation(makeEvent({ body: { name: "Hotel Nikko (cancelled)" } }))
     assert.equal(store.reservations[0]?.name, "Hotel Nikko (cancelled)")
   })
+
+  // `stay_id` is `ON DELETE SET NULL`, so a stay removed by anything other than
+  // `reconcileTripStays` leaves `source = 'stay'` pointing at nothing. Treating
+  // that as derived made the row permanently uneditable — a 409 on every field
+  // the stay owns, for a stay that no longer exists.
+  it("lets a row whose stay vanished be edited like a manual one", async () => {
+    seed({ reservations: [makeDerived({ stayId: null })] })
+    await updateReservation(makeEvent({ body: { name: "Hotel Nikko" } }))
+    assert.equal(store.reservations[0]?.name, "Hotel Nikko")
+  })
+
+  // `datesInOrder` only fires when the body carries BOTH dates, and the
+  // Bookings form sends one field at a time — so this comparison against the
+  // stored row is the only thing standing between the sort and nonsense.
+  it("rejects an end date sent alone that precedes the stored start date", async () => {
+    seed({ reservations: [makeReservation()] })
+    await assertStatus(
+      updateReservation(makeEvent({ body: { endDate: "2026-03-01T00:00:00.000Z" } })),
+      400,
+    )
+    assert.deepEqual(store.reservations[0]?.endDate, new Date("2026-03-25T00:00:00.000Z"))
+  })
+
+  it("rejects a start date sent alone that follows the stored end date", async () => {
+    seed({ reservations: [makeReservation()] })
+    await assertStatus(
+      updateReservation(makeEvent({ body: { startDate: "2026-04-30T00:00:00.000Z" } })),
+      400,
+    )
+    assert.deepEqual(store.reservations[0]?.startDate, new Date("2026-03-22T00:00:00.000Z"))
+  })
+
+  it("accepts a lone end date that still follows the stored start date", async () => {
+    seed({ reservations: [makeReservation()] })
+    await updateReservation(makeEvent({ body: { endDate: "2026-03-28T00:00:00.000Z" } }))
+    assert.deepEqual(store.reservations[0]?.endDate, new Date("2026-03-28T00:00:00.000Z"))
+  })
+
+  it("accepts a lone end date when the stored start date is null", async () => {
+    seed({ reservations: [makeReservation({ startDate: null })] })
+    await updateReservation(makeEvent({ body: { endDate: "2026-03-28T00:00:00.000Z" } }))
+    assert.deepEqual(store.reservations[0]?.endDate, new Date("2026-03-28T00:00:00.000Z"))
+  })
+
+  it("writes only the row it targeted", async () => {
+    seed({
+      reservations: [
+        makeReservation(),
+        makeReservation({ id: "other-row", name: "Ryokan Asaba", amount: "100.00" }),
+      ],
+    })
+    await updateReservation(makeEvent({ body: { amount: "42.00" } }))
+    assert.equal(store.reservations[0]?.amount, "42.00")
+    assert.equal(store.reservations[1]?.amount, "100.00")
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -734,6 +857,44 @@ describe("DELETE reservations", () => {
     seed({ reservations: [makeReservation()] })
     await assertStatus(deleteReservation(makeEvent({ userId: STRANGER_ID })), 404)
     assert.equal(store.reservations.length, 1)
+  })
+
+  // Deleting a derived row destroys the user's confirmation number and amount
+  // and achieves nothing else: the stay is still there, so the next reconcile
+  // mirrors a fresh blank booking straight back. The row resurrects; the money
+  // does not.
+  it("409s on a derived row rather than letting it resurrect blank", async () => {
+    seed({ reservations: [makeDerived({ amount: "900.00", confirmationNumber: "PNR1" })] })
+    await assertStatus(deleteReservation(makeEvent()), 409)
+    assert.equal(store.reservations.length, 1)
+    assert.equal(store.reservations[0]?.amount, "900.00")
+  })
+
+  it("deletes a detached row — its stay is gone, so nothing recreates it", async () => {
+    seed({
+      reservations: [
+        makeDerived({ source: "manual", stayId: null, detachedAt: new Date("2026-04-01") }),
+      ],
+    })
+    assert.equal((await deleteReservation(makeEvent())).success, true)
+    assert.equal(store.reservations.length, 0)
+  })
+
+  // The `ON DELETE SET NULL` orphan: `source` still says 'stay' but there is no
+  // stay to clear the accommodation on, so refusing would strand the row.
+  it("deletes a row whose stay vanished", async () => {
+    seed({ reservations: [makeDerived({ stayId: null })] })
+    assert.equal((await deleteReservation(makeEvent())).success, true)
+    assert.equal(store.reservations.length, 0)
+  })
+
+  it("deletes only the row it targeted", async () => {
+    seed({ reservations: [makeReservation(), makeReservation({ id: "other-row" })] })
+    await deleteReservation(makeEvent())
+    assert.deepEqual(
+      store.reservations.map((r) => r.id),
+      ["other-row"],
+    )
   })
 })
 

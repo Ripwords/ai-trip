@@ -24,6 +24,7 @@ function booking(over: Partial<BookingRow> = {}): BookingRow {
     startDate: "2026-03-22T00:00:00.000Z",
     endDate: "2026-03-25T00:00:00.000Z",
     amount: null,
+    stayId: null,
     detachedAt: null,
     itineraryDayId: null,
     missingFields: ["confirmationNumber", "provider", "amount"],
@@ -32,8 +33,16 @@ function booking(over: Partial<BookingRow> = {}): BookingRow {
 }
 
 describe("isDerivedBooking", () => {
+  // `stay_id` is `ON DELETE SET NULL`. A stay removed by anything other than
+  // `reconcileTripStays` strands `source = 'stay'` with nothing behind it, and
+  // treating that as derived left a row nobody could ever edit again: the card
+  // hid the stay-owned fields and the PUT 409'd on them.
+  it("is false when the stay it claims to mirror is gone", () => {
+    assert.equal(isDerivedBooking(booking({ source: "stay", stayId: null })), false)
+  })
+
   it("is true only for rows the itinerary owns", () => {
-    assert.equal(isDerivedBooking(booking({ source: "stay" })), true)
+    assert.equal(isDerivedBooking(booking({ source: "stay", stayId: "stay-1" })), true)
     assert.equal(isDerivedBooking(booking({ source: "manual" })), false)
   })
 
@@ -48,7 +57,7 @@ describe("isDerivedBooking", () => {
 
 describe("bookingOriginHint", () => {
   it("labels a derived row as coming from the itinerary", () => {
-    assert.equal(bookingOriginHint(booking({ source: "stay" })), "From itinerary")
+    assert.equal(bookingOriginHint(booking({ source: "stay", stayId: "stay-1" })), "From itinerary")
   })
 
   it("explains a row whose stay went away instead of leaving it looking hand-typed", () => {
@@ -65,11 +74,14 @@ describe("bookingOriginHint", () => {
 
 describe("needsDetails", () => {
   it("flags a derived row that is still missing something", () => {
-    assert.equal(needsDetails(booking({ source: "stay" })), true)
+    assert.equal(needsDetails(booking({ source: "stay", stayId: "stay-1" })), true)
   })
 
   it("clears once every gap is filled", () => {
-    assert.equal(needsDetails(booking({ source: "stay", missingFields: [] })), false)
+    assert.equal(
+      needsDetails(booking({ source: "stay", stayId: "stay-1", missingFields: [] })),
+      false,
+    )
   })
 
   // A hand-typed row without a PNR isn't incomplete — the user chose that.
@@ -108,7 +120,7 @@ describe("editableBookingFields", () => {
   // The whole point of the linkage: never re-ask for the hotel name or the
   // dates the itinerary already knows.
   it("offers a derived row only the fields the itinerary can't know", () => {
-    assert.deepEqual(editableBookingFields(booking({ source: "stay" })), [
+    assert.deepEqual(editableBookingFields(booking({ source: "stay", stayId: "stay-1" })), [
       "status",
       "confirmationNumber",
       "provider",
@@ -174,7 +186,7 @@ describe("buildBookingBody", () => {
   // Posting a mirrored field is exactly what the server 409s on, so the form
   // must not send one in the first place.
   it("sends a derived row only the fields it owns", () => {
-    const body = buildBookingBody(values(), { source: "stay", detachedAt: null })
+    const body = buildBookingBody(values(), { source: "stay", stayId: "stay-1", detachedAt: null })
     assert.deepEqual(Object.keys(body).toSorted(), [
       "amount",
       "confirmationNumber",
@@ -190,6 +202,7 @@ describe("buildBookingBody", () => {
   it("sends a detached row everything again", () => {
     const body = buildBookingBody(values(), {
       source: "manual",
+      stayId: null,
       detachedAt: "2026-04-01T00:00:00.000Z",
     })
     assert.ok("name" in body)

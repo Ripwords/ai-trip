@@ -334,6 +334,11 @@ const reservationFields = z.object({
  * the booking sort meaningless. Only checked when both dates are present, so a
  * partial update that touches one of them isn't compared against nothing.
  */
+/**
+ * Only decidable when the body carries both dates — a partial update sending
+ * one of them has to be compared against the stored row, which a schema cannot
+ * see. `PUT /api/trips/:id/reservations/:reservationId` does that half.
+ */
 function datesInOrder(value: { startDate?: string | null; endDate?: string | null }): boolean {
   if (!value.startDate || !value.endDate) return true
   return new Date(value.startDate).getTime() <= new Date(value.endDate).getTime()

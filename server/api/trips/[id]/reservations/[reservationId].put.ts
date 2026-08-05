@@ -50,7 +50,14 @@ export default defineEventHandler(async (event) => {
 
   let values: ReservationUpdate
 
-  if (reservation.source === "manual") {
+  // `reservations.stay_id` is `ON DELETE SET NULL`, so a stay removed by any
+  // path other than `reconcileTripStays` (a raw delete, a future cascade) would
+  // leave `source = 'stay'` with no stay behind it. Treating that as derived
+  // made the row permanently uneditable — every PUT 409'd on fields owned by a
+  // stay that no longer exists. No stay, no owner: it edits like a manual row.
+  const derived = reservation.source === "stay" && reservation.stayId !== null
+
+  if (!derived) {
     const { startDate, endDate, ...rest } = parseBody(updateReservationSchema.parse, raw)
     values = {
       ...rest,
@@ -69,6 +76,20 @@ export default defineEventHandler(async (event) => {
       })
     }
     values = parseBody(updateLinkedReservationSchema.parse, raw)
+  }
+
+  // `datesInOrder` on the partial update schema only fires when the body
+  // carries BOTH dates, and the Bookings form PATCHes one field at a time — so
+  // sending `endDate` alone could put a check-out before its stored check-in
+  // and the sort by `start_date` stopped meaning anything. The stored row is
+  // the other half of the comparison, so this check can only live here.
+  const effectiveStart = "startDate" in values ? values.startDate : reservation.startDate
+  const effectiveEnd = "endDate" in values ? values.endDate : reservation.endDate
+  if (effectiveStart && effectiveEnd && effectiveEnd.getTime() < effectiveStart.getTime()) {
+    throw createError({
+      statusCode: 400,
+      message: "End date must not precede the start date",
+    })
   }
 
   const [updated] = await db
