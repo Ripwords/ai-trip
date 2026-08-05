@@ -312,6 +312,20 @@ export default defineNuxtConfig({
         rateLimiter: { tokensPerInterval: 60, interval: 60000 },
       },
     },
+    // Session reads are a HOT path: the global auth middleware calls
+    // get-session on nearly every protected navigation, so ~1 request per route
+    // change. The rate limiter keys on `ip + matched route pattern`, meaning a
+    // single shared bucket for everything under /api/auth/**. At 30/min that
+    // tripped after ~25 navigations and returned 429 for a perfectly valid
+    // session — which the middleware then read as "signed out". Give the read
+    // path room; keep the strict budget on the credential endpoints below,
+    // which is what actually needs brute-force protection.
+    "/api/auth/get-session": {
+      security: {
+        rateLimiter: { tokensPerInterval: 300, interval: 60000 },
+        xssValidator: false,
+      },
+    },
     "/api/auth/**": {
       security: {
         rateLimiter: { tokensPerInterval: 30, interval: 60000 },
