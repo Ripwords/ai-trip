@@ -20,6 +20,8 @@ const props = defineProps<{
    * tab showed a completely different number under "Total".
    */
   summary: TripExpenseSummary | null
+  /** Prepaid booking amounts. Counted nowhere before — see the budget rollup. */
+  totalBookings?: number
   tripId?: string
 }>()
 
@@ -47,7 +49,17 @@ const typeBreakdown = computed(() => {
 })
 
 const budgetNum = computed(() => props.summary?.budget ?? null)
-const budgetPercent = computed(() => props.summary?.budgetPercent ?? 0)
+
+// Expenses were the only store the budget bar knew about, so a prepaid hotel
+// booking never moved it. Both count; the breakdown below keeps them legible.
+// The expense half is the server-computed total (#38); bookings are added on
+// top here, which is why `summary.budgetPercent` is deliberately not used.
+const totalCommitted = computed(() => totalSpent.value + (props.totalBookings ?? 0))
+
+const budgetPercent = computed(() => {
+  if (!budgetNum.value || budgetNum.value === 0 || !totalCommitted.value) return 0
+  return (totalCommitted.value / budgetNum.value) * 100
+})
 
 const progressBarColor = computed(() => {
   if (budgetPercent.value >= 100) return "bg-terra-600"
@@ -158,7 +170,7 @@ async function refreshFromGoogle() {
     </p>
 
     <!-- Budget & Spend -->
-    <div v-if="budgetNum || totalSpent" class="mt-4 space-y-2 border-t border-sand-200 pt-4">
+    <div v-if="budgetNum || totalCommitted" class="mt-4 space-y-2 border-t border-sand-200 pt-4">
       <div v-if="budgetNum" class="flex items-center justify-between text-sm">
         <span class="text-sand-600">Budget</span>
         <span class="font-semibold text-sand-900">{{ formatCurrency(budgetNum) }}</span>
@@ -167,7 +179,14 @@ async function refreshFromGoogle() {
         <span class="text-sand-600">Spent</span>
         <span class="font-semibold text-sand-900">{{ formatCurrency(totalSpent) }}</span>
       </div>
-      <div v-if="budgetNum && totalSpent" class="mt-1">
+      <div
+        v-if="totalBookings != null && totalBookings > 0"
+        class="flex items-center justify-between text-sm"
+      >
+        <span class="text-sand-600">Bookings</span>
+        <span class="font-semibold text-sand-900">{{ formatCurrency(totalBookings) }}</span>
+      </div>
+      <div v-if="budgetNum && totalCommitted" class="mt-1">
         <div class="h-1.5 w-full rounded-full bg-sand-200">
           <div
             class="h-1.5 rounded-full transition-all"

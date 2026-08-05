@@ -18,8 +18,11 @@ const emit = defineEmits<{
   "edit-in-itinerary": [dayId: string | null]
 }>()
 
+// Explicit key so the trip page's budget rollup reads the same list and picks
+// up an edited amount when this refreshes.
 const { data: reservations, refresh } = await useFetch<Reservation[]>(
   `/api/trips/${props.tripId}/reservations`,
+  { key: `reservations-${props.tripId}` },
 )
 
 const showAddForm = ref(false)
