@@ -1,0 +1,41 @@
+-- Per-proposal chat state, and a day version to compare it against (#71).
+--
+-- Written to be safely re-runnable (`IF NOT EXISTS`), matching 0038-0041 below
+-- it. Production has neither column today, so unlike those files this is
+-- insurance rather than a repair -- but preview deploys used to run
+-- `vercel-build` (`nuxt build && drizzle-kit migrate`) straight against
+-- production, which is how the stack below ended up half-applied there, and a
+-- re-runnable migration is the only thing that makes a partially-applied deploy
+-- recoverable without hand-editing production.
+--
+-- `when` is 1785926395236, above production's 1785913802947 watermark
+-- (0041_expense_currency). drizzle applies by timestamp, not filename index, so
+-- anything at or below that would be skipped forever.
+--
+-- The trigger that keeps `updated_at` honest is 0043; drizzle-kit cannot
+-- express triggers in the schema, so it is a custom migration.
+--
+-- ---------------------------------------------------------------------------
+-- BACKFILL: existing days get now(), and that is deliberate.
+--
+-- `updated_at` exists to answer "has this day changed since the AI proposed
+-- this?". For every day that already exists, the honest answer is "no idea" --
+-- nothing has ever recorded when a day was last touched, and `activity_log`
+-- cannot say either (it is trip-scoped, its day identity lives in an untyped
+-- metadata blob, and `trip_updated` has always logged a constant string with
+-- NULL metadata).
+--
+-- Of the two ways to spell "no idea", now() is the safe one. It is strictly
+-- newer than every chat message that exists at deploy time, so every proposal
+-- in an existing transcript reads as superseded: visible, explained, not
+-- actionable. Backfilling something old instead (the trip's creation, epoch)
+-- would spell the same ignorance as "definitely unchanged" and hand the user an
+-- Apply button, or an Undo, for a day that may have been rewritten ten times
+-- since -- and undoing there restores a snapshot from before those edits and
+-- discards them silently.
+--
+-- The cost is one deploy's worth of history reading as stale, which is still an
+-- improvement on today, where restored proposals are hidden outright. Every day
+-- touched after this migration carries a real value, from the trigger onward.
+ALTER TABLE "itinerary_days" ADD COLUMN IF NOT EXISTS "updated_at" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
+ALTER TABLE "trip_chat_messages" ADD COLUMN IF NOT EXISTS "proposal_states" jsonb DEFAULT '{}'::jsonb NOT NULL;
