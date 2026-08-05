@@ -347,6 +347,14 @@ export default defineNuxtConfig({
         rateLimiter: { tokensPerInterval: 20, interval: 60000 },
       },
     },
+    // Receipt uploads (#48) are the only endpoint that accepts megabytes at a
+    // time. The per-expense count and the 5 MB size limit bound one request;
+    // this bounds how fast they can arrive.
+    "/api/trips/*/expenses/*/attachments": {
+      security: {
+        rateLimiter: { tokensPerInterval: 20, interval: 60000 },
+      },
+    },
     "/api/trips/*/members/invite": {
       security: {
         rateLimiter: { tokensPerInterval: 10, interval: 60000 },

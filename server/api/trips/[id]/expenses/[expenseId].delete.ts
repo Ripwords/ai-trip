@@ -3,6 +3,7 @@ import { db } from "../../../../db"
 import { expenses } from "../../../../db/schema"
 import { expenseIdParamsSchema } from "../../../../utils/schemas"
 import { releaseExpenseSlot } from "../../../../lib/expense-cap"
+import { purgeAttachmentObjects, storageKeysForExpense } from "../../../../lib/expense-attachments"
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -18,6 +19,11 @@ export default defineEventHandler(async (event) => {
   //
   // `DELETE ... RETURNING` inside the transaction is atomic: exactly one caller
   // gets a row, and only that caller releases a slot.
+  // Read the receipt keys before the delete: `expense_attachments` cascades
+  // with the expense, and an object store does not cascade at all, so the keys
+  // have to be in hand before the rows go (#48).
+  const storageKeys = await storageKeysForExpense(id, expenseId)
+
   const deleted = await db.transaction(async (tx) => {
     const [row] = await tx
       .delete(expenses)
@@ -35,6 +41,10 @@ export default defineEventHandler(async (event) => {
   if (!deleted) {
     throw createError({ statusCode: 404, message: "Expense not found" })
   }
+
+  // After the rows are gone, so a storage failure orphans an object rather
+  // than leaving a row pointing at nothing.
+  await purgeAttachmentObjects(storageKeys)
 
   // Expenses drive settlement — i.e. who owes whom real money — so a
   // collaborator deleting someone else's row must leave a trace. Only POST

@@ -246,6 +246,13 @@
       "when": 1785902796244,
       "tag": "0034_expense_list_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1785903411291,
+      "tag": "0035_expense_attachments",
+      "breakpoints": true
     }
   ]
 }

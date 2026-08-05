@@ -9,6 +9,10 @@ import {
   expenseListOrderBy,
 } from "../../../../lib/expense-list"
 import { decodeExpenseCursor, type ExpenseListPage } from "../../../../../shared/utils/expense-list"
+import {
+  attachmentsByExpense,
+  type ExpenseAttachmentSummary,
+} from "../../../../lib/expense-attachments"
 
 /**
  * The trip's expenses, filtered, sorted and paginated by the database — #49.
@@ -66,13 +70,21 @@ export default defineEventHandler(async (event) => {
 
   const totals = aggregate[0]
 
-  const page: ExpenseListPage<(typeof rows)[number]> = {
-    items,
-    nextCursor: hasMore && last ? expenseCursorForRow(last, query.sort) : null,
-    filteredCount: Number(totals?.matched ?? 0),
-    // `sum()` is NULL when nothing matched, and a string otherwise.
-    filteredTotal: Number(totals?.total ?? 0),
-  }
+  // Receipts for the page, in one query (#48). Rendering a thumbnail per row
+  // must not cost a request per row.
+  const receipts = await attachmentsByExpense(
+    id,
+    items.map((item) => item.id),
+  )
+
+  const page: ExpenseListPage<(typeof rows)[number] & { attachments: ExpenseAttachmentSummary[] }> =
+    {
+      items: items.map((item) => ({ ...item, attachments: receipts.get(item.id) ?? [] })),
+      nextCursor: hasMore && last ? expenseCursorForRow(last, query.sort) : null,
+      filteredCount: Number(totals?.matched ?? 0),
+      // `sum()` is NULL when nothing matched, and a string otherwise.
+      filteredTotal: Number(totals?.total ?? 0),
+    }
 
   return page
 })

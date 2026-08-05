@@ -263,6 +263,11 @@ export const expenseIdParamsSchema = z.object({
   expenseId: z.string().uuid(),
 })
 
+/** Receipts (#48). All three ids are checked against each other by the handler. */
+export const expenseAttachmentParamsSchema = expenseIdParamsSchema.extend({
+  attachmentId: z.string().uuid(),
+})
+
 /**
  * `GET /api/trips/:id/expenses` query string — issue #49.
  *

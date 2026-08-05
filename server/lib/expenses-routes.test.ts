@@ -100,9 +100,23 @@ interface LogRow {
   metadata?: Record<string, unknown>
 }
 
+/** Just enough of a receipt row for the list endpoint to embed it (#48). */
+interface AttachmentRow {
+  id: string
+  expenseId: string
+  tripId: string
+  storageKey: string
+  fileName: string
+  mimeType: string
+  sizeBytes: number
+  uploadedById: string | null
+  createdAt: Date
+}
+
 interface Store {
   trips: TripRow[]
   expenses: ExpenseRow[]
+  attachments: AttachmentRow[]
   members: MemberRow[]
   activities: ActivityRow[]
   log: LogRow[]
@@ -122,7 +136,7 @@ let ops: string[] = []
 let request: CurrentRequest = { tripId: TRIP_ID, expenseId: EXPENSE_ID, userId: OWNER_ID }
 
 function emptyStore(): Store {
-  return { trips: [], expenses: [], members: [], activities: [], log: [] }
+  return { trips: [], expenses: [], attachments: [], members: [], activities: [], log: [] }
 }
 
 function seed(overrides: Partial<Store> = {}): void {
@@ -574,6 +588,7 @@ const original = {
   membersFindMany: db.query.tripMembers.findMany,
   expensesFindFirst: db.query.expenses.findFirst,
   expensesFindMany: db.query.expenses.findMany,
+  attachmentsFindMany: db.query.expenseAttachments.findMany,
   activitiesFindFirst: db.query.activities.findFirst,
 }
 
@@ -647,6 +662,16 @@ function installFakeDb(): void {
     return limited.map((e) => structuredClone(e))
   }) as unknown as typeof db.query.expenses.findMany
 
+  // The list endpoint embeds each row's receipts (#48). The trip/expense
+  // scoping of attachments is exercised properly in
+  // expense-attachments-routes.test.ts; here the fake only has to supply them.
+  db.query.expenseAttachments.findMany = (async () => {
+    ops.push("query.expenseAttachments.findMany")
+    return store.attachments
+      .filter((a) => a.tripId === request.tripId)
+      .map((a) => structuredClone(a))
+  }) as unknown as typeof db.query.expenseAttachments.findMany
+
   db.query.activities.findFirst = (async () => {
     ops.push("query.activities.findFirst")
     return store.activities.find((a) => a.id === request.activityId)
@@ -664,6 +689,7 @@ function restoreDb(): void {
   db.query.tripMembers.findMany = original.membersFindMany
   db.query.expenses.findFirst = original.expensesFindFirst
   db.query.expenses.findMany = original.expensesFindMany
+  db.query.expenseAttachments.findMany = original.attachmentsFindMany
   db.query.activities.findFirst = original.activitiesFindFirst
 }
 
@@ -740,8 +766,12 @@ type Handler<T> = (event: FakeEvent) => Promise<T>
 // `defineEventHandler` is the identity stub above, so the default export is the
 // raw handler; its declared `EventHandler` type describes the Nitro-wrapped
 // form, hence the cast.
+type ListedExpense = ExpenseRow & {
+  attachments: { id: string; fileName: string; url: string }[]
+}
+
 const listExpenses = (await import("../api/trips/[id]/expenses/index.get"))
-  .default as unknown as Handler<ExpenseListPage<ExpenseRow>>
+  .default as unknown as Handler<ExpenseListPage<ListedExpense>>
 const createExpense = (await import("../api/trips/[id]/expenses/index.post"))
   .default as unknown as Handler<ExpenseRow | undefined>
 const updateExpense = (await import("../api/trips/[id]/expenses/[expenseId].put"))
@@ -835,6 +865,45 @@ describe("GET expenses", () => {
     await assertStatus(listExpenses(makeEvent({ tripId: "not-a-uuid" })), 400)
   })
 
+  // One query for the page, not one per row (#48).
+  it("embeds each row's receipts, and an empty list when there are none", async () => {
+    seed({
+      expenses: [makeExpense({ id: "with" }), makeExpense({ id: "without" })],
+      attachments: [
+        {
+          id: "receipt-1",
+          expenseId: "with",
+          tripId: TRIP_ID,
+          storageKey: "receipts/x",
+          fileName: "receipt.png",
+          mimeType: "image/png",
+          sizeBytes: 12,
+          uploadedById: OWNER_ID,
+          createdAt: new Date("2026-08-04T00:00:00Z"),
+        },
+      ],
+    })
+    const result = await listExpenses(makeEvent())
+    const withReceipt = result.items.find((e) => e.id === "with")
+    const withoutReceipt = result.items.find((e) => e.id === "without")
+    assert.equal(withReceipt?.attachments.length, 1)
+    assert.equal(withReceipt?.attachments[0]?.fileName, "receipt.png")
+    assert.equal(
+      withReceipt?.attachments[0]?.url,
+      `/api/trips/${TRIP_ID}/expenses/with/attachments/receipt-1`,
+    )
+    assert.ok(
+      !("storageKey" in (withReceipt?.attachments[0] ?? {})),
+      "the storage key must not reach the client",
+    )
+    assert.deepEqual(withoutReceipt?.attachments, [])
+    assert.equal(
+      ops.filter((op) => op === "query.expenseAttachments.findMany").length,
+      1,
+      "receipts for the page cost one query, not one per row",
+    )
+  })
+
   // The scoping is not an assumption of the fake — the fake evaluates whatever
   // condition the handler built, so a handler that forgot `trip_id` fails here.
   it("never returns another trip's expenses", async () => {
@@ -908,7 +977,7 @@ function seedMixed(): void {
   )
 }
 
-function ids(page: ExpenseListPage<ExpenseRow>): string[] {
+function ids(page: ExpenseListPage<ListedExpense>): string[] {
   return page.items.map((e) => e.id)
 }
 
@@ -1041,7 +1110,7 @@ describe("GET expenses — pagination", () => {
     for (let guard = 0; guard < 10; guard += 1) {
       const query: Record<string, string> = { sort: "paidAt", order: "desc", limit: "1" }
       if (cursor) query.cursor = cursor
-      const page: ExpenseListPage<ExpenseRow> = await listExpenses(makeEvent({ query }))
+      const page: ExpenseListPage<ListedExpense> = await listExpenses(makeEvent({ query }))
       seen.push(...ids(page))
       cursor = page.nextCursor
       if (!cursor) break
