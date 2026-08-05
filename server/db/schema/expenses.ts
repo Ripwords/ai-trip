@@ -15,8 +15,21 @@ export const expenses = pgTable(
       onDelete: "set null",
     }),
     description: text("description").notNull(),
-    // Denominated in the trip's currency. Per-expense currencies are #47's job.
+    // WHAT WAS ACTUALLY PAID, in `currencyCode`. Immutable: nothing may ever
+    // rewrite this. Changing the trip currency used to multiply this column in
+    // place, so a ¥3,200 lunch became "20.64" with no record that it was ever
+    // yen and no record of the rate used.
     amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+    // The currency the payment was made in — a Japan/Korea trip has two, and a
+    // card-issuer rate differs from the mid-market one.
+    currencyCode: text("currency_code").notNull().default("USD"),
+    // Rate from `currencyCode` to the trip's currency at the time of entry.
+    // Recorded so a report can be explained rather than merely asserted.
+    fxRate: numeric("fx_rate", { precision: 18, scale: 8 }).notNull().default("1"),
+    // DERIVED reporting projection: amount * fxRate, rounded to the trip
+    // currency's precision. Changing the trip currency re-projects this column
+    // and leaves `amount` alone.
+    amountInTripCurrency: numeric("amount_in_trip_currency", { precision: 12, scale: 2 }),
     category: text("category").notNull().default("other"),
     // Who paid for this expense
     paidById: text("paid_by_id").references(() => user.id, { onDelete: "set null" }),
@@ -30,8 +43,8 @@ export const expenses = pgTable(
     // The *keys are the participant set* — only the people who actually shared
     // this expense appear. That is the whole point: the tracker used to charge
     // every active member for every expense, so a taxi two people took was
-    // billed to all five. NULL means "equal across every current member" —
-    // see shared/utils/settlement.ts.
+    // billed to all five. NULL means "legacy row, split equally across all
+    // current members" — see app/utils/settlement.ts.
     splits: jsonb("splits").$type<Record<string, string>>(),
     // A calendar date, not an instant: "the day the money was spent" has no
     // time and no timezone. As timestamptz it was written as UTC midnight and

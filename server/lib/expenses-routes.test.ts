@@ -57,8 +57,11 @@ interface ExpenseRow {
   tripId: string
   activityId: string | null
   description: string
-  /** Denominated in the trip's currency. */
+  /** What was paid, in `currencyCode` — never rewritten (#47). */
   amount: string
+  currencyCode: string
+  fxRate: string
+  amountInTripCurrency: string | null
   category: string
   paidById: string | null
   paidAt: string | null
@@ -179,6 +182,11 @@ function makeExpense(overrides: Partial<ExpenseRow> = {}): ExpenseRow {
     activityId: null,
     description: "Ramen",
     amount: "12.00",
+    // The trip is a JPY trip, so an expense with no currency of its own was
+    // paid in JPY at a rate of 1 — that is what the #47 backfill records.
+    currencyCode: "JPY",
+    fxRate: "1",
+    amountInTripCurrency: "12.00",
     category: "food",
     paidById: null,
     paidAt: "2026-08-04",
@@ -507,6 +515,9 @@ function makeClient(ctx: TxContext) {
             activityId: (values.activityId as string | null) ?? null,
             description: String(values.description),
             amount: String(values.amount),
+            currencyCode: String(values.currencyCode),
+            fxRate: String(values.fxRate),
+            amountInTripCurrency: (values.amountInTripCurrency as string | null) ?? null,
             category: (values.category as string) ?? "other",
             paidById: (values.paidById as string | null) ?? null,
             paidAt: (values.paidAt as string | null) ?? null,
@@ -721,6 +732,19 @@ interface NitroGlobals {
 }
 
 const globals = globalThis as NitroGlobals
+
+/**
+ * A fixed exchange rate. Per-expense currencies (#47) make the POST/PUT path
+ * call the FX API for any expense not already in the trip's currency; the
+ * preload stub in server/test-setup.ts throws, which the handler correctly
+ * turns into a 502. A constant rate keeps the assertions arithmetic rather
+ * than dependent on a live upstream.
+ */
+const FX_RATE = 150
+globals.$fetch = async (url: string) => {
+  if (url.includes("frankfurter")) return { rate: FX_RATE }
+  throw new Error(`unexpected $fetch in tests: ${url}`)
+}
 
 globals.defineEventHandler = (handler: unknown) => handler
 
@@ -1443,8 +1467,16 @@ describe("PUT expense", () => {
     await updateExpense(makeEvent({ body: { amount: "30.00" } }))
     const entry = store.log.at(-1)
     assert.equal(entry?.action, "expense_updated")
-    assert.deepEqual(entry?.metadata?.before, { amount: "12.00", category: "food" })
-    assert.deepEqual(entry?.metadata?.after, { amount: "30.00", category: "food" })
+    assert.deepEqual(entry?.metadata?.before, {
+      amount: "12.00",
+      currency: "JPY",
+      category: "food",
+    })
+    assert.deepEqual(entry?.metadata?.after, {
+      amount: "30.00",
+      currency: "JPY",
+      category: "food",
+    })
   })
 
   it("clears paidAt when sent null, and leaves it alone when absent", async () => {
@@ -1457,7 +1489,7 @@ describe("PUT expense", () => {
 })
 
 // ---------------------------------------------------------------------------
-// The money model — issues #35 (splits) and #39 (activity link)
+// The money model — issues #35 (splits), #39 (activity link), #47 (currency)
 // ---------------------------------------------------------------------------
 
 describe("expense splits", () => {
@@ -1535,6 +1567,7 @@ describe("expense splits", () => {
       expenses: [
         makeExpense({
           amount: "100",
+          amountInTripCurrency: "100",
           splitMode: "exact",
           splits: { [OWNER_ID]: "75", [EDITOR_ID]: "25" },
         }),
@@ -1550,6 +1583,45 @@ describe("expense splits", () => {
     })
     await updateExpense(makeEvent({ body: { splitMode: "equal", participantIds: [] } }))
     assert.equal(store.expenses[0]?.splits, null)
+  })
+})
+
+describe("per-expense currency", () => {
+  it("defaults to the trip's currency at a rate of 1", async () => {
+    seed()
+    await createExpense(makeEvent({ body: validBody() }))
+    assert.equal(store.expenses[0]?.currencyCode, "JPY")
+    assert.equal(store.expenses[0]?.fxRate, "1")
+    assert.equal(store.expenses[0]?.amountInTripCurrency, "12")
+  })
+
+  // What was paid is the record; the trip-currency figure is derived from it.
+  it("keeps the paid amount and derives the trip-currency view", async () => {
+    seed()
+    await createExpense(makeEvent({ body: validBody({ amount: "20.00", currencyCode: "USD" }) }))
+    const row = store.expenses[0]
+    assert.equal(row?.amount, "20.00")
+    assert.equal(row?.currencyCode, "USD")
+    // The FX stub below returns 150 for any pair, so 20 USD is 3000 JPY.
+    assert.equal(row?.fxRate, "150.00000000")
+    assert.equal(row?.amountInTripCurrency, "3000")
+  })
+
+  it("audits the currency the expense was actually paid in", async () => {
+    seed()
+    await createExpense(makeEvent({ body: validBody({ amount: "20.00", currencyCode: "USD" }) }))
+    const entry = store.log.at(-1)
+    assert.match(entry?.description ?? "", /20\.00 USD/)
+    assert.equal(entry?.metadata?.currency, "USD")
+    assert.equal(entry?.metadata?.tripCurrency, "JPY")
+  })
+
+  it("re-derives the projection when the currency changes", async () => {
+    seed({ expenses: [makeExpense()] })
+    await updateExpense(makeEvent({ body: { currencyCode: "USD" } }))
+    assert.equal(store.expenses[0]?.amount, "12.00", "the paid amount is immutable")
+    assert.equal(store.expenses[0]?.currencyCode, "USD")
+    assert.equal(store.expenses[0]?.amountInTripCurrency, "1800")
   })
 })
 

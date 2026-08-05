@@ -5,6 +5,7 @@ import { expenseIdParamsSchema, updateExpenseSchema } from "../../../../utils/sc
 import {
   assertExpenseRefs,
   listSettlementMembers,
+  projectToTripCurrency,
   resolveExpenseSplits,
 } from "../../../../lib/expenses"
 import { toMinorUnits } from "../../../../../shared/utils/money"
@@ -35,10 +36,18 @@ export default defineEventHandler(async (event) => {
     where: eq(trips.id, id),
     columns: { currencyCode: true },
   })
-  const currencyCode = trip?.currencyCode || "USD"
+  const tripCurrency = trip?.currencyCode || "USD"
 
   const amount = body.amount ?? expense.amount
-  const moneyChanged = body.amount !== undefined
+  const currencyCode = body.currencyCode ?? expense.currencyCode
+
+  // Re-derive rather than carry the old projection forward: either half of
+  // (amount, currency) changing invalidates it, and a stale trip-currency
+  // figure is exactly the silent misreport this model exists to prevent.
+  const moneyChanged = body.amount !== undefined || body.currencyCode !== undefined
+  const money = moneyChanged
+    ? await projectToTripCurrency({ amount, currencyCode, tripCurrencyCode: tripCurrency })
+    : null
 
   const splitInputChanged =
     body.splitMode !== undefined ||
@@ -63,14 +72,14 @@ export default defineEventHandler(async (event) => {
         memberIds,
       })
     } else if (expense.splits) {
-      // Only the amount moved. The stored splits are resolved amounts against
+      // Only the money moved. The stored splits are resolved amounts against
       // the *old* total, so leaving them would leave the expense not adding up.
       // Re-resolving with the old amounts as weights preserves the proportions
       // the user chose without needing to have kept the raw inputs.
       splitMode = expense.splitMode as SplitMode
       const previous = Object.fromEntries(
         Object.entries(expense.splits).flatMap(([userId, text]) => {
-          const minor = toMinorUnits(text, currencyCode)
+          const minor = toMinorUnits(text, expense.currencyCode)
           return minor != null && minor > 0 ? [[userId, minor] as const] : []
         }),
       )
@@ -93,6 +102,8 @@ export default defineEventHandler(async (event) => {
       ...(body.activityId !== undefined ? { activityId: body.activityId ?? null } : {}),
       ...(body.paidById !== undefined ? { paidById: body.paidById ?? null } : {}),
       ...(body.amount !== undefined ? { amount } : {}),
+      ...(body.currencyCode !== undefined ? { currencyCode } : {}),
+      ...(money ? { fxRate: money.fxRate, amountInTripCurrency: money.amountInTripCurrency } : {}),
       ...(splitMode !== undefined ? { splitMode } : {}),
       ...(splits !== undefined ? { splits } : {}),
       // paid_at is a `date` column — a plain YYYY-MM-DD string, no Date round-trip.
@@ -108,8 +119,16 @@ export default defineEventHandler(async (event) => {
     description: `Updated expense: ${updated?.description ?? expense.description}`,
     metadata: {
       expenseId,
-      before: { amount: expense.amount, category: expense.category },
-      after: { amount: updated?.amount, category: updated?.category },
+      before: {
+        amount: expense.amount,
+        currency: expense.currencyCode,
+        category: expense.category,
+      },
+      after: {
+        amount: updated?.amount,
+        currency: updated?.currencyCode,
+        category: updated?.category,
+      },
     },
   })
 

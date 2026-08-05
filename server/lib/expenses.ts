@@ -1,8 +1,14 @@
 import { and, eq } from "drizzle-orm"
 import { db } from "../db"
 import { activities, tripMembers, trips } from "../db/schema"
-import { minorUnitsFromNumber, toMinorUnits } from "../../shared/utils/money"
+import {
+  fromMinorUnits,
+  minorUnitsFromNumber,
+  multiplyMinorUnits,
+  toMinorUnits,
+} from "../../shared/utils/money"
 import { resolveSplits, splitsToStrings, type SplitMode } from "../../shared/utils/splits"
+import { getExchangeRate } from "../utils/exchange-rate"
 
 /** Database lookups, injectable so the rules below can be unit-tested. */
 export interface ExpenseRefDeps {
@@ -103,6 +109,57 @@ export async function listSettlementMembers(
     result.push({ userId: m.userId, user: { name: m.user.name } })
   }
   return result
+}
+
+export interface ProjectToTripCurrencyInput {
+  /** What was paid, in `currencyCode`. Never modified. */
+  amount: string
+  currencyCode: string
+  tripCurrencyCode: string
+  /** Injectable so the rules can be unit-tested without hitting the FX API. */
+  fetchRate?: (from: string, to: string) => Promise<number | null>
+}
+
+/**
+ * Derive the trip-currency view of an expense, and the rate it was derived
+ * with. Never touches `amount`.
+ *
+ * The old model had one currency per trip and *rewrote every stored amount*
+ * when it changed, destroying the single most important fact a travel expense
+ * tracker holds: what you actually paid, in the currency you actually paid it
+ * in. Here `amount` + `currencyCode` are the record and
+ * `amountInTripCurrency` is a projection that can be recomputed at will.
+ */
+export async function projectToTripCurrency(
+  input: ProjectToTripCurrencyInput,
+): Promise<{ fxRate: string; amountInTripCurrency: string }> {
+  const { amount, currencyCode, tripCurrencyCode, fetchRate = getExchangeRate } = input
+
+  const amountMinor = toMinorUnits(amount, currencyCode)
+  if (amountMinor == null) {
+    throw createError({ statusCode: 400, message: `Expense amount "${amount}" is not a number` })
+  }
+
+  if (currencyCode.toUpperCase() === tripCurrencyCode.toUpperCase()) {
+    return { fxRate: "1", amountInTripCurrency: fromMinorUnits(amountMinor, tripCurrencyCode) }
+  }
+
+  const rate = await fetchRate(currencyCode, tripCurrencyCode)
+  if (rate == null) {
+    // Storing a guessed projection would silently misreport the trip total.
+    throw createError({
+      statusCode: 502,
+      message: `Could not fetch an exchange rate for ${currencyCode} → ${tripCurrencyCode}.`,
+    })
+  }
+
+  return {
+    fxRate: rate.toFixed(8),
+    amountInTripCurrency: fromMinorUnits(
+      multiplyMinorUnits(amountMinor, currencyCode, rate, tripCurrencyCode),
+      tripCurrencyCode,
+    ),
+  }
 }
 
 export interface ResolveExpenseSplitsInput {

@@ -218,6 +218,10 @@ export const splitModeEnum = z.enum(SPLIT_MODES)
 export const createExpenseSchema = z.object({
   description: z.string().min(1),
   amount: moneyString,
+  // Per-expense currency (#47). Absent means "the trip's currency" — the
+  // server resolves it, so a client that doesn't know about currencies yet
+  // keeps working. `amount` is what was actually paid and is never rewritten.
+  currencyCode: z.string().length(3).toUpperCase().optional(),
   category: expenseCategoryEnum.optional(),
   activityId: z.string().uuid().nullish(),
   paidById: z.string().nullish(),

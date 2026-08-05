@@ -48,6 +48,19 @@ describe("convertTripMoney", () => {
     assert.ok("amount" in reservationUpdate.set)
   })
 
+  // Issue #47: converting a trip used to multiply `expenses.amount` in place,
+  // so a ¥3,200 lunch became a EUR number with no record it was ever yen.
+  it("never rewrites what was actually paid", async () => {
+    const { tx, updates } = makeFakeTx([{ id: "day-1" }])
+    await convertTripMoney(tx, "trip-1", 0.9, "EUR")
+
+    const expenseUpdate = updates.find((u) => u.table === expenses)!
+    assert.ok(!("amount" in expenseUpdate.set), "expenses.amount must be immutable")
+    assert.ok(!("currencyCode" in expenseUpdate.set), "expenses.currencyCode must be immutable")
+    assert.ok("amountInTripCurrency" in expenseUpdate.set)
+    assert.ok("fxRate" in expenseUpdate.set, "the composed rate must be recorded")
+  })
+
   it("sets the new currency code on the trip", async () => {
     const { tx, updates } = makeFakeTx([])
     await convertTripMoney(tx, "trip-1", 0.9, "EUR")
@@ -74,6 +87,9 @@ describe("convertTripMoney", () => {
     for (const update of updates) {
       for (const [column, value] of Object.entries(update.set)) {
         if (column === "currencyCode") continue
+        // fxRate is a rate, not money — it keeps full 8-decimal precision so
+        // composing conversions doesn't degrade it.
+        if (column === "fxRate") continue
         assert.deepEqual(
           sqlNumbers(value).filter((n) => n !== 155.2),
           [0],
@@ -89,7 +105,7 @@ describe("convertTripMoney", () => {
 
     const expenseUpdate = updates.find((u) => u.table === expenses)!
     assert.deepEqual(
-      sqlNumbers(expenseUpdate.set.amount).filter((n) => n !== 0.9),
+      sqlNumbers(expenseUpdate.set.amountInTripCurrency).filter((n) => n !== 0.9),
       [2],
     )
   })

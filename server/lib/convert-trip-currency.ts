@@ -7,10 +7,20 @@ import { currencyDecimals } from "../../shared/utils/currency"
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 /**
- * Multiply every money column on a trip by `rate` and stamp the new currency.
+ * Re-denominate a trip into `toCurrency`.
+ *
+ * Activity estimates, reservations and the budget have no currency of their
+ * own — they are planning figures in the trip's currency — so they are
+ * multiplied in place.
+ *
+ * Expenses are different: they record real payments, so `amount` and
+ * `currencyCode` are left exactly as entered and only the derived
+ * `amountInTripCurrency` / `fxRate` are re-projected. This function used to
+ * multiply `expenses.amount` too, which destroyed the provenance of every
+ * expense on the trip (#47).
+ *
  * Runs inside the caller's transaction so a mid-flight failure can't leave the
- * trip half-converted. Covers: activity costEstimate/actualCost, expenses,
- * reservations, and the trip budget.
+ * trip half-converted.
  */
 export async function convertTripMoney(
   tx: Tx,
@@ -44,9 +54,17 @@ export async function convertTripMoney(
       .where(and(inArray(activities.itineraryDayId, dayIds), isNotNull(activities.actualCost)))
   }
 
+  // Expenses are NOT rewritten. `amount` + `currencyCode` record what was
+  // actually paid and are immutable; only the trip-currency *projection*
+  // moves. Composing the rates (old expense→old trip, then old trip→new trip)
+  // is exact and needs no per-currency FX lookup, so a trip with expenses in
+  // five currencies still re-projects in one statement.
   await tx
     .update(expenses)
-    .set({ amount: sql`ROUND(${expenses.amount}::numeric * ${rate}::numeric, ${decimals})` })
+    .set({
+      amountInTripCurrency: sql`ROUND(COALESCE(${expenses.amountInTripCurrency}, ${expenses.amount})::numeric * ${rate}::numeric, ${decimals})`,
+      fxRate: sql`ROUND(${expenses.fxRate}::numeric * ${rate}::numeric, 8)`,
+    })
     .where(eq(expenses.tripId, tripId))
 
   await tx

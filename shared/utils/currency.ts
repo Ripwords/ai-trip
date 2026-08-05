@@ -16,3 +16,27 @@ export function currencyDecimals(code: string): 0 | 2 {
 export function formatCurrencyAmount(amount: number, code: string): string {
   return amount.toFixed(currencyDecimals(code))
 }
+
+/**
+ * The currencies offered in pickers. Lived inline in TripSettingsSheet until
+ * expenses gained a currency of their own (#47) and needed the same list — two
+ * copies would have drifted.
+ */
+export const TRIP_CURRENCIES = [
+  { code: "USD", label: "USD ($)" },
+  { code: "EUR", label: "EUR (€)" },
+  { code: "GBP", label: "GBP (£)" },
+  { code: "JPY", label: "JPY (¥)" },
+  { code: "KRW", label: "KRW (₩)" },
+  { code: "THB", label: "THB (฿)" },
+  { code: "SGD", label: "SGD (S$)" },
+  { code: "AUD", label: "AUD (A$)" },
+  { code: "CAD", label: "CAD (C$)" },
+  { code: "MYR", label: "MYR (RM)" },
+  { code: "IDR", label: "IDR (Rp)" },
+  { code: "TWD", label: "TWD (NT$)" },
+  { code: "VND", label: "VND (₫)" },
+  { code: "PHP", label: "PHP (₱)" },
+  { code: "INR", label: "INR (₹)" },
+  { code: "CNY", label: "CNY (¥)" },
+] as const

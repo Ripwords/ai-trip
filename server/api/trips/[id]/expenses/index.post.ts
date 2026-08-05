@@ -5,6 +5,7 @@ import { uuidParamsSchema, createExpenseSchema } from "../../../../utils/schemas
 import {
   assertExpenseRefs,
   listSettlementMembers,
+  projectToTripCurrency,
   resolveExpenseSplits,
 } from "../../../../lib/expenses"
 import { reserveExpenseSlot } from "../../../../lib/expense-cap"
@@ -23,10 +24,19 @@ export default defineEventHandler(async (event) => {
     where: eq(trips.id, id),
     columns: { currencyCode: true },
   })
-  const currencyCode = trip?.currencyCode || "USD"
+  const tripCurrency = trip?.currencyCode || "USD"
+  // Absent means "paid in the trip's currency" — the common case, and what
+  // every row written before per-expense currencies existed meant implicitly.
+  const currencyCode = body.currencyCode ?? tripCurrency
 
-  // Resolving the split can reject the request and is cheaper than a
-  // transaction, so it runs before the slot is reserved.
+  // Both of these can reject the request, and both are cheaper than a
+  // transaction, so they run before the slot is reserved.
+  const { fxRate, amountInTripCurrency } = await projectToTripCurrency({
+    amount: body.amount,
+    currencyCode,
+    tripCurrencyCode: tripCurrency,
+  })
+
   const members = await listSettlementMembers(id)
   const splitMode = body.splitMode ?? "equal"
   const splits = resolveExpenseSplits({
@@ -51,6 +61,9 @@ export default defineEventHandler(async (event) => {
         tripId: id,
         description: body.description,
         amount: body.amount,
+        currencyCode,
+        fxRate,
+        amountInTripCurrency,
         category: body.category,
         activityId: body.activityId ?? null,
         paidById: body.paidById ?? null,
@@ -75,6 +88,8 @@ export default defineEventHandler(async (event) => {
       expenseId: expense?.id,
       amount: body.amount,
       currency: currencyCode,
+      amountInTripCurrency,
+      tripCurrency,
     },
   })
 
