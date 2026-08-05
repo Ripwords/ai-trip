@@ -169,25 +169,11 @@ function handleSave() {
                 />
               </div>
             </div>
-            <div>
-              <label class="block text-sm font-medium text-sand-700"
-                >Actual Cost ({{ currencyCodeResolved }})</label
-              >
-              <div class="relative mt-1">
-                <span
-                  class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-sand-400"
-                >
-                  {{ symbolText }}
-                </span>
-                <input
-                  v-model="actualCost"
-                  type="text"
-                  inputmode="decimal"
-                  placeholder="0"
-                  class="block w-full rounded-lg border border-sand-300 py-2 pl-8 pr-3 text-sm input-focus"
-                />
-              </div>
-            </div>
+            <!-- The "Actual Cost" input is gone (#39). Actual spend is now
+                 derived from the expenses linked to an activity, and a second
+                 hand-typed number could only ever contradict it. `actualCost`
+                 is still round-tripped below so editing an activity does not
+                 quietly erase a value entered before this changed. -->
           </div>
 
           <div>

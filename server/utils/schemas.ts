@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { transportModes } from "./transport"
 import { EXPENSE_CATEGORIES } from "../../shared/utils/expense-categories"
+import { SPLIT_MODES } from "../../shared/utils/splits"
 
 export const uuidParamsSchema = z.object({
   id: z.string().uuid(),
@@ -206,6 +207,7 @@ export const updateAccommodationRangeSchema = updateAccommodationSchema.extend({
 // Expenses. Categories come from shared/ so the client picker and badge map
 // cannot drift from what the server accepts.
 export const expenseCategoryEnum = z.enum(EXPENSE_CATEGORIES)
+export const splitModeEnum = z.enum(SPLIT_MODES)
 
 export const createExpenseSchema = z.object({
   description: z.string().min(1),
@@ -213,6 +215,27 @@ export const createExpenseSchema = z.object({
   category: expenseCategoryEnum.optional(),
   activityId: z.string().uuid().nullish(),
   paidById: z.string().nullish(),
+  // How this expense is shared (#35). `participantIds` omitted means everyone
+  // on the trip; anything else is stored resolved in `expenses.splits`.
+  splitMode: splitModeEnum.optional(),
+  // Duplicates must be rejected here, not deduplicated: `resolveSplits` derives
+  // one weight per array entry but returns a Record keyed by user id, so a
+  // repeated id collapses *after* the weights are computed. An equal split of
+  // 9000 across ["a","a","b"] resolves to { a: 3000, b: 3000 } and destroys
+  // 3000 minor units outright.
+  participantIds: z
+    .array(z.string())
+    .max(50)
+    .refine((ids) => new Set(ids).size === ids.length, {
+      message: "Split participants must be unique",
+    })
+    .optional(),
+  // Non-negative, never merely finite. A $100 expense split
+  // { a: 20000, b: -10000 } sums to the right total, so the reconciliation
+  // check downstream passes — while booking a $200 debt to A and a $100 credit
+  // to B, inventing $100 owed to whoever posted the expense. Zero is allowed:
+  // "this person owes nothing for this one" is a real split.
+  splitValues: z.record(z.string(), z.number().finite().nonnegative()).optional(),
   // A calendar date, not an instant — the `paid_at` column is a `date`.
   // Legacy clients may still send a full ISO timestamp; take its date part
   // rather than rejecting, since that is exactly what used to be stored.

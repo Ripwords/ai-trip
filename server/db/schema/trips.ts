@@ -8,9 +8,11 @@ import {
   index,
   uniqueIndex,
   numeric,
+  integer,
   char,
+  check,
 } from "drizzle-orm/pg-core"
-import { relations } from "drizzle-orm"
+import { relations, sql } from "drizzle-orm"
 import { user } from "./auth-schema"
 import { itineraryDays } from "./itineraries"
 import { tripIdeas } from "./trip-ideas"
@@ -40,6 +42,17 @@ export const trips = pgTable(
     shareToken: uuid("share_token"),
     shareExpiresAt: timestamp("share_expires_at", { mode: "date" }),
     exploreSuppressedAt: timestamp("explore_suppressed_at", { withTimezone: true }),
+    /**
+     * Number of rows in `expenses` for this trip, maintained by the insert and
+     * delete handlers (see server/lib/expense-cap.ts).
+     *
+     * The cap used to be enforced with `count(*)` per insert, which both scanned
+     * the table on every write and left a TOCTOU window wide enough for two
+     * concurrent inserts to pass the check at 199 and land at 201. A counter on
+     * the trip row makes the check O(1) and, because the incrementing UPDATE
+     * takes the trip's row lock, serialises concurrent writers.
+     */
+    expenseCount: integer("expense_count").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
@@ -51,6 +64,10 @@ export const trips = pgTable(
     index("idx_trips_status").on(table.status),
     index("idx_trips_country_code").on(table.countryCode),
     uniqueIndex("idx_trips_share_token").on(table.shareToken),
+    // The cap itself, in the database. The conditional UPDATE in
+    // reserveExpenseSlot is what produces the 400; this is the backstop that
+    // makes "at most 200" true regardless of which code path did the writing.
+    check("trips_expense_count_within_cap", sql`${table.expenseCount} between 0 and 200`),
   ],
 )
 

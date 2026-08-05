@@ -7,7 +7,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { ExpenseRefDeps } from "./expenses"
 
-const { assertExpenseRefs } = await import("./expenses")
+const { assertExpenseRefs, resolveExpenseSplits } = await import("./expenses")
 
 const TRIP = "trip-1"
 
@@ -100,6 +100,140 @@ describe("assertExpenseRefs", () => {
           deps({ findTripOwnerId: async () => null }),
         ),
       /Trip not found/,
+    )
+  })
+})
+
+// Issue #35: `expenses.splits` was dead — the tracker hardcoded an equal split
+// across every active member. These cover turning a request body into the
+// resolved per-participant amounts the column was always meant to hold.
+describe("resolveExpenseSplits", () => {
+  const memberIds = ["a", "b", "c"]
+
+  it("stores null for an equal split across everyone", () => {
+    // Null means "equal across whoever is on the trip at read time", which is
+    // the right answer when the user never narrowed the participant set.
+    assert.equal(
+      resolveExpenseSplits({ amount: "90.00", currencyCode: "USD", splitMode: "equal", memberIds }),
+      null,
+    )
+  })
+
+  it("stores explicit amounts once the participant set is narrowed", () => {
+    assert.deepEqual(
+      resolveExpenseSplits({
+        amount: "90.00",
+        currencyCode: "USD",
+        splitMode: "equal",
+        participantIds: ["a", "b"],
+        memberIds,
+      }),
+      { a: "45.00", b: "45.00" },
+    )
+  })
+
+  it("reconciles an equal split that does not divide evenly", () => {
+    assert.deepEqual(
+      resolveExpenseSplits({
+        amount: "100.00",
+        currencyCode: "USD",
+        splitMode: "equal",
+        participantIds: memberIds,
+        memberIds,
+      }),
+      { a: "33.34", b: "33.33", c: "33.33" },
+    )
+  })
+
+  it("resolves shares and percent modes", () => {
+    assert.deepEqual(
+      resolveExpenseSplits({
+        amount: "120.00",
+        currencyCode: "USD",
+        splitMode: "shares",
+        participantIds: ["a", "b"],
+        splitValues: { a: 2, b: 1 },
+        memberIds,
+      }),
+      { a: "80.00", b: "40.00" },
+    )
+    assert.deepEqual(
+      resolveExpenseSplits({
+        amount: "200.00",
+        currencyCode: "USD",
+        splitMode: "percent",
+        participantIds: ["a", "b"],
+        splitValues: { a: 25, b: 75 },
+        memberIds,
+      }),
+      { a: "50.00", b: "150.00" },
+    )
+  })
+
+  it("takes exact-mode values in major units and requires them to reconcile", () => {
+    assert.deepEqual(
+      resolveExpenseSplits({
+        amount: "50.00",
+        currencyCode: "USD",
+        splitMode: "exact",
+        participantIds: ["a", "b"],
+        splitValues: { a: 35, b: 15 },
+        memberIds,
+      }),
+      { a: "35.00", b: "15.00" },
+    )
+    assert.throws(
+      () =>
+        resolveExpenseSplits({
+          amount: "50.00",
+          currencyCode: "USD",
+          splitMode: "exact",
+          participantIds: ["a", "b"],
+          splitValues: { a: 35, b: 10 },
+          memberIds,
+        }),
+      /must sum to/i,
+    )
+  })
+
+  it("respects a zero-decimal currency", () => {
+    assert.deepEqual(
+      resolveExpenseSplits({
+        amount: "3000",
+        currencyCode: "JPY",
+        splitMode: "equal",
+        participantIds: ["a", "b", "c"],
+        memberIds,
+      }),
+      { a: "1000", b: "1000", c: "1000" },
+    )
+  })
+
+  it("rejects a participant who is not a member of the trip", () => {
+    assert.throws(
+      () =>
+        resolveExpenseSplits({
+          amount: "50.00",
+          currencyCode: "USD",
+          splitMode: "equal",
+          participantIds: ["a", "ghost"],
+          memberIds,
+        }),
+      /not a member/i,
+    )
+  })
+
+  it("rejects an amount that is not money", () => {
+    assert.throws(
+      () =>
+        resolveExpenseSplits({
+          amount: "oops",
+          currencyCode: "USD",
+          splitMode: "equal",
+          participantIds: ["a"],
+          memberIds,
+        }),
+      /amount/i,
     )
   })
 })

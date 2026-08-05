@@ -1,11 +1,24 @@
 <script setup lang="ts">
+import type { TripExpenseSummary } from "#shared/utils/expense-summary"
+import { SPLIT_MODES, type SplitMode } from "#shared/utils/splits"
+
 interface Expense {
   id: string
   description: string
+  /** Denominated in the trip's currency. */
   amount: string
   category: string
+  activityId: string | null
   paidById: string | null
   paidAt: string | null
+  splitMode: string
+  /** Resolved per-participant amounts; null means "equal across everyone". */
+  splits: Record<string, string> | null
+}
+
+interface ExpenseActivity {
+  id: string
+  name: string
 }
 
 interface Member {
@@ -26,6 +39,14 @@ const props = defineProps<{
    * for the same endpoint and an Overview that went stale after every edit.
    */
   expenses: Expense[]
+  /**
+   * Server-computed totals, budget, breakdowns and settlement (#38). This
+   * component used to add the expense list up itself, and its answer differed
+   * from both TripOverview's and TripStats'.
+   */
+  summary: TripExpenseSummary | null
+  /** For linking an expense to a planned activity (#39). */
+  activities?: ExpenseActivity[]
 }>()
 
 const emit = defineEmits<{
@@ -52,6 +73,8 @@ const amountId = `${uid}-amount`
 const categoryId = `${uid}-category`
 const dateId = `${uid}-date`
 const paidById = `${uid}-paid-by`
+const activityFieldId = `${uid}-activity`
+const splitModeId = `${uid}-split-mode`
 
 // Form fields
 const formDescription = ref("")
@@ -59,22 +82,30 @@ const formAmount = ref("")
 const formCategory = ref("food")
 const formDate = ref(todayCalendarDate())
 const formPaidById = ref<string>("")
+const formActivityId = ref<string>("")
+const formSplitMode = ref<SplitMode>("equal")
+/** Empty = everyone on the trip, which is stored as a NULL `splits`. */
+const formParticipantIds = ref<string[]>([])
+const formSplitValues = ref<Record<string, string>>({})
 
 // Both come from shared/utils/expense-categories.ts — the same list the server
 // validates against, so the picker can't fall out of sync with the enum.
 const categories = EXPENSE_CATEGORIES
+const splitModes = SPLIT_MODES
 
-const totalExpenses = computed(() => {
-  if (!expenses.value) return 0
-  return expenses.value.reduce((sum, e) => sum + parseFloat(e.amount), 0)
-})
+const splitModeLabels: Record<SplitMode, string> = {
+  equal: "Split equally",
+  exact: "Exact amounts",
+  shares: "By shares",
+  percent: "By percentage",
+}
 
-const budgetNum = computed(() => (props.budget ? parseFloat(props.budget) : null))
-
-const budgetPercent = computed(() => {
-  if (!budgetNum.value || budgetNum.value === 0) return 0
-  return (totalExpenses.value / budgetNum.value) * 100
-})
+// Every number below is server-computed (#38). This component used to derive
+// its own total from `expenses`, TripOverview derived a second one, and
+// TripStats a third from a different column entirely.
+const totalExpenses = computed(() => props.summary?.total ?? 0)
+const budgetNum = computed(() => props.summary?.budget ?? null)
+const budgetPercent = computed(() => props.summary?.budgetPercent ?? 0)
 
 const progressBarColor = computed(() => {
   if (budgetPercent.value >= 100) return "bg-red-600"
@@ -82,14 +113,27 @@ const progressBarColor = computed(() => {
   return "bg-forest-500"
 })
 
-// Equal-split settlement. The maths lives in app/utils/settlement.ts so it can
-// be unit-tested — see that file for why unattributed expenses are surfaced
-// rather than silently excluded.
-const settlementResult = computed(() =>
-  computeSettlement(expenses.value ?? [], props.members ?? []),
-)
-const settlement = computed(() => settlementResult.value.balances)
-const unattributedTotal = computed(() => settlementResult.value.unattributedTotal)
+const settlement = computed(() => props.summary?.settlement.balances ?? [])
+// Who pays whom (#36) — balances alone left the group doing this by hand.
+const transfers = computed(() => props.summary?.settlement.transfers ?? [])
+const unattributedTotal = computed(() => props.summary?.settlement.unattributedTotal ?? 0)
+/** Planned estimate vs actual spend per activity (#39). */
+const plannedVsActual = computed(() => props.summary?.plannedVsActual ?? [])
+/** The people a split may name. */
+const splittableMembers = computed(() => props.members ?? [])
+const canSplit = computed(() => splittableMembers.value.length > 1)
+
+function toggleParticipant(userId: string) {
+  const current = formParticipantIds.value
+  formParticipantIds.value = current.includes(userId)
+    ? current.filter((id) => id !== userId)
+    : [...current, userId]
+}
+
+function activityName(activityId: string | null): string {
+  if (!activityId) return ""
+  return props.activities?.find((a) => a.id === activityId)?.name ?? ""
+}
 
 watch(
   () => props.budget,
@@ -104,6 +148,10 @@ function resetForm() {
   formCategory.value = "food"
   formDate.value = todayCalendarDate()
   formPaidById.value = ""
+  formActivityId.value = ""
+  formSplitMode.value = "equal"
+  formParticipantIds.value = []
+  formSplitValues.value = {}
   editingExpenseId.value = null
 }
 
@@ -116,6 +164,19 @@ function startEdit(expense: Expense) {
   // Date and back reintroduced the UTC/local shift this column exists to avoid.
   formDate.value = expense.paidAt ?? ""
   formPaidById.value = expense.paidById ?? ""
+  formActivityId.value = expense.activityId ?? ""
+  // Stored splits are resolved amounts, so `exact` round-trips them exactly and
+  // any other mode's original weights are not recoverable — the resolved
+  // amounts are, and they mean the same thing.
+  if (expense.splits) {
+    formSplitMode.value = "exact"
+    formParticipantIds.value = Object.keys(expense.splits)
+    formSplitValues.value = { ...expense.splits }
+  } else {
+    formSplitMode.value = "equal"
+    formParticipantIds.value = []
+    formSplitValues.value = {}
+  }
   showAddForm.value = true
 }
 
@@ -150,6 +211,25 @@ async function submitExpense() {
       category: formCategory.value,
       paidAt: formDate.value || undefined,
       paidById: formPaidById.value || undefined,
+      activityId: formActivityId.value || null,
+    }
+
+    // Omitting the participant list means "everyone on the trip", which the
+    // server stores as a NULL `splits` so the expense keeps following the
+    // roster. Only send a split when the user actually narrowed it.
+    if (canSplit.value && formParticipantIds.value.length > 0) {
+      body.splitMode = formSplitMode.value
+      body.participantIds = formParticipantIds.value
+      if (formSplitMode.value !== "equal") {
+        body.splitValues = Object.fromEntries(
+          formParticipantIds.value.map((id) => [id, Number(formSplitValues.value[id] ?? 0)]),
+        )
+      }
+    } else if (editingExpenseId.value) {
+      // Clearing the participants on an edit has to actively reset the stored
+      // split, or the old one silently survives against the new amount.
+      body.splitMode = "equal"
+      body.participantIds = []
     }
 
     if (editingExpenseId.value) {
@@ -277,7 +357,34 @@ function getMemberName(userId: string | null): string {
       class="rounded-2xl border border-sand-200 bg-white p-6"
     >
       <h3 class="text-sm font-semibold text-sand-900">Settlement</h3>
-      <div v-if="settlement.length > 0" class="mt-3 space-y-2">
+
+      <!-- Who pays whom. Balances alone left the group working the transfers
+           out by hand, which is the chore this feature exists to remove. -->
+      <div v-if="transfers.length > 0" class="mt-3 space-y-2">
+        <p class="text-xs font-medium uppercase tracking-wide text-sand-500">Settle up</p>
+        <div
+          v-for="t in transfers"
+          :key="`${t.fromUserId}-${t.toUserId}`"
+          class="flex items-center justify-between rounded-xl bg-sand-50 px-3 py-2 text-sm"
+        >
+          <span class="text-sand-700">
+            <span class="font-medium text-sand-900">{{ t.fromName }}</span>
+            pays
+            <span class="font-medium text-sand-900">{{ t.toName }}</span>
+          </span>
+          <span class="font-semibold tabular-nums text-sand-900">
+            {{ formatCurrency(t.amount) }}
+          </span>
+        </div>
+      </div>
+
+      <p
+        v-if="settlement.length > 0"
+        class="mt-4 text-xs font-medium uppercase tracking-wide text-sand-500"
+      >
+        Balances
+      </p>
+      <div v-if="settlement.length > 0" class="mt-2 space-y-2">
         <div
           v-for="person in settlement"
           :key="person.userId"
@@ -302,6 +409,36 @@ function getMemberName(userId: string | null): string {
         {{ formatCurrency(unattributedTotal) }} not included — no payer recorded. Edit those
         expenses to set who paid.
       </p>
+    </div>
+
+    <!-- Planned vs actual. `expenses.activityId` had a column, an index and a
+         relation, and nothing in the UI ever set or read it. -->
+    <div v-if="plannedVsActual.length > 0" class="rounded-2xl border border-sand-200 bg-white p-6">
+      <h3 class="text-sm font-semibold text-sand-900">Planned vs actual</h3>
+      <div class="mt-3 space-y-2">
+        <div
+          v-for="row in plannedVsActual"
+          :key="row.activityId"
+          class="flex items-center justify-between gap-3 text-sm"
+        >
+          <div class="min-w-0">
+            <p class="truncate text-sand-800">{{ row.name }}</p>
+            <p class="text-xs text-sand-500">Day {{ row.dayNumber }}</p>
+          </div>
+          <div class="shrink-0 text-right tabular-nums">
+            <p class="text-sand-600 text-xs">
+              est. {{ formatCurrency(row.planned) }} · actual
+              {{ formatCurrency(row.actual) }}
+            </p>
+            <p
+              class="text-xs font-medium"
+              :class="row.variance > 0 ? 'text-terra-600' : 'text-forest-600'"
+            >
+              {{ row.variance > 0 ? "+" : "" }}{{ formatCurrency(row.variance) }}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Expenses section -->
@@ -352,7 +489,7 @@ function getMemberName(userId: string | null): string {
             class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
           />
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-3 gap-3">
           <div>
             <label :for="amountId" class="mb-1 block text-xs font-medium text-sand-600">
               Amount
@@ -408,6 +545,81 @@ function getMemberName(userId: string | null): string {
             </select>
           </div>
         </div>
+        <!-- Link to a planned activity so estimate and actual can meet (#39). -->
+        <div v-if="activities && activities.length > 0">
+          <label :for="activityFieldId" class="mb-1 block text-xs font-medium text-sand-600">
+            Activity (optional)
+          </label>
+          <select
+            :id="activityFieldId"
+            v-model="formActivityId"
+            class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+          >
+            <option value="">Not linked to an activity</option>
+            <option v-for="a in activities" :key="a.id" :value="a.id">
+              {{ a.name }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Who actually shared this. Leaving it untouched means everyone,
+             which is what the tracker used to assume unconditionally (#35). -->
+        <div v-if="canSplit" class="rounded-xl border border-sand-200 p-3">
+          <label :for="splitModeId" class="mb-1 block text-xs font-medium text-sand-600">
+            Split
+          </label>
+          <select
+            :id="splitModeId"
+            v-model="formSplitMode"
+            class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
+          >
+            <option v-for="mode in splitModes" :key="mode" :value="mode">
+              {{ splitModeLabels[mode] }}
+            </option>
+          </select>
+
+          <p class="mt-2 text-xs text-sand-500">
+            {{
+              formParticipantIds.length === 0
+                ? "Shared by everyone on the trip."
+                : `Shared by ${formParticipantIds.length} of ${splittableMembers.length}.`
+            }}
+          </p>
+
+          <div class="mt-2 space-y-1.5">
+            <div
+              v-for="m in splittableMembers"
+              :key="m.userId"
+              class="flex items-center justify-between gap-2"
+            >
+              <label class="flex min-w-0 items-center gap-2 text-sm text-sand-700">
+                <input
+                  type="checkbox"
+                  :checked="formParticipantIds.includes(m.userId)"
+                  class="h-4 w-4 rounded border-sand-300"
+                  @change="toggleParticipant(m.userId)"
+                />
+                <span class="truncate">{{ m.user.name }}</span>
+              </label>
+              <input
+                v-if="formSplitMode !== 'equal' && formParticipantIds.includes(m.userId)"
+                v-model="formSplitValues[m.userId]"
+                type="number"
+                step="0.01"
+                min="0"
+                :placeholder="
+                  formSplitMode === 'percent'
+                    ? '%'
+                    : formSplitMode === 'shares'
+                      ? 'shares'
+                      : 'amount'
+                "
+                class="w-24 shrink-0 rounded-lg border border-sand-300 px-2 py-1 text-sm input-focus"
+              />
+            </div>
+          </div>
+        </div>
+
         <div class="flex items-center gap-2">
           <button
             type="button"
@@ -452,6 +664,12 @@ function getMemberName(userId: string | null): string {
               <span v-if="expense.paidAt">{{ formatCalendarDate(expense.paidAt) }}</span>
               <span v-if="expense.paidById && members && members.length > 1" class="text-sand-400">
                 paid by {{ getMemberName(expense.paidById) }}
+              </span>
+              <span v-if="expense.activityId" class="text-sand-400">
+                · {{ activityName(expense.activityId) }}
+              </span>
+              <span v-if="expense.splits" class="text-sand-400">
+                · split {{ Object.keys(expense.splits).length }} ways
               </span>
             </div>
           </div>

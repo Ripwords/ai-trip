@@ -115,3 +115,50 @@ describe("updateTripSchema", () => {
     assert.equal(updateTripSchema.safeParse({ budget: null }).success, true)
   })
 })
+
+// Both of these were accepted by the schema and are exploitable: the sum check
+// downstream passes, and the corrupted result is written to the `splits`
+// column as if the user had asked for it.
+describe("createExpenseSchema — adversarial split input", () => {
+  const base = { description: "Taxi", amount: "100.00" }
+
+  // A $100 expense split { a: 20000, b: -10000 } sums to 10000 minor units, so
+  // `exact` mode's reconciliation check passes — and it books a $200 debt to A
+  // and a $100 *credit* to B, inventing $100 owed to whoever posted it.
+  it("rejects negative split values", () => {
+    const result = createExpenseSchema.safeParse({
+      ...base,
+      splitMode: "exact",
+      participantIds: ["a", "b"],
+      splitValues: { a: 200, b: -100 },
+    })
+    assert.equal(result.success, false, "a negative share must not be accepted")
+  })
+
+  it("still accepts a zero share", () => {
+    const result = createExpenseSchema.safeParse({
+      ...base,
+      splitMode: "exact",
+      participantIds: ["a", "b"],
+      splitValues: { a: 100, b: 0 },
+    })
+    assert.equal(result.success, true)
+  })
+
+  // `resolveSplits` computes weights from the array but returns a Record keyed
+  // by user id, so duplicates collapse *after* the weights are computed: an
+  // equal split of 9000 across ["a","a","b"] resolves to { a: 3000, b: 3000 }
+  // and destroys 3000 minor units outright.
+  it("rejects duplicate participant ids", () => {
+    const result = createExpenseSchema.safeParse({
+      ...base,
+      participantIds: ["a", "a", "b"],
+    })
+    assert.equal(result.success, false, "a duplicated participant must not be accepted")
+  })
+
+  it("accepts a distinct participant list", () => {
+    const result = createExpenseSchema.safeParse({ ...base, participantIds: ["a", "b"] })
+    assert.equal(result.success, true)
+  })
+})

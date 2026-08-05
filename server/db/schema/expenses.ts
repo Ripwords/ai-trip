@@ -15,12 +15,23 @@ export const expenses = pgTable(
       onDelete: "set null",
     }),
     description: text("description").notNull(),
+    // Denominated in the trip's currency. Per-expense currencies are #47's job.
     amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
     category: text("category").notNull().default("other"),
     // Who paid for this expense
     paidById: text("paid_by_id").references(() => user.id, { onDelete: "set null" }),
-    // Custom splits: { userId: amount } — who owes what portion
-    // e.g., { "user1": "25.00", "user2": "25.00" } for a $50 expense split between 2
+    // How `splits` below was derived, so the edit form can round-trip the
+    // user's intent rather than only its resolved output.
+    // One of shared/utils/splits.ts SPLIT_MODES: equal | exact | shares | percent.
+    splitMode: text("split_mode").notNull().default("equal"),
+    // Resolved per-user amounts: { userId: amount }, summing exactly to `amount`.
+    // e.g. { "user1": "25.00", "user2": "25.00" } for a $50 expense split by two.
+    //
+    // The *keys are the participant set* — only the people who actually shared
+    // this expense appear. That is the whole point: the tracker used to charge
+    // every active member for every expense, so a taxi two people took was
+    // billed to all five. NULL means "equal across every current member" —
+    // see shared/utils/settlement.ts.
     splits: jsonb("splits").$type<Record<string, string>>(),
     // A calendar date, not an instant: "the day the money was spent" has no
     // time and no timezone. As timestamptz it was written as UTC midnight and

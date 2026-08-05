@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { TripExpenseSummary } from "#shared/utils/expense-summary"
+
 interface TripActivity {
   id: string
   name: string
@@ -36,14 +38,6 @@ interface TripData {
   preferences: Record<string, unknown> | null
 }
 
-interface ExpenseRecord {
-  id: string
-  description: string
-  amount: string
-  category: string
-  paidAt: string | null
-}
-
 interface DayForecast {
   date: string
   tempMax: number
@@ -68,8 +62,12 @@ const props = defineProps<{
   trip: TripData
   tripId?: string
   sortedDays: TripDay[]
-  expensesList: ExpenseRecord[]
-  totalExpenses: number
+  /**
+   * The one server-computed cost picture (#38). This component used to sum
+   * `expensesList` itself and disagree with both the tracker and TripStats.
+   * Null until the lazy fetch lands.
+   */
+  summary: TripExpenseSummary | null
   currencyCode: string
   airports?: AirportMarker[]
 }>()
@@ -185,15 +183,10 @@ const typeColors: Record<string, string> = {
   spa: "bg-ocean-300",
 }
 
-// Expenses by category
-const expensesByCategory = computed(() => {
-  const cats: Record<string, number> = {}
-  for (const e of props.expensesList) {
-    const cat = e.category || "other"
-    cats[cat] = (cats[cat] ?? 0) + parseFloat(e.amount)
-  }
-  return Object.entries(cats).toSorted(([, a], [, b]) => b - a)
-})
+// Expenses by category — computed server-side now, in one place, from the
+// trip-currency projection rather than whatever currency each row was paid in.
+const expensesByCategory = computed(() => props.summary?.byCategory ?? [])
+const totalExpenses = computed(() => props.summary?.total ?? 0)
 
 function toggleType(type: string) {
   if (expandedTypes.value.has(type)) {
@@ -242,21 +235,12 @@ const totalActivities = computed(() =>
   props.sortedDays.reduce((sum, d) => sum + d.activities.length, 0),
 )
 
-const totalEstCost = computed(() => {
-  let sum = 0
-  for (const d of props.sortedDays) {
-    for (const a of d.activities) {
-      if (a.costEstimate) sum += parseFloat(a.costEstimate)
-    }
-  }
-  return sum
-})
+// What the itinerary *estimates*, which is not the same thing as what the trip
+// has cost — displaying one as the other is how the three totals diverged.
+const totalEstCost = computed(() => props.summary?.plannedTotal ?? 0)
 
-const budgetNum = computed(() => (props.trip.budget ? parseFloat(props.trip.budget) : null))
-const budgetPercent = computed(() => {
-  if (!budgetNum.value || budgetNum.value === 0 || !props.totalExpenses) return 0
-  return Math.min((props.totalExpenses / budgetNum.value) * 100, 100)
-})
+const budgetNum = computed(() => props.summary?.budget ?? null)
+const budgetPercent = computed(() => Math.min(props.summary?.budgetPercent ?? 0, 100))
 
 const { format: formatCurrencyRaw } = useCurrencyFormat(() => props.currencyCode)
 
@@ -580,13 +564,13 @@ function formatDayRange(dayNumbers: number[]): string {
             </h3>
             <div class="mt-2.5 space-y-2">
               <div
-                v-for="[category, amount] in expensesByCategory"
-                :key="category"
+                v-for="row in expensesByCategory"
+                :key="row.category"
                 class="flex items-center justify-between"
               >
-                <span class="text-xs text-sand-600">{{ formatType(category) }}</span>
+                <span class="text-xs text-sand-600">{{ formatType(row.category) }}</span>
                 <span class="text-xs font-semibold tabular-nums text-sand-800">{{
-                  formatCurrency(amount)
+                  formatCurrency(row.amount)
                 }}</span>
               </div>
               <div class="flex items-center justify-between border-t border-sand-100 pt-2">
@@ -693,9 +677,8 @@ function formatDayRange(dayNumbers: number[]): string {
       <!-- Trip Summary -->
       <TripStats
         :days="sortedDays"
-        :budget="trip.budget"
         :currency-code="currencyCode"
-        :total-expenses="totalExpenses"
+        :summary="summary"
         :trip-id="tripId"
         @refreshed="emit('refreshed')"
       />

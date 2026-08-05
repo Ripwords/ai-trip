@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "nuxt build",
-    "vercel-build": "nuxt build && drizzle-kit migrate",
+    "vercel-build": "nuxt build && if [ \"$VERCEL_ENV\" = production ]; then drizzle-kit migrate; else echo \"Skipping drizzle-kit migrate (VERCEL_ENV=${VERCEL_ENV:-unset}, not production)\"; fi",
     "dev": "nuxt dev --host",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
