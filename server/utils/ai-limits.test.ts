@@ -1,6 +1,5 @@
 import assert from "node:assert/strict"
-import { describe, it, beforeEach } from "node:test"
-import { mock } from "bun:test"
+import { describe, it, beforeEach, after } from "node:test"
 
 /**
  * Records the `where` clause every settle statement is scoped by, so the tests
@@ -8,26 +7,31 @@ import { mock } from "bun:test"
  */
 const captured: { where: unknown[] } = { where: [] }
 
-// `mock.module` is process-wide in bun, and every server module resolves the same
-// `server/db` instance — so the stub delegates to the real client via the
-// prototype chain and overrides ONLY `update`, the statement builder the settle
-// primitives use. Anything else (db.query.*, db.insert) still behaves normally
-// for the other test files sharing this process.
-const { db: realDb } = await import("../db")
+// Patch the db singleton in place, the way every other suite in this repo does
+// (see ai-tools.test.ts stubbing `db.query.activities.findMany`). Only `update`,
+// the statement builder the settle primitives use, is replaced; everything else
+// still behaves normally for the other test files sharing this process.
+//
+// This used to be `mock.module("../db", …)` plus a bare `Object.defineProperty`.
+// `mock.module` is process-wide in bun, and a bare defineProperty is
+// non-writable and non-configurable — so every other suite that patches the db
+// singleton died with "Attempted to assign to readonly property" and its tests
+// silently vanished from the run.
+const { db } = await import("../db")
+const realUpdate = db.update
 
-const recordingDb: typeof realDb = Object.create(realDb)
-Object.defineProperty(recordingDb, "update", {
-  value: () => ({
-    set: () => ({
-      where: (cond: unknown) => {
-        captured.where.push(cond)
-        return Promise.resolve([])
-      },
-    }),
+db.update = (() => ({
+  set: () => ({
+    where: (cond: unknown) => {
+      captured.where.push(cond)
+      return Promise.resolve([])
+    },
   }),
-})
+})) as unknown as typeof db.update
 
-mock.module("../db", () => ({ db: recordingDb }))
+after(() => {
+  db.update = realUpdate
+})
 
 const { getUsageMonth, chargeExtraAiCredits, refundAiCredit } = await import("./ai-limits")
 
@@ -44,6 +48,37 @@ function monthsIn(node: unknown, seen = new Set<unknown>()): string[] {
   }
   return out
 }
+
+describe("the db stub this suite installs (process-wide side effects)", () => {
+  it("leaves db.update patchable by the other suites sharing this process", () => {
+    // bun runs every test file in ONE process. `server/lib/expenses-routes.test.ts`
+    // and `server/lib/reservations-routes.test.ts` patch the same singleton, and a
+    // non-writable/non-configurable stub here made their `installFakeDb()` throw
+    // "Attempted to assign to readonly property" — taking ~66 tests out of the run.
+    const descriptor = Object.getOwnPropertyDescriptor(db, "update")
+    assert.ok(descriptor, "expected the stub to be an own property of the db singleton")
+    assert.equal(descriptor.writable, true, "db.update must stay writable")
+    assert.equal(descriptor.configurable, true, "db.update must stay configurable")
+
+    // The faithful reproduction: another suite reassigning it must not throw.
+    const ours = db.update
+    assert.doesNotThrow(() => {
+      db.update = (() => ({
+        set: () => ({ where: () => Promise.resolve([]) }),
+        // A drizzle PgUpdateBuilder cannot be constructed here; the settle
+        // primitives only ever reach `.set().where()`.
+      })) as unknown as typeof db.update
+    })
+    db.update = ours
+  })
+
+  it("does not replace the ../db module for other suites", () => {
+    // `mock.module` is process-wide in bun; the fix is to patch the instance, not
+    // the module registry, so `../db` keeps exporting the real singleton.
+    assert.equal(db.constructor.name.length > 0, true)
+    assert.equal(typeof db.query, "object")
+  })
+})
 
 describe("getUsageMonth", () => {
   it("derives the month from an explicit instant, in UTC", () => {
