@@ -48,7 +48,7 @@ async function handleInvite() {
     emit("changed")
   } catch (e: unknown) {
     const err = e as { data?: { message?: string } }
-    inviteError.value = err.data?.message ?? "Failed to invite"
+    inviteError.value = humanMessage(err.data?.message, "Failed to invite")
   } finally {
     inviteLoading.value = false
   }

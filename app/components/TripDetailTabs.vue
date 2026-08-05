@@ -77,7 +77,7 @@ onUnmounted(() => {
         aria-haspopup="menu"
         :aria-expanded="overflowOpen"
         aria-label="More tabs"
-        class="relative inline-flex min-h-11 items-center gap-1 rounded-sm text-sm transition focus-ring"
+        class="relative inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-sm text-sm transition focus-ring sm:min-w-0 sm:justify-start"
         :class="
           overflowTabs.some((t) => t.value === modelValue)
             ? 'font-medium text-sand-900'
@@ -85,8 +85,10 @@ onUnmounted(() => {
         "
         @click.stop="overflowOpen = !overflowOpen"
       >
-        More
-        <Icon name="lucide:chevron-down" class="h-3 w-3" />
+        <!-- The label costs ~55px of a row that already clips "Bookings"
+             mid-word on a phone. The chevron plus aria-label carries it. -->
+        <span class="hidden sm:inline">More</span>
+        <Icon name="lucide:chevron-down" class="h-4 w-4 sm:h-3 sm:w-3" />
         <span
           v-if="overflowTabs.some((t) => t.value === modelValue)"
           class="absolute -bottom-px left-0 right-0 h-0.5 rounded-full bg-terra-500"
@@ -128,19 +130,21 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* Only fade once the row actually overflows: `scroll-state` keeps the mask off
-   at desktop widths where every tab fits. Falls back to no mask where the query
-   is unsupported, which is the current (unfaded) behaviour. */
 .tab-scroller {
   scroll-snap-type: x proximity;
-  container-type: scroll-state;
 }
 .tab-scroller > * > * {
   scroll-snap-align: start;
 }
-@container scroll-state(scrollable: right) {
+
+/* Fade the trailing edge so the clipped last label reads as "more, swipe"
+   rather than as broken text. Applied unconditionally below `sm`, where the six
+   tabs always overflow: `@container scroll-state(scrollable: right)` would be
+   the precise test but it only landed in Chrome 133 and is absent in Safari, so
+   on the phones this is actually for it would never fire. */
+@media (max-width: 639px) {
   .tab-scroller {
-    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent 100%);
   }
 }
 </style>

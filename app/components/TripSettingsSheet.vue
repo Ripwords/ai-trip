@@ -26,10 +26,20 @@ const emit = defineEmits<{
 }>()
 
 // On mobile this is a modal bottom sheet over a backdrop, so the page behind it
-// must not scroll under the finger. (Note: unlike the other overlays this sheet
-// still lacks role="dialog"/aria-modal and a focus trap — worth adding, but
-// that is an a11y change beyond the mobile-layout pass.)
+// must not scroll under the finger.
 useBodyScrollLock(() => props.open)
+
+// Dialog semantics to match the app's other overlays: focus trap, initial
+// focus, Escape-to-close and focus restore to whatever opened the sheet. This
+// replaces a bare document keydown listener that handled Escape only — with a
+// backdrop and a scroll lock in place, a keyboard or screen-reader user could
+// otherwise tab straight out into the inert page behind.
+const sheetRef = ref<HTMLElement | null>(null)
+const headingId = useId()
+useModalA11y(sheetRef, {
+  isOpen: () => props.open,
+  onClose: () => emit("close"),
+})
 
 // Shared with the per-expense currency picker — see shared/utils/currency.ts.
 const currencies = TRIP_CURRENCIES
@@ -158,17 +168,9 @@ async function commitTripInfo() {
   }
 }
 
-function onEsc(e: KeyboardEvent) {
-  if (e.key === "Escape") emit("close")
-}
-
-onMounted(() => {
-  if (import.meta.client) document.addEventListener("keydown", onEsc)
-})
-
-onUnmounted(() => {
-  if (import.meta.client) document.removeEventListener("keydown", onEsc)
-})
+// Escape is handled by useModalA11y above, which also traps focus and restores
+// it on close — a plain document listener did neither, and stayed bound while
+// the sheet was shut.
 </script>
 
 <template>
@@ -197,11 +199,16 @@ onUnmounted(() => {
   >
     <div
       v-if="open"
-      class="fixed inset-x-0 bottom-0 z-[70] max-h-[85dvh] overscroll-contain overflow-x-hidden overflow-y-auto rounded-t-2xl border border-sand-200 bg-white p-5 shadow-2xl lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-0 lg:h-full lg:max-h-none lg:w-96 lg:rounded-none lg:rounded-l-2xl"
+      ref="sheetRef"
+      role="dialog"
+      aria-modal="true"
+      :aria-labelledby="headingId"
+      tabindex="-1"
+      class="fixed inset-x-0 bottom-0 z-[70] max-h-[85dvh] overscroll-contain overflow-x-hidden overflow-y-auto rounded-t-2xl border border-sand-200 bg-white p-5 shadow-2xl focus:outline-none lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-0 lg:h-full lg:max-h-none lg:w-96 lg:rounded-none lg:rounded-l-2xl"
     >
       <!-- Header -->
       <div class="flex items-center justify-between">
-        <h3 class="font-display text-lg text-sand-900">
+        <h3 :id="headingId" class="font-display text-lg text-sand-900">
           {{ stage === "settings" ? "Trip settings" : "Delete days and activities?" }}
         </h3>
         <button
