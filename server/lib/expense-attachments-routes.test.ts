@@ -744,12 +744,17 @@ describe("GET receipt bytes", () => {
 // carries card digits, an address and a name. This reads the handler rather
 // than calling it: the guarantee is that the code never touches expenses at
 // all, which is stronger than any single response being clean.
+//
+// Comments are stripped first. The endpoint documents *why* it omits budget and
+// expenses (#51), so the words legitimately appear in prose — it is the
+// executable code that must never reach them.
 describe("public share link", () => {
   it("never reaches expenses or their receipts", async () => {
     const source = await Bun.file(new URL("../api/shared/[token].get.ts", import.meta.url)).text()
+    const code = source.replaceAll(/\/\*[\s\S]*?\*\//g, "").replaceAll(/\/\/.*$/gm, "")
     for (const forbidden of ["expense", "attachment", "receipt", "budget"]) {
       assert.ok(
-        !source.toLowerCase().includes(forbidden),
+        !code.toLowerCase().includes(forbidden),
         `the public share endpoint must not mention ${forbidden}`,
       )
     }
