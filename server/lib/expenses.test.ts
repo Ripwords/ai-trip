@@ -7,7 +7,8 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { ExpenseRefDeps } from "./expenses"
 
-const { assertExpenseRefs, resolveExpenseSplits } = await import("./expenses")
+const { assertExpenseRefs, resolveExpenseSplits, projectToTripCurrency } =
+  await import("./expenses")
 
 const TRIP = "trip-1"
 
@@ -234,6 +235,56 @@ describe("resolveExpenseSplits", () => {
           memberIds,
         }),
       /amount/i,
+    )
+  })
+})
+
+// Issue #47: the paid amount is immutable; the trip-currency figure is derived
+// alongside it, with the rate recorded so the report can be explained.
+describe("projectToTripCurrency", () => {
+  it("is a rate-1 identity when the expense is already in the trip currency", async () => {
+    const p = await projectToTripCurrency({
+      amount: "42.50",
+      currencyCode: "USD",
+      tripCurrencyCode: "USD",
+      fetchRate: async () => {
+        throw new Error("should not fetch a rate for a same-currency expense")
+      },
+    })
+    assert.deepEqual(p, { fxRate: "1", amountInTripCurrency: "42.50" })
+  })
+
+  it("converts a foreign amount and records the rate used", async () => {
+    const p = await projectToTripCurrency({
+      amount: "3200",
+      currencyCode: "JPY",
+      tripCurrencyCode: "USD",
+      fetchRate: async () => 0.00645,
+    })
+    // 3200 * 0.00645 = 20.64
+    assert.deepEqual(p, { fxRate: "0.00645000", amountInTripCurrency: "20.64" })
+  })
+
+  it("rounds into a zero-decimal trip currency", async () => {
+    const p = await projectToTripCurrency({
+      amount: "20.00",
+      currencyCode: "USD",
+      tripCurrencyCode: "JPY",
+      fetchRate: async () => 155.4321,
+    })
+    assert.deepEqual(p, { fxRate: "155.43210000", amountInTripCurrency: "3109" })
+  })
+
+  it("fails loudly rather than storing a garbage projection when FX is down", async () => {
+    await assert.rejects(
+      () =>
+        projectToTripCurrency({
+          amount: "3200",
+          currencyCode: "JPY",
+          tripCurrencyCode: "USD",
+          fetchRate: async () => null,
+        }),
+      /exchange rate/i,
     )
   })
 })

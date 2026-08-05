@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm"
+import { z } from "zod"
 import { db } from "../../../../db"
 import { activities, expenses, itineraryDays, reservations, trips } from "../../../../db/schema"
 import { uuidParamsSchema } from "../../../../utils/schemas"
@@ -13,9 +14,36 @@ import { summariseTripExpenses } from "../../../../../shared/utils/expense-summa
  * now all render this response, and the browser never sees a full expense
  * table just to add it up.
  */
+
+/**
+ * "Today" for the burn rate and the elapsed-day count.
+ *
+ * This used to be `new Date().toISOString().slice(0, 10)` — UTC — so for every
+ * user west of Greenwich the trip was a day behind their own calendar in the
+ * evening, and a day ahead for users east of it in the morning. The server has
+ * no way to know the caller's timezone, so the client sends its own calendar
+ * date (the same `todayCalendarDate()` the expense form uses) and UTC remains
+ * the fallback for callers that don't.
+ *
+ * Same shape as `calendarDate` in utils/schemas.ts; kept local because that one
+ * is not exported.
+ */
+const summaryQuerySchema = z.object({
+  // `?today=` (a control the client left empty) means "not supplied", the same
+  // convention the expense list's filters use — not a validation failure.
+  today: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be a YYYY-MM-DD date")
+      .optional(),
+  ),
+})
+
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const { id } = await getValidatedRouterParams(event, uuidParamsSchema.parse)
+  const query = await getValidatedQuery(event, summaryQuerySchema.parse)
 
   await requireTripAccess(id, session.user.id)
 
@@ -31,6 +59,8 @@ export default defineEventHandler(async (event) => {
       columns: {
         id: true,
         amount: true,
+        currencyCode: true,
+        amountInTripCurrency: true,
         category: true,
         paidAt: true,
         paidById: true,
@@ -68,7 +98,7 @@ export default defineEventHandler(async (event) => {
       budget: trip.budget,
       startDate: trip.startDate,
       endDate: trip.endDate,
-      today: new Date().toISOString().slice(0, 10),
+      today: query.today ?? new Date().toISOString().slice(0, 10),
       expenses: expenseRows,
       activities: activityRows,
       reservations: reservationRows,

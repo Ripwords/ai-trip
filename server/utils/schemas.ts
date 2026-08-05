@@ -2,6 +2,7 @@ import { z } from "zod"
 import { transportModes } from "./transport"
 import { EXPENSE_CATEGORIES } from "../../shared/utils/expense-categories"
 import { SPLIT_MODES } from "../../shared/utils/splits"
+import { isSupportedCurrency } from "../../shared/utils/currency"
 import {
   EXPENSE_PAGE_SIZE_DEFAULT,
   EXPENSE_PAGE_SIZE_MAX,
@@ -21,17 +22,43 @@ export const paginationSchema = z.object({
 export const tripStatusEnum = z.enum(["upcoming", "ongoing", "completed", "cancelled"])
 
 /**
- * A decimal money amount, as a string, sized to fit the `numeric(10, 2)`
- * columns it is written to (8 integer digits + 2 decimals).
+ * A decimal money amount, as a string, sized to fit the `numeric(16, 2)`
+ * columns it is written to (14 integer digits + 2 decimals).
  *
  * Plain `z.string()` let `"abc"`, `"1e40"` and `""` reach Postgres, which
  * rejected them with `invalid input syntax for type numeric` / `numeric field
  * overflow` — surfacing as an unhandled 500 instead of a 400. `"-50"` was
  * worse: it persisted, and silently corrupted every total that summed it.
+ *
+ * The bound used to be 8 integer digits, matching the old `numeric(10,2)` — a
+ * ceiling of about USD 3,800 once an amount is denominated in VND, and
+ * trivially reachable now that an expense carries its own currency (#47). The
+ * column and this regex have to move together: a
+ * looser regex means a `22003 numeric field overflow` 500, and a tighter one
+ * means a valid Hanoi hotel bill is rejected as malformed.
  */
 export const moneyString = z
   .string()
-  .regex(/^\d{1,8}(\.\d{1,2})?$/, "Must be a positive amount with at most 2 decimal places")
+  .regex(/^\d{1,14}(\.\d{1,2})?$/, "Must be a positive amount with at most 2 decimal places")
+
+/**
+ * An ISO 4217 code this app can actually handle.
+ *
+ * Was `z.string().length(3).toUpperCase()` on expenses, which accepts `"1a3"`
+ * and stores it as `"1A3"`. That reaches `Intl.NumberFormat` in the expense
+ * list, which throws `RangeError` on an invalid code — inside a render path, so
+ * the entire expenses tab white-screened for every member of the trip, leaving
+ * no UI with which to delete the offending row.
+ *
+ * `SUPPORTED_CURRENCIES` is the single source of truth, shared with the pickers,
+ * and admits only codes that the FX provider can price and that have 0 or 2
+ * decimal places. See shared/utils/currency.ts for why both constraints matter.
+ */
+export const currencyCodeSchema = z
+  .string()
+  .length(3)
+  .toUpperCase()
+  .refine(isSupportedCurrency, { message: "Unsupported currency" })
 
 // Not a strict enum — Google Places returns types like "museum", "cafe", "park", etc.
 export const activityTypeEnum = z.string().min(1)
@@ -57,7 +84,7 @@ export const createTripSchema = z.object({
   startDate: z.string().date(),
   endDate: z.string().date(),
   preferences: tripPreferencesSchema.optional(),
-  currencyCode: z.string().length(3).optional(),
+  currencyCode: currencyCodeSchema.optional(),
 })
 
 export const updateTripSchema = createTripSchema
@@ -218,6 +245,10 @@ export const splitModeEnum = z.enum(SPLIT_MODES)
 export const createExpenseSchema = z.object({
   description: z.string().min(1),
   amount: moneyString,
+  // Per-expense currency (#47). Absent means "the trip's currency" — the
+  // server resolves it, so a client that doesn't know about currencies yet
+  // keeps working. `amount` is what was actually paid and is never rewritten.
+  currencyCode: currencyCodeSchema.optional(),
   category: expenseCategoryEnum.optional(),
   activityId: z.string().uuid().nullish(),
   paidById: z.string().nullish(),
