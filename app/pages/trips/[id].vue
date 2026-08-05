@@ -848,11 +848,24 @@ watch(
       content: r.content,
       toolCallSummary: r.toolCallSummary,
       proposals: r.proposals,
-      // Restored proposals are shown as already-resolved (the dock hides
-      // dismissed cards). Applying a card from a previous session would re-run
-      // a change that was very likely already applied, duplicating activities —
-      // and nothing records which ones were. Non-actionable is the safe read.
-      proposalStates: Object.fromEntries(r.proposals.map((p) => [p.id, "dismissed" as const])),
+      // Three states, from the server, per proposal — this used to stamp every
+      // restored card "dismissed", which hid the Applied receipt and the Undo
+      // button along with it. `superseded` carries the guard that reasoning was
+      // really reaching for: a card whose day has changed since is shown, and
+      // explained, but not actionable.
+      //
+      // Note what is NOT restored: `proposalUndoable`. Undo posts a snapshot
+      // held in this page's memory (`useDayUndo`), so nothing applied in an
+      // earlier session can be undone and the dock must not offer it.
+      // The transcript row id — identical to the local id for a restored
+      // message, and filled in from the `done` frame for a live one.
+      serverId: r.id,
+      proposalStates: Object.fromEntries(
+        Object.entries(r.proposalStates).map(([pid, s]) => [pid, s.state]),
+      ),
+      proposalSuperseded: Object.fromEntries(
+        Object.entries(r.proposalStates).map(([pid, s]) => [pid, s.superseded]),
+      ),
       timestamp: new Date(r.createdAt).getTime(),
     }))
   },
@@ -998,6 +1011,9 @@ async function handleAiSubmit(text: string) {
             content: donePayload.message,
             toolCallSummary: donePayload.toolCallSummary,
             proposals,
+            // Absent when the turn wasn't persisted (refunded); the cards still
+            // work, their decisions just have nowhere to be remembered.
+            serverId: donePayload.messageId,
             proposalStates: Object.fromEntries(proposals.map((p) => [p.id, "pending" as const])),
           }))
         } else if (frame.event === "error") {
@@ -1069,6 +1085,47 @@ function setProposalState(
   })
 }
 
+/** The persisted transcript row behind a dock message, if it has one. */
+function serverMessageId(messageId: string): string | undefined {
+  return aiMessages.value.find((m) => m.id === messageId)?.serverId
+}
+
+/**
+ * Mark a proposal undoable for the rest of THIS page's life.
+ *
+ * Undo posts a snapshot that `useDayUndo` keeps in memory, so the offer is
+ * exactly as durable as this page: a reload leaves the Applied stamp (which is
+ * persisted) with no Undo beside it, and the dock says why instead of showing
+ * a button that would do nothing.
+ */
+function markProposalUndoable(messageId: string, proposalId: string) {
+  aiMessages.value = aiMessages.value.map((m) =>
+    m.id === messageId
+      ? { ...m, proposalUndoable: { ...m.proposalUndoable, [proposalId]: true } }
+      : m,
+  )
+}
+
+/**
+ * Persist a dismissal. Applies are recorded by the apply route itself, which is
+ * the only place that can read the day version the decision is watermarked
+ * with. Failure is swallowed on purpose: the card is already hidden locally and
+ * a toast about bookkeeping would be noise — the cost is that it comes back
+ * pending after a reload.
+ */
+async function persistDismissal(messageId: string, proposalId: string) {
+  const serverId = serverMessageId(messageId)
+  if (!serverId) return
+  try {
+    await $fetch(`/api/trips/${tripId}/chat/proposal-state`, {
+      method: "POST",
+      body: { messageId: serverId, proposalId, state: "dismissed" },
+    })
+  } catch {
+    /* ignore */
+  }
+}
+
 function friendlyApplyError(e: unknown): string {
   const msg = e instanceof Error ? e.message : ""
   if (/409/.test(msg))
@@ -1095,9 +1152,17 @@ async function applyOneProposal(
   try {
     const result = await $fetch<{ message?: string; enrichmentFailures?: number }>(
       `/api/trips/${tripId}/proposals/apply`,
-      { method: "POST", body: { proposal } },
+      {
+        method: "POST",
+        // The route records the apply against this row — including the day's
+        // new version, which it reads server-side — so the Applied stamp
+        // survives a reload and Undo can tell "nothing changed since" from
+        // "someone edited this day after you applied".
+        body: { proposal, chatMessageId: serverMessageId(messageId) },
+      },
     )
     setProposalState(messageId, proposal.id, "applied")
+    if (day) markProposalUndoable(messageId, proposal.id)
     return {
       ok: true as const,
       message: result.message,
@@ -1137,6 +1202,9 @@ async function handleAiApplyProposal(messageId: string, proposal: Proposal) {
 }
 
 async function handleAiApplyGroup(messageId: string, proposals: Proposal[]) {
+  // The dock filters out cards a later edit has superseded, so a group can
+  // arrive empty. Nothing to confirm and nothing to apply.
+  if (proposals.length === 0) return
   const dayIds = [...new Set(proposals.map((p) => p.dayId))]
   const hasRemove = proposals.some((p) => p.kind === "remove-activities")
   if (dayIds.length >= 3 || hasRemove) {
@@ -1182,11 +1250,12 @@ async function handleAiApplyGroup(messageId: string, proposals: Proposal[]) {
 }
 
 function handleAiDismissGroup(messageId: string, proposalIds: string[]) {
-  proposalIds.forEach((id) => setProposalState(messageId, id, "dismissed"))
+  proposalIds.forEach((id) => handleAiDismissProposal(messageId, id))
 }
 
 function handleAiDismissProposal(messageId: string, proposalId: string) {
   setProposalState(messageId, proposalId, "dismissed")
+  void persistDismissal(messageId, proposalId)
 }
 
 async function handleAiUndo(dayId: string) {
@@ -1195,6 +1264,11 @@ async function handleAiUndo(dayId: string) {
     if (ok) {
       await refresh()
       toastSuccess("Reverted.")
+    } else {
+      // No snapshot for this day in this page's memory. The dock only offers
+      // Undo where one exists, so reaching here means the offer and the store
+      // disagreed — say so rather than no-op silently.
+      toastError("Undo is only available until you leave the page.")
     }
   } catch {
     toastError("Couldn't undo. Please try again.")

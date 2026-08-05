@@ -93,6 +93,15 @@ export type DiscussSseEvent =
         proposals: Proposal[]
         toolCallSummary: string[]
         creditsUsed: number
+        /**
+         * The id of the transcript row this reply is stored as — assigned
+         * before the write so the client can name it. Apply/Dismiss are
+         * recorded against it, which is what lets a decision made now still be
+         * true after a refresh. Absent when the turn was not persisted (an
+         * aborted or refunded turn), in which case there is nothing to record
+         * against and the client must not try.
+         */
+        messageId?: string
       }
     }
   | { event: "error"; data: { message: string } }

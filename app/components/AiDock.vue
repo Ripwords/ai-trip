@@ -74,11 +74,31 @@ export type ChatRole = "user" | "assistant" | "system"
 
 export interface ChatMessage {
   id: string
+  /**
+   * The id of the persisted transcript row, when there is one. Apply/Dismiss
+   * are recorded against it; a message with none (a local system line, or a
+   * turn that was not persisted) simply has no state to remember.
+   */
+  serverId?: string
   role: ChatRole
   content: string
   toolCallSummary?: string[]
   proposals?: Proposal[]
   proposalStates?: Record<string, "pending" | "applying" | "applied" | "dismissed">
+  /**
+   * Proposals a later edit to their day has overtaken, from the server. A
+   * superseded card is shown but not actionable: applying it would re-run a
+   * suggestion made against an itinerary that has since moved on, and undoing
+   * it would restore a snapshot from before those later edits.
+   */
+  proposalSuperseded?: Record<string, boolean>
+  /**
+   * Proposals this browser session applied and still holds an undo snapshot
+   * for. Undo posts a snapshot captured in memory at apply time, so it is
+   * offered only where that snapshot really exists — never on a card restored
+   * from a previous session, where the button would do nothing at all.
+   */
+  proposalUndoable?: Record<string, boolean>
   timestamp: number
 }
 
@@ -289,6 +309,32 @@ function proposalState(
   return message.proposalStates?.[id] ?? "pending"
 }
 
+/** Has a later edit to this proposal's day overtaken it? */
+function isSuperseded(message: ChatMessage, id: string): boolean {
+  return message.proposalSuperseded?.[id] === true
+}
+
+/** A pending card is only actionable while nothing has landed after it. */
+function isActionable(message: ChatMessage, id: string): boolean {
+  return proposalState(message, id) === "pending" && !isSuperseded(message, id)
+}
+
+/**
+ * Undo needs BOTH: a snapshot in this session, and a day nobody has touched
+ * since. Either missing and the button is replaced by the reason, because a
+ * button that silently does nothing (no snapshot) or quietly discards a
+ * co-traveller's edits (superseded) is worse than no button.
+ */
+function canUndo(message: ChatMessage, id: string): boolean {
+  return message.proposalUndoable?.[id] === true && !isSuperseded(message, id)
+}
+
+function undoNote(message: ChatMessage, p: Proposal): string {
+  return isSuperseded(message, p.id)
+    ? `${dayBadge(p)} has changed since — undoing would discard those edits.`
+    : "Undo is only available until you leave the page."
+}
+
 function onApply(message: ChatMessage, proposal: Proposal) {
   emit("applyProposal", message.id, proposal)
 }
@@ -324,12 +370,19 @@ function dayBadge(p: Proposal): string {
   return props.dayLabels[p.dayId] ?? "This day"
 }
 
+/** Drives the group header — hidden once there is nothing left to act on. */
 function groupPending(msg: ChatMessage, g: ProposalGroup): boolean {
-  return g.proposals.some((p) => proposalState(msg, p.id) === "pending")
+  return g.proposals.some((p) => isActionable(msg, p.id))
 }
 
 function onApplyGroup(message: ChatMessage, g: ProposalGroup) {
-  emit("applyGroup", message.id, g.proposals)
+  // Only the cards that are still actionable: "Apply all" must not quietly
+  // re-run a superseded suggestion the user can no longer apply individually.
+  emit(
+    "applyGroup",
+    message.id,
+    g.proposals.filter((p) => isActionable(message, p.id)),
+  )
 }
 function onDismissGroup(message: ChatMessage, g: ProposalGroup) {
   emit(
@@ -544,9 +597,15 @@ const proposalKindMeta: Record<
                   >
                     <template v-if="proposalState(msg, p.id) === 'applied'">
                       <span class="dock-applied-stamp">Applied</span>
-                      <button type="button" class="dock-undo" @click="emit('undo', p.dayId)">
+                      <button
+                        v-if="canUndo(msg, p.id)"
+                        type="button"
+                        class="dock-undo"
+                        @click="emit('undo', p.dayId)"
+                      >
                         Undo
                       </button>
+                      <p v-else class="dock-note">{{ undoNote(msg, p) }}</p>
                     </template>
                     <template v-else>
                       <div
@@ -567,6 +626,16 @@ const proposalKindMeta: Record<
                         <h4 class="font-display text-[16px] leading-snug text-sand-900">
                           {{ p.summary }}
                         </h4>
+                        <!-- Never applied, and no longer safe to apply. Shown
+                             rather than hidden: the user should be able to see
+                             what was suggested and why it lapsed. -->
+                        <p
+                          v-if="isSuperseded(msg, p.id)"
+                          class="mt-1.5 text-[12px] leading-snug text-sand-600"
+                        >
+                          Not applied. {{ dayBadge(p) }} has changed since this was suggested — ask
+                          again for an up-to-date version.
+                        </p>
                         <div class="mt-2 flex items-center justify-end gap-2">
                           <button
                             type="button"
@@ -578,9 +647,19 @@ const proposalKindMeta: Record<
                           </button>
                           <button
                             type="button"
-                            :disabled="proposalState(msg, p.id) === 'applying'"
+                            :disabled="
+                              proposalState(msg, p.id) === 'applying' || isSuperseded(msg, p.id)
+                            "
+                            :title="
+                              isSuperseded(msg, p.id)
+                                ? `${dayBadge(p)} has changed since this was suggested`
+                                : undefined
+                            "
                             class="dock-apply"
-                            :class="p.kind === 'remove-activities' ? 'dock-apply-danger' : ''"
+                            :class="{
+                              'dock-apply-danger': p.kind === 'remove-activities',
+                              'dock-apply-stale': isSuperseded(msg, p.id),
+                            }"
                             @click="onApply(msg, p)"
                           >
                             <Icon name="lucide:sparkles" class="h-3.5 w-3.5" />
@@ -1043,6 +1122,21 @@ const proposalKindMeta: Record<
 }
 .dock-apply-danger {
   background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+}
+/* Disabled because it lapsed, not because it is working — `cursor: progress`
+   would promise it is about to happen. */
+.dock-apply-stale:disabled {
+  cursor: not-allowed;
+  background: var(--color-sand-300);
+  color: var(--color-sand-700);
+}
+
+/* The explanation that replaces an Undo button, or sits under a lapsed card. */
+.dock-note {
+  margin: 0 12px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-sand-600);
 }
 .dock-dismiss {
   font-size: 13px;

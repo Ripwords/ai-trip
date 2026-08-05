@@ -37,6 +37,25 @@ export const tripChatMessages = pgTable(
     toolCallSummary: jsonb("tool_call_summary").$type<string[]>().notNull().default([]),
     /** The proposal cards the turn produced, kept for the transcript record. */
     proposals: jsonb("proposals").$type<unknown[]>().notNull().default([]),
+    /**
+     * What the user decided about each proposal, keyed by proposal id:
+     * `{ "<proposal id>": { "state": "applied" | "dismissed", "dayVersion": "<iso>" } }`.
+     *
+     * Sparse on purpose — an absent key means "not acted on", so a fresh turn
+     * stores `{}` and a decision is only ever an addition. Without this the
+     * restore path had no way to tell an applied proposal from an untouched
+     * one and stamped every restored card "dismissed", which hid the `Applied`
+     * receipt and the Undo button along with the card.
+     *
+     * `dayVersion` is the target day's `itinerary_days.updated_at` at the moment the
+     * proposal was applied — the watermark that says whether a LATER edit has
+     * since superseded it. Written server-side from the same clock it is
+     * compared against; never taken from the client.
+     */
+    proposalStates: jsonb("proposal_states")
+      .$type<Record<string, { state: string; dayVersion?: string }>>()
+      .notNull()
+      .default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

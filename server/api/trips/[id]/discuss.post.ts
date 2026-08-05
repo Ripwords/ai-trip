@@ -369,6 +369,14 @@ export default defineEventHandler(async (event) => {
 
       const groupedProposals = stampGroup(proposalCollector, randomUUID())
 
+      // Assigned here rather than by the database, so `done` can carry it: the
+      // client needs a name for this transcript row to record Apply/Dismiss
+      // against, and the row itself is only written further down (deliberately
+      // after `done` ships). Sent only when this turn will actually be
+      // persisted — `streamedAny` is the same gate persistChatTurn applies —
+      // so the client never holds an id for a row that does not exist.
+      const assistantMessageId = randomUUID()
+
       await stream.push(
         toSseFrame({
           event: "done",
@@ -377,6 +385,7 @@ export default defineEventHandler(async (event) => {
             proposals: groupedProposals,
             toolCallSummary: toolLines,
             creditsUsed,
+            ...(streamedAny ? { messageId: assistantMessageId } : {}),
           },
         }),
       )
@@ -403,6 +412,7 @@ export default defineEventHandler(async (event) => {
         assistantContent: streamedAny ? final.message : "",
         toolCallSummary: toolLines,
         proposals: groupedProposals,
+        assistantMessageId,
         aborted: false,
       })
 

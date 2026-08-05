@@ -1,4 +1,13 @@
-import { pgTable, text, integer, date, uuid, index, doublePrecision } from "drizzle-orm/pg-core"
+import {
+  pgTable,
+  text,
+  integer,
+  date,
+  uuid,
+  index,
+  doublePrecision,
+  timestamp,
+} from "drizzle-orm/pg-core"
 import { relations } from "drizzle-orm"
 import { trips } from "./trips"
 import { activities } from "./activities"
@@ -24,6 +33,21 @@ export const itineraryDays = pgTable(
     accommodationAddress: text("accommodation_address"),
     accommodationLat: doublePrecision("accommodation_lat"),
     accommodationLng: doublePrecision("accommodation_lng"),
+    /**
+     * When this day last changed — the day row itself OR any of its activities,
+     * including deletions.
+     *
+     * Maintained by database triggers (migration 0043), NOT by application
+     * code. Neither this table nor `activities` had any timestamp before, and
+     * the alternative — bumping a column from every write path — is right until
+     * someone adds the eleventh path and forgets. It also cannot see a DELETE,
+     * and "an activity was removed" is exactly a change this must detect.
+     *
+     * Read as an opaque version token, not as "when the user was last here":
+     * its job is the ordering comparison that decides whether an AI proposal
+     * has been superseded by a later edit, from any trip member.
+     */
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("idx_itinerary_days_trip_id").on(table.tripId),
