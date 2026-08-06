@@ -14,6 +14,7 @@ const tripSettingsSheetSource = read("./components/TripSettingsSheet.vue")
 const countryDetailPanelSource = read("./components/CountryDetailPanel.vue")
 const tripOverviewSource = read("./components/TripOverview.vue")
 const dockAnchorSource = read("./utils/dock-anchor.ts")
+const tripPageSource = read("./pages/trips/[id].vue")
 
 /**
  * The mobile half of AiDock.vue's stylesheet — everything inside the
@@ -199,6 +200,82 @@ describe("AI dock (mobile full-screen layer)", () => {
       aiDockSource,
       /window\.scrollTo\(0,\s*y\)/,
       "closing must put the page back where the user opened the dock",
+    )
+  })
+
+  it("REGRESSION (#78 follow-up): takes the trip page out of layout while the layer is open", () => {
+    // #78 stopped the composer hiding BEHIND the keyboard and immediately
+    // exposed the opposite failure: on iOS 26 the composer came to rest ~190px
+    // ABOVE the accessory bar. That is an overshoot, and it is a direct
+    // consequence of the (correct) removal of the mobile scroll lock. iOS was
+    // finally allowed to scroll the focused composer into view — but the
+    // document still contained the whole trip page underneath an `absolute`
+    // layer, so there were thousands of pixels of scroll range available and
+    // nothing capping how far the scroll-into-view could travel.
+    //
+    // The cap is structural: while the mobile layer is open the document must
+    // be EXACTLY one viewport tall, so the only movement available is the
+    // keyboard's own offset. Anything that puts scrollable room back under the
+    // layer brings the overshoot back with it.
+    const mobile = mobileDockCss(aiDockSource)
+    assert.match(
+      mobile,
+      /html\.dock-page-collapsed \[data-dock-page-content\]/,
+      "the collapse must be gated on both the html flag and the compact media query",
+    )
+    assert.match(mobile, /html\.dock-page-collapsed \[data-dock-page-content\] \{[^}]*height:\s*0/)
+    assert.match(
+      mobile,
+      /html\.dock-page-collapsed \[data-dock-page-content\] \{[^}]*overflow:\s*hidden/,
+      "height alone still lets the content expand its ancestors",
+    )
+    assert.doesNotMatch(
+      mobile,
+      /html\.dock-page-collapsed \[data-dock-page-content\] \{[^}]*display:\s*none/,
+      "display:none would zero the map's own box and force it to re-render on close",
+    )
+    // The page content must stay MOUNTED — `v-if` would destroy the trip
+    // page's state and refetch it every time the dock is closed.
+    assert.doesNotMatch(
+      code(tripPageSource),
+      /v-if="[^"]*dockOpen|v-if="[^"]*dockExpanded/,
+      "the page is taken out of LAYOUT, never out of the component tree",
+    )
+    assert.match(
+      tripPageSource,
+      /data-dock-page-content/,
+      "the trip page must mark the wrapper the dock collapses",
+    )
+    assert.match(
+      code(aiDockSource),
+      /classList\.toggle\(\s*DOCK_PAGE_COLLAPSED_CLASS,\s*expanded\.value && isCompact\.value,?\s*\)/,
+      "collapse only while open AND below 768px — the desktop side panel coexists with a scrollable page by design",
+    )
+    assert.match(
+      code(aiDockSource),
+      /classList\.remove\(DOCK_PAGE_COLLAPSED_CLASS\)/,
+      "an unmount mid-conversation must not leave the page collapsed forever",
+    )
+  })
+
+  it("saves the scroll offset before the collapse and restores it after the page is back", () => {
+    // Ordering is load-bearing in both directions:
+    //  - opening: taking the page out of layout clamps `window.scrollY` to 0,
+    //    so the offset has to be read BEFORE the flag is set or it is clobbered;
+    //  - closing: `scrollTo` is clamped to the document's height, so it has to
+    //    run AFTER the page is measurable again or it silently lands on 0.
+    const body = code(aiDockSource)
+    const save = body.indexOf("restoreScrollY = window.scrollY")
+    const collapseOnOpen = body.indexOf("syncPageCollapse()", save)
+    assert.ok(save > -1 && collapseOnOpen > -1, "expected the open path to save then collapse")
+    assert.ok(save < collapseOnOpen, "the scroll offset must be read before the page leaves layout")
+
+    const restore = body.indexOf("nextTick(() => window.scrollTo(0, y))")
+    assert.ok(restore > -1, "the restore must be deferred until the page is back in layout")
+    const uncollapseOnClose = body.lastIndexOf("syncPageCollapse()", restore)
+    assert.ok(
+      uncollapseOnClose > collapseOnOpen,
+      "the close path must put the page back in layout before restoring scroll",
     )
   })
 

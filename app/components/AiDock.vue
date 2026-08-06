@@ -181,6 +181,10 @@ const isCompact = ref(true)
 let compactQuery: MediaQueryList | null = null
 function syncCompact(e: MediaQueryList | MediaQueryListEvent) {
   isCompact.value = e.matches
+  // A rotation across the breakpoint mid-conversation swaps the layer for the
+  // side panel (or back); the page collapse has to follow it, or the desktop
+  // panel would be left sitting on a page that has no height.
+  syncPageCollapse()
 }
 
 // Scroll lock: DESKTOP ONLY, deliberately.
@@ -204,6 +208,33 @@ useBodyScrollLock(() => expanded.value && !isCompact.value)
 const anchorTop = ref(0)
 let restoreScrollY: number | null = null
 
+// ── Collapsing the document to one viewport (mobile only) ───────────
+// #78 let iOS scroll the focused composer into view again (the mobile scroll
+// lock was what had been preventing it). It then overshot by ~190px on iOS 26,
+// parking the composer well ABOVE the accessory bar: the layer is `absolute`
+// over a document that still contained the whole trip page, so there were
+// thousands of pixels of scroll range and nothing capping how far the
+// scroll-into-view could travel.
+//
+// The cap has to be structural. While the layer is open the trip page is taken
+// OUT OF LAYOUT — `height: 0; overflow: hidden` on its wrapper — so the
+// document is exactly one viewport tall and the only movement left is the
+// keyboard's own offset. Do not put scrollable room back underneath the layer.
+//
+// Out of layout, not out of the tree: the wrapper keeps its box clipped rather
+// than removed, so every component inside stays mounted with its state, and
+// (unlike `display: none`) their own boxes keep their sizes — the Google map
+// never sees a 0x0 container and so never has to re-render on close.
+const DOCK_PAGE_COLLAPSED_CLASS = "dock-page-collapsed"
+
+function syncPageCollapse() {
+  if (!import.meta.client) return
+  document.documentElement.classList.toggle(
+    DOCK_PAGE_COLLAPSED_CLASS,
+    expanded.value && isCompact.value,
+  )
+}
+
 const layerStyle = computed<CSSProperties>(() =>
   isCompact.value ? { "--dock-anchor-top": `${anchorTop.value}px` } : {},
 )
@@ -221,19 +252,29 @@ watch(expanded, (open) => {
   if (!import.meta.client) return
   if (open) {
     if (!isCompact.value) return
-    // Set before the element renders (pre-flush) so the layer's first paint is
-    // already in the right place, then refine once its offset parent is known.
+    // Read the scroll offset FIRST: collapsing the page shrinks the document to
+    // one viewport, which clamps `window.scrollY` to 0 — save it afterwards and
+    // there is nothing left to save.
     restoreScrollY = window.scrollY
-    anchorTop.value = window.scrollY
+    syncPageCollapse()
+    // With the page out of layout the document starts at 0, so the layer sits
+    // at the document origin. Set pre-flush so its first paint is already in
+    // the right place, then re-derive once the collapse has been laid out and
+    // the layer's offset parent is known.
+    anchorTop.value = 0
     nextTick(measureAnchor)
     // (Closing is handled below without the compact check, so a rotation to the
     // side panel mid-conversation cannot strand a saved scroll position.)
-  } else if (restoreScrollY !== null) {
-    // Closing. The keyboard may have scrolled the document down to reveal the
-    // composer; put the trip page back where the user left it.
-    const y = restoreScrollY
-    restoreScrollY = null
-    window.scrollTo(0, y)
+  } else {
+    // Closing. Put the page back in layout first — `scrollTo` is clamped to the
+    // document's height, so restoring while it is still one viewport tall would
+    // quietly land on 0 and lose the user's place.
+    syncPageCollapse()
+    if (restoreScrollY !== null) {
+      const y = restoreScrollY
+      restoreScrollY = null
+      nextTick(() => window.scrollTo(0, y))
+    }
   }
 })
 
@@ -296,7 +337,13 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   compactQuery?.removeEventListener("change", syncCompact)
-  if (import.meta.client) window.removeEventListener("resize", followKeyboard)
+  if (import.meta.client) {
+    window.removeEventListener("resize", followKeyboard)
+    // The flag lives on <html>, outside this component's tree, so unmounting
+    // while open (switching tabs, leaving the trip) would otherwise leave the
+    // page permanently collapsed.
+    document.documentElement.classList.remove(DOCK_PAGE_COLLAPSED_CLASS)
+  }
   if (keyboardScrollTimer) clearTimeout(keyboardScrollTimer)
   if (realignTimer) clearTimeout(realignTimer)
 })
@@ -1021,9 +1068,17 @@ const proposalKindMeta: Record<
     border-radius: 0;
     padding-top: env(safe-area-inset-top, 0px);
     /* Bleed the layer's own background one viewport further down, as a shadow
-       so it costs no layout and no scroll range. If iOS overscrolls a little
-       past the composer while revealing it, what shows below the layer is more
-       layer — not a strip of trip page. */
+       so it costs no layout and no scroll range.
+
+       The overshoot it was originally added to hide is gone — the document is
+       now exactly one viewport tall while the layer is open (see the global
+       block below), so there is no page left underneath to be scrolled into
+       view. One case does survive that: iOS rubber-band overscroll. Elastic
+       bounce at the bottom edge happens even on a document that cannot
+       actually scroll, and it lifts the layer off the bottom of the screen for
+       the length of the gesture. Without the bleed that exposes the html
+       background under the composer. `box-shadow` never contributes scrollable
+       overflow, so keeping it cannot reintroduce the room this fix removes. */
     box-shadow:
       0 -24px 56px -20px rgba(61, 51, 40, 0.3),
       0 100dvh 0 0 var(--color-sand-50);
@@ -1586,6 +1641,47 @@ const proposalKindMeta: Record<
     color: var(--color-sand-700);
     -webkit-text-fill-color: var(--color-sand-700);
     background: none;
+  }
+}
+</style>
+
+<!-- Deliberately NOT scoped: the element this collapses belongs to the page
+     that hosts the dock, not to the dock. -->
+<style>
+/* ── The document-height cap ────────────────────────────────────────
+   #78 made the mobile dock a full-screen layer in normal flow and removed the
+   mobile scroll lock, which is what finally let iOS scroll the focused
+   composer into view. It then overshot: on iOS 26 the composer came to rest
+   about 190px ABOVE the keyboard's accessory bar, with a band of empty layer
+   between them.
+
+   That is what "scroll the input into view" does when there is far more
+   document to scroll than one keyboard's worth. The layer is `position:
+   absolute` over a document that still contained the entire trip page —
+   thousands of pixels of scroll range — and nothing constrained how far the
+   browser could travel through it.
+
+   So constrain it structurally: while the layer is open, the trip page comes
+   out of layout and the document is exactly one viewport tall. The only
+   movement iOS can then perform is the keyboard's own offset, and the composer
+   lands flush on the keyboard. Anything that puts scrollable room back
+   underneath the layer brings the overshoot back with it.
+
+   `height: 0; overflow: hidden` rather than `display: none`, for two reasons:
+     - the clipped subtree keeps its own layout, so the Google map inside it
+       never sees a 0x0 container and never has to re-render when the dock
+       closes (`display: none` would collapse it and every other measured box);
+     - it is one declaration pair on one wrapper, so nothing about the page's
+       structure has to change to accommodate it.
+   Either way the components stay MOUNTED — this is not `v-if`, so no state,
+   no in-flight request and no scroll position inside the page is destroyed.
+
+   >=768px is untouched by construction: the side panel does not cover the page
+   and is meant to coexist with a scrollable one. */
+@media (max-width: 767px) {
+  html.dock-page-collapsed [data-dock-page-content] {
+    height: 0;
+    overflow: hidden;
   }
 }
 </style>
