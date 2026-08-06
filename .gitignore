@@ -28,3 +28,6 @@ logs
 
 # Vercel
 .vercel
+
+# Playwright e2e artefacts
+tests/e2e/screenshots/

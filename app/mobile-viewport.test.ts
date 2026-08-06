@@ -103,7 +103,60 @@ describe("AI dock (mobile full-screen layer)", () => {
       [],
       "the dock must use dvh so browser chrome cannot push the composer off-screen",
     )
-    assert.match(mobileDockCss(aiDockSource), /height:\s*100dvh/, "the layer fills the viewport")
+    assert.match(
+      mobileDockCss(aiDockSource),
+      /height:\s*var\(--dock-viewport-height,\s*100dvh\)/,
+      "the layer fills the VISIBLE viewport, falling back to dvh before JS runs",
+    )
+  })
+
+  it("REGRESSION (#79 follow-up): the layer is as tall as the visible strip, not the screen", () => {
+    // #79 capped the document at one viewport, which removed #78's overshoot
+    // and produced the opposite failure: with no scroll range left, nothing
+    // moved the composer at all and the keyboard simply covered it.
+    //
+    // Both failures come from the same thing — the layer being a fixed
+    // `100dvh` regardless of what is actually visible. `dvh` does not shrink
+    // for the virtual keyboard on iOS (it tracks retractable browser chrome),
+    // so the composer, as the last flow child, sits at the SCREEN's bottom.
+    // Sizing the layer to `visualViewport.offsetTop + visualViewport.height`
+    // puts its bottom edge on the visible region's bottom edge instead, and
+    // the composer lands on the keyboard by ordinary block layout.
+    assert.match(
+      code(aiDockSource),
+      /viewportHeight\.value = Math\.round\(vv\.offsetTop \+ vv\.height\)/,
+      "the published height is the visible region's bottom edge",
+    )
+    assert.match(
+      code(aiDockSource),
+      /"--dock-viewport-height"\]\s*=\s*`\$\{viewportHeight\.value\}px`/,
+      "published as a custom property, so it cannot reach a md: rule",
+    )
+    // iOS announces the keyboard on the visual viewport ONLY: `innerHeight`
+    // does not change and no `resize` fires on `window`.
+    assert.match(
+      code(aiDockSource),
+      /window\.visualViewport\?\.addEventListener\("resize", onVisualViewportChange\)/,
+    )
+    assert.match(
+      code(aiDockSource),
+      /window\.visualViewport\?\.addEventListener\("scroll", onVisualViewportChange\)/,
+      "the visual viewport can move without changing size",
+    )
+    assert.match(
+      code(aiDockSource),
+      /window\.visualViewport\?\.removeEventListener\("resize", onVisualViewportChange\)/,
+      "and it must be torn down",
+    )
+    // Pinch-zoom shrinks the same number and must not resize the layer.
+    assert.match(code(aiDockSource), /vv\.scale > MAX_TRACKED_SCALE/)
+    // The document must shrink with the layer, or the removed scroll range —
+    // and with it #78's overshoot — comes back.
+    assert.doesNotMatch(
+      mobileDockCss(aiDockSource),
+      /min-height:\s*100dvh/,
+      "a min-height floor would keep the document screen-tall",
+    )
   })
 
   it("REGRESSION (#75/#76/#77): the mobile dock is never `position: fixed`", () => {
@@ -128,22 +181,38 @@ describe("AI dock (mobile full-screen layer)", () => {
     assert.match(classes, /md:fixed/, "the >=768px side panel keeps its fixed positioning")
   })
 
-  it("REGRESSION (#75/#76/#77): no visualViewport-derived positioning anywhere", () => {
+  it("REGRESSION (#75/#76/#77): no visualViewport-derived POSITIONING anywhere", () => {
     // Root cause 2, and the reason "measure it more precisely" cannot work:
     // iOS's floating accessory bar (the ^ / v / Done pill) is NOT part of
     // `visualViewport.height`. A sheet anchored exactly to the visual
     // viewport's bottom edge still stops above the pill and leaves a visible
-    // strip of page. The edge the fixes were aiming at is not reachable through
-    // that API, so the dock no longer reads it.
+    // strip of page. The edge those fixes were aiming at is not reachable
+    // through that API.
+    //
+    // The layer's HEIGHT may come from the visual viewport (see the #79
+    // follow-up above) — a height on an in-flow box is not subject to the
+    // fixed-position degradation that broke those attempts, and an in-flow
+    // composer is scrolled and padded by the browser, accessory bar included.
+    // Its POSITION may not: the only coordinate the layer is placed at is a
+    // document scroll offset.
     assert.doesNotMatch(
       code(aiDockSource),
-      /visualViewport|useKeyboardInset|resolveDockSheetGeometry/,
-      "the dock must not position itself from the visual viewport",
+      /useKeyboardInset|resolveDockSheetGeometry/,
+      "the abandoned viewport-pinning machinery must not come back",
     )
-    assert.doesNotMatch(code(dockAnchorSource), /visualViewport/)
+    assert.doesNotMatch(
+      code(dockAnchorSource),
+      /visualViewport/,
+      "the document anchor is computed from scroll position alone",
+    )
+    assert.doesNotMatch(
+      mobileDockCss(aiDockSource),
+      /(top|bottom|transform):[^;]*--dock-viewport/,
+      "the visual viewport may size the layer, never place it",
+    )
     assert.match(
       aiDockSource,
-      /resolveDockAnchorTop\(\{\s*scrollY:\s*window\.scrollY/,
+      /resolveDockAnchorTop\(\{\s*\n?\s*scrollY:\s*collapsed \? 0 : window\.scrollY/,
       "the layer's only coordinate is a document scroll offset",
     )
     // The reasoning has to stay written down, or attempt #5 gets attempted.
@@ -360,15 +429,22 @@ describe("AI dock (mobile full-screen layer)", () => {
     // so it cannot beat a `md:` utility class the way an inline `top` would.
     const mobile = mobileDockCss(aiDockSource)
     assert.match(mobile, /position:\s*absolute/)
-    assert.match(mobile, /height:\s*100dvh/)
+    assert.match(mobile, /height:\s*var\(--dock-viewport-height,\s*100dvh\)/)
     const inlineStyle = aiDockSource.match(
-      /const layerStyle = computed<CSSProperties>\([\s\S]*?\)\n/,
+      /const layerStyle = computed<CSSProperties>\(\(\) => \{[\s\S]*?\n\}\)\n/,
     )
     assert.ok(inlineStyle, "expected the layer's inline style to be a single computed")
     assert.match(
       inlineStyle[0],
-      /isCompact\.value \? \{ "--dock-anchor-top": [\s\S]*?\} : \{\}/,
+      /if \(!isCompact\.value\) return \{\}/,
       "the desktop panel must receive no inline geometry at all",
+    )
+    // Both custom properties are read only from inside the compact-only media
+    // query, so neither can beat a `md:` utility class.
+    assert.match(
+      code(aiDockSource),
+      /if \(!vv \|\| !expanded\.value \|\| !isCompact\.value/,
+      "the visible-height tracking is compact-only too",
     )
     assert.match(aiDockSource, /md:top-4/)
     assert.match(aiDockSource, /md:bottom-4/)

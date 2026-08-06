@@ -185,6 +185,7 @@ function syncCompact(e: MediaQueryList | MediaQueryListEvent) {
   // side panel (or back); the page collapse has to follow it, or the desktop
   // panel would be left sitting on a page that has no height.
   syncPageCollapse()
+  syncViewportHeight()
 }
 
 // Scroll lock: DESKTOP ONLY, deliberately.
@@ -235,9 +236,59 @@ function syncPageCollapse() {
   )
 }
 
-const layerStyle = computed<CSSProperties>(() =>
-  isCompact.value ? { "--dock-anchor-top": `${anchorTop.value}px` } : {},
-)
+// ── The layer's height follows the VISIBLE viewport (mobile only) ───
+// #79 removed the overshoot and left the opposite failure: nothing moved the
+// composer at all. Both follow from the same thing — the layer being a fixed
+// `100dvh` regardless of what is actually visible. `100dvh` does not shrink for
+// the virtual keyboard on iOS (`dvh` tracks retractable browser chrome, not the
+// keyboard), so the layer stays screen-tall, its last flow child — the composer
+// — sits at the SCREEN's bottom, and the keyboard covers it. With the document
+// capped at one viewport there is no scroll range left for iOS to reveal it
+// with either, so it just stays there.
+//
+// So the layer stops being screen-tall and becomes visible-strip-tall:
+// `visualViewport.offsetTop + visualViewport.height`, i.e. its bottom edge is
+// the visible region's bottom edge. The composer, still just the last flow
+// child, lands on top of the keyboard by ordinary block layout.
+//
+// Yes, this reads `visualViewport` again, which #75/#77 did. The difference is
+// what it feeds: this is the HEIGHT of an element in normal document flow, not
+// the POSITION of a `position: fixed` one. Those attempts failed because iOS
+// stops honouring fixed positioning while the keyboard is up (fixed elements
+// degrade toward static), so their corrections were applied in a coordinate
+// space Safari had abandoned. Nothing here is pinned to a viewport edge: the
+// layer is still `position: absolute` at a DOCUMENT coordinate, and heights of
+// in-flow boxes are not subject to that degradation. And because the document
+// is exactly as tall as the layer, shrinking the layer shrinks the document
+// with it — so the scroll range stays zero and #78's overshoot cannot return.
+const viewportHeight = ref<number | null>(null)
+
+/**
+ * Pinch-zoom also shrinks `visualViewport.height`. Above this scale the reading
+ * is a zoom, not a keyboard, and resizing the layer for it would be wrong.
+ */
+const MAX_TRACKED_SCALE = 1.05
+
+function syncViewportHeight() {
+  if (!import.meta.client) return
+  const vv = window.visualViewport
+  if (!vv || !expanded.value || !isCompact.value || vv.scale > MAX_TRACKED_SCALE) {
+    // Null drops the custom property entirely, so the stylesheet's `100dvh`
+    // fallback applies — the desktop panel and the closed state are untouched.
+    viewportHeight.value = null
+    return
+  }
+  viewportHeight.value = Math.round(vv.offsetTop + vv.height)
+}
+
+const layerStyle = computed<CSSProperties>(() => {
+  if (!isCompact.value) return {}
+  const style: CSSProperties = { "--dock-anchor-top": `${anchorTop.value}px` }
+  if (viewportHeight.value !== null) {
+    style["--dock-viewport-height"] = `${viewportHeight.value}px`
+  }
+  return style
+})
 
 /** Re-derive the anchor once the layer is in the DOM and its offset parent known. */
 function measureAnchor() {
@@ -245,7 +296,20 @@ function measureAnchor() {
   if (!el) return
   const parent = el.offsetParent as HTMLElement | null
   const containingBlockTop = parent ? parent.getBoundingClientRect().top + window.scrollY : 0
-  anchorTop.value = resolveDockAnchorTop({ scrollY: window.scrollY, containingBlockTop })
+  // While the page is collapsed the document IS the layer, so 0 is the only
+  // scroll offset it can have — and the anchor must be derived from that, not
+  // from a live `window.scrollY` reading. Chromium had not finished clamping
+  // the old offset by the time this ran, so the layer was anchored 456px down,
+  // which made the document 456px TALLER than the viewport and handed back
+  // exactly the scroll range the collapse exists to remove. (WebKit clamps
+  // synchronously and read 0, so the two engines disagreed.) Anchoring at 0 is
+  // self-correcting: the document then cannot be taller than one viewport, so
+  // nothing — not a focus scroll, not a scroll-into-view — can move it.
+  const collapsed = document.documentElement.classList.contains(DOCK_PAGE_COLLAPSED_CLASS)
+  anchorTop.value = resolveDockAnchorTop({
+    scrollY: collapsed ? 0 : window.scrollY,
+    containingBlockTop,
+  })
 }
 
 watch(expanded, (open) => {
@@ -257,11 +321,19 @@ watch(expanded, (open) => {
     // there is nothing left to save.
     restoreScrollY = window.scrollY
     syncPageCollapse()
+    // Collapsing the page SHOULD clamp `scrollY` to 0 — but only WebKit does it
+    // synchronously. Chromium leaves the old offset in place long enough for
+    // `measureAnchor` to read it, which anchors the layer at (say) 456px, makes
+    // the document 456 + 100dvh tall and hands the scroll range back that the
+    // collapse exists to remove. While the layer is open the document is the
+    // layer, so 0 is the only correct scroll offset: say so rather than hoping.
+    window.scrollTo(0, 0)
     // With the page out of layout the document starts at 0, so the layer sits
     // at the document origin. Set pre-flush so its first paint is already in
     // the right place, then re-derive once the collapse has been laid out and
     // the layer's offset parent is known.
     anchorTop.value = 0
+    syncViewportHeight()
     nextTick(measureAnchor)
     // (Closing is handled below without the compact check, so a rotation to the
     // side panel mid-conversation cannot strand a saved scroll position.)
@@ -270,6 +342,7 @@ watch(expanded, (open) => {
     // document's height, so restoring while it is still one viewport tall would
     // quietly land on 0 and lose the user's place.
     syncPageCollapse()
+    syncViewportHeight()
     if (restoreScrollY !== null) {
       const y = restoreScrollY
       restoreScrollY = null
@@ -333,12 +406,26 @@ onMounted(() => {
   // Orientation changes and (on Android) the layout viewport shrinking for the
   // keyboard both arrive as a plain resize.
   window.addEventListener("resize", followKeyboard)
+  window.addEventListener("resize", syncViewportHeight)
+  // iOS announces the keyboard ONLY here: `innerHeight` does not change and no
+  // `resize` fires on `window`. `scroll` too, because the visual viewport can
+  // move without changing size.
+  window.visualViewport?.addEventListener("resize", onVisualViewportChange)
+  window.visualViewport?.addEventListener("scroll", onVisualViewportChange)
 })
+
+function onVisualViewportChange() {
+  syncViewportHeight()
+  followKeyboard()
+}
 
 onBeforeUnmount(() => {
   compactQuery?.removeEventListener("change", syncCompact)
   if (import.meta.client) {
     window.removeEventListener("resize", followKeyboard)
+    window.removeEventListener("resize", syncViewportHeight)
+    window.visualViewport?.removeEventListener("resize", onVisualViewportChange)
+    window.visualViewport?.removeEventListener("scroll", onVisualViewportChange)
     // The flag lives on <html>, outside this component's tree, so unmounting
     // while open (switching tabs, leaving the trip) would otherwise leave the
     // page permanently collapsed.
@@ -1062,7 +1149,17 @@ const proposalKindMeta: Record<
     top: var(--dock-anchor-top, 0px);
     left: 0;
     right: 0;
-    height: 100dvh;
+    /* The VISIBLE strip, not the screen. `--dock-viewport-height` is
+       `visualViewport.offsetTop + visualViewport.height`, published by the
+       component while the layer is open (see `syncViewportHeight`); with the
+       keyboard down that equals `100dvh`, and with it up the layer's bottom
+       edge is the keyboard's top edge, so the composer — the last child of the
+       flex column — lands on the keyboard by plain block layout.
+
+       This is a HEIGHT on an in-flow box, not the position of a fixed one:
+       iOS's fixed-position degradation (the thing that broke #75/#76/#77) has
+       no purchase on it. The fallback keeps the pre-JS/SSR paint full-screen. */
+    height: var(--dock-viewport-height, 100dvh);
     /* A full-screen layer has no top edge on show, so rounding it would only
        frame a sliver of nothing. Square, and pad past the notch instead. */
     border-radius: 0;
