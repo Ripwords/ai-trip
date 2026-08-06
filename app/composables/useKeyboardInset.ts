@@ -30,7 +30,14 @@ import { onMounted, onUnmounted, ref } from "vue"
  *
  * Instead the keyboard is treated as a binary open/closed state: the transition
  * is committed once, promptly, and the consumer animates to the settled target
- * with its own CSS transition (see `LIFT_MS`).
+ * with its own CSS transition (`--dock-lift-ms` in AiDock.vue).
+ *
+ * What the consumer does with the number is its business, but note the frame it
+ * is expressed in: `innerHeight - visualHeight - offsetTop` is the distance
+ * from the LAYOUT viewport's bottom edge to the visual viewport's bottom edge.
+ * That is the right quantity for `bottom`, and the wrong one for a `transform`
+ * on a `position: fixed` element on iOS, which Safari offsets by `offsetTop` a
+ * second time. See `useDockSheetGeometry.ts`.
  */
 
 /**
@@ -100,13 +107,6 @@ export function resolveKeyboardInset(s: ViewportSample): number {
 }
 
 /**
- * How long the consumer's CSS transition runs. Kept here only to time the
- * `settling` flag (which exists so `will-change` can be dropped again); the
- * authoritative duration is the CSS one in AiDock.vue — keep them in step.
- */
-export const LIFT_MS = 250
-
-/**
  * Quiet period that ends a burst of `visualViewport` events. Short enough that
  * a trailing correction lands inside the lift animation, long enough that a
  * burst resolves to a single target. Note this never delays the *start* of the
@@ -131,16 +131,9 @@ export function useKeyboardInset() {
   const inset = ref(0)
   /** Usable height in CSS pixels (the visual viewport), once settled. */
   const viewportHeight = ref(0)
-  /**
-   * True from a committed change until the consumer's transition should have
-   * finished. Consumers use it to add `will-change` for the duration of the
-   * motion only, rather than parking a compositor hint on the sheet forever.
-   */
-  const settling = ref(false)
 
   let composerFocused: boolean | null = null
   let trailingTimer: ReturnType<typeof setTimeout> | null = null
-  let settleTimer: ReturnType<typeof setTimeout> | null = null
   let blurTimer: ReturnType<typeof setTimeout> | null = null
 
   function read(): ViewportSample | null {
@@ -156,17 +149,8 @@ export function useKeyboardInset() {
   }
 
   function commit(next: number, usable: number) {
-    const moved = Math.abs(next - inset.value) > 1 || Math.abs(usable - viewportHeight.value) > 1
     inset.value = next
     viewportHeight.value = usable
-    if (!moved) return
-
-    settling.value = true
-    if (settleTimer) clearTimeout(settleTimer)
-    settleTimer = setTimeout(() => {
-      settling.value = false
-      settleTimer = null
-    }, LIFT_MS + 60)
   }
 
   function clearTrailing() {
@@ -254,9 +238,8 @@ export function useKeyboardInset() {
     document.removeEventListener("focusin", onFocusIn)
     document.removeEventListener("focusout", onFocusOut)
     clearTrailing()
-    if (settleTimer) clearTimeout(settleTimer)
     if (blurTimer) clearTimeout(blurTimer)
   })
 
-  return { inset, viewportHeight, settling }
+  return { inset, viewportHeight }
 }
