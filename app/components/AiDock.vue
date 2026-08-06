@@ -179,7 +179,14 @@ useBodyScrollLock(() => expanded.value)
 // Lift the sheet by the measured keyboard inset and size it against the visual
 // viewport instead. On Android the inset is ~0 and this reduces to the dvh
 // behaviour it replaces.
-const { inset: keyboardInset, viewportHeight } = useKeyboardInset()
+//
+// The lift is ANIMATED, not sampled. `useKeyboardInset` publishes a settled
+// target rather than every `visualViewport` reading, and the sheet transitions
+// to it in CSS (`--dock-lift` -> `translate3d`, see the stylesheet). Restyling
+// on every event made the sheet step through whatever coarse, irregular frames
+// iOS chose to report — different every time, which is what "not smooth and not
+// consistent" was.
+const { inset: keyboardInset, viewportHeight, settling: liftSettling } = useKeyboardInset()
 
 // Above `md` the dock is a right-anchored side panel positioned entirely by
 // utility classes (md:top-4 / md:bottom-4 / md:max-h-…). Inline styles would
@@ -197,27 +204,75 @@ onMounted(() => {
 })
 onBeforeUnmount(() => compactQuery?.removeEventListener("change", syncCompact))
 
-const sheetStyle = computed(() => {
-  if (!isCompact.value) return {}
+// The lift travels on `--dock-lift` rather than on `bottom`, for two reasons.
+// It resolves to a `translate3d` the compositor can run without laying the
+// sheet out again — `bottom` forced layout + paint on every keyboard frame. And
+// it composes with the sheet's own open/close slide, which owns `transform`
+// outright; an inline `transform` would have beaten those classes and killed
+// the entrance animation.
+//
+// At rest there is nothing to size: `max-h-[70dvh] min-h-[50dvh]` on the
+// element do the work, and the only inline value is the safe-area pad.
+const sheetStyle = computed<Record<string, string>>(() => {
+  const none: Record<string, string> = {}
+  if (!isCompact.value) return none
 
   const usable = viewportHeight.value || 0
   const lifted = keyboardInset.value > 0
 
+  if (!lifted) {
+    return {
+      "--dock-lift": "0px",
+      // The pad is only wanted when the sheet is actually resting on the screen
+      // edge — with the keyboard up it already covers the home-indicator area.
+      paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.5rem)",
+    }
+  }
+
   return {
-    bottom: lifted ? `${keyboardInset.value}px` : "0px",
+    "--dock-lift": `-${keyboardInset.value}px`,
     // With the keyboard up, every pixel counts: drop the 50dvh floor so the
     // sheet can shrink to whatever is left, and cap it to the visible strip.
-    maxHeight: usable > 0 ? `${Math.round(usable * (lifted ? 0.92 : 0.7))}px` : "70dvh",
-    minHeight: lifted ? "0px" : "50dvh",
-    // The keyboard already occupies the home-indicator area, so the safe-area
-    // pad is only wanted when the sheet is actually resting on the screen edge.
-    paddingBottom: lifted ? "0.5rem" : "calc(env(safe-area-inset-bottom, 0px) + 0.5rem)",
+    //
+    // Height is the part that CANNOT be a compositor property: the sheet is
+    // pinned to the bottom and grows upward, so if it kept its resting height
+    // while lifting, its header would leave the top of the screen. So it is
+    // transitioned on the SAME duration and curve as the lift instead of being
+    // left to jump — one coherent motion of both edges rather than a
+    // compositor-smooth bottom edge racing a stepping top edge. It costs a
+    // main-thread relayout per frame for 250ms, but only on the two commits per
+    // keyboard event, not on the dozen readings iOS emits.
+    maxHeight: usable > 0 ? `${Math.round(usable * 0.92)}px` : "70dvh",
+    minHeight: "0px",
+    paddingBottom: "0.5rem",
   }
 })
 
 // Keep the newest message in view as the keyboard opens and the sheet shrinks.
-watch(keyboardInset, () => {
-  if (expanded.value && !userScrolledUp.value) nextTick(() => scrollToBottom(false))
+// Throttled: leading so the list follows the lift straight away, trailing so it
+// lands again once the transition has settled on its final height. (The scroll
+// policy itself — the bottom threshold, the user-intent flag — is untouched.)
+const KEYBOARD_SCROLL_THROTTLE_MS = 250
+let keyboardScrollAt = 0
+let keyboardScrollTimer: ReturnType<typeof setTimeout> | null = null
+
+function followKeyboard() {
+  const run = () => {
+    keyboardScrollAt = Date.now()
+    if (expanded.value && !userScrolledUp.value) nextTick(() => scrollToBottom(false))
+  }
+  if (Date.now() - keyboardScrollAt >= KEYBOARD_SCROLL_THROTTLE_MS) run()
+  if (keyboardScrollTimer) clearTimeout(keyboardScrollTimer)
+  keyboardScrollTimer = setTimeout(() => {
+    keyboardScrollTimer = null
+    run()
+  }, KEYBOARD_SCROLL_THROTTLE_MS)
+}
+
+watch([keyboardInset, viewportHeight], followKeyboard)
+
+onBeforeUnmount(() => {
+  if (keyboardScrollTimer) clearTimeout(keyboardScrollTimer)
 })
 
 // ── Composer sizing ─────────────────────────────────────────────────
@@ -530,8 +585,9 @@ const proposalKindMeta: Record<
       aria-modal="true"
       :aria-labelledby="dialogHeadingId"
       tabindex="-1"
-      class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex flex-col rounded-t-[28px] focus:outline-none md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:max-h-[calc(100dvh-2rem)] md:min-h-0 md:w-[400px] md:rounded-3xl"
+      class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex max-h-[70dvh] min-h-[50dvh] flex-col rounded-t-[28px] focus:outline-none md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:max-h-[calc(100dvh-2rem)] md:min-h-0 md:w-[400px] md:rounded-3xl"
       :style="sheetStyle"
+      :data-lift-motion="isCompact && liftSettling ? 'true' : undefined"
     >
       <div class="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-sand-400/40 md:hidden" />
 
@@ -864,6 +920,10 @@ const proposalKindMeta: Record<
 
 <style scoped>
 .dock-sheet {
+  /* One duration/curve for every property the keyboard moves, so the sheet's
+     two edges travel together. ~0.25s ease-out is iOS's own keyboard timing. */
+  --dock-lift-ms: 250ms;
+  --dock-lift-ease: cubic-bezier(0.17, 0.59, 0.4, 1);
   background: var(--color-sand-50);
   box-shadow:
     0 0 0 1px rgba(61, 51, 40, 0.08),
@@ -895,6 +955,33 @@ const proposalKindMeta: Record<
 .dock-sheet {
   /* Kill the 300ms tap delay across the sheet's controls. */
   touch-action: manipulation;
+}
+
+/* ── Keyboard lift (bottom sheet only) ──────────────────────────────
+   `--dock-lift` is the settled keyboard target, published once per open and
+   once per close instead of once per visualViewport event, and animated HERE
+   rather than in JS. The duration and curve approximate iOS's own keyboard
+   animation (~0.25s, ease-out), so the sheet rides alongside the keyboard
+   instead of chasing it a few coarse frames behind.
+
+   Above md the dock is a right-anchored side panel and none of this applies —
+   `sheetStyle` returns nothing there, but the media query makes it structural
+   rather than a matter of trusting the guard. */
+@media (max-width: 767px) {
+  .dock-sheet {
+    transform: translate3d(0, var(--dock-lift, 0px), 0);
+    transition:
+      transform var(--dock-lift-ms) var(--dock-lift-ease),
+      max-height var(--dock-lift-ms) var(--dock-lift-ease),
+      min-height var(--dock-lift-ms) var(--dock-lift-ease),
+      padding-bottom var(--dock-lift-ms) var(--dock-lift-ease);
+  }
+
+  /* Only while a lift is actually in flight. A permanent `will-change` on a
+     sheet this large keeps a full-size layer alive for the whole session. */
+  .dock-sheet[data-lift-motion="true"] {
+    will-change: transform;
+  }
 }
 
 .dock-list {
@@ -1415,6 +1502,21 @@ const proposalKindMeta: Record<
   }
 }
 
+/* The open/close slide owns `transform` outright, so on the bottom sheet it has
+   to carry the keyboard lift through with it — otherwise the sheet would drop
+   to the keyboard-less position for the length of its entrance. Declared after
+   the rules above because a media query adds no specificity. */
+@media (max-width: 767px) {
+  .sheet-up-enter-from,
+  .sheet-up-leave-to {
+    transform: translate3d(0, calc(var(--dock-lift, 0px) + 100%), 0);
+  }
+  .sheet-up-enter-to,
+  .sheet-up-leave-from {
+    transform: translate3d(0, var(--dock-lift, 0px), 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fab-pop-enter-active,
   .fab-pop-leave-active,
@@ -1423,10 +1525,19 @@ const proposalKindMeta: Record<
     transition: opacity 0.15s ease-out;
   }
   .fab-pop-enter-from,
-  .fab-pop-leave-to,
-  .sheet-up-enter-from,
-  .sheet-up-leave-to {
+  .fab-pop-leave-to {
     transform: none;
+  }
+  /* No slide, but the keyboard lift is not decoration — the composer has to
+     clear the keyboard. Keep the offset, drop the motion. */
+  .sheet-up-enter-from,
+  .sheet-up-leave-to,
+  .sheet-up-enter-to,
+  .sheet-up-leave-from {
+    transform: translate3d(0, var(--dock-lift, 0px), 0);
+  }
+  .dock-sheet {
+    transition: none;
   }
   .dock-dot {
     animation: none;
