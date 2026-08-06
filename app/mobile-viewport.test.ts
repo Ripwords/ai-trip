@@ -13,8 +13,47 @@ const aiDockSource = read("./components/AiDock.vue")
 const tripSettingsSheetSource = read("./components/TripSettingsSheet.vue")
 const countryDetailPanelSource = read("./components/CountryDetailPanel.vue")
 const tripOverviewSource = read("./components/TripOverview.vue")
-const keyboardInsetSource = read("./composables/useKeyboardInset.ts")
-const dockGeometrySource = read("./composables/useDockSheetGeometry.ts")
+const dockAnchorSource = read("./utils/dock-anchor.ts")
+
+/**
+ * The mobile half of AiDock.vue's stylesheet — everything inside the
+ * `@media (max-width: 767px)` block. Extracted so the assertions below can say
+ * "the MOBILE dock" and mean it, rather than matching a string that might have
+ * come from the desktop side panel's rules.
+ */
+function mobileDockCss(source: string): string {
+  const marker = "@media (max-width: 767px) {"
+  let out = ""
+  let from = source.indexOf(marker)
+  while (from > -1) {
+    // Walk braces to find the end of the media block.
+    let depth = 0
+    let i = from + marker.length - 1
+    for (; i < source.length; i++) {
+      if (source[i] === "{") depth++
+      else if (source[i] === "}" && --depth === 0) break
+    }
+    out += `${source.slice(from, i + 1)}\n`
+    from = source.indexOf(marker, i)
+  }
+  return out
+}
+
+/**
+ * Source with comments stripped, so a "this must never come back" guard matches
+ * live code rather than the essay explaining why it went away.
+ */
+function code(source: string): string {
+  return source
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1")
+}
+
+/** The `class="…"` attribute of the dialog element itself. */
+function dockLayerClasses(source: string): string {
+  return source.match(/class="(dock-sheet[^"]*)"/)?.[1] ?? ""
+}
 
 // Static (non-`d`) viewport height units resolve against the LARGE viewport on
 // mobile Safari/Chrome: they do not shrink when the browser chrome or the
@@ -56,214 +95,207 @@ describe("mobile viewport", () => {
   })
 })
 
-describe("AI dock (mobile chat sheet)", () => {
-  it("sizes the sheet with dynamic viewport units", () => {
+describe("AI dock (mobile full-screen layer)", () => {
+  it("sizes the layer with dynamic viewport units", () => {
     assert.deepEqual(
       staticVhHits(aiDockSource),
       [],
-      "the dock sheet must use dvh so the keyboard cannot push the composer off-screen",
+      "the dock must use dvh so browser chrome cannot push the composer off-screen",
     )
-    assert.match(aiDockSource, /70dvh/)
-    assert.match(aiDockSource, /50dvh/)
+    assert.match(mobileDockCss(aiDockSource), /height:\s*100dvh/, "the layer fills the viewport")
   })
 
-  it("lifts the sheet above the iOS keyboard rather than trusting dvh alone", () => {
-    // iOS Safari ignores `interactive-widget=resizes-content` and composites the
-    // keyboard over the page, so dvh keeps reporting the full screen and the
-    // composer ends up behind the keyboard. Only visualViewport reveals this,
-    // and only on a real device — headless Chrome cannot reproduce it.
-    assert.match(aiDockSource, /useKeyboardInset\(\)/, "must measure the keyboard inset")
-    assert.match(
-      aiDockSource,
-      /resolveDockSheetGeometry\(\{[\s\S]{0,300}keyboardInset:\s*keyboardInset\.value/,
-      "the keyboard verdict must come from the guarded measurement",
+  it("REGRESSION (#75/#76/#77): the mobile dock is never `position: fixed`", () => {
+    // Root cause 1. iOS Safari stops honouring `position: fixed` while the
+    // virtual keyboard is up — fixed elements degrade toward `static`. Three
+    // shipped attempts adjusted a property (`transform`, then `bottom`, then
+    // `top`) on an element whose positioning model Safari had already
+    // abandoned; the third measured 0.00px of error in headless Chrome and was
+    // still wrong on the device. A fourth positioning fix is not the answer:
+    // the mobile dock must not be viewport-pinned at all.
+    const mobile = mobileDockCss(aiDockSource)
+    assert.match(mobile, /position:\s*absolute/, "the mobile layer is in normal document flow")
+    assert.doesNotMatch(mobile, /position:\s*fixed/, "no fixed positioning below md, ever")
+    // …and no `fixed` utility class either, which would apply at every width.
+    const classes = dockLayerClasses(aiDockSource)
+    assert.ok(classes, "expected to find the dock layer's class attribute")
+    assert.doesNotMatch(
+      classes,
+      /(?<![:\w-])fixed\b/,
+      "an unprefixed `fixed` utility would pin the layer on mobile too",
     )
-    assert.match(
-      aiDockSource,
-      /resolveDockSheetGeometry\(\{[\s\S]{0,300}viewportBottom:\s*viewportBottom\.value/,
-      "the sheet's position must come from the visual viewport's bottom edge",
-    )
-    assert.match(
-      dockGeometrySource,
-      /top:\s*`\$\{Math\.round\(anchor\)\}px`/,
-      "the sheet's TOP edge must be placed at the visual viewport's bottom edge",
-    )
-    assert.match(
-      keyboardInsetSource,
-      /const bottom = s\.offsetTop \+ s\.visualHeight/,
-      "the anchor walks DOWN from the layout viewport's top; the sign is the whole bug",
-    )
-    assert.match(
-      aiDockSource,
-      /viewportHeight/,
-      "max-height must be derived from the visual viewport, not the layout viewport",
-    )
-    // The measurement rules themselves are unit-tested in
-    // composables/useKeyboardInset.test.ts; this only pins that they are still
-    // being applied to the real viewport reading.
-    assert.match(
-      keyboardInsetSource,
-      /innerHeight:\s*window\.innerHeight[\s\S]{0,200}offsetTop:\s*vv\.offsetTop/,
-      "inset must account for iOS scrolling the visual viewport (offsetTop)",
-    )
-    assert.match(
-      keyboardInsetSource,
-      /scale:\s*vv\.scale/,
-      "pinch-zoom must not be mistaken for the keyboard",
-    )
+    assert.match(classes, /md:fixed/, "the >=768px side panel keeps its fixed positioning")
   })
 
-  it("animates the lift to a settled target instead of sampling every viewport event", () => {
-    // iOS emits visualViewport events irregularly during its keyboard
-    // animation. Re-styling per event makes the sheet step through whatever
-    // coarse frames iOS happened to report — different every time. The lift
-    // must instead be one transition to a settled target.
+  it("REGRESSION (#75/#76/#77): no visualViewport-derived positioning anywhere", () => {
+    // Root cause 2, and the reason "measure it more precisely" cannot work:
+    // iOS's floating accessory bar (the ^ / v / Done pill) is NOT part of
+    // `visualViewport.height`. A sheet anchored exactly to the visual
+    // viewport's bottom edge still stops above the pill and leaves a visible
+    // strip of page. The edge the fixes were aiming at is not reachable through
+    // that API, so the dock no longer reads it.
+    assert.doesNotMatch(
+      code(aiDockSource),
+      /visualViewport|useKeyboardInset|resolveDockSheetGeometry/,
+      "the dock must not position itself from the visual viewport",
+    )
+    assert.doesNotMatch(code(dockAnchorSource), /visualViewport/)
     assert.match(
       aiDockSource,
-      /transition:\s*\n?\s*top var\(--dock-lift-ms\) var\(--dock-lift-ease\)/,
-      "the lift must be transitioned, not stepped",
+      /resolveDockAnchorTop\(\{\s*scrollY:\s*window\.scrollY/,
+      "the layer's only coordinate is a document scroll offset",
     )
-    assert.match(
-      aiDockSource,
-      /max-height var\(--dock-lift-ms\) var\(--dock-lift-ease\)/,
-      "height has to change too, so it must share the lift's duration and curve",
-    )
+    // The reasoning has to stay written down, or attempt #5 gets attempted.
+    assert.match(dockAnchorSource, /position: fixed/)
+    assert.match(dockAnchorSource, /accessory bar/i)
   })
 
-  it("anchors by `top`, never by a distance from the bottom (iOS fixed-element bug)", () => {
-    // REGRESSION GUARD for PR #75 AND PR #76. iOS Safari stops honouring
-    // `position: fixed` while the virtual keyboard is up — fixed elements start
-    // behaving like static ones — so ANY lift expressed as a distance from the
-    // viewport's bottom edge is measured from an edge Safari is no longer
-    // pinning to. #75 did it as `translate3d(0, -inset, 0)` and #76 as
-    // `bottom: inset`; both left a band of page above the keyboard that varied
-    // per open and grew across open/close cycles.
-    //
-    // The immune form: put the sheet's TOP edge at
-    // `visualViewport.offsetTop + visualViewport.height` and pull it up by its
-    // own height. Measured from the layout viewport's top, which does not move.
-    assert.doesNotMatch(
-      aiDockSource,
-      /--dock-lift\s*:|"--dock-lift"/,
-      "the lift must not be smuggled back in as a custom property",
-    )
-    assert.doesNotMatch(
-      dockGeometrySource,
-      /^\s*bottom:\s*`/m,
-      "a `bottom`-based lift is the shipped regression, not the fix",
-    )
-    // The inline style type admits neither `bottom` (the regression) nor
-    // `transform` (inline styles beat classes, and the `sheet-up` classes own
-    // transform for the entrance slide).
-    const styleShape = dockGeometrySource.match(
-      /export type DockSheetGeometry = \{([\s\S]*?)\n\}/,
-    )?.[1]
-    assert.ok(styleShape, "expected a DockSheetGeometry style type")
-    assert.doesNotMatch(
-      styleShape,
-      /transform/i,
-      "the inline style type must never admit transform — it would override sheet-up",
-    )
-    assert.doesNotMatch(
-      styleShape,
-      /\bbottom\b/i,
-      "the inline style type must never admit bottom — that is the bug this replaced",
-    )
-    assert.match(styleShape, /top\?:\s*string/, "the anchor is a `top`")
+  it("keeps the composer in flow as the last element of a flex column", () => {
+    // The composer is not pinned, not lifted, not transformed. It is the last
+    // child of a `flex flex-col` layer whose message list takes the slack, so
+    // the browser's own "scroll the focused input into view" is what clears the
+    // keyboard — including the accessory bar, because the browser is the one
+    // accounting for it.
+    assert.match(dockLayerClasses(aiDockSource), /\bflex flex-col\b/)
     assert.match(
-      dockGeometrySource,
-      /position: fixed/,
-      "the fixed-becomes-static root cause must stay written down",
+      aiDockSource,
+      /class="dock-list[^"]*\bmin-h-0 flex-1 overflow-y-auto/,
+      "the message list takes the slack and scrolls; min-h-0 is what lets it",
     )
-    // `will-change: transform` only made sense for the compositor path.
+    const layer = aiDockSource.slice(aiDockSource.indexOf('class="dock-sheet'))
+    assert.ok(
+      layer.indexOf("dock-input-area") > layer.indexOf("dock-list"),
+      "the composer must come after the message list in flow order",
+    )
     assert.doesNotMatch(
       aiDockSource,
-      /will-change/,
-      "no compositor hint is warranted for a layout-driven anchor",
+      /dock-input-area[\s\S]{0,200}\b(sticky|fixed|absolute)\b/,
+      "the composer area must not be pinned",
     )
   })
 
-  it("resolves the transform collision instead of letting one side clobber it", () => {
-    // The anchored sheet needs a permanent `translateY(-100%)`; the `sheet-up`
-    // enter/leave classes own `transform` for the entrance. PR #75 lost the
-    // entrance animation to exactly this. Both survive only because the
-    // entrance ENDPOINTS are rewritten into the anchored frame, with enough
-    // specificity to beat the base anchored rule.
+  it("does not lock body scroll on mobile, which is what blocked the native scroll-into-view", () => {
+    // `useBodyScrollLock` pins `document.body` with `position: fixed` — exactly
+    // what stops iOS scrolling the focused composer into view. The full-screen
+    // layer covers the viewport, so there is nothing behind it to see move.
+    // The >=768px side panel does not cover the page, so it keeps the lock.
     assert.match(
       aiDockSource,
-      /\.dock-sheet\[data-vv-anchored="true"\] \{\s*bottom: auto;\s*transform: translateY\(-100%\);/,
-      "the anchored sheet is pulled up by exactly its own height",
+      /useBodyScrollLock\(\(\)\s*=>\s*expanded\.value\s*&&\s*!isCompact\.value\)/,
+      "the scroll lock must be desktop-only",
     )
-    assert.match(
-      aiDockSource,
-      /\.dock-sheet\[data-vv-anchored="true"\]\.sheet-up-enter-from[\s\S]{0,160}transform: translateY\(0\)/,
-      "anchored, the entrance starts one sheet-height BELOW the anchor",
-    )
-    assert.match(
-      aiDockSource,
-      /\.dock-sheet\[data-vv-anchored="true"\]\.sheet-up-enter-to[\s\S]{0,160}transform: translateY\(-100%\)/,
-      "…and ends at the resting transform, so the travel is unchanged",
-    )
-    // The flag and the anchor must never disagree: an unanchored sheet carrying
-    // translateY(-100%) would sit a full sheet-height above the screen edge.
-    assert.match(aiDockSource, /sheetStyle\.value\.top !== undefined/)
-    assert.match(aiDockSource, /:data-vv-anchored="sheetAnchored/)
   })
 
-  it("publishes a settled keyboard target rather than every measurement", () => {
+  it("keeps the layer anchored to a document coordinate, not the page top", () => {
+    // `position: absolute` resolves against the document, so a bare `top: 0`
+    // would park the layer at the top of the trip page and leave it off-screen.
+    assert.match(mobileDockCss(aiDockSource), /top:\s*var\(--dock-anchor-top,\s*0px\)/)
     assert.match(
-      keyboardInsetSource,
-      /const SETTLE_MS/,
-      "a burst of visualViewport events must resolve to one target",
+      aiDockSource,
+      /"--dock-anchor-top":\s*`\$\{anchorTop\.value\}px`/,
+      "the anchor is published as a custom property so it cannot touch md: rules",
     )
     assert.match(
-      keyboardInsetSource,
-      /scheduleTrailing\(\)/,
-      "a single trailing event must still land",
+      aiDockSource,
+      /window\.scrollTo\(0,\s*y\)/,
+      "closing must put the page back where the user opened the dock",
     )
+  })
+
+  it("drops the sheet furniture that a full-screen layer cannot honour", () => {
+    // A drag handle promises a draggable edge a full-screen layer does not
+    // have, and rounded top corners would frame a sliver of nothing.
+    assert.doesNotMatch(aiDockSource, /rounded-t-\[/, "no rounded top on the mobile layer")
+    assert.match(mobileDockCss(aiDockSource), /border-radius:\s*0/)
     assert.match(
-      keyboardInsetSource,
-      /if \(isOpen !== wasOpen\) \{[\s\S]{0,400}commit\(/,
-      "an open/close flip must commit immediately so the lift never feels laggy",
+      aiDockSource,
+      /md:rounded-3xl/,
+      "the desktop side panel keeps its radius — it really is a floating panel",
     )
+    assert.doesNotMatch(
+      aiDockSource,
+      /h-1 w-12 shrink-0 rounded-full/,
+      "the drag handle is gone with the sheet",
+    )
+  })
+
+  it("pads past the notch at the top and the home indicator at the bottom", () => {
+    assert.match(mobileDockCss(aiDockSource), /padding-top:\s*env\(safe-area-inset-top/)
     assert.match(
-      keyboardInsetSource,
-      /composerFocused === false\) return 0/,
-      "a blurred composer means no keyboard, whatever iOS 26 reports for offsetTop",
+      aiDockSource,
+      /\.dock-input-area\s*\{[^}]*padding-bottom:\s*max\(env\(safe-area-inset-bottom/,
+      "the composer owns the bottom inset now that it sits on the screen edge",
     )
+  })
+
+  it("keeps the slide-up entrance, with nothing left to collide with", () => {
+    // Attempts 2 and 3 both broke on `transform`: the lifted sheet needed a
+    // permanent translate and the `sheet-up-*` classes own transform for the
+    // entrance. With the lift gone, the entrance is the plain slide-up again.
+    assert.match(aiDockSource, /<Transition name="sheet-up">/)
     assert.match(
-      keyboardInsetSource,
-      /focusin|focusout/,
-      "focus is the trustworthy dismissal signal",
+      aiDockSource,
+      /\.sheet-up-enter-from,\s*\n\s*\.sheet-up-leave-to \{[^}]*translateY\(100%\)/,
     )
+    assert.doesNotMatch(
+      aiDockSource,
+      /data-vv-anchored/,
+      "the anchored-transform frame is gone; nothing may reintroduce it",
+    )
+    assert.doesNotMatch(
+      code(aiDockSource),
+      /translateY\(-100%\)/,
+      "a lifting transform on the layer is the model this redesign removes",
+    )
+  })
+
+  it("removed the keyboard-inset machinery rather than leaving it inert", () => {
+    for (const gone of [
+      "./composables/useKeyboardInset.ts",
+      "./composables/useDockSheetGeometry.ts",
+    ]) {
+      assert.throws(
+        () => read(gone),
+        /ENOENT/,
+        `${gone} positioned the dock from the visual viewport and must not come back`,
+      )
+    }
   })
 
   it("throttles the keyboard-driven scroll follow", () => {
+    // Still throttled, still keyed off the same intent flags — only its trigger
+    // changed, from a stream of visualViewport readings to composer focus and
+    // plain resizes.
     assert.match(aiDockSource, /KEYBOARD_SCROLL_THROTTLE_MS/)
-    assert.doesNotMatch(
+    assert.match(aiDockSource, /@focus="onComposerFocus"/)
+    assert.match(aiDockSource, /window\.addEventListener\("resize", followKeyboard\)/)
+    assert.match(
       aiDockSource,
-      /watch\(keyboardInset,\s*\(\)\s*=>\s*\{\s*\n\s*if \(expanded/,
-      "scrollToBottom must not run once per viewport measurement",
+      /window\.removeEventListener\("resize", followKeyboard\)/,
+      "and it must be torn down",
     )
   })
 
-  it("keeps the desktop side panel free of the mobile inline geometry", () => {
-    // Inline styles beat the md: utility classes that position the side panel.
-    assert.match(dockGeometrySource, /if \(!input\.isCompact\) return \{\}/)
-    assert.match(aiDockSource, /isCompact:\s*isCompact\.value/)
-    assert.match(aiDockSource, /max-width:\s*767px/)
-    // Belt and braces: the transition that carries the lift is inside a
-    // compact-only media query, so even a guard slip cannot reach the panel.
-    assert.match(
-      aiDockSource,
-      /@media \(max-width: 767px\) \{\s*\.dock-sheet \{\s*transition:\s*\n?\s*top/,
+  it("keeps the >=768px side panel out of the mobile layout entirely", () => {
+    // The whole mobile layout is inside a compact-only media query, so the side
+    // panel is untouched structurally rather than by a runtime guard. The only
+    // inline style is a custom property that nothing outside that block reads,
+    // so it cannot beat a `md:` utility class the way an inline `top` would.
+    const mobile = mobileDockCss(aiDockSource)
+    assert.match(mobile, /position:\s*absolute/)
+    assert.match(mobile, /height:\s*100dvh/)
+    const inlineStyle = aiDockSource.match(
+      /const layerStyle = computed<CSSProperties>\([\s\S]*?\)\n/,
     )
-    // …and so is the anchored transform, so the md: side panel can never be
-    // handed a translateY(-100%) even if `isCompact` were wrong.
+    assert.ok(inlineStyle, "expected the layer's inline style to be a single computed")
     assert.match(
-      aiDockSource,
-      /@media \(max-width: 767px\) \{[\s\S]{0,600}\.dock-sheet\[data-vv-anchored="true"\] \{/,
+      inlineStyle[0],
+      /isCompact\.value \? \{ "--dock-anchor-top": [\s\S]*?\} : \{\}/,
+      "the desktop panel must receive no inline geometry at all",
     )
+    assert.match(aiDockSource, /md:top-4/)
+    assert.match(aiDockSource, /md:bottom-4/)
+    assert.match(aiDockSource, /md:max-h-\[calc\(100dvh-2rem\)\]/)
   })
 
   it("composes messages in an auto-growing textarea, not a single-line input", () => {
@@ -284,8 +316,12 @@ describe("AI dock (mobile chat sheet)", () => {
     assert.match(aiDockSource, /\.dock-list\s*\{[^}]*overscroll-behavior:\s*contain/)
   })
 
-  it("locks background scroll while the sheet is open", () => {
-    assert.match(aiDockSource, /useBodyScrollLock\(/)
+  it("keeps its dialog semantics — removing the scroll lock must not remove the focus trap", () => {
+    assert.match(aiDockSource, /useModalA11y\(dialogRef, \{/)
+    assert.match(aiDockSource, /role="dialog"/)
+    assert.match(aiDockSource, /aria-modal="true"/)
+    assert.match(aiDockSource, /:aria-labelledby="dialogHeadingId"/)
+    assert.match(aiDockSource, /onClose:\s*collapse/, "Escape closes the dock")
   })
 })
 
