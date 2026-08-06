@@ -182,11 +182,10 @@ useBodyScrollLock(() => expanded.value)
 //
 // The lift is ANIMATED, not sampled. `useKeyboardInset` publishes a settled
 // target rather than every `visualViewport` reading, and the sheet transitions
-// to it in CSS (`--dock-lift` -> `translate3d`, see the stylesheet). Restyling
-// on every event made the sheet step through whatever coarse, irregular frames
-// iOS chose to report — different every time, which is what "not smooth and not
-// consistent" was.
-const { inset: keyboardInset, viewportHeight, settling: liftSettling } = useKeyboardInset()
+// to it in CSS (see the stylesheet). Restyling on every event made the sheet
+// step through whatever coarse, irregular frames iOS chose to report —
+// different every time, which is what "not smooth and not consistent" was.
+const { inset: keyboardInset, viewportHeight } = useKeyboardInset()
 
 // Above `md` the dock is a right-anchored side panel positioned entirely by
 // utility classes (md:top-4 / md:bottom-4 / md:max-h-…). Inline styles would
@@ -204,49 +203,22 @@ onMounted(() => {
 })
 onBeforeUnmount(() => compactQuery?.removeEventListener("change", syncCompact))
 
-// The lift travels on `--dock-lift` rather than on `bottom`, for two reasons.
-// It resolves to a `translate3d` the compositor can run without laying the
-// sheet out again — `bottom` forced layout + paint on every keyboard frame. And
-// it composes with the sheet's own open/close slide, which owns `transform`
-// outright; an inline `transform` would have beaten those classes and killed
-// the entrance animation.
+// The lift rides on `bottom`, and must NOT go back to `transform`: iOS offsets
+// a transformed `position: fixed` element by `visualViewport.offsetTop` on top
+// of the translation, so the sheet overshot by that amount and left a band of
+// page above the keyboard (PR #75's regression). The arithmetic, and the full
+// reasoning, live in `resolveDockSheetGeometry` — a pure function so the one
+// thing headless Chrome cannot check is at least unit-tested.
 //
-// At rest there is nothing to size: `max-h-[70dvh] min-h-[50dvh]` on the
-// element do the work, and the only inline value is the safe-area pad.
-const sheetStyle = computed<Record<string, string>>(() => {
-  const none: Record<string, string> = {}
-  if (!isCompact.value) return none
-
-  const usable = viewportHeight.value || 0
-  const lifted = keyboardInset.value > 0
-
-  if (!lifted) {
-    return {
-      "--dock-lift": "0px",
-      // The pad is only wanted when the sheet is actually resting on the screen
-      // edge — with the keyboard up it already covers the home-indicator area.
-      paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.5rem)",
-    }
-  }
-
-  return {
-    "--dock-lift": `-${keyboardInset.value}px`,
-    // With the keyboard up, every pixel counts: drop the 50dvh floor so the
-    // sheet can shrink to whatever is left, and cap it to the visible strip.
-    //
-    // Height is the part that CANNOT be a compositor property: the sheet is
-    // pinned to the bottom and grows upward, so if it kept its resting height
-    // while lifting, its header would leave the top of the screen. So it is
-    // transitioned on the SAME duration and curve as the lift instead of being
-    // left to jump — one coherent motion of both edges rather than a
-    // compositor-smooth bottom edge racing a stepping top edge. It costs a
-    // main-thread relayout per frame for 250ms, but only on the two commits per
-    // keyboard event, not on the dozen readings iOS emits.
-    maxHeight: usable > 0 ? `${Math.round(usable * 0.92)}px` : "70dvh",
-    minHeight: "0px",
-    paddingBottom: "0.5rem",
-  }
-})
+// At rest there is nothing to size: `bottom-0 max-h-[70dvh] min-h-[50dvh]` on
+// the element do the work, and the only inline value is the safe-area pad.
+const sheetStyle = computed<DockSheetGeometry>(() =>
+  resolveDockSheetGeometry({
+    isCompact: isCompact.value,
+    keyboardInset: keyboardInset.value,
+    viewportHeight: viewportHeight.value,
+  }),
+)
 
 // Keep the newest message in view as the keyboard opens and the sheet shrinks.
 // Throttled: leading so the list follows the lift straight away, trailing so it
@@ -587,7 +559,6 @@ const proposalKindMeta: Record<
       tabindex="-1"
       class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex max-h-[70dvh] min-h-[50dvh] flex-col rounded-t-[28px] focus:outline-none md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:max-h-[calc(100dvh-2rem)] md:min-h-0 md:w-[400px] md:rounded-3xl"
       :style="sheetStyle"
-      :data-lift-motion="isCompact && liftSettling ? 'true' : undefined"
     >
       <div class="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-sand-400/40 md:hidden" />
 
@@ -958,29 +929,36 @@ const proposalKindMeta: Record<
 }
 
 /* ── Keyboard lift (bottom sheet only) ──────────────────────────────
-   `--dock-lift` is the settled keyboard target, published once per open and
-   once per close instead of once per visualViewport event, and animated HERE
-   rather than in JS. The duration and curve approximate iOS's own keyboard
-   animation (~0.25s, ease-out), so the sheet rides alongside the keyboard
-   instead of chasing it a few coarse frames behind.
+   The lift is the inline `bottom` from `resolveDockSheetGeometry`, published
+   once per keyboard open and once per close instead of once per visualViewport
+   event, and animated HERE rather than in JS. The duration and curve
+   approximate iOS's own keyboard animation (~0.25s, ease-out), so the sheet
+   rides alongside the keyboard instead of chasing it a few coarse frames
+   behind.
+
+   `bottom`, NOT `transform`. iOS resolves a transformed `position: fixed`
+   element differently: it additionally offsets it by `visualViewport.offsetTop`
+   on top of the translation, so the sheet moved by `inset + offsetTop` and the
+   surplus showed as a band of page between the sheet and the keyboard. See the
+   long note in `useDockSheetGeometry.ts`. Layout-driven transitions cost the
+   main thread, which is the right price for landing in the right place.
+
+   Leaving `transform` alone also matters for a second reason: the `sheet-up`
+   enter/leave classes own it for the open/close slide. Those classes declare
+   their own `transition` and, being later in this stylesheet, replace the one
+   below for the duration of the entrance — so the sheet slides in at its final
+   geometry rather than animating two things at once.
 
    Above md the dock is a right-anchored side panel and none of this applies —
-   `sheetStyle` returns nothing there, but the media query makes it structural
-   rather than a matter of trusting the guard. */
+   `resolveDockSheetGeometry` returns nothing there, but the media query makes
+   it structural rather than a matter of trusting the guard. */
 @media (max-width: 767px) {
   .dock-sheet {
-    transform: translate3d(0, var(--dock-lift, 0px), 0);
     transition:
-      transform var(--dock-lift-ms) var(--dock-lift-ease),
+      bottom var(--dock-lift-ms) var(--dock-lift-ease),
       max-height var(--dock-lift-ms) var(--dock-lift-ease),
       min-height var(--dock-lift-ms) var(--dock-lift-ease),
       padding-bottom var(--dock-lift-ms) var(--dock-lift-ease);
-  }
-
-  /* Only while a lift is actually in flight. A permanent `will-change` on a
-     sheet this large keeps a full-size layer alive for the whole session. */
-  .dock-sheet[data-lift-motion="true"] {
-    will-change: transform;
   }
 }
 
@@ -1502,20 +1480,12 @@ const proposalKindMeta: Record<
   }
 }
 
-/* The open/close slide owns `transform` outright, so on the bottom sheet it has
-   to carry the keyboard lift through with it — otherwise the sheet would drop
-   to the keyboard-less position for the length of its entrance. Declared after
-   the rules above because a media query adds no specificity. */
-@media (max-width: 767px) {
-  .sheet-up-enter-from,
-  .sheet-up-leave-to {
-    transform: translate3d(0, calc(var(--dock-lift, 0px) + 100%), 0);
-  }
-  .sheet-up-enter-to,
-  .sheet-up-leave-from {
-    transform: translate3d(0, var(--dock-lift, 0px), 0);
-  }
-}
+/* NOTE: the keyboard lift deliberately does not appear here. It rides on
+   `bottom`, so the sheet is already in the right place before it slides, and
+   `translateY(100%)` above is relative to the sheet's own height either way.
+   When the lift lived on `transform` (PR #75) these classes had to carry it
+   through by hand or the sheet dropped to the keyboard-less position for the
+   length of its entrance — one more reason `transform` was the wrong carrier. */
 
 @media (prefers-reduced-motion: reduce) {
   .fab-pop-enter-active,
@@ -1525,17 +1495,14 @@ const proposalKindMeta: Record<
     transition: opacity 0.15s ease-out;
   }
   .fab-pop-enter-from,
-  .fab-pop-leave-to {
+  .fab-pop-leave-to,
+  .sheet-up-enter-from,
+  .sheet-up-leave-to {
     transform: none;
   }
-  /* No slide, but the keyboard lift is not decoration — the composer has to
-     clear the keyboard. Keep the offset, drop the motion. */
-  .sheet-up-enter-from,
-  .sheet-up-leave-to,
-  .sheet-up-enter-to,
-  .sheet-up-leave-from {
-    transform: translate3d(0, var(--dock-lift, 0px), 0);
-  }
+  /* The keyboard lift itself is not decoration — the composer has to clear the
+     keyboard — but it is on `bottom`, so dropping the transition below removes
+     the motion while keeping the position. */
   .dock-sheet {
     transition: none;
   }

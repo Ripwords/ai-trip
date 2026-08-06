@@ -14,6 +14,7 @@ const tripSettingsSheetSource = read("./components/TripSettingsSheet.vue")
 const countryDetailPanelSource = read("./components/CountryDetailPanel.vue")
 const tripOverviewSource = read("./components/TripOverview.vue")
 const keyboardInsetSource = read("./composables/useKeyboardInset.ts")
+const dockGeometrySource = read("./composables/useDockSheetGeometry.ts")
 
 // Static (non-`d`) viewport height units resolve against the LARGE viewport on
 // mobile Safari/Chrome: they do not shrink when the browser chrome or the
@@ -74,8 +75,13 @@ describe("AI dock (mobile chat sheet)", () => {
     assert.match(aiDockSource, /useKeyboardInset\(\)/, "must measure the keyboard inset")
     assert.match(
       aiDockSource,
-      /"--dock-lift":\s*`-\$\{keyboardInset\.value\}px`/,
-      "sheet must be offset by the keyboard inset when one is present",
+      /resolveDockSheetGeometry\(\{[\s\S]{0,200}keyboardInset:\s*keyboardInset\.value/,
+      "the sheet's geometry must be derived from the measured keyboard inset",
+    )
+    assert.match(
+      dockGeometrySource,
+      /bottom:\s*`\$\{input\.keyboardInset\}px`/,
+      "sheet must be offset by exactly the keyboard inset when one is present",
     )
     assert.match(
       aiDockSource,
@@ -97,38 +103,65 @@ describe("AI dock (mobile chat sheet)", () => {
     )
   })
 
-  it("animates the lift on the compositor instead of sampling every viewport event", () => {
+  it("animates the lift to a settled target instead of sampling every viewport event", () => {
     // iOS emits visualViewport events irregularly during its keyboard
     // animation. Re-styling per event makes the sheet step through whatever
     // coarse frames iOS happened to report — different every time. The lift
     // must instead be one transition to a settled target.
-    assert.doesNotMatch(
-      aiDockSource,
-      /bottom:\s*(lifted|`)/,
-      "the lift must not ride on `bottom`, which forces layout every frame",
-    )
     assert.match(
       aiDockSource,
-      /transform:\s*translate3d\(0,\s*var\(--dock-lift/,
-      "the lift must resolve to a compositor-only transform",
-    )
-    assert.match(
-      aiDockSource,
-      /transition:\s*\n?\s*transform var\(--dock-lift-ms\)/,
-      "the transform must be transitioned, not stepped",
+      /transition:\s*\n?\s*bottom var\(--dock-lift-ms\) var\(--dock-lift-ease\)/,
+      "the lift must be transitioned, not stepped",
     )
     assert.match(
       aiDockSource,
       /max-height var\(--dock-lift-ms\) var\(--dock-lift-ease\)/,
       "height has to change too, so it must share the lift's duration and curve",
     )
-    // `will-change` on a full-screen sheet keeps a compositor layer alive; it
-    // is only warranted while a lift is actually in flight.
-    assert.match(aiDockSource, /\[data-lift-motion="true"\]\s*\{\s*will-change:\s*transform/)
+  })
+
+  it("lifts with a layout property, never with a transform (iOS fixed-element bug)", () => {
+    // REGRESSION GUARD for PR #75. On iOS a `position: fixed` element that has
+    // a transform is additionally offset by `visualViewport.offsetTop`, so a
+    // sheet translated by the inset actually moved by `inset + offsetTop` and
+    // left a band of page between itself and the keyboard — a different size
+    // every open, growing across open/close cycles because iOS 26 does not
+    // reliably reset offsetTop. `bottom` resolves against the layout viewport,
+    // which is the frame the inset is already measured in.
     assert.doesNotMatch(
       aiDockSource,
-      /\.dock-sheet\s*\{[^}]*will-change/,
-      "will-change must not be parked on the sheet permanently",
+      /--dock-lift\s*:|"--dock-lift"/,
+      "the lift must not be smuggled back in as a custom property feeding a transform",
+    )
+    assert.doesNotMatch(
+      aiDockSource,
+      /\.dock-sheet[^{]*\{[^}]*transform:/,
+      "the sheet must not carry a transform: iOS mis-resolves transformed fixed elements",
+    )
+    // The `sheet-up` enter/leave classes own `transform` for the open/close
+    // slide, and inline styles beat classes. A transform in the inline geometry
+    // would silently kill the sheet's entrance animation, so the style object's
+    // type does not admit one. (That the returned object never carries a
+    // transform is asserted directly in useDockSheetGeometry.test.ts.)
+    const styleShape = dockGeometrySource.match(
+      /export type DockSheetGeometry = \{([\s\S]*?)\n\}/,
+    )?.[1]
+    assert.ok(styleShape, "expected a DockSheetGeometry style type")
+    assert.doesNotMatch(
+      styleShape,
+      /transform/i,
+      "the inline style type must never admit transform — it would override sheet-up",
+    )
+    assert.match(
+      dockGeometrySource,
+      /offsetTop/,
+      "the reason transform is banned here must stay written down",
+    )
+    // `will-change: transform` only made sense for the compositor path.
+    assert.doesNotMatch(
+      aiDockSource,
+      /will-change/,
+      "no compositor hint is warranted for a layout-driven lift",
     )
   })
 
@@ -171,13 +204,14 @@ describe("AI dock (mobile chat sheet)", () => {
 
   it("keeps the desktop side panel free of the mobile inline geometry", () => {
     // Inline styles beat the md: utility classes that position the side panel.
-    assert.match(aiDockSource, /if \(!isCompact\.value\) return none/)
+    assert.match(dockGeometrySource, /if \(!input\.isCompact\) return \{\}/)
+    assert.match(aiDockSource, /isCompact:\s*isCompact\.value/)
     assert.match(aiDockSource, /max-width:\s*767px/)
-    // Belt and braces: the transform/transition that carry the lift are inside
-    // a compact-only media query, so even a guard slip cannot reach the panel.
+    // Belt and braces: the transition that carries the lift is inside a
+    // compact-only media query, so even a guard slip cannot reach the panel.
     assert.match(
       aiDockSource,
-      /@media \(max-width: 767px\) \{\s*\.dock-sheet \{\s*transform: translate3d/,
+      /@media \(max-width: 767px\) \{\s*\.dock-sheet \{\s*transition:\s*\n?\s*bottom/,
     )
   })
 
