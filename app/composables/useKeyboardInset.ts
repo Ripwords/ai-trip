@@ -32,12 +32,24 @@ import { onMounted, onUnmounted, ref } from "vue"
  * is committed once, promptly, and the consumer animates to the settled target
  * with its own CSS transition (`--dock-lift-ms` in AiDock.vue).
  *
- * What the consumer does with the number is its business, but note the frame it
- * is expressed in: `innerHeight - visualHeight - offsetTop` is the distance
- * from the LAYOUT viewport's bottom edge to the visual viewport's bottom edge.
- * That is the right quantity for `bottom`, and the wrong one for a `transform`
- * on a `position: fixed` element on iOS, which Safari offsets by `offsetTop` a
- * second time. See `useDockSheetGeometry.ts`.
+ * ── Inset vs. anchor ────────────────────────────────────────────────
+ * The inset (`innerHeight - visualHeight - offsetTop`) is a distance from the
+ * LAYOUT viewport's bottom edge. It is an excellent *detector* — every guard
+ * below is expressed in it — and a terrible *coordinate*, because iOS Safari
+ * stops honouring `position: fixed` while the keyboard is up and the viewport's
+ * bottom edge is no longer a fixed thing to measure back from. Two shipped
+ * attempts positioned the dock with it and both drifted.
+ *
+ * So this composable publishes both, with a clear division of labour:
+ *   - `inset`          — "is the keyboard up", guards and all. Sign only.
+ *   - `viewportBottom` — `offsetTop + visualHeight`: the visual viewport's
+ *                        bottom edge measured from the layout viewport's TOP,
+ *                        which is the origin that does not move. This is the
+ *                        coordinate the sheet is anchored to.
+ *   - `viewportHeight` — the visible strip, for capping the sheet's height.
+ *
+ * See `useDockSheetGeometry.ts` for why the anchor is a `top` and never a
+ * `bottom`.
  */
 
 /**
@@ -126,11 +138,23 @@ function isTextEntry(el: Element | null): boolean {
   return el instanceof HTMLElement && el.isContentEditable
 }
 
+/**
+ * The visual viewport's bottom edge in layout-viewport coordinates — measured
+ * from the top, the origin iOS does not move around while the keyboard is up.
+ * This is the number the dock anchors its `top` to.
+ */
+export function resolveViewportBottom(s: ViewportSample): number {
+  const bottom = s.offsetTop + s.visualHeight
+  return Number.isFinite(bottom) ? bottom : 0
+}
+
 export function useKeyboardInset() {
   /** Pixels of the layout viewport hidden behind the keyboard, once settled. */
   const inset = ref(0)
   /** Usable height in CSS pixels (the visual viewport), once settled. */
   const viewportHeight = ref(0)
+  /** The visual viewport's bottom edge, in layout-viewport coordinates. */
+  const viewportBottom = ref(0)
 
   let composerFocused: boolean | null = null
   let trailingTimer: ReturnType<typeof setTimeout> | null = null
@@ -148,9 +172,10 @@ export function useKeyboardInset() {
     }
   }
 
-  function commit(next: number, usable: number) {
+  function commit(next: number, s: ViewportSample) {
     inset.value = next
-    viewportHeight.value = usable
+    viewportHeight.value = s.visualHeight
+    viewportBottom.value = resolveViewportBottom(s)
   }
 
   function clearTrailing() {
@@ -165,7 +190,7 @@ export function useKeyboardInset() {
       trailingTimer = null
       const s = read()
       if (!s) return
-      commit(resolveKeyboardInset(s), s.visualHeight)
+      commit(resolveKeyboardInset(s), s)
     }, SETTLE_MS)
   }
 
@@ -181,7 +206,7 @@ export function useKeyboardInset() {
       // The keyboard opened or closed. Commit now so the lift starts at once —
       // a debounce here is what would make opening feel laggy.
       clearTrailing()
-      commit(next, s.visualHeight)
+      commit(next, s)
       // Opening: this first reading is usually a partial keyboard height, so
       // let the burst settle and re-target. Closing: the resting target is
       // exactly 0 and cannot be refined, so the animation runs once, cleanly.
@@ -219,7 +244,7 @@ export function useKeyboardInset() {
     if (!import.meta.client || !window.visualViewport) return
     composerFocused = isTextEntry(document.activeElement)
     const first = read()
-    if (first) commit(resolveKeyboardInset(first), first.visualHeight)
+    if (first) commit(resolveKeyboardInset(first), first)
 
     window.visualViewport.addEventListener("resize", measure)
     window.visualViewport.addEventListener("scroll", measure)
@@ -241,5 +266,5 @@ export function useKeyboardInset() {
     if (blurTimer) clearTimeout(blurTimer)
   })
 
-  return { inset, viewportHeight }
+  return { inset, viewportHeight, viewportBottom }
 }

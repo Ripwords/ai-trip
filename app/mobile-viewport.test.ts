@@ -75,13 +75,23 @@ describe("AI dock (mobile chat sheet)", () => {
     assert.match(aiDockSource, /useKeyboardInset\(\)/, "must measure the keyboard inset")
     assert.match(
       aiDockSource,
-      /resolveDockSheetGeometry\(\{[\s\S]{0,200}keyboardInset:\s*keyboardInset\.value/,
-      "the sheet's geometry must be derived from the measured keyboard inset",
+      /resolveDockSheetGeometry\(\{[\s\S]{0,300}keyboardInset:\s*keyboardInset\.value/,
+      "the keyboard verdict must come from the guarded measurement",
+    )
+    assert.match(
+      aiDockSource,
+      /resolveDockSheetGeometry\(\{[\s\S]{0,300}viewportBottom:\s*viewportBottom\.value/,
+      "the sheet's position must come from the visual viewport's bottom edge",
     )
     assert.match(
       dockGeometrySource,
-      /bottom:\s*`\$\{input\.keyboardInset\}px`/,
-      "sheet must be offset by exactly the keyboard inset when one is present",
+      /top:\s*`\$\{Math\.round\(anchor\)\}px`/,
+      "the sheet's TOP edge must be placed at the visual viewport's bottom edge",
+    )
+    assert.match(
+      keyboardInsetSource,
+      /const bottom = s\.offsetTop \+ s\.visualHeight/,
+      "the anchor walks DOWN from the layout viewport's top; the sign is the whole bug",
     )
     assert.match(
       aiDockSource,
@@ -110,7 +120,7 @@ describe("AI dock (mobile chat sheet)", () => {
     // must instead be one transition to a settled target.
     assert.match(
       aiDockSource,
-      /transition:\s*\n?\s*bottom var\(--dock-lift-ms\) var\(--dock-lift-ease\)/,
+      /transition:\s*\n?\s*top var\(--dock-lift-ms\) var\(--dock-lift-ease\)/,
       "the lift must be transitioned, not stepped",
     )
     assert.match(
@@ -120,29 +130,31 @@ describe("AI dock (mobile chat sheet)", () => {
     )
   })
 
-  it("lifts with a layout property, never with a transform (iOS fixed-element bug)", () => {
-    // REGRESSION GUARD for PR #75. On iOS a `position: fixed` element that has
-    // a transform is additionally offset by `visualViewport.offsetTop`, so a
-    // sheet translated by the inset actually moved by `inset + offsetTop` and
-    // left a band of page between itself and the keyboard — a different size
-    // every open, growing across open/close cycles because iOS 26 does not
-    // reliably reset offsetTop. `bottom` resolves against the layout viewport,
-    // which is the frame the inset is already measured in.
+  it("anchors by `top`, never by a distance from the bottom (iOS fixed-element bug)", () => {
+    // REGRESSION GUARD for PR #75 AND PR #76. iOS Safari stops honouring
+    // `position: fixed` while the virtual keyboard is up — fixed elements start
+    // behaving like static ones — so ANY lift expressed as a distance from the
+    // viewport's bottom edge is measured from an edge Safari is no longer
+    // pinning to. #75 did it as `translate3d(0, -inset, 0)` and #76 as
+    // `bottom: inset`; both left a band of page above the keyboard that varied
+    // per open and grew across open/close cycles.
+    //
+    // The immune form: put the sheet's TOP edge at
+    // `visualViewport.offsetTop + visualViewport.height` and pull it up by its
+    // own height. Measured from the layout viewport's top, which does not move.
     assert.doesNotMatch(
       aiDockSource,
       /--dock-lift\s*:|"--dock-lift"/,
-      "the lift must not be smuggled back in as a custom property feeding a transform",
+      "the lift must not be smuggled back in as a custom property",
     )
     assert.doesNotMatch(
-      aiDockSource,
-      /\.dock-sheet[^{]*\{[^}]*transform:/,
-      "the sheet must not carry a transform: iOS mis-resolves transformed fixed elements",
+      dockGeometrySource,
+      /^\s*bottom:\s*`/m,
+      "a `bottom`-based lift is the shipped regression, not the fix",
     )
-    // The `sheet-up` enter/leave classes own `transform` for the open/close
-    // slide, and inline styles beat classes. A transform in the inline geometry
-    // would silently kill the sheet's entrance animation, so the style object's
-    // type does not admit one. (That the returned object never carries a
-    // transform is asserted directly in useDockSheetGeometry.test.ts.)
+    // The inline style type admits neither `bottom` (the regression) nor
+    // `transform` (inline styles beat classes, and the `sheet-up` classes own
+    // transform for the entrance slide).
     const styleShape = dockGeometrySource.match(
       /export type DockSheetGeometry = \{([\s\S]*?)\n\}/,
     )?.[1]
@@ -152,17 +164,50 @@ describe("AI dock (mobile chat sheet)", () => {
       /transform/i,
       "the inline style type must never admit transform — it would override sheet-up",
     )
+    assert.doesNotMatch(
+      styleShape,
+      /\bbottom\b/i,
+      "the inline style type must never admit bottom — that is the bug this replaced",
+    )
+    assert.match(styleShape, /top\?:\s*string/, "the anchor is a `top`")
     assert.match(
       dockGeometrySource,
-      /offsetTop/,
-      "the reason transform is banned here must stay written down",
+      /position: fixed/,
+      "the fixed-becomes-static root cause must stay written down",
     )
     // `will-change: transform` only made sense for the compositor path.
     assert.doesNotMatch(
       aiDockSource,
       /will-change/,
-      "no compositor hint is warranted for a layout-driven lift",
+      "no compositor hint is warranted for a layout-driven anchor",
     )
+  })
+
+  it("resolves the transform collision instead of letting one side clobber it", () => {
+    // The anchored sheet needs a permanent `translateY(-100%)`; the `sheet-up`
+    // enter/leave classes own `transform` for the entrance. PR #75 lost the
+    // entrance animation to exactly this. Both survive only because the
+    // entrance ENDPOINTS are rewritten into the anchored frame, with enough
+    // specificity to beat the base anchored rule.
+    assert.match(
+      aiDockSource,
+      /\.dock-sheet\[data-vv-anchored="true"\] \{\s*bottom: auto;\s*transform: translateY\(-100%\);/,
+      "the anchored sheet is pulled up by exactly its own height",
+    )
+    assert.match(
+      aiDockSource,
+      /\.dock-sheet\[data-vv-anchored="true"\]\.sheet-up-enter-from[\s\S]{0,160}transform: translateY\(0\)/,
+      "anchored, the entrance starts one sheet-height BELOW the anchor",
+    )
+    assert.match(
+      aiDockSource,
+      /\.dock-sheet\[data-vv-anchored="true"\]\.sheet-up-enter-to[\s\S]{0,160}transform: translateY\(-100%\)/,
+      "…and ends at the resting transform, so the travel is unchanged",
+    )
+    // The flag and the anchor must never disagree: an unanchored sheet carrying
+    // translateY(-100%) would sit a full sheet-height above the screen edge.
+    assert.match(aiDockSource, /sheetStyle\.value\.top !== undefined/)
+    assert.match(aiDockSource, /:data-vv-anchored="sheetAnchored/)
   })
 
   it("publishes a settled keyboard target rather than every measurement", () => {
@@ -211,7 +256,13 @@ describe("AI dock (mobile chat sheet)", () => {
     // compact-only media query, so even a guard slip cannot reach the panel.
     assert.match(
       aiDockSource,
-      /@media \(max-width: 767px\) \{\s*\.dock-sheet \{\s*transition:\s*\n?\s*bottom/,
+      /@media \(max-width: 767px\) \{\s*\.dock-sheet \{\s*transition:\s*\n?\s*top/,
+    )
+    // …and so is the anchored transform, so the md: side panel can never be
+    // handed a translateY(-100%) even if `isCompact` were wrong.
+    assert.match(
+      aiDockSource,
+      /@media \(max-width: 767px\) \{[\s\S]{0,600}\.dock-sheet\[data-vv-anchored="true"\] \{/,
     )
   })
 
