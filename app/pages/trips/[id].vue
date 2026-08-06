@@ -1666,7 +1666,15 @@ async function recomputeSegments(dayId: string) {
     </div>
 
     <!-- Trip detail -->
-    <div v-else>
+    <!-- `data-dock-page-content`: below 768px, while the AI dock's full-screen
+         layer is open, this wrapper is taken out of layout (`height: 0;
+         overflow: hidden` — see the global block in AiDock.vue) so the document
+         is exactly one viewport tall. Without that cap iOS's "scroll the
+         focused input into view" has thousands of pixels of trip page to travel
+         through and overshoots, parking the composer well above the keyboard.
+         Out of LAYOUT only: everything in here stays mounted and keeps its
+         state, and the scroll offset is restored when the dock closes. -->
+    <div v-else data-dock-page-content>
       <!-- Header -->
       <!-- items-center, not items-start: the back button is a 44px touch target
            and the title only ~32px tall, so aligning their tops left the arrow

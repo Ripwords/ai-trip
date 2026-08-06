@@ -45,6 +45,19 @@
  * at the scroll offset the dock opened at makes it cover the viewport without
  * moving the page by a single pixel — and, being a document coordinate, it
  * stays correct while iOS scrolls the document to reveal the composer.
+ *
+ * ── Why the answer is now almost always 0 ────────────────────────────
+ * #78 shipped and overshot: iOS scrolled the composer ~190px PAST the keyboard,
+ * because an `absolute` layer over the full trip page leaves thousands of
+ * pixels of scroll range and nothing caps how far a scroll-into-view travels.
+ * So the trip page is now taken out of layout while the layer is open and the
+ * document is exactly one viewport tall — which clamps `scrollY` to 0, and with
+ * it this anchor.
+ *
+ * The function stays a function of scroll position anyway. It is measured after
+ * the collapse rather than assumed, so a dock mounted somewhere with a
+ * positioned ancestor, or a page whose wrapper is not collapsible, still lands
+ * on the viewport instead of silently at `top: 0` of an unrelated box.
  */
 
 export interface DockAnchorInput {
