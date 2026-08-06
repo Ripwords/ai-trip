@@ -2,6 +2,7 @@
 import { BorderBeam } from "vue-border-beam"
 import { marked } from "marked"
 import DOMPurify from "dompurify"
+import type { CSSProperties } from "vue"
 import type { Proposal } from "~/types/proposal"
 
 marked.setOptions({ gfm: true, breaks: true })
@@ -139,6 +140,9 @@ const newReplyPending = ref(false)
 
 function expand() {
   expanded.value = true
+  // (`expanded` may also be set by the loading watcher below, so everything
+  // that must happen on open — the layer's document anchor — hangs off a
+  // watcher on `expanded`, not off this function.)
   // Double tick so this runs strictly AFTER useModalA11y's own open-focus
   // (which focuses the first focusable node — a header button) so the
   // text input keeps initial focus on open.
@@ -165,77 +169,78 @@ useModalA11y(dialogRef, {
   onClose: collapse,
 })
 
-// The sheet is a modal on mobile: without this the page behind it scrolls under
-// the finger and iOS rubber-bands the whole document when the message list hits
-// its end. Held on desktop too, where the dock is a side panel — the page is
-// still not meant to move while a modal dialog owns focus.
-useBodyScrollLock(() => expanded.value)
-
-// ── Sheet geometry ──────────────────────────────────────────────────
-// `dvh` alone is not enough. iOS Safari ignores `interactive-widget=
-// resizes-content` and composites the keyboard OVER the page, so `70dvh` keeps
-// measuring the full screen and the composer ends up behind the keyboard —
-// invisible on a real iPhone while looking perfectly fine in headless Chrome.
-// Lift the sheet by the measured keyboard inset and size it against the visual
-// viewport instead. On Android the inset is ~0 and this reduces to the dvh
-// behaviour it replaces.
-//
-// The lift is ANIMATED, not sampled. `useKeyboardInset` publishes a settled
-// target rather than every `visualViewport` reading, and the sheet transitions
-// to it in CSS (see the stylesheet). Restyling on every event made the sheet
-// step through whatever coarse, irregular frames iOS chose to report —
-// different every time, which is what "not smooth and not consistent" was.
-const { inset: keyboardInset, viewportHeight, viewportBottom } = useKeyboardInset()
-
-// Above `md` the dock is a right-anchored side panel positioned entirely by
-// utility classes (md:top-4 / md:bottom-4 / md:max-h-…). Inline styles would
-// beat those, so the geometry below must apply to the bottom sheet only.
+// ── Viewport class ──────────────────────────────────────────────────
+// Below `md` the dock is a full-screen layer in normal document flow; at and
+// above it, a right-anchored side panel positioned entirely by `md:` utility
+// classes. The two are separated structurally — the mobile layout lives inside
+// a `@media (max-width: 767px)` block in the stylesheet, and the only inline
+// style is a custom property that nothing outside that block reads — so the
+// desktop panel cannot be reached by any of it. This flag exists only for the
+// couple of JS behaviours that differ.
 const isCompact = ref(true)
 let compactQuery: MediaQueryList | null = null
 function syncCompact(e: MediaQueryList | MediaQueryListEvent) {
   isCompact.value = e.matches
 }
-onMounted(() => {
-  if (!import.meta.client) return
-  compactQuery = window.matchMedia("(max-width: 767px)")
-  syncCompact(compactQuery)
-  compactQuery.addEventListener("change", syncCompact)
-})
-onBeforeUnmount(() => compactQuery?.removeEventListener("change", syncCompact))
 
-// The sheet anchors its TOP edge to the visual viewport's bottom edge and is
-// pulled up by its own height in CSS (`translateY(-100%)`), so its bottom edge
-// lands flush on the keyboard by construction. It must NOT go back to a
-// `bottom`-based lift in any form: iOS Safari stops honouring `position: fixed`
-// while the keyboard is up, so the viewport's bottom edge is not a thing to
-// measure back from — which is why both PR #75 and PR #76 drifted. The
-// arithmetic, and the full reasoning, live in `resolveDockSheetGeometry` — a
-// pure function so the one thing headless Chrome cannot check is at least
-// unit-tested.
+// Scroll lock: DESKTOP ONLY, deliberately.
 //
-// At rest the anchor is `top: 100%` (the containing block's own bottom edge)
-// and `max-h-[70dvh] min-h-[50dvh]` still do the sizing, so the lift is one
-// animated property rather than a switch between positioning schemes.
-const sheetStyle = computed<DockSheetGeometry>(() =>
-  resolveDockSheetGeometry({
-    isCompact: isCompact.value,
-    keyboardInset: keyboardInset.value,
-    viewportBottom: viewportBottom.value,
-    viewportHeight: viewportHeight.value,
-  }),
+// On the side panel it still makes sense — the page is not meant to move while
+// a modal dialog owns focus, and the panel does not cover it.
+//
+// On mobile it was actively causing the bug. The lock pins `document.body` with
+// `position: fixed`, which is precisely what stops iOS from scrolling the
+// focused composer into view; every keyboard fix so far was hand-rolling, badly,
+// the scroll the browser was being prevented from doing itself. The full-screen
+// layer covers the viewport, so there is nothing behind it to see scroll anyway.
+useBodyScrollLock(() => expanded.value && !isCompact.value)
+
+// ── The full-screen layer's document anchor (mobile only) ───────────
+// The layer is `position: absolute; height: 100dvh` — NOT fixed. `absolute`
+// resolves against the document, so it needs the scroll offset the dock opened
+// at in order to cover the viewport. See `resolveDockAnchorTop` for why the
+// whole viewport-pinned model was abandoned. This is a scroll coordinate; no
+// `visualViewport` property is read anywhere in this component.
+const anchorTop = ref(0)
+let restoreScrollY: number | null = null
+
+const layerStyle = computed<CSSProperties>(() =>
+  isCompact.value ? { "--dock-anchor-top": `${anchorTop.value}px` } : {},
 )
 
-// Drives the anchored CSS: `bottom: auto`, the permanent `translateY(-100%)`,
-// and the entrance endpoints rewritten into the anchored frame. True exactly
-// when an inline `top` is present, so the transform and the anchor can never
-// disagree — an unanchored sheet with `translateY(-100%)` would sit a full
-// sheet-height above the screen edge.
-const sheetAnchored = computed(() => sheetStyle.value.top !== undefined)
+/** Re-derive the anchor once the layer is in the DOM and its offset parent known. */
+function measureAnchor() {
+  const el = dialogRef.value
+  if (!el) return
+  const parent = el.offsetParent as HTMLElement | null
+  const containingBlockTop = parent ? parent.getBoundingClientRect().top + window.scrollY : 0
+  anchorTop.value = resolveDockAnchorTop({ scrollY: window.scrollY, containingBlockTop })
+}
 
-// Keep the newest message in view as the keyboard opens and the sheet shrinks.
-// Throttled: leading so the list follows the lift straight away, trailing so it
-// lands again once the transition has settled on its final height. (The scroll
-// policy itself — the bottom threshold, the user-intent flag — is untouched.)
+watch(expanded, (open) => {
+  if (!import.meta.client) return
+  if (open) {
+    if (!isCompact.value) return
+    // Set before the element renders (pre-flush) so the layer's first paint is
+    // already in the right place, then refine once its offset parent is known.
+    restoreScrollY = window.scrollY
+    anchorTop.value = window.scrollY
+    nextTick(measureAnchor)
+    // (Closing is handled below without the compact check, so a rotation to the
+    // side panel mid-conversation cannot strand a saved scroll position.)
+  } else if (restoreScrollY !== null) {
+    // Closing. The keyboard may have scrolled the document down to reveal the
+    // composer; put the trip page back where the user left it.
+    const y = restoreScrollY
+    restoreScrollY = null
+    window.scrollTo(0, y)
+  }
+})
+
+// Keep the newest message in view when the keyboard appears. Throttled: leading
+// so the list follows straight away, trailing so it lands again once iOS has
+// finished scrolling the composer into view. (The scroll policy itself — the
+// bottom threshold, the user-intent flag — is untouched.)
 const KEYBOARD_SCROLL_THROTTLE_MS = 250
 let keyboardScrollAt = 0
 let keyboardScrollTimer: ReturnType<typeof setTimeout> | null = null
@@ -253,10 +258,47 @@ function followKeyboard() {
   }, KEYBOARD_SCROLL_THROTTLE_MS)
 }
 
-watch([keyboardInset, viewportHeight, viewportBottom], followKeyboard)
+/**
+ * How long to let iOS finish its own keyboard-dismissal scroll before checking
+ * whether it left the layer's header above the top of the screen.
+ */
+const REALIGN_DELAY_MS = 300
+let realignTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * The keyboard scrolled the DOCUMENT to reveal the composer (which is the whole
+ * point — it is the browser doing the work instead of us). Safari usually
+ * scrolls back on dismissal; when it does not, the layer's header is left above
+ * the viewport. Nudge the document back to the layer's own top edge — a
+ * document coordinate, not a viewport-derived offset, and never a reposition of
+ * the layer itself.
+ */
+function realignAfterKeyboard() {
+  if (realignTimer) clearTimeout(realignTimer)
+  realignTimer = setTimeout(() => {
+    realignTimer = null
+    const el = dialogRef.value
+    if (!el || !expanded.value || !isCompact.value) return
+    const top = el.getBoundingClientRect().top
+    if (top < -8) window.scrollTo(0, window.scrollY + top)
+  }, REALIGN_DELAY_MS)
+}
+
+onMounted(() => {
+  if (!import.meta.client) return
+  compactQuery = window.matchMedia("(max-width: 767px)")
+  syncCompact(compactQuery)
+  compactQuery.addEventListener("change", syncCompact)
+  // Orientation changes and (on Android) the layout viewport shrinking for the
+  // keyboard both arrive as a plain resize.
+  window.addEventListener("resize", followKeyboard)
+})
 
 onBeforeUnmount(() => {
+  compactQuery?.removeEventListener("change", syncCompact)
+  if (import.meta.client) window.removeEventListener("resize", followKeyboard)
   if (keyboardScrollTimer) clearTimeout(keyboardScrollTimer)
+  if (realignTimer) clearTimeout(realignTimer)
 })
 
 // ── Composer sizing ─────────────────────────────────────────────────
@@ -274,6 +316,15 @@ function resizeComposer() {
 
 function onComposerInput(event: Event) {
   emit("update:input", (event.target as HTMLTextAreaElement).value)
+}
+
+function onComposerFocus() {
+  followKeyboard()
+}
+
+function onComposerBlur() {
+  followKeyboard()
+  realignAfterKeyboard()
 }
 
 // Covers the paths that change `input` without a keystroke: starter chips,
@@ -532,20 +583,9 @@ const proposalKindMeta: Record<
 </script>
 
 <template>
-  <Transition
-    enter-active-class="duration-200 ease-out"
-    enter-from-class="opacity-0"
-    enter-to-class="opacity-100"
-    leave-active-class="duration-150 ease-in"
-    leave-from-class="opacity-100"
-    leave-to-class="opacity-0"
-  >
-    <div
-      v-if="expanded"
-      class="fixed inset-0 z-[60] bg-sand-900/40 backdrop-blur-[2px] md:hidden"
-      @click="collapse"
-    />
-  </Transition>
+  <!-- No mobile backdrop: the expanded dock is a full-screen layer, so there is
+       no page left showing around it to dim, and no "outside" to tap. The X in
+       the header is the close affordance. -->
 
   <!-- Collapsed FAB (original style) -->
   <Transition name="fab-pop">
@@ -560,7 +600,8 @@ const proposalKindMeta: Record<
     </button>
   </Transition>
 
-  <!-- Expanded chat sheet -->
+  <!-- Expanded chat: a full-screen layer on mobile (see the stylesheet), a
+       right-anchored side panel from md up. -->
   <Transition name="sheet-up">
     <div
       v-if="expanded"
@@ -569,14 +610,14 @@ const proposalKindMeta: Record<
       aria-modal="true"
       :aria-labelledby="dialogHeadingId"
       tabindex="-1"
-      class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex max-h-[70dvh] min-h-[50dvh] flex-col rounded-t-[28px] focus:outline-none md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:max-h-[calc(100dvh-2rem)] md:min-h-0 md:w-[400px] md:rounded-3xl"
-      :data-vv-anchored="sheetAnchored ? 'true' : 'false'"
-      :style="sheetStyle"
+      class="dock-sheet pointer-events-auto z-[70] flex flex-col focus:outline-none md:fixed md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:max-h-[calc(100dvh-2rem)] md:w-[400px] md:rounded-3xl"
+      :style="layerStyle"
     >
-      <div class="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-sand-400/40 md:hidden" />
-
+      <!-- No drag handle below md any more. A handle promises a draggable sheet
+           edge; a full-screen layer has none, and the rounded top corners it sat
+           under would only frame a strip of nothing. -->
       <header
-        class="mx-auto mt-3 flex w-full max-w-[28rem] items-center justify-between gap-2 px-4"
+        class="mx-auto mt-3 flex w-full max-w-[28rem] shrink-0 items-center justify-between gap-2 px-4"
       >
         <div class="flex min-w-0 items-center gap-2">
           <Icon name="lucide:sparkles" class="h-4 w-4 shrink-0 text-terra-500" />
@@ -617,14 +658,15 @@ const proposalKindMeta: Record<
           </button>
         </div>
       </header>
-      <div class="mx-auto mt-2 h-px w-full max-w-[28rem] bg-sand-300/60" />
+      <div class="mx-auto mt-2 h-px w-full max-w-[28rem] shrink-0 bg-sand-300/60" />
 
-      <!-- Message list -->
+      <!-- Message list. `min-h-0` is what lets a `flex-1` item actually scroll
+           instead of growing past the layer's height. -->
       <div
         ref="listEl"
         role="log"
         aria-live="polite"
-        class="dock-list relative mx-auto w-full max-w-[28rem] flex-1 overflow-y-auto px-4 py-3"
+        class="dock-list relative mx-auto w-full max-w-[28rem] min-h-0 flex-1 overflow-y-auto px-4 py-3"
         @scroll="onListScroll"
       >
         <!-- Empty state -->
@@ -826,7 +868,7 @@ const proposalKindMeta: Record<
       </div>
 
       <!-- Quick action chips -->
-      <div class="mx-auto w-full max-w-[28rem] px-4 pb-2">
+      <div class="mx-auto w-full max-w-[28rem] shrink-0 px-4 pb-2">
         <!-- Wider than the sheet at 320-390px, so the last chip is cut off. Fade
              the trailing edge so that reads as "swipe for more", not as clipping. -->
         <div class="dock-chip-row flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
@@ -844,8 +886,10 @@ const proposalKindMeta: Record<
         </div>
       </div>
 
-      <!-- Sticky input -->
-      <div class="dock-input-area mx-auto w-full max-w-[28rem] px-4 pb-2">
+      <!-- Composer: the LAST element of the flex column, in normal flow. Not
+           pinned, not lifted — the browser scrolls it into view above the
+           keyboard by itself, which is the entire point of the redesign. -->
+      <div class="dock-input-area mx-auto w-full max-w-[28rem] shrink-0 px-4">
         <BorderBeam
           size="sm"
           color-variant="sunset"
@@ -882,6 +926,8 @@ const proposalKindMeta: Record<
               enterkeyhint="send"
               class="dock-composer min-w-0 flex-1 resize-none border-none bg-transparent text-sand-50 placeholder:italic placeholder:text-sand-50/70 focus:outline-none disabled:opacity-70"
               @input="onComposerInput"
+              @focus="onComposerFocus"
+              @blur="onComposerBlur"
               @keydown.enter.exact.prevent="handleSubmit"
             />
             <button
@@ -904,10 +950,6 @@ const proposalKindMeta: Record<
 
 <style scoped>
 .dock-sheet {
-  /* One duration/curve for every property the keyboard moves, so the sheet's
-     two edges travel together. ~0.25s ease-out is iOS's own keyboard timing. */
-  --dock-lift-ms: 250ms;
-  --dock-lift-ease: cubic-bezier(0.17, 0.59, 0.4, 1);
   background: var(--color-sand-50);
   box-shadow:
     0 0 0 1px rgba(61, 51, 40, 0.08),
@@ -941,46 +983,50 @@ const proposalKindMeta: Record<
   touch-action: manipulation;
 }
 
-/* ── Keyboard anchor (bottom sheet only) ────────────────────────────
-   The sheet's TOP edge is anchored to the visual viewport's bottom edge — the
-   inline `top` from `resolveDockSheetGeometry` — and `translateY(-100%)` pulls
-   it up by exactly its own height, so its BOTTOM edge lands on the visual
-   viewport's bottom edge by construction.
+/* ── The mobile layer: full-screen, in normal document flow ─────────
+   NOT `position: fixed`, and never again. iOS Safari stops honouring fixed
+   positioning while the virtual keyboard is up — fixed elements degrade toward
+   `static` — so three shipped attempts at a fixed bottom sheet (#75's
+   transform, #76's `bottom`, #77's visual-viewport `top` + `translateY(-100%)`)
+   were all adjusting a property on an element whose positioning model Safari
+   had already abandoned. #77 measured 0.00px of error in headless Chrome and
+   was still visibly wrong on the device.
 
-   `top`, NEVER `bottom`. iOS Safari stops honouring `position: fixed` while the
-   virtual keyboard is up (fixed elements start behaving like static ones), so
-   an offset measured back from the viewport's bottom edge is measured from an
-   edge Safari is no longer pinning anything to. That is why PR #75's transform
-   and PR #76's `bottom` both left a band of page above the keyboard whose size
-   varied per open and grew across open/close cycles. `top` is measured from the
-   layout viewport's top — the origin that does not move — and
-   `visualViewport.offsetTop + visualViewport.height` is expressed in exactly
-   that frame. `bottom: auto` below is what takes the `bottom-0` utility class
-   out of the picture. Full reasoning in `useDockSheetGeometry.ts`.
+   And even a perfectly anchored sheet could not have worked: iOS's floating
+   accessory bar (the ^ / v / Done pill) is NOT included in
+   `visualViewport.height`, so a sheet whose bottom edge lands exactly on the
+   visual viewport's bottom edge still stops above the pill and leaves a strip
+   of page showing. The target is unreachable through that API.
 
-   The anchor is live at rest too (`top: 100%`, the containing block's own
-   bottom edge) so the keyboard lift is a transition of ONE property rather than
-   a switch between two positioning schemes, which could not animate. Duration
-   and curve approximate iOS's own keyboard animation (~0.25s, ease-out), so the
-   sheet rides alongside the keyboard instead of chasing it a few coarse frames
-   behind.
+   So the fight is removed rather than re-fought. `position: absolute` +
+   `height: 100dvh` anchored to a DOCUMENT coordinate (`--dock-anchor-top`, the
+   scroll offset the dock opened at — see `utils/dock-anchor.ts`). Nothing is
+   pinned to a viewport edge, so there is nothing for iOS to mis-place, and the
+   browser's own "scroll the focused input into view" scrolls the whole layer
+   the way it would on any ordinary page — accessory bar accounted for, because
+   the browser is the one doing the accounting.
 
-   Above md the dock is a right-anchored side panel and none of this applies —
-   `resolveDockSheetGeometry` returns nothing there (so `data-vv-anchored` is
-   false), but the media query makes it structural rather than a matter of
-   trusting the guard. */
+   Everything mobile lives inside this media query, so the >=768px side panel
+   (positioned entirely by `md:` utility classes) is untouched by construction
+   rather than by a runtime guard. */
 @media (max-width: 767px) {
   .dock-sheet {
-    transition:
-      top var(--dock-lift-ms) var(--dock-lift-ease),
-      max-height var(--dock-lift-ms) var(--dock-lift-ease),
-      min-height var(--dock-lift-ms) var(--dock-lift-ease),
-      padding-bottom var(--dock-lift-ms) var(--dock-lift-ease);
-  }
-
-  .dock-sheet[data-vv-anchored="true"] {
-    bottom: auto;
-    transform: translateY(-100%);
+    position: absolute;
+    top: var(--dock-anchor-top, 0px);
+    left: 0;
+    right: 0;
+    height: 100dvh;
+    /* A full-screen layer has no top edge on show, so rounding it would only
+       frame a sliver of nothing. Square, and pad past the notch instead. */
+    border-radius: 0;
+    padding-top: env(safe-area-inset-top, 0px);
+    /* Bleed the layer's own background one viewport further down, as a shadow
+       so it costs no layout and no scroll range. If iOS overscrolls a little
+       past the composer while revealing it, what shows below the layer is more
+       layer — not a strip of trip page. */
+    box-shadow:
+      0 -24px 56px -20px rgba(61, 51, 40, 0.3),
+      0 100dvh 0 0 var(--color-sand-50);
   }
 }
 
@@ -1439,6 +1485,14 @@ const proposalKindMeta: Record<
   border-radius: 22px;
 }
 
+/* The composer sits on the screen's bottom edge whenever the keyboard is down,
+   so it owns the home-indicator inset. (With the keyboard up iOS reports the
+   inset as 0 and the `0.5rem` floor is all that is left, which is what we
+   want — every pixel counts there.) */
+.dock-input-area {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem);
+}
+
 /* 16px exactly. Anything smaller makes iOS Safari zoom the page on focus, and
    the viewport meta no longer suppresses that (pinch-zoom is back on, by
    design). The composer grows via JS up to a cap, then scrolls internally. */
@@ -1502,32 +1556,11 @@ const proposalKindMeta: Record<
   }
 }
 
-/* ── The transform collision ────────────────────────────────────────
-   The anchored sheet needs a permanent `translateY(-100%)`, and the classes
-   above own `transform` outright for the entrance. Both cannot have it.
-
-   They are composed by rewriting the entrance ENDPOINTS into the anchored
-   frame instead of letting one declaration clobber the other. Unanchored, the
-   sheet travels `translateY(100%)` -> `translateY(0)`. Anchored, the resting
-   position is already `translateY(-100%)`, so the same travel — one sheet
-   height, upward, ending at rest — is `translateY(0)` -> `translateY(-100%)`.
-   Identical motion, arithmetic done at the endpoints.
-
-   Specificity is doing real work here and is easy to break: the base anchored
-   rule is `.dock-sheet[data-vv-anchored]` (2), which would beat a bare
-   `.sheet-up-enter-from` (1) and freeze the sheet at its resting transform for
-   the whole entrance. These selectors repeat the anchor (3) so they win, and
-   they must keep doing so. */
-@media (max-width: 767px) {
-  .dock-sheet[data-vv-anchored="true"].sheet-up-enter-from,
-  .dock-sheet[data-vv-anchored="true"].sheet-up-leave-to {
-    transform: translateY(0);
-  }
-  .dock-sheet[data-vv-anchored="true"].sheet-up-enter-to,
-  .dock-sheet[data-vv-anchored="true"].sheet-up-leave-from {
-    transform: translateY(-100%);
-  }
-}
+/* Nothing else owns `transform` on `.dock-sheet` any more. The lifting
+   transform, and the endpoint arithmetic that had to compose with it (attempts
+   2 and 3 both broke on exactly this collision), are gone with the lift — so
+   the entrance above is the plain slide-up it was originally, with no
+   specificity juggling holding it together. */
 
 @media (prefers-reduced-motion: reduce) {
   .fab-pop-enter-active,
@@ -1541,20 +1574,6 @@ const proposalKindMeta: Record<
   .sheet-up-enter-from,
   .sheet-up-leave-to {
     transform: none;
-  }
-  /* ...except while anchored, where `transform: none` is not "no motion", it is
-     "one sheet-height lower than where the sheet belongs". Hold the resting
-     transform at both endpoints so the entrance is opacity-only AND the sheet
-     stays put. */
-  .dock-sheet[data-vv-anchored="true"].sheet-up-enter-from,
-  .dock-sheet[data-vv-anchored="true"].sheet-up-leave-to {
-    transform: translateY(-100%);
-  }
-  /* The keyboard lift itself is not decoration — the composer has to clear the
-     keyboard — but it is on `top`, so dropping the transition below removes the
-     motion while keeping the position. */
-  .dock-sheet {
-    transition: none;
   }
   .dock-dot {
     animation: none;
