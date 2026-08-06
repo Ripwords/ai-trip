@@ -74,7 +74,7 @@ describe("AI dock (mobile chat sheet)", () => {
     assert.match(aiDockSource, /useKeyboardInset\(\)/, "must measure the keyboard inset")
     assert.match(
       aiDockSource,
-      /bottom:\s*lifted\s*\?/,
+      /"--dock-lift":\s*`-\$\{keyboardInset\.value\}px`/,
       "sheet must be offset by the keyboard inset when one is present",
     )
     assert.match(
@@ -82,22 +82,103 @@ describe("AI dock (mobile chat sheet)", () => {
       /viewportHeight/,
       "max-height must be derived from the visual viewport, not the layout viewport",
     )
+    // The measurement rules themselves are unit-tested in
+    // composables/useKeyboardInset.test.ts; this only pins that they are still
+    // being applied to the real viewport reading.
     assert.match(
       keyboardInsetSource,
-      /window\.innerHeight\s*-\s*vv\.height\s*-\s*vv\.offsetTop/,
+      /innerHeight:\s*window\.innerHeight[\s\S]{0,200}offsetTop:\s*vv\.offsetTop/,
       "inset must account for iOS scrolling the visual viewport (offsetTop)",
     )
     assert.match(
       keyboardInsetSource,
-      /vv\.scale\s*>\s*1\.05/,
+      /scale:\s*vv\.scale/,
       "pinch-zoom must not be mistaken for the keyboard",
+    )
+  })
+
+  it("animates the lift on the compositor instead of sampling every viewport event", () => {
+    // iOS emits visualViewport events irregularly during its keyboard
+    // animation. Re-styling per event makes the sheet step through whatever
+    // coarse frames iOS happened to report — different every time. The lift
+    // must instead be one transition to a settled target.
+    assert.doesNotMatch(
+      aiDockSource,
+      /bottom:\s*(lifted|`)/,
+      "the lift must not ride on `bottom`, which forces layout every frame",
+    )
+    assert.match(
+      aiDockSource,
+      /transform:\s*translate3d\(0,\s*var\(--dock-lift/,
+      "the lift must resolve to a compositor-only transform",
+    )
+    assert.match(
+      aiDockSource,
+      /transition:\s*\n?\s*transform var\(--dock-lift-ms\)/,
+      "the transform must be transitioned, not stepped",
+    )
+    assert.match(
+      aiDockSource,
+      /max-height var\(--dock-lift-ms\) var\(--dock-lift-ease\)/,
+      "height has to change too, so it must share the lift's duration and curve",
+    )
+    // `will-change` on a full-screen sheet keeps a compositor layer alive; it
+    // is only warranted while a lift is actually in flight.
+    assert.match(aiDockSource, /\[data-lift-motion="true"\]\s*\{\s*will-change:\s*transform/)
+    assert.doesNotMatch(
+      aiDockSource,
+      /\.dock-sheet\s*\{[^}]*will-change/,
+      "will-change must not be parked on the sheet permanently",
+    )
+  })
+
+  it("publishes a settled keyboard target rather than every measurement", () => {
+    assert.match(
+      keyboardInsetSource,
+      /const SETTLE_MS/,
+      "a burst of visualViewport events must resolve to one target",
+    )
+    assert.match(
+      keyboardInsetSource,
+      /scheduleTrailing\(\)/,
+      "a single trailing event must still land",
+    )
+    assert.match(
+      keyboardInsetSource,
+      /if \(isOpen !== wasOpen\) \{[\s\S]{0,400}commit\(/,
+      "an open/close flip must commit immediately so the lift never feels laggy",
+    )
+    assert.match(
+      keyboardInsetSource,
+      /composerFocused === false\) return 0/,
+      "a blurred composer means no keyboard, whatever iOS 26 reports for offsetTop",
+    )
+    assert.match(
+      keyboardInsetSource,
+      /focusin|focusout/,
+      "focus is the trustworthy dismissal signal",
+    )
+  })
+
+  it("throttles the keyboard-driven scroll follow", () => {
+    assert.match(aiDockSource, /KEYBOARD_SCROLL_THROTTLE_MS/)
+    assert.doesNotMatch(
+      aiDockSource,
+      /watch\(keyboardInset,\s*\(\)\s*=>\s*\{\s*\n\s*if \(expanded/,
+      "scrollToBottom must not run once per viewport measurement",
     )
   })
 
   it("keeps the desktop side panel free of the mobile inline geometry", () => {
     // Inline styles beat the md: utility classes that position the side panel.
-    assert.match(aiDockSource, /if \(!isCompact\.value\) return \{\}/)
+    assert.match(aiDockSource, /if \(!isCompact\.value\) return none/)
     assert.match(aiDockSource, /max-width:\s*767px/)
+    // Belt and braces: the transform/transition that carry the lift are inside
+    // a compact-only media query, so even a guard slip cannot reach the panel.
+    assert.match(
+      aiDockSource,
+      /@media \(max-width: 767px\) \{\s*\.dock-sheet \{\s*transform: translate3d/,
+    )
   })
 
   it("composes messages in an auto-growing textarea, not a single-line input", () => {
