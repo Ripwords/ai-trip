@@ -185,7 +185,7 @@ useBodyScrollLock(() => expanded.value)
 // to it in CSS (see the stylesheet). Restyling on every event made the sheet
 // step through whatever coarse, irregular frames iOS chose to report —
 // different every time, which is what "not smooth and not consistent" was.
-const { inset: keyboardInset, viewportHeight } = useKeyboardInset()
+const { inset: keyboardInset, viewportHeight, viewportBottom } = useKeyboardInset()
 
 // Above `md` the dock is a right-anchored side panel positioned entirely by
 // utility classes (md:top-4 / md:bottom-4 / md:max-h-…). Inline styles would
@@ -203,22 +203,34 @@ onMounted(() => {
 })
 onBeforeUnmount(() => compactQuery?.removeEventListener("change", syncCompact))
 
-// The lift rides on `bottom`, and must NOT go back to `transform`: iOS offsets
-// a transformed `position: fixed` element by `visualViewport.offsetTop` on top
-// of the translation, so the sheet overshot by that amount and left a band of
-// page above the keyboard (PR #75's regression). The arithmetic, and the full
-// reasoning, live in `resolveDockSheetGeometry` — a pure function so the one
-// thing headless Chrome cannot check is at least unit-tested.
+// The sheet anchors its TOP edge to the visual viewport's bottom edge and is
+// pulled up by its own height in CSS (`translateY(-100%)`), so its bottom edge
+// lands flush on the keyboard by construction. It must NOT go back to a
+// `bottom`-based lift in any form: iOS Safari stops honouring `position: fixed`
+// while the keyboard is up, so the viewport's bottom edge is not a thing to
+// measure back from — which is why both PR #75 and PR #76 drifted. The
+// arithmetic, and the full reasoning, live in `resolveDockSheetGeometry` — a
+// pure function so the one thing headless Chrome cannot check is at least
+// unit-tested.
 //
-// At rest there is nothing to size: `bottom-0 max-h-[70dvh] min-h-[50dvh]` on
-// the element do the work, and the only inline value is the safe-area pad.
+// At rest the anchor is `top: 100%` (the containing block's own bottom edge)
+// and `max-h-[70dvh] min-h-[50dvh]` still do the sizing, so the lift is one
+// animated property rather than a switch between positioning schemes.
 const sheetStyle = computed<DockSheetGeometry>(() =>
   resolveDockSheetGeometry({
     isCompact: isCompact.value,
     keyboardInset: keyboardInset.value,
+    viewportBottom: viewportBottom.value,
     viewportHeight: viewportHeight.value,
   }),
 )
+
+// Drives the anchored CSS: `bottom: auto`, the permanent `translateY(-100%)`,
+// and the entrance endpoints rewritten into the anchored frame. True exactly
+// when an inline `top` is present, so the transform and the anchor can never
+// disagree — an unanchored sheet with `translateY(-100%)` would sit a full
+// sheet-height above the screen edge.
+const sheetAnchored = computed(() => sheetStyle.value.top !== undefined)
 
 // Keep the newest message in view as the keyboard opens and the sheet shrinks.
 // Throttled: leading so the list follows the lift straight away, trailing so it
@@ -241,7 +253,7 @@ function followKeyboard() {
   }, KEYBOARD_SCROLL_THROTTLE_MS)
 }
 
-watch([keyboardInset, viewportHeight], followKeyboard)
+watch([keyboardInset, viewportHeight, viewportBottom], followKeyboard)
 
 onBeforeUnmount(() => {
   if (keyboardScrollTimer) clearTimeout(keyboardScrollTimer)
@@ -558,6 +570,7 @@ const proposalKindMeta: Record<
       :aria-labelledby="dialogHeadingId"
       tabindex="-1"
       class="dock-sheet pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex max-h-[70dvh] min-h-[50dvh] flex-col rounded-t-[28px] focus:outline-none md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:max-h-[calc(100dvh-2rem)] md:min-h-0 md:w-[400px] md:rounded-3xl"
+      :data-vv-anchored="sheetAnchored ? 'true' : 'false'"
       :style="sheetStyle"
     >
       <div class="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-sand-400/40 md:hidden" />
@@ -928,37 +941,46 @@ const proposalKindMeta: Record<
   touch-action: manipulation;
 }
 
-/* ── Keyboard lift (bottom sheet only) ──────────────────────────────
-   The lift is the inline `bottom` from `resolveDockSheetGeometry`, published
-   once per keyboard open and once per close instead of once per visualViewport
-   event, and animated HERE rather than in JS. The duration and curve
-   approximate iOS's own keyboard animation (~0.25s, ease-out), so the sheet
-   rides alongside the keyboard instead of chasing it a few coarse frames
+/* ── Keyboard anchor (bottom sheet only) ────────────────────────────
+   The sheet's TOP edge is anchored to the visual viewport's bottom edge — the
+   inline `top` from `resolveDockSheetGeometry` — and `translateY(-100%)` pulls
+   it up by exactly its own height, so its BOTTOM edge lands on the visual
+   viewport's bottom edge by construction.
+
+   `top`, NEVER `bottom`. iOS Safari stops honouring `position: fixed` while the
+   virtual keyboard is up (fixed elements start behaving like static ones), so
+   an offset measured back from the viewport's bottom edge is measured from an
+   edge Safari is no longer pinning anything to. That is why PR #75's transform
+   and PR #76's `bottom` both left a band of page above the keyboard whose size
+   varied per open and grew across open/close cycles. `top` is measured from the
+   layout viewport's top — the origin that does not move — and
+   `visualViewport.offsetTop + visualViewport.height` is expressed in exactly
+   that frame. `bottom: auto` below is what takes the `bottom-0` utility class
+   out of the picture. Full reasoning in `useDockSheetGeometry.ts`.
+
+   The anchor is live at rest too (`top: 100%`, the containing block's own
+   bottom edge) so the keyboard lift is a transition of ONE property rather than
+   a switch between two positioning schemes, which could not animate. Duration
+   and curve approximate iOS's own keyboard animation (~0.25s, ease-out), so the
+   sheet rides alongside the keyboard instead of chasing it a few coarse frames
    behind.
 
-   `bottom`, NOT `transform`. iOS resolves a transformed `position: fixed`
-   element differently: it additionally offsets it by `visualViewport.offsetTop`
-   on top of the translation, so the sheet moved by `inset + offsetTop` and the
-   surplus showed as a band of page between the sheet and the keyboard. See the
-   long note in `useDockSheetGeometry.ts`. Layout-driven transitions cost the
-   main thread, which is the right price for landing in the right place.
-
-   Leaving `transform` alone also matters for a second reason: the `sheet-up`
-   enter/leave classes own it for the open/close slide. Those classes declare
-   their own `transition` and, being later in this stylesheet, replace the one
-   below for the duration of the entrance — so the sheet slides in at its final
-   geometry rather than animating two things at once.
-
    Above md the dock is a right-anchored side panel and none of this applies —
-   `resolveDockSheetGeometry` returns nothing there, but the media query makes
-   it structural rather than a matter of trusting the guard. */
+   `resolveDockSheetGeometry` returns nothing there (so `data-vv-anchored` is
+   false), but the media query makes it structural rather than a matter of
+   trusting the guard. */
 @media (max-width: 767px) {
   .dock-sheet {
     transition:
-      bottom var(--dock-lift-ms) var(--dock-lift-ease),
+      top var(--dock-lift-ms) var(--dock-lift-ease),
       max-height var(--dock-lift-ms) var(--dock-lift-ease),
       min-height var(--dock-lift-ms) var(--dock-lift-ease),
       padding-bottom var(--dock-lift-ms) var(--dock-lift-ease);
+  }
+
+  .dock-sheet[data-vv-anchored="true"] {
+    bottom: auto;
+    transform: translateY(-100%);
   }
 }
 
@@ -1480,12 +1502,32 @@ const proposalKindMeta: Record<
   }
 }
 
-/* NOTE: the keyboard lift deliberately does not appear here. It rides on
-   `bottom`, so the sheet is already in the right place before it slides, and
-   `translateY(100%)` above is relative to the sheet's own height either way.
-   When the lift lived on `transform` (PR #75) these classes had to carry it
-   through by hand or the sheet dropped to the keyboard-less position for the
-   length of its entrance — one more reason `transform` was the wrong carrier. */
+/* ── The transform collision ────────────────────────────────────────
+   The anchored sheet needs a permanent `translateY(-100%)`, and the classes
+   above own `transform` outright for the entrance. Both cannot have it.
+
+   They are composed by rewriting the entrance ENDPOINTS into the anchored
+   frame instead of letting one declaration clobber the other. Unanchored, the
+   sheet travels `translateY(100%)` -> `translateY(0)`. Anchored, the resting
+   position is already `translateY(-100%)`, so the same travel — one sheet
+   height, upward, ending at rest — is `translateY(0)` -> `translateY(-100%)`.
+   Identical motion, arithmetic done at the endpoints.
+
+   Specificity is doing real work here and is easy to break: the base anchored
+   rule is `.dock-sheet[data-vv-anchored]` (2), which would beat a bare
+   `.sheet-up-enter-from` (1) and freeze the sheet at its resting transform for
+   the whole entrance. These selectors repeat the anchor (3) so they win, and
+   they must keep doing so. */
+@media (max-width: 767px) {
+  .dock-sheet[data-vv-anchored="true"].sheet-up-enter-from,
+  .dock-sheet[data-vv-anchored="true"].sheet-up-leave-to {
+    transform: translateY(0);
+  }
+  .dock-sheet[data-vv-anchored="true"].sheet-up-enter-to,
+  .dock-sheet[data-vv-anchored="true"].sheet-up-leave-from {
+    transform: translateY(-100%);
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .fab-pop-enter-active,
@@ -1500,9 +1542,17 @@ const proposalKindMeta: Record<
   .sheet-up-leave-to {
     transform: none;
   }
+  /* ...except while anchored, where `transform: none` is not "no motion", it is
+     "one sheet-height lower than where the sheet belongs". Hold the resting
+     transform at both endpoints so the entrance is opacity-only AND the sheet
+     stays put. */
+  .dock-sheet[data-vv-anchored="true"].sheet-up-enter-from,
+  .dock-sheet[data-vv-anchored="true"].sheet-up-leave-to {
+    transform: translateY(-100%);
+  }
   /* The keyboard lift itself is not decoration — the composer has to clear the
-     keyboard — but it is on `bottom`, so dropping the transition below removes
-     the motion while keeping the position. */
+     keyboard — but it is on `top`, so dropping the transition below removes the
+     motion while keeping the position. */
   .dock-sheet {
     transition: none;
   }

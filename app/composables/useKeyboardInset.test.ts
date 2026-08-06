@@ -3,6 +3,7 @@ import { describe, it } from "node:test"
 import {
   KEYBOARD_MIN_INSET_PX,
   resolveKeyboardInset,
+  resolveViewportBottom,
   type ViewportSample,
 } from "./useKeyboardInset"
 
@@ -101,5 +102,34 @@ describe("resolveKeyboardInset", () => {
 
   it("survives non-finite readings", () => {
     assert.equal(resolveKeyboardInset(sample({ visualHeight: Number.NaN })), 0)
+  })
+})
+
+describe("resolveViewportBottom", () => {
+  it("is the visual viewport's bottom edge, measured from the layout viewport's top", () => {
+    // The one origin iOS does not move while the keyboard is up. This — not the
+    // inset — is what the dock's `top` is set to.
+    assert.equal(resolveViewportBottom(sample({ visualHeight: 508, offsetTop: 40 })), 548)
+  })
+
+  it("equals the layout viewport height when nothing is covering the page", () => {
+    // Rest, and Android with a genuinely shrunken layout viewport: the anchor
+    // reduces to the containing block's own bottom edge.
+    assert.equal(resolveViewportBottom(sample()), 844)
+    assert.equal(resolveViewportBottom(sample({ innerHeight: 500, visualHeight: 500 })), 500)
+  })
+
+  it("adds offsetTop rather than subtracting it", () => {
+    // The sign is the whole bug. The inset SUBTRACTS offsetTop because it walks
+    // back from the bottom; the anchor ADDS it because it walks down from the
+    // top. Getting this backwards reproduces PR #75's growing gap exactly.
+    const scrolled = resolveViewportBottom(sample({ visualHeight: 508, offsetTop: 40 }))
+    const unscrolled = resolveViewportBottom(sample({ visualHeight: 508, offsetTop: 0 }))
+    assert.ok(scrolled > unscrolled, "scrolling the visual viewport down moves the anchor down")
+    assert.equal(scrolled - unscrolled, 40)
+  })
+
+  it("survives non-finite readings", () => {
+    assert.equal(resolveViewportBottom(sample({ visualHeight: Number.NaN })), 0)
   })
 })
