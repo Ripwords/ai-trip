@@ -16,7 +16,7 @@
 - **TDD:** write the failing test, watch it fail, then implement. Every task follows this cycle.
 - **Conventional Commits** (`feat:`, `fix:`, `test:`, `refactor:`).
 - **Run tests with `bun test <path>`** — there is no `package.json` test script.
-- **`bunx nuxi typecheck` has a pre-existing error baseline of exactly 18 errors** (measured on this branch before Task 1). Do not chase pre-existing errors; only ensure you add none. Task 6b deliberately clears one, taking the baseline to 17 from that point on.
+- **`bunx nuxi typecheck` has a pre-existing error baseline of exactly 46 errors** (measured on this branch, count with `bunx nuxi typecheck 2>&1 | grep -cE "error TS"` — do NOT pipe through `head`/`tail` before counting). Do not chase pre-existing errors; only ensure you add none. Task 6b deliberately clears one, taking the baseline to 45 from that point on.
 - **`bun test server/utils/ server/lib/ app/composables/` baseline: 858 pass, 0 fail, 56 files.**
 - **Run `bunx nuxi build` before declaring the branch done** — typecheck misses Vue template compile errors.
 - Thinking multiplier is **3**. Thinking discuss step ceiling is **40**. Wall-clock guard threshold is **200_000 ms**.
@@ -1323,7 +1323,7 @@ Expected: PASS
 - [ ] **Step 8: Confirm the typecheck baseline improved**
 
 Run: `bunx nuxi typecheck 2>&1 | grep -cE "error TS"`
-Expected: **17** — exactly one fewer than the 18-error baseline, with the
+Expected: **45** — exactly one fewer than the 46-error baseline, with the
 `AgentConfig` / `providerOptions` error gone. Any other number means something
 else moved; report it rather than proceeding.
 
