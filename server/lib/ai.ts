@@ -395,8 +395,9 @@ export function buildNextStayCtx(
   // transfer day. The traveler still sleeps at tonight's accommodation; only
   // the late-afternoon/evening STOPS on the way there should lean toward
   // shortening tomorrow's transfer.
+  const tonightRef = tonight ? `${tonight.name}` : "tonight's accommodation"
   return `\nNEXT BASE (the traveler relocates after tonight): ${formatAnchor(next)}
-RELOCATION RULE: they sleep somewhere else tomorrow, but tonight they still end at and sleep at the accommodation above — that does not change. Bias the late-afternoon and evening STOPS before that final leg home toward the side of the region that SHORTENS tomorrow's transfer, and never let those stops sit far from that next base. Do not schedule tomorrow's activities — this is only about where today's other stops lean.`
+RELOCATION RULE: they sleep somewhere else tomorrow, but tonight they still end at and sleep at ${tonightRef} — that does not change. Bias the late-afternoon and evening STOPS before that final leg home toward the side of the region that SHORTENS tomorrow's transfer, and never let those stops sit far from that next base. Do not schedule tomorrow's activities — this is only about where today's other stops lean.`
 }
 
 export interface StayDayInput {

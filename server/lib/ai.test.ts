@@ -328,6 +328,14 @@ describe("buildNextStayCtx", () => {
     assert.ok(out.includes("Ryokan Kurashiki"))
   })
 
+  it("does not use positional phrases when tonight's stay is unknown", () => {
+    // When tonight is null, "the accommodation above" would bind to the wrong
+    // antecedent, so the rule must be self-contained and not use positional
+    // references like "above".
+    const out = buildNextStayCtx(next, null)
+    assert.doesNotMatch(out, /\babove\b/i)
+  })
+
   // Finding 5 (whole-branch review): the accommodation line elsewhere in the
   // prompt says tonight's stay "is where the day must end", while the old
   // relocation rule said "never end today somewhere that leaves them far from
