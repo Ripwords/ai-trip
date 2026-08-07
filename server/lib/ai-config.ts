@@ -38,7 +38,7 @@ export type AIModelKey = keyof typeof AI_MODELS
  */
 export const AI_PROVIDER_OPTIONS = {
   deepseek: { thinking: { type: "disabled" } },
-}
+} as const
 
 /**
  * Provider options for one call, given whether the traveler opted into thinking.

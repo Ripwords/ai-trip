@@ -147,3 +147,35 @@ describe("thinkingAvailable", () => {
     }
   })
 })
+
+describe("provider options reach the model", () => {
+  it("keeps thinking disabled by default in the shared constant", () => {
+    // The whole point of AI_PROVIDER_OPTIONS: DeepSeek V4 defaults to a hidden
+    // reasoning phase. If this constant is ever passed somewhere the runtime
+    // does not read, thinking is silently ON everywhere it is relied upon.
+    assert.deepEqual(AI_PROVIDER_OPTIONS, { deepseek: { thinking: { type: "disabled" } } })
+  })
+
+  it("no agent constructor carries providerOptions", async () => {
+    // Regression guard for the pre-flight finding: AgentConfig has no such
+    // field, so a constructor-level value is dropped at runtime AND fails
+    // typecheck. Provider options must be passed per call instead.
+    const files = [
+      "server/lib/discuss-agent.ts",
+      "server/lib/itinerary-review-ai.ts",
+      "server/lib/ai.ts",
+    ]
+    const { readFile } = await import("node:fs/promises")
+    for (const f of files) {
+      const src = await readFile(new URL(`../../${f}`, import.meta.url), "utf8")
+      // Match `providerOptions` appearing inside a `new Agent({ ... })` literal.
+      const agentBlocks = src.match(/new Agent\(\{[\s\S]*?\n\s*\}\)/g) ?? []
+      for (const block of agentBlocks) {
+        assert.ok(
+          !block.includes("providerOptions"),
+          `${f}: new Agent({...}) must not set providerOptions — AgentConfig has no such field, so it is dropped`,
+        )
+      }
+    }
+  })
+})

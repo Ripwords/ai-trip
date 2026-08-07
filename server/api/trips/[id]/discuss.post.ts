@@ -20,6 +20,7 @@ import { creditsForSteps, MAX_DISCUSS_STEPS, STEPS_PER_CREDIT } from "../../../u
 import { getTripWithRelations } from "../../../lib/trips"
 import { buildTripContext } from "../../../lib/discuss-context"
 import { getTripFlightsForUser } from "../../../lib/trip-flights"
+import { AI_PROVIDER_OPTIONS } from "../../../lib/ai-config"
 import type { FlightPromptInput } from "../../../lib/ai"
 import { stampGroup } from "../../../lib/proposal-targeting"
 import type { Proposal } from "../../../lib/proposals"
@@ -292,6 +293,7 @@ export default defineEventHandler(async (event) => {
       const result = await discussAgent.stream(agentMessages, {
         toolsets: { discuss: tools },
         maxSteps: MAX_DISCUSS_STEPS,
+        providerOptions: AI_PROVIDER_OPTIONS,
         // The step budget used to be a guillotine: if the final step happened to be
         // a tool call, the loop stopped with response.text === "" and the user got
         // nothing but an apology. Two overrides fix that:
