@@ -27,35 +27,37 @@
 
 ## File Structure
 
-| File | Responsibility | Change |
-| --- | --- | --- |
-| `server/utils/ai-credit-cost.ts` | Pure pricing math + step constants | Modify |
-| `server/utils/ai-credit-cost.test.ts` | Pricing unit tests | Modify |
-| `server/utils/ai-limits.ts` | Credit ledger primitives | Modify |
-| `server/lib/ai-config.ts` | Model registry + provider options | Modify |
-| `server/lib/ai-config.test.ts` | Provider-option unit tests | Modify |
-| `server/lib/ai.ts` | Prompt construction + handlers | Modify |
-| `server/lib/ai.test.ts` | Prompt-context unit tests | Modify |
-| `server/api/trips/[id]/days/[dayId]/ai.post.ts` | Day-generation endpoint | Modify |
-| `server/lib/discuss-stream.ts` | Chunk → SSE mapping | Modify |
-| `server/lib/discuss-stream.test.ts` | Mapper unit tests | Modify |
-| `shared/utils/discuss-sse.ts` | SSE wire contract | Modify |
-| `server/api/trips/[id]/discuss.post.ts` | Discuss streaming endpoint | Modify |
-| `app/composables/useThinkingMode.ts` | sessionStorage-backed toggle state | **Create** |
-| `app/composables/useThinkingMode.test.ts` | Toggle unit tests | **Create** |
-| `app/components/AiDock.vue` | Composer toggle + thinking disclosure | Modify |
-| `app/pages/trips/[id].vue` | Sends `thinking`, handles `thinking` SSE | Modify |
+| File                                            | Responsibility                           | Change     |
+| ----------------------------------------------- | ---------------------------------------- | ---------- |
+| `server/utils/ai-credit-cost.ts`                | Pure pricing math + step constants       | Modify     |
+| `server/utils/ai-credit-cost.test.ts`           | Pricing unit tests                       | Modify     |
+| `server/utils/ai-limits.ts`                     | Credit ledger primitives                 | Modify     |
+| `server/lib/ai-config.ts`                       | Model registry + provider options        | Modify     |
+| `server/lib/ai-config.test.ts`                  | Provider-option unit tests               | Modify     |
+| `server/lib/ai.ts`                              | Prompt construction + handlers           | Modify     |
+| `server/lib/ai.test.ts`                         | Prompt-context unit tests                | Modify     |
+| `server/api/trips/[id]/days/[dayId]/ai.post.ts` | Day-generation endpoint                  | Modify     |
+| `server/lib/discuss-stream.ts`                  | Chunk → SSE mapping                      | Modify     |
+| `server/lib/discuss-stream.test.ts`             | Mapper unit tests                        | Modify     |
+| `shared/utils/discuss-sse.ts`                   | SSE wire contract                        | Modify     |
+| `server/api/trips/[id]/discuss.post.ts`         | Discuss streaming endpoint               | Modify     |
+| `app/composables/useThinkingMode.ts`            | sessionStorage-backed toggle state       | **Create** |
+| `app/composables/useThinkingMode.test.ts`       | Toggle unit tests                        | **Create** |
+| `app/components/AiDock.vue`                     | Composer toggle + thinking disclosure    | Modify     |
+| `app/pages/trips/[id].vue`                      | Sends `thinking`, handles `thinking` SSE | Modify     |
 
 ---
 
 ### Task 1: Credit primitives — amount-aware refund, ceiling-aware pricing
 
 **Files:**
+
 - Modify: `server/utils/ai-credit-cost.ts`
 - Modify: `server/utils/ai-limits.ts:128-133`
 - Test: `server/utils/ai-credit-cost.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing (first task).
 - Produces:
   - `THINKING_CREDIT_MULTIPLIER: number` (= 3)
@@ -259,10 +261,12 @@ git commit -m "feat(credits): ceiling-aware step pricing and amount-aware refund
 ### Task 2: Model layer — provider options and availability
 
 **Files:**
+
 - Modify: `server/lib/ai-config.ts`
 - Test: `server/lib/ai-config.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing from Task 1.
 - Produces:
   - `aiProviderOptions(thinking: boolean): { deepseek: Record<string, unknown> }`
@@ -387,11 +391,13 @@ git commit -m "feat(ai): add thinking-mode provider options and availability gua
 These are defects, not gated features. They apply in **both** modes.
 
 **Files:**
+
 - Modify: `server/lib/ai.ts:298-318` (`buildFlightsCtx`), `:460`, `:577`
 - Modify: `server/api/trips/[id]/days/[dayId]/ai.post.ts:252-254`
 - Test: `server/lib/ai.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing from Tasks 1-2.
 - Produces:
   - `StartLocation` widens to `{ name: string; address: string | null; lat?: number | null; lng?: number | null }`
@@ -426,7 +432,12 @@ describe("formatAnchor", () => {
   })
 
   it("renders the address alone when only coordinates are missing", () => {
-    const out = formatAnchor({ name: "Some Guesthouse", address: "12 Main St", lat: null, lng: null })
+    const out = formatAnchor({
+      name: "Some Guesthouse",
+      address: "12 Main St",
+      lat: null,
+      lng: null,
+    })
     assert.ok(out.includes("12 Main St"))
     assert.ok(!out.includes("["), "no empty coordinate bracket")
   })
@@ -653,11 +664,13 @@ git commit -m "fix(ai): give add/fill prompts real coordinates and anchor the de
 ### Task 4: Gated context — next-stay lookahead
 
 **Files:**
+
 - Modify: `server/lib/ai.ts` (`handleAdd`, `handleFillGaps`, `processUserRequest`)
 - Modify: `server/api/trips/[id]/days/[dayId]/ai.post.ts`
 - Test: `server/lib/ai.test.ts`
 
 **Interfaces:**
+
 - Consumes: `formatAnchor` (Task 3).
 - Produces:
   - `buildNextStayCtx(next?: { name: string; address: string | null; lat?: number | null; lng?: number | null } | null, tonight?: { name: string } | null): string`
@@ -684,15 +697,27 @@ describe("buildNextStayCtx", () => {
   it("returns an empty string when the traveler does not move", () => {
     // "You relocate to Hotel X" when they are already at Hotel X is noise that
     // invites the model to invent a transfer that isn't happening.
-    assert.equal(buildNextStayCtx({ ...next, name: "Hotel Gracery Shinjuku" }, {
-      name: "Hotel Gracery Shinjuku",
-    }), "")
+    assert.equal(
+      buildNextStayCtx(
+        { ...next, name: "Hotel Gracery Shinjuku" },
+        {
+          name: "Hotel Gracery Shinjuku",
+        },
+      ),
+      "",
+    )
   })
 
   it("ignores case and surrounding whitespace when comparing stays", () => {
-    assert.equal(buildNextStayCtx({ ...next, name: " hotel gracery SHINJUKU " }, {
-      name: "Hotel Gracery Shinjuku",
-    }), "")
+    assert.equal(
+      buildNextStayCtx(
+        { ...next, name: " hotel gracery SHINJUKU " },
+        {
+          name: "Hotel Gracery Shinjuku",
+        },
+      ),
+      "",
+    )
   })
 
   it("names the next base with full precision when the traveler relocates", () => {
@@ -885,20 +910,20 @@ Add `thinking?: boolean` to the params of `handleAdd`, `handleFillGaps`, `handle
 In `server/api/trips/[id]/days/[dayId]/ai.post.ts`, immediately after the `startLocation` block (currently ending at line 175), add:
 
 ```ts
-    // The forward counterpart of previousStayDay. Only used in thinking mode:
-    // it is what lets generation see that the traveler relocates tomorrow and
-    // finish today on the right side of the region.
-    const nextStayDay = allTripDays
-      .filter((d) => d.dayNumber > day.dayNumber && d.accommodationName)
-      .toSorted((a, b) => a.dayNumber - b.dayNumber)[0]
-    const nextLocation = nextStayDay?.accommodationName
-      ? {
-          name: nextStayDay.accommodationName,
-          address: nextStayDay.accommodationAddress,
-          lat: nextStayDay.accommodationLat,
-          lng: nextStayDay.accommodationLng,
-        }
-      : null
+// The forward counterpart of previousStayDay. Only used in thinking mode:
+// it is what lets generation see that the traveler relocates tomorrow and
+// finish today on the right side of the region.
+const nextStayDay = allTripDays
+  .filter((d) => d.dayNumber > day.dayNumber && d.accommodationName)
+  .toSorted((a, b) => a.dayNumber - b.dayNumber)[0]
+const nextLocation = nextStayDay?.accommodationName
+  ? {
+      name: nextStayDay.accommodationName,
+      address: nextStayDay.accommodationAddress,
+      lat: nextStayDay.accommodationLat,
+      lng: nextStayDay.accommodationLng,
+    }
+  : null
 ```
 
 and pass both into `processUserRequest`, right after the `startLocation` property:
@@ -937,10 +962,12 @@ git commit -m "feat(ai): add gated next-stay lookahead to day generation"
 ### Task 5: Day-generation endpoint wiring
 
 **Files:**
+
 - Modify: `server/api/trips/[id]/days/[dayId]/ai.post.ts:26-42` (body schema), `:133-138` (`refundOnce`), `:140-146` (consume)
 - Test: `server/lib/ai-config.test.ts` (pricing helper only — the endpoint itself is not unit-testable outside Nitro)
 
 **Interfaces:**
+
 - Consumes: `THINKING_CREDIT_MULTIPLIER` (Task 1), `refundAiCredit(userId, month, amount)` (Task 1), `thinkingAvailable()` (Task 2), `processUserRequest({ thinking, nextLocation })` (Task 4).
 - Produces: the endpoint accepts `thinking?: boolean` in its body.
 
@@ -961,12 +988,12 @@ In `server/api/trips/[id]/days/[dayId]/ai.post.ts`, extend `aiBodySchema` (lines
 Destructure it at line 47:
 
 ```ts
-  const {
-    prompt: rawPrompt,
-    intent,
-    runId,
-    thinking: thinkingRequested,
-  } = await readValidatedBody(event, aiBodySchema.parse)
+const {
+  prompt: rawPrompt,
+  intent,
+  runId,
+  thinking: thinkingRequested,
+} = await readValidatedBody(event, aiBodySchema.parse)
 ```
 
 - [ ] **Step 2: Resolve the effective mode and its price**
@@ -974,11 +1001,11 @@ Destructure it at line 47:
 Add immediately after the destructure, before the sanitize block:
 
 ```ts
-  // Resolve ONCE, here, and use this everywhere below. A request that asks for
-  // thinking while the Gemini fallback is active would otherwise be charged 3x
-  // for a call that provably never reasoned.
-  const thinking = thinkingRequested && thinkingAvailable()
-  const creditsCharged = thinking ? THINKING_CREDIT_MULTIPLIER : 1
+// Resolve ONCE, here, and use this everywhere below. A request that asks for
+// thinking while the Gemini fallback is active would otherwise be charged 3x
+// for a call that provably never reasoned.
+const thinking = thinkingRequested && thinkingAvailable()
+const creditsCharged = thinking ? THINKING_CREDIT_MULTIPLIER : 1
 ```
 
 Add the imports:
@@ -993,15 +1020,15 @@ import { THINKING_CREDIT_MULTIPLIER } from "../../../../../utils/ai-credit-cost"
 Replace `refundOnce` (lines 133-138):
 
 ```ts
-  let creditRefunded = false
-  const refundOnce = async (usageMonth: string): Promise<void> => {
-    if (creditRefunded) return
-    creditRefunded = true
-    // Refund what was actually charged, not a hard-coded 1. A thinking-mode
-    // generation consumes `creditsCharged` up front; refunding 1 of 3 on a 502
-    // silently pocketed the other 2 on every failure.
-    await refundAiCredit(session.user.id, usageMonth, creditsCharged)
-  }
+let creditRefunded = false
+const refundOnce = async (usageMonth: string): Promise<void> => {
+  if (creditRefunded) return
+  creditRefunded = true
+  // Refund what was actually charged, not a hard-coded 1. A thinking-mode
+  // generation consumes `creditsCharged` up front; refunding 1 of 3 on a 502
+  // silently pocketed the other 2 on every failure.
+  await refundAiCredit(session.user.id, usageMonth, creditsCharged)
+}
 ```
 
 - [ ] **Step 4: Charge the multiplier up front**
@@ -1009,10 +1036,10 @@ Replace `refundOnce` (lines 133-138):
 In `generate`, immediately after `const usageMonth = await tryConsumeAiCredit(session.user.id)` (line 145):
 
 ```ts
-    // tryConsumeAiCredit takes exactly one credit and owns the 429 gate. Charge
-    // the remainder right here — before the model call, so the work is never
-    // given away, and matched by refundOnce on every failure path below.
-    await chargeExtraAiCredits(session.user.id, creditsCharged - 1, usageMonth)
+// tryConsumeAiCredit takes exactly one credit and owns the 429 gate. Charge
+// the remainder right here — before the model call, so the work is never
+// given away, and matched by refundOnce on every failure path below.
+await chargeExtraAiCredits(session.user.id, creditsCharged - 1, usageMonth)
 ```
 
 Add `chargeExtraAiCredits` to the existing `ai-limits` import at line 18. Note the argument order: **`(userId, extra, month)`**.
@@ -1049,11 +1076,13 @@ git commit -m "feat(ai): accept and price the thinking flag on day generation"
 ### Task 6: Surface reasoning deltas on the stream
 
 **Files:**
+
 - Modify: `server/lib/discuss-stream.ts:60`, `:79-105`
 - Modify: `shared/utils/discuss-sse.ts:86-107`
 - Test: `server/lib/discuss-stream.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing from earlier tasks.
 - Produces:
   - `DiscussStreamEvent` gains `{ type: "thinking"; delta: string }`
@@ -1119,13 +1148,13 @@ export type DiscussStreamEvent =
 Add the mapper branch inside `mapChunk`, before the final `return null` at line 104:
 
 ```ts
-  // Reasoning content from DeepSeek thinking mode. Surfaced live but NEVER
-  // persisted and never counted as delivered value — see discuss.post.ts.
-  if (chunk.type === "reasoning-delta") {
-    const payload = asTextDeltaPayload(chunk.payload)
-    if (!payload || payload.text.length === 0) return null
-    return { type: "thinking", delta: payload.text }
-  }
+// Reasoning content from DeepSeek thinking mode. Surfaced live but NEVER
+// persisted and never counted as delivered value — see discuss.post.ts.
+if (chunk.type === "reasoning-delta") {
+  const payload = asTextDeltaPayload(chunk.payload)
+  if (!payload || payload.text.length === 0) return null
+  return { type: "thinking", delta: payload.text }
+}
 ```
 
 Update the doc comment above `mapChunk` (lines 79-83) to mention the third surfaced type.
@@ -1160,10 +1189,12 @@ git commit -m "feat(discuss): surface reasoning deltas as a thinking SSE event"
 ### Task 7: Discuss endpoint wiring — pricing, step ceiling, wall-clock guard
 
 **Files:**
+
 - Modify: `server/api/trips/[id]/discuss.post.ts:29-40` (body schema), `:66-93` (`settleCredits`), `:292-341` (stream loop)
 - Test: `server/utils/ai-credit-cost.test.ts` (guard logic extracted to a pure helper)
 
 **Interfaces:**
+
 - Consumes: `discussStepCeiling`, `creditsForSteps(steps, ceiling)`, `THINKING_CREDIT_MULTIPLIER` (Task 1); `thinkingAvailable()` (Task 2); `aiProviderOptions` (Task 2); the `thinking` SSE event (Task 6).
 - Produces: `shouldStripTools(stepNumber: number, ceiling: number, elapsedMs: number): boolean`
 
@@ -1229,11 +1260,7 @@ export const TURN_TIME_BUDGET_MS = 200_000
  *
  * Pure so the policy is testable; the endpoint supplies the elapsed time.
  */
-export function shouldStripTools(
-  stepNumber: number,
-  ceiling: number,
-  elapsedMs: number,
-): boolean {
+export function shouldStripTools(stepNumber: number, ceiling: number, elapsedMs: number): boolean {
   if (elapsedMs > TURN_TIME_BUDGET_MS) return true
   return ceiling - stepNumber <= 1
 }
@@ -1259,11 +1286,11 @@ In `server/api/trips/[id]/discuss.post.ts`, extend `discussBodySchema` (lines 29
 After `const trip = ...` and its 404 check (line 56), add:
 
 ```ts
-  // Resolved once. Without a DeepSeek key getModel serves Gemini, which ignores
-  // deepseek-namespaced provider options — charging the multiplier there would
-  // bill 3x for a turn that never reasoned.
-  const thinking = body.thinking && thinkingAvailable()
-  const stepCeiling = discussStepCeiling(thinking)
+// Resolved once. Without a DeepSeek key getModel serves Gemini, which ignores
+// deepseek-namespaced provider options — charging the multiplier there would
+// bill 3x for a turn that never reasoned.
+const thinking = body.thinking && thinkingAvailable()
+const stepCeiling = discussStepCeiling(thinking)
 ```
 
 Update the imports:
@@ -1286,20 +1313,20 @@ import { thinkingAvailable } from "../../../lib/ai-config"
 In `settleCredits` (lines 76-93), replace the body after the `settled = true` line:
 
 ```ts
-    if (!streamedAny) {
-      // Exactly 1, in BOTH modes. Unlike day generation, discuss charges the
-      // remainder at settle time rather than up front — so a turn that reaches
-      // this branch has only ever consumed the single tryConsumeAiCredit
-      // credit. Refunding the multiplier here would mint the user free credits.
-      await refundAiCredit(session.user.id, usageMonth, 1)
-      return 0
-    }
-    // The ceiling must match the one the turn actually ran under, or a 40-step
-    // thinking turn bills as though it had stopped at 30.
-    const creditsUsed =
-      creditsForSteps(steps, stepCeiling) * (thinking ? THINKING_CREDIT_MULTIPLIER : 1)
-    await chargeExtraAiCredits(session.user.id, creditsUsed - 1, usageMonth)
-    return creditsUsed
+if (!streamedAny) {
+  // Exactly 1, in BOTH modes. Unlike day generation, discuss charges the
+  // remainder at settle time rather than up front — so a turn that reaches
+  // this branch has only ever consumed the single tryConsumeAiCredit
+  // credit. Refunding the multiplier here would mint the user free credits.
+  await refundAiCredit(session.user.id, usageMonth, 1)
+  return 0
+}
+// The ceiling must match the one the turn actually ran under, or a 40-step
+// thinking turn bills as though it had stopped at 30.
+const creditsUsed =
+  creditsForSteps(steps, stepCeiling) * (thinking ? THINKING_CREDIT_MULTIPLIER : 1)
+await chargeExtraAiCredits(session.user.id, creditsUsed - 1, usageMonth)
+return creditsUsed
 ```
 
 The asymmetry between the two endpoints is deliberate and worth holding onto: **day generation charges up front and therefore refunds the multiplier; discuss charges at settle and therefore refunds 1.** Getting this backwards on either side silently mints or steals credits on every failed turn.
@@ -1309,28 +1336,28 @@ The asymmetry between the two endpoints is deliberate and worth holding onto: **
 In the `discussAgent.stream(...)` options (lines 292-317), replace `maxSteps` and `prepareStep`:
 
 ```ts
-      const turnStartedAt = Date.now()
-      const result = await discussAgent.stream(agentMessages, {
-        toolsets: { discuss: tools },
-        maxSteps: stepCeiling,
-        providerOptions: aiProviderOptions(thinking),
-        prepareStep: ({ stepNumber }) => {
-          // Two independent reasons to drop the toolset: the step ceiling is
-          // one away, or the turn has spent its wall-clock budget. The second
-          // is what keeps the raised thinking ceiling inside the 300s function
-          // limit — a timeout would kill the process before settleCredits runs.
-          if (shouldStripTools(stepNumber, stepCeiling, Date.now() - turnStartedAt)) {
-            return { activeTools: [] }
-          }
-          const remaining = stepCeiling - stepNumber
-          return {
-            instructions: `${DISCUSS_SYSTEM_PROMPT}
+const turnStartedAt = Date.now()
+const result = await discussAgent.stream(agentMessages, {
+  toolsets: { discuss: tools },
+  maxSteps: stepCeiling,
+  providerOptions: aiProviderOptions(thinking),
+  prepareStep: ({ stepNumber }) => {
+    // Two independent reasons to drop the toolset: the step ceiling is
+    // one away, or the turn has spent its wall-clock budget. The second
+    // is what keeps the raised thinking ceiling inside the 300s function
+    // limit — a timeout would kill the process before settleCredits runs.
+    if (shouldStripTools(stepNumber, stepCeiling, Date.now() - turnStartedAt)) {
+      return { activeTools: [] }
+    }
+    const remaining = stepCeiling - stepNumber
+    return {
+      instructions: `${DISCUSS_SYSTEM_PROMPT}
 
 [Runtime] You have ${remaining} tool-call steps left this turn. Every ${STEPS_PER_CREDIT} steps costs the user one AI credit from a small monthly allowance, so treat searching as spending their money: research only what you will actually propose. On your last step the tools are removed and you must write your reply, so wind down before then.`,
-          }
-        },
-        abortSignal: controller.signal,
-      })
+    }
+  },
+  abortSignal: controller.signal,
+})
 ```
 
 Add `aiProviderOptions` to the `ai-config` import from Step 5.
@@ -1340,21 +1367,21 @@ Add `aiProviderOptions` to the `ai-config` import from Step 5.
 In the `for await (const chunk of result.fullStream)` loop (lines 319-341), replace the mapped-event dispatch:
 
 ```ts
-        const mapped = mapChunk(chunk)
-        if (!mapped) continue
-        if (mapped.type === "tool") {
-          toolLines.push(mapped.line)
-          await stream.push(toSseFrame({ event: "tool", data: { line: mapped.line } }))
-        } else if (mapped.type === "thinking") {
-          // Display-only. Deliberately NOT appended to streamedText: reasoning
-          // is not the reply, must not be persisted, and must not make
-          // `streamedAny` true — a turn that only thought delivered nothing and
-          // is still refunded below.
-          await stream.push(toSseFrame({ event: "thinking", data: { delta: mapped.delta } }))
-        } else {
-          streamedText += mapped.delta
-          await stream.push(toSseFrame({ event: "text", data: { delta: mapped.delta } }))
-        }
+const mapped = mapChunk(chunk)
+if (!mapped) continue
+if (mapped.type === "tool") {
+  toolLines.push(mapped.line)
+  await stream.push(toSseFrame({ event: "tool", data: { line: mapped.line } }))
+} else if (mapped.type === "thinking") {
+  // Display-only. Deliberately NOT appended to streamedText: reasoning
+  // is not the reply, must not be persisted, and must not make
+  // `streamedAny` true — a turn that only thought delivered nothing and
+  // is still refunded below.
+  await stream.push(toSseFrame({ event: "thinking", data: { delta: mapped.delta } }))
+} else {
+  streamedText += mapped.delta
+  await stream.push(toSseFrame({ event: "text", data: { delta: mapped.delta } }))
+}
 ```
 
 - [ ] **Step 9: Verify**
@@ -1374,6 +1401,7 @@ git commit -m "feat(discuss): thinking-mode pricing, raised step ceiling, and wa
 ### Task 8: Client — toggle, request wiring, and the thinking disclosure
 
 **Files:**
+
 - Create: `app/composables/useThinkingMode.ts`
 - Create: `app/composables/useThinkingMode.test.ts`
 - Modify: `app/components/AiDock.vue:76-104` (`ChatMessage`), `:847-860` (rendering), composer area
@@ -1381,6 +1409,7 @@ git commit -m "feat(discuss): thinking-mode pricing, raised step ceiling, and wa
 - Modify: `server/api/ai/usage.get.ts` (report `thinkingAvailable` to the client)
 
 **Interfaces:**
+
 - Consumes: the `thinking` SSE event (Task 6); the `thinking` body field on both endpoints (Tasks 5, 7).
 - Produces:
   - `useThinkingMode(): { enabled: Ref<boolean>; toggle: () => void }`
@@ -1539,7 +1568,7 @@ In `app/components/AiDock.vue`, add to the `ChatMessage` interface (after `toolC
 In `app/components/AiDock.vue`, inside the assistant-message block, immediately before the `v-if="msg.toolCallSummary?.length"` div at line 847:
 
 ```vue
-              <details v-if="msg.thinkingText" class="dock-thinking">
+<details v-if="msg.thinkingText" class="dock-thinking">
                 <summary class="dock-thinking-summary">
                   <Icon name="lucide:brain" class="dock-tool-icon" />
                   <span>Thinking</span>
@@ -1569,8 +1598,8 @@ Note: `bg-white` is used bare and unprefixed on purpose — the global dark-mode
 In `app/components/AiDock.vue`, add to the props (after `dayLabels` at line 116):
 
 ```ts
-  thinking: boolean
-  thinkingAvailable: boolean
+thinking: boolean
+thinkingAvailable: boolean
 ```
 
 and to the emits (after `optimizeRoute` at line 129):
@@ -1582,18 +1611,16 @@ and to the emits (after `optimizeRoute` at line 129):
 Render a switch next to the send button in the composer:
 
 ```vue
-        <button
-          v-if="thinkingAvailable"
-          type="button"
-          class="dock-thinking-toggle"
-          :aria-pressed="thinking"
-          :title="
-            thinking
-              ? 'Thinking mode on — deeper reasoning, costs 3 credits per turn'
-              : 'Thinking mode off'
-          "
-          @click="emit('update:thinking', !thinking)"
-        >
+<button
+  v-if="thinkingAvailable"
+  type="button"
+  class="dock-thinking-toggle"
+  :aria-pressed="thinking"
+  :title="
+    thinking ? 'Thinking mode on — deeper reasoning, costs 3 credits per turn' : 'Thinking mode off'
+  "
+  @click="emit('update:thinking', !thinking)"
+>
           <Icon name="lucide:brain" class="dock-tool-icon" />
           <span>{{ thinking ? "Thinking · 3×" : "Think" }}</span>
         </button>
@@ -1670,9 +1697,8 @@ Add `thinking` to the quick fill-gaps body (line 1319):
 Bind the dock, using the real server-reported availability from Step 7b:
 
 ```vue
-      :thinking="thinkingEnabled"
-      :thinking-available="aiThinkingAvailable"
-      @update:thinking="toggleThinking"
+:thinking="thinkingEnabled" :thinking-available="aiThinkingAvailable"
+@update:thinking="toggleThinking"
 ```
 
 Do **not** touch `app/composables/useGenerateFullItinerary.ts` — the full-trip loop must keep posting without `thinking`.
@@ -1711,7 +1737,7 @@ Manual checks:
 2. Thinking on → "Thinking" disclosure fills, reply follows, 3× credits charged.
 3. Unset `DEEPSEEK_API_KEY` locally → the toggle is hidden and a forged `thinking: true` body charges the normal amount.
 4. Generate a full itinerary → each day still costs 1 credit.
-5. A day whose *next* day has a different hotel → thinking mode's suggestions drift toward the next base; normal mode is unchanged.
+5. A day whose _next_ day has a different hotel → thinking mode's suggestions drift toward the next base; normal mode is unchanged.
 
 ## Known residual risk
 

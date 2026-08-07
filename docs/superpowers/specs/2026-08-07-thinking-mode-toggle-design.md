@@ -37,13 +37,13 @@ and pay for it.
 
 ## Decisions
 
-| Decision | Choice |
-| --- | --- |
-| Surfaces | Both day generation and discuss chat |
-| What the toggle buys | Reasoning mode + wider context + larger step budget |
-| Pricing | Flat multiplier on whatever the turn would normally cost |
-| Toggle scope | Per-request in the body; UI remembers via `sessionStorage` |
-| Bug fixes vs. paid | Geographic correctness is unconditional; cross-day lookahead is gated |
+| Decision             | Choice                                                                |
+| -------------------- | --------------------------------------------------------------------- |
+| Surfaces             | Both day generation and discuss chat                                  |
+| What the toggle buys | Reasoning mode + wider context + larger step budget                   |
+| Pricing              | Flat multiplier on whatever the turn would normally cost              |
+| Toggle scope         | Per-request in the body; UI remembers via `sessionStorage`            |
+| Bug fixes vs. paid   | Geographic correctness is unconditional; cross-day lookahead is gated |
 
 The last row is the load-bearing one: dropped coordinates and an unanchored
 return flight are defects, not withheld features. Fixing them behind a paywall
@@ -127,7 +127,9 @@ export const THINKING_CREDIT_MULTIPLIER = 3
   are unchanged.
 - **Day generation:** `tryConsumeAiCredit` first (preserving the existing 429
   gate and its ordering guarantees), then
-  `chargeExtraAiCredits(userId, month, MULT - 1)` immediately after.
+  `chargeExtraAiCredits(userId, MULT - 1, month)` immediately after. Note the
+  argument order — the real signature is `(userId, extra, month)`, extra before
+  month (`ai-limits.ts:103-107`).
 
 **Refund correctness.** `refundAiCredit` must take an `amount` parameter, and
 `refundOnce` (`ai.post.ts:134-138`) must refund the full amount actually
@@ -167,14 +169,14 @@ stay at 30.
 
 ## Error handling
 
-| Failure | Behaviour |
-| --- | --- |
-| `DEEPSEEK_API_KEY` unset | Toggle hidden; requests downgrade to non-thinking at normal price |
-| Generation throws under thinking mode | Full charged amount refunded via the amount-aware `refundOnce` |
-| Discuss turn produces reasoning but no text or proposals | Refunded — reasoning is not delivered value |
-| Turn aborted by client | Metered at the multiplied rate; those steps were really spent |
-| Wall-clock guard trips | Tools stripped, model spends remaining budget writing a reply; turn settles normally |
-| Client sends `thinking: true` while unavailable | Coerced to false server-side before pricing |
+| Failure                                                  | Behaviour                                                                            |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `DEEPSEEK_API_KEY` unset                                 | Toggle hidden; requests downgrade to non-thinking at normal price                    |
+| Generation throws under thinking mode                    | Full charged amount refunded via the amount-aware `refundOnce`                       |
+| Discuss turn produces reasoning but no text or proposals | Refunded — reasoning is not delivered value                                          |
+| Turn aborted by client                                   | Metered at the multiplied rate; those steps were really spent                        |
+| Wall-clock guard trips                                   | Tools stripped, model spends remaining budget writing a reply; turn settles normally |
+| Client sends `thinking: true` while unavailable          | Coerced to false server-side before pricing                                          |
 
 ## Testing
 
