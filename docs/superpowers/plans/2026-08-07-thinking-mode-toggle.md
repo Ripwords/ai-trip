@@ -1333,7 +1333,7 @@ Expected: PASS
 - [ ] **Step 8: Confirm the typecheck baseline improved**
 
 Run: `bunx nuxi typecheck 2>&1 | grep -cE "error TS"`
-Expected: **45** — exactly one fewer than the 46-error baseline, with the
+Expected: **39 unique** (42 raw) — exactly two fewer unique errors than the 41-unique baseline, with both
 `AgentConfig` / `providerOptions` error gone. Any other number means something
 else moved; report it rather than proceeding.
 
