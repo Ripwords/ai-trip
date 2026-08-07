@@ -922,10 +922,22 @@ const {
 async function refreshAiUsage() {
   try {
     aiUsage.value = await $fetch("/api/ai/usage")
-  } catch {
-    /* ignore */
+  } catch (e: unknown) {
+    // Non-fatal: the credit counter simply stays blank. But it is NOT silent —
+    // `thinkingAvailable` rides this response and gates the composer's thinking
+    // toggle with v-if, so a failure here and a server that genuinely has no
+    // DeepSeek key look identical in the UI. Log it so the two can be told apart.
+    console.warn("[trip] AI usage unavailable; thinking toggle will stay hidden:", e)
   }
 }
+
+// Fetch on mount, not only in the `finally` of an AI action.
+// `aiUsage` used to stay null until the first generate/discuss call completed,
+// and because the thinking toggle is `v-if="thinkingAvailable"` off this same
+// object, the control was hidden until AFTER the user had already sent the
+// message they would have wanted it for. The usage counter has the same
+// problem, just less visibly — it renders blank instead of disappearing.
+onMounted(refreshAiUsage)
 
 const aiStarters = useDiscussionStarters(
   trip as unknown as Ref<{
