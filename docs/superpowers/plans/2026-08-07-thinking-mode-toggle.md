@@ -16,7 +16,8 @@
 - **TDD:** write the failing test, watch it fail, then implement. Every task follows this cycle.
 - **Conventional Commits** (`feat:`, `fix:`, `test:`, `refactor:`).
 - **Run tests with `bun test <path>`** — there is no `package.json` test script.
-- **`bunx nuxi typecheck` has a pre-existing error baseline (~28 errors).** Do not chase pre-existing errors; only ensure you add none.
+- **`bunx nuxi typecheck` has a pre-existing error baseline of exactly 18 errors** (measured on this branch before Task 1). Do not chase pre-existing errors; only ensure you add none. Task 6b deliberately clears one, taking the baseline to 17 from that point on.
+- **`bun test server/utils/ server/lib/ app/composables/` baseline: 858 pass, 0 fail, 56 files.**
 - **Run `bunx nuxi build` before declaring the branch done** — typecheck misses Vue template compile errors.
 - Thinking multiplier is **3**. Thinking discuss step ceiling is **40**. Wall-clock guard threshold is **200_000 ms**.
 - `chargeExtraAiCredits` signature is `(userId, extra, month)` — **extra before month**. Do not transpose.
@@ -1182,6 +1183,155 @@ Expected: PASS
 ```bash
 git add server/lib/discuss-stream.ts server/lib/discuss-stream.test.ts shared/utils/discuss-sse.ts
 git commit -m "feat(discuss): surface reasoning deltas as a thinking SSE event"
+```
+
+---
+
+### Task 6b: Deliver provider options where Mastra actually reads them
+
+Added after a pre-flight finding, not present in the original spec. Task 7
+depends on this being correct, so it lands first.
+
+**The finding:** `providerOptions` is a valid **per-call** option on
+`agent.stream(...)` / `agent.generate(...)`
+(`@mastra/core/dist/agent/agent.types.d.ts:419`), but is **not** a field on the
+Agent constructor's `AgentConfig` — passing it there is one of the 18 baseline
+typecheck errors (`server/lib/itinerary-review-ai.ts:345`). Two agents pass it
+in the constructor anyway. At runtime Mastra resolves provider options from the
+model config (`llm.getProviderOptions()` → `#firstModel.providerOptions`), so a
+top-level constructor field appears to be dropped — meaning DeepSeek thinking
+mode may never have been disabled for either agent.
+
+**Files:**
+
+- Modify: `server/lib/discuss-agent.ts:56-63`
+- Modify: `server/lib/itinerary-review-ai.ts:339-346` and its `agent.generate(...)` call
+- Modify: `server/api/trips/[id]/discuss.post.ts` (add the per-call option)
+- Test: `server/lib/ai-config.test.ts`
+
+**Interfaces:**
+
+- Consumes: `AI_PROVIDER_OPTIONS` (unchanged), `aiProviderOptions` (Task 2).
+- Produces: no new exports. Both agents stop passing `providerOptions` to their
+  constructors; both call sites pass it per call instead.
+
+- [ ] **Step 1: Establish the ground truth before changing anything**
+
+Record what is actually true, so the fix is evidence-led rather than assumed:
+
+```bash
+# 1. Confirm AgentConfig rejects the constructor field (expect a TS2353 hit):
+bunx nuxi typecheck 2>&1 | grep -c "providerOptions.*does not exist in type 'AgentConfig"
+
+# 2. Confirm the per-call option IS declared:
+grep -n "providerOptions" node_modules/@mastra/core/dist/agent/agent.types.d.ts
+
+# 3. Confirm where the runtime reads it from:
+grep -n "getProviderOptions()" node_modules/@mastra/core/dist/chunk-OE4IEL7C.js
+```
+
+Write what each command returned into the report file. If the evidence
+contradicts the finding above — for example if `AgentConfig` does accept the
+field in this installed version — **stop and report NEEDS_CONTEXT rather than
+proceeding**. The rest of this task assumes the finding holds.
+
+- [ ] **Step 2: Write the failing regression test**
+
+Append to `server/lib/ai-config.test.ts`:
+
+```ts
+describe("provider options reach the model", () => {
+  it("keeps thinking disabled by default in the shared constant", () => {
+    // The whole point of AI_PROVIDER_OPTIONS: DeepSeek V4 defaults to a hidden
+    // reasoning phase. If this constant is ever passed somewhere the runtime
+    // does not read, thinking is silently ON everywhere it is relied upon.
+    assert.deepEqual(AI_PROVIDER_OPTIONS, { deepseek: { thinking: { type: "disabled" } } })
+  })
+
+  it("no agent constructor carries providerOptions", async () => {
+    // Regression guard for the pre-flight finding: AgentConfig has no such
+    // field, so a constructor-level value is dropped at runtime AND fails
+    // typecheck. Provider options must be passed per call instead.
+    const files = [
+      "server/lib/discuss-agent.ts",
+      "server/lib/itinerary-review-ai.ts",
+      "server/lib/ai.ts",
+    ]
+    const { readFile } = await import("node:fs/promises")
+    for (const f of files) {
+      const src = await readFile(new URL(`../../${f}`, import.meta.url), "utf8")
+      // Match `providerOptions` appearing inside a `new Agent({ ... })` literal.
+      const agentBlocks = src.match(/new Agent\(\{[\s\S]*?\n\s*\}\)/g) ?? []
+      for (const block of agentBlocks) {
+        assert.ok(
+          !block.includes("providerOptions"),
+          `${f}: new Agent({...}) must not set providerOptions — AgentConfig has no such field, so it is dropped`,
+        )
+      }
+    }
+  })
+})
+```
+
+- [ ] **Step 3: Run the test to verify it fails**
+
+Run: `bun test server/lib/ai-config.test.ts`
+Expected: FAIL — `discuss-agent.ts` and `itinerary-review-ai.ts` both set
+`providerOptions` inside `new Agent({...})`.
+
+- [ ] **Step 4: Remove the dropped constructor field from the discuss agent**
+
+In `server/lib/discuss-agent.ts`, delete the `providerOptions: AI_PROVIDER_OPTIONS`
+line from the `new Agent({...})` literal (line 63) and its two comment lines
+above it, replacing them with a pointer to where the option now lives:
+
+```ts
+  model: getModel("discuss"),
+  // Provider options are passed PER CALL at the stream site, not here:
+  // AgentConfig has no providerOptions field, so a value set here is dropped
+  // at runtime (and fails typecheck — see itinerary-review-ai.ts's copy of
+  // this same mistake). See discuss.post.ts's stream call.
+```
+
+Drop `AI_PROVIDER_OPTIONS` from the file's import if nothing else uses it.
+
+- [ ] **Step 5: Pass it per call at the discuss stream site**
+
+In `server/api/trips/[id]/discuss.post.ts`, add to the `discussAgent.stream(...)`
+options object:
+
+```ts
+        providerOptions: AI_PROVIDER_OPTIONS,
+```
+
+and import `AI_PROVIDER_OPTIONS` from `../../../lib/ai-config`. Task 7 replaces
+this value with `aiProviderOptions(thinking)`; this step exists so the branch is
+correct even if Task 7 is deferred.
+
+- [ ] **Step 6: Do the same for the reviewer agent**
+
+In `server/lib/itinerary-review-ai.ts`, delete `providerOptions: AI_PROVIDER_OPTIONS`
+from the `new Agent({...})` literal (line 345) and add it to the `agent.generate(...)`
+call's options object instead. This clears one of the 18 baseline typecheck
+errors — the baseline becomes 17.
+
+- [ ] **Step 7: Run the tests to verify they pass**
+
+Run: `bun test server/lib/ai-config.test.ts server/lib/itinerary-review-ai.test.ts server/lib/discuss-agent.test.ts`
+Expected: PASS
+
+- [ ] **Step 8: Confirm the typecheck baseline improved**
+
+Run: `bunx nuxi typecheck 2>&1 | grep -cE "error TS"`
+Expected: **17** — exactly one fewer than the 18-error baseline, with the
+`AgentConfig` / `providerOptions` error gone. Any other number means something
+else moved; report it rather than proceeding.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add server/lib/discuss-agent.ts server/lib/itinerary-review-ai.ts server/lib/ai-config.test.ts "server/api/trips/[id]/discuss.post.ts"
+git commit -m "fix(ai): pass provider options per call, where Mastra actually reads them"
 ```
 
 ---
