@@ -20,7 +20,7 @@ import {
   creditsForSteps,
   discussStepCeiling,
   shouldStripTools,
-  STEPS_PER_CREDIT,
+  stepCostNote,
   THINKING_CREDIT_MULTIPLIER,
 } from "../../../utils/ai-credit-cost"
 import { getTripWithRelations } from "../../../lib/trips"
@@ -343,7 +343,7 @@ export default defineEventHandler(async (event) => {
           return {
             instructions: `${DISCUSS_SYSTEM_PROMPT}
 
-[Runtime] You have ${remaining} tool-call steps left this turn. Every ${STEPS_PER_CREDIT} steps costs the user one AI credit from a small monthly allowance, so treat searching as spending their money: research only what you will actually propose. On your last step the tools are removed and you must write your reply, so wind down before then.`,
+[Runtime] You have ${remaining} tool-call steps left this turn. ${stepCostNote(thinking)} from a small monthly allowance, so treat searching as spending their money: research only what you will actually propose. On your last step the tools are removed and you must write your reply, so wind down before then.`,
           }
         },
         abortSignal: controller.signal,

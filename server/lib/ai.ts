@@ -333,14 +333,17 @@ export function buildFlightsCtx(flights?: FlightPromptInput[], planningDate?: st
     if (utc) return `${verb} ${utc} (UTC — convert to the destination's local time)`
     return `${verb.replace(/s$/, "")} time unknown`
   }
-  // A flight belongs to the day being planned if either end lands on that date.
-  // Both fields are ISO-prefixed strings ("2026-08-17 10:30+09:00" or a UTC
-  // ISO timestamp), so a prefix compare is enough and avoids a timezone library.
+  // planningDate is the day's LOCAL calendar date. The UTC fields are a
+  // different instant representation and can fall on a different calendar
+  // day (a Tokyo departure at 2026-08-17 08:00+09:00 is
+  // 2026-08-16T23:00:00.000Z) — comparing UTC prefixes against a local date
+  // mis-tags the wrong day. So each leg must resolve to its LOCAL field first,
+  // falling back to UTC only when that leg has no local time recorded.
   const onPlanningDate = (f: FlightPromptInput): boolean => {
     if (!planningDate) return false
-    return [f.departureTimeLocal, f.arrivalTimeLocal, f.departureTimeUtc, f.arrivalTimeUtc].some(
-      (t) => typeof t === "string" && t.startsWith(planningDate),
-    )
+    const departure = f.departureTimeLocal ?? f.departureTimeUtc
+    const arrival = f.arrivalTimeLocal ?? f.arrivalTimeUtc
+    return [departure, arrival].some((t) => typeof t === "string" && t.startsWith(planningDate))
   }
   const lines = flights.map((f) => {
     const tag = onPlanningDate(f) ? " — THIS DAY" : ""
@@ -395,7 +398,7 @@ export function buildNextStayCtx(
   // transfer day. The traveler still sleeps at tonight's accommodation; only
   // the late-afternoon/evening STOPS on the way there should lean toward
   // shortening tomorrow's transfer.
-  const tonightRef = tonight ? `${tonight.name}` : "tonight's accommodation"
+  const tonightRef = tonight ? escapeCtx(tonight.name) : "tonight's accommodation"
   return `\nNEXT BASE (the traveler relocates after tonight): ${formatAnchor(next)}
 RELOCATION RULE: they sleep somewhere else tomorrow, but tonight they still end at and sleep at ${tonightRef} — that does not change. Bias the late-afternoon and evening STOPS before that final leg home toward the side of the region that SHORTENS tomorrow's transfer, and never let those stops sit far from that next base. Do not schedule tomorrow's activities — this is only about where today's other stops lean.`
 }

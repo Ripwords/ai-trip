@@ -1082,7 +1082,7 @@ const proposalKindMeta: Record<
             <button
               v-if="thinkingAvailable"
               type="button"
-              class="flex items-center gap-1 rounded-full px-2 py-1 text-xs transition"
+              class="flex min-h-11 shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs transition"
               :class="thinking ? 'bg-cta text-white opacity-100' : 'opacity-60'"
               :aria-pressed="thinking"
               :title="
@@ -1096,7 +1096,7 @@ const proposalKindMeta: Record<
               @click="emit('update:thinking', !thinking)"
             >
               <Icon name="lucide:brain" class="dock-tool-icon" />
-              <span>{{ thinking ? "Thinking · 3× (up to 15 credits)" : "Think" }}</span>
+              <span>{{ thinking ? "3×" : "Think" }}</span>
             </button>
             <button
               type="button"

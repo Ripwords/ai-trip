@@ -8,6 +8,7 @@ import {
   MAX_DISCUSS_STEPS_THINKING,
   shouldStripTools,
   STEPS_PER_CREDIT,
+  stepCostNote,
   THINKING_CREDIT_MULTIPLIER,
   TURN_TIME_BUDGET_MS,
 } from "./ai-credit-cost"
@@ -132,6 +133,26 @@ describe("MAX_DISCUSS_STEPS_THINKING", () => {
     // step count alone. discuss.post.ts must strip tools on elapsed time too.
     // If that guard is ever removed, drop this ceiling back to MAX_DISCUSS_STEPS.
     assert.ok(MAX_DISCUSS_STEPS_THINKING <= 40)
+  })
+})
+
+describe("stepCostNote", () => {
+  it("states the flat 1-credit rate outside thinking mode", () => {
+    assert.equal(
+      stepCostNote(false),
+      `Every ${STEPS_PER_CREDIT} steps costs the user one AI credit`,
+    )
+  })
+
+  it("states the multiplied rate in thinking mode, not the flat rate", () => {
+    // The runtime note exists so the model self-limits its research spend. In
+    // thinking mode a turn bills creditsForSteps(steps, 40) *
+    // THINKING_CREDIT_MULTIPLIER — the hardcoded "one credit" note under-reports
+    // by 3x in exactly the mode where a turn can reach 15 credits.
+    assert.equal(
+      stepCostNote(true),
+      `Every ${STEPS_PER_CREDIT} steps costs the user ${THINKING_CREDIT_MULTIPLIER} AI credits`,
+    )
   })
 })
 

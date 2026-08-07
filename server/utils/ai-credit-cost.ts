@@ -64,6 +64,21 @@ export function creditsForSteps(steps: number, ceiling: number = MAX_DISCUSS_STE
 }
 
 /**
+ * The runtime cost note handed to the model each step, so it self-limits its
+ * research spend.
+ *
+ * Used to be hardcoded to "one AI credit" regardless of mode. In thinking
+ * mode a turn bills creditsForSteps(steps, 40) * THINKING_CREDIT_MULTIPLIER —
+ * 3 credits per STEPS_PER_CREDIT steps — so the hardcoded note under-reported
+ * the price by 3x in exactly the mode where a turn can reach 15 credits.
+ */
+export function stepCostNote(thinking: boolean): string {
+  const credits = thinking ? THINKING_CREDIT_MULTIPLIER : 1
+  const label = credits === 1 ? "one AI credit" : `${credits} AI credits`
+  return `Every ${STEPS_PER_CREDIT} steps costs the user ${label}`
+}
+
+/**
  * Wall-clock budget for one discuss turn's TOOL phase.
  *
  * Vercel's function limit is 300s. Tools are stripped at this mark so the model
