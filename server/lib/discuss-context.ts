@@ -6,6 +6,7 @@ import {
   getDayOfWeek,
   type FlightPromptInput,
 } from "./ai"
+import { escapeCtx } from "../utils/sanitize"
 
 /** The slice of a trip the discuss context needs — structurally satisfied by getTripWithRelations. */
 export interface DiscussContextTrip {
@@ -28,14 +29,6 @@ export interface DiscussContextTrip {
       type: string
     }[]
   }[]
-}
-
-/** Neutralize bracket/id spoofing and control chars in stored free-text (B8). */
-function escapeCtx(s: string): string {
-  return s
-    .replace(/[[\]]/g, "")
-    .replace(/[\x00-\x1F]/g, " ")
-    .slice(0, 120)
 }
 
 // Guard for pathological trips — not the common path.

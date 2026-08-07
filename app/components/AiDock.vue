@@ -1087,13 +1087,16 @@ const proposalKindMeta: Record<
               :aria-pressed="thinking"
               :title="
                 thinking
-                  ? 'Thinking mode on — deeper reasoning, costs 3 credits per turn'
+                  ? // 3x the base cost, up to a ceiling of 15 credits (creditsForSteps(MAX_DISCUSS_STEPS_THINKING, MAX_DISCUSS_STEPS_THINKING) * THINKING_CREDIT_MULTIPLIER
+                    // in server/utils/ai-credit-cost.ts) — a discuss turn is step-metered, not flat-rate, so
+                    // stating a single number here would misstate the price on a research-heavy turn.
+                    'Thinking mode on — deeper reasoning, 3× cost. A research-heavy turn can cost up to 15 credits.'
                   : 'Thinking mode off'
               "
               @click="emit('update:thinking', !thinking)"
             >
               <Icon name="lucide:brain" class="dock-tool-icon" />
-              <span>{{ thinking ? "Thinking · 3×" : "Think" }}</span>
+              <span>{{ thinking ? "Thinking · 3× (up to 15 credits)" : "Think" }}</span>
             </button>
             <button
               type="button"

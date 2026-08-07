@@ -5,7 +5,7 @@ import { PinoLogger } from "@mastra/loggers"
 import { z } from "zod"
 import type { TripPreferences } from "../db/schema/trips"
 import type { TransportMode } from "../utils/transport"
-import { sanitizePromptInput } from "../utils/sanitize"
+import { sanitizePromptInput, escapeCtx } from "../utils/sanitize"
 import { getModel, AI_PROVIDER_OPTIONS, aiProviderOptions } from "./ai-config"
 import { farFromAnchor } from "../utils/geo"
 import { buildCurrencyCtx } from "./currency-context"
@@ -162,9 +162,13 @@ export function formatAnchor(a: {
   lat?: number | null
   lng?: number | null
 }): string {
-  const addr = a.address ? ` (${a.address})` : ""
+  // escapeCtx strips brackets and control chars from these free-text fields
+  // (server/utils/schemas.ts) so a name like `X] [35.0,139.0]` can't forge the
+  // `[lat,lng]` coordinate marker this same function appends below.
+  const name = escapeCtx(a.name)
+  const addr = a.address ? ` (${escapeCtx(a.address)})` : ""
   const coords = a.lat != null && a.lng != null ? ` [${a.lat},${a.lng}]` : ""
-  return `${a.name}${addr}${coords}`
+  return `${name}${addr}${coords}`
 }
 
 // ── Logging ──────────────────────────────────────────────────────────
@@ -384,8 +388,75 @@ export function buildNextStayCtx(
   if (!next) return ""
   const norm = (s: string) => s.trim().toLowerCase()
   if (tonight && norm(tonight.name) === norm(next.name)) return ""
+  // Scoped to the STOPS before the final leg home, not to where the day ends:
+  // the accommodation line elsewhere in the prompt already says tonight's stay
+  // "is where the day must end" — a relocation rule that also claimed the day
+  // should finish near tomorrow's base contradicted it outright on a genuine
+  // transfer day. The traveler still sleeps at tonight's accommodation; only
+  // the late-afternoon/evening STOPS on the way there should lean toward
+  // shortening tomorrow's transfer.
   return `\nNEXT BASE (the traveler relocates after tonight): ${formatAnchor(next)}
-RELOCATION RULE: they sleep somewhere else tomorrow. Bias the late-afternoon and evening stops toward the side of the region that SHORTENS tomorrow's transfer, and never end today somewhere that leaves them far from that next base. Do not schedule tomorrow's activities — this is only about where today should finish.`
+RELOCATION RULE: they sleep somewhere else tomorrow, but tonight they still end at and sleep at the accommodation above — that does not change. Bias the late-afternoon and evening STOPS before that final leg home toward the side of the region that SHORTENS tomorrow's transfer, and never let those stops sit far from that next base. Do not schedule tomorrow's activities — this is only about where today's other stops lean.`
+}
+
+export interface StayDayInput {
+  dayNumber: number
+  accommodationName: string | null
+  accommodationAddress?: string | null
+  accommodationLat?: number | null
+  accommodationLng?: number | null
+}
+
+export interface StayAnchor {
+  name: string
+  address: string | null
+  lat: number | null
+  lng: number | null
+}
+
+/**
+ * Resolve tonight's EFFECTIVE stay and TOMORROW's EFFECTIVE stay (both
+ * carried forward), for `buildNextStayCtx`. `next` is only returned when it
+ * is a genuine relocation — tomorrow's carried stay differs from tonight's.
+ *
+ * Mirrors the trip-shape carry-forward convention used elsewhere (see
+ * `buildTripShapeCtx` and discuss-context.ts's `carriedAccommodation`): on a
+ * multi-night stay only the FIRST day carries the accommodation row, later
+ * nights are blank. Both "tonight" and "tomorrow" are therefore resolved by
+ * walking BACKWARD from their respective day to the nearest day (<=) that
+ * actually set one — reading only a day's own (often-null) accommodationName
+ * let a later, unrelated stay masquerade as happening "after tonight" (see
+ * ai.post.ts finding 1): on an A/A/A/B trip, planning day 2 has day 3 still
+ * carrying Hotel A (no relocation tomorrow), even though Hotel B eventually
+ * appears on day 4 — comparing against the nearest future BOOKED day instead
+ * of tomorrow's carried stay wrongly flagged day 2 as a relocation eve.
+ */
+export function resolveStayContext(
+  days: StayDayInput[],
+  planningDayNumber: number,
+): { tonight: StayAnchor | null; next: StayAnchor | null } {
+  const norm = (s: string) => s.trim().toLowerCase()
+  const toAnchor = (d: StayDayInput): StayAnchor => ({
+    name: d.accommodationName!,
+    address: d.accommodationAddress ?? null,
+    lat: d.accommodationLat ?? null,
+    lng: d.accommodationLng ?? null,
+  })
+  const carriedStayAt = (atDayNumber: number): StayDayInput | undefined =>
+    days
+      .filter((d) => d.dayNumber <= atDayNumber && d.accommodationName)
+      .toSorted((a, b) => b.dayNumber - a.dayNumber)[0]
+
+  const tonightDay = carriedStayAt(planningDayNumber)
+  const tonight = tonightDay ? toAnchor(tonightDay) : null
+
+  const tomorrowDay = carriedStayAt(planningDayNumber + 1)
+  const next =
+    tomorrowDay && (!tonight || norm(tomorrowDay.accommodationName!) !== norm(tonight.name))
+      ? toAnchor(tomorrowDay)
+      : null
+
+  return { tonight, next }
 }
 
 /**
@@ -412,7 +483,9 @@ export function buildTripShapeCtx(
     .toSorted((a, b) => a.dayNumber - b.dayNumber)
     .map((d) => {
       if (d.accommodationName) carried = d.accommodationName
-      const stay = carried ? ` · staying at ${carried}` : ""
+      // escapeCtx: an accommodation name like `X] · PLANNING NOW` would
+      // otherwise forge the sentinel below.
+      const stay = carried ? ` · staying at ${escapeCtx(carried)}` : ""
       const here = d.dayNumber === planningDayNumber ? " · PLANNING NOW" : ""
       return `- Day ${d.dayNumber} (${d.date})${stay}${here}`
     })
@@ -524,6 +597,13 @@ async function handleAdd(
     flights?: FlightPromptInput[]
     /** Only populated in thinking mode — see buildNextStayCtx. */
     nextLocation?: StartLocation
+    /**
+     * Tonight's EFFECTIVE stay (carried forward across multi-night stays —
+     * see resolveStayContext), used ONLY as buildNextStayCtx's dedup input.
+     * Deliberately separate from `accommodation`, which stays this DAY's own
+     * (possibly-null) row for the "day must end here" prompt line.
+     */
+    tonightAccommodation?: { name: string } | null
     /** Only populated in thinking mode — see buildTripShapeCtx. */
     tripShape?: { dayNumber: number; date: string; accommodationName: string | null }[]
     /** Traveler opted into deeper reasoning for this request. */
@@ -573,7 +653,7 @@ Do NOT duplicate any existing activities.`
 ${params.accommodation ? `Staying at (where they sleep TONIGHT — the day must end here): ${formatAnchor(params.accommodation)}` : ""}
 ${params.startLocation ? `Start the day from: ${formatAnchor(params.startLocation)}` : ""}
 ${formatPreferences(params.preferences)}${buildFlightsCtx(params.flights, params.date)}${buildTripNotesCtx(params.tripNotes)}${buildSavedIdeasCtx(params.savedIdeas)}
-${buildNextStayCtx(params.nextLocation, params.accommodation)}${params.tripShape ? buildTripShapeCtx(params.tripShape, params.dayNumber) : ""}
+${buildNextStayCtx(params.nextLocation, params.tonightAccommodation ?? params.accommodation)}${params.tripShape ? buildTripShapeCtx(params.tripShape, params.dayNumber) : ""}
 ${existingCtx}${otherDaysCtx}
 
 IMPORTANT: Only add what the traveler asked for. If they asked for "a ramen spot", add 1 ramen restaurant, not 5 activities.`,
@@ -650,6 +730,13 @@ async function handleFillGaps(
     flights?: FlightPromptInput[]
     /** Only populated in thinking mode — see buildNextStayCtx. */
     nextLocation?: StartLocation
+    /**
+     * Tonight's EFFECTIVE stay (carried forward across multi-night stays —
+     * see resolveStayContext), used ONLY as buildNextStayCtx's dedup input.
+     * Deliberately separate from `accommodation`, which stays this DAY's own
+     * (possibly-null) row for the "day must end here" prompt line.
+     */
+    tonightAccommodation?: { name: string } | null
     /** Only populated in thinking mode — see buildTripShapeCtx. */
     tripShape?: { dayNumber: number; date: string; accommodationName: string | null }[]
     /** Traveler opted into deeper reasoning for this request. */
@@ -703,7 +790,7 @@ ${params.accommodation ? `Accommodation (where they sleep TONIGHT — the day mu
 ${params.startLocation ? `Start point: ${formatAnchor(params.startLocation)}` : ""}
 ${existingCtx}
 ${formatPreferences(params.preferences)}${buildFlightsCtx(params.flights, params.date)}${buildTripNotesCtx(params.tripNotes)}${buildSavedIdeasCtx(params.savedIdeas)}
-${buildNextStayCtx(params.nextLocation, params.accommodation)}${params.tripShape ? buildTripShapeCtx(params.tripShape, params.dayNumber) : ""}
+${buildNextStayCtx(params.nextLocation, params.tonightAccommodation ?? params.accommodation)}${params.tripShape ? buildTripShapeCtx(params.tripShape, params.dayNumber) : ""}
 ${params.prompt ? `Traveler wants: ${params.prompt}` : ""}
 ONLY suggest NEW activities. Never include: [${existingNames.join(", ")}]${otherDaysCtx}
 
@@ -1006,6 +1093,11 @@ export async function processUserRequest(params: {
   startLocation?: StartLocation
   /** Where the traveler moves to after tonight. Only passed in thinking mode. */
   nextLocation?: StartLocation
+  /**
+   * Tonight's EFFECTIVE stay (carried forward — see resolveStayContext), used
+   * ONLY as buildNextStayCtx's dedup input. Only passed in thinking mode.
+   */
+  tonightAccommodation?: { name: string } | null
   /** Every day's date and stay. Only passed in thinking mode. */
   tripShape?: { dayNumber: number; date: string; accommodationName: string | null }[]
   /**
@@ -1078,6 +1170,7 @@ export async function processUserRequest(params: {
           accommodation: params.accommodation,
           startLocation: params.startLocation,
           nextLocation: params.nextLocation,
+          tonightAccommodation: params.tonightAccommodation,
           tripShape: params.tripShape,
           thinking: params.thinking,
           preferences: params.preferences,
@@ -1129,6 +1222,7 @@ export async function processUserRequest(params: {
           accommodation: params.accommodation,
           startLocation: params.startLocation,
           nextLocation: params.nextLocation,
+          tonightAccommodation: params.tonightAccommodation,
           tripShape: params.tripShape,
           thinking: params.thinking,
           preferences: params.preferences,
@@ -1226,6 +1320,7 @@ export async function processUserRequest(params: {
           accommodation: params.accommodation,
           startLocation: params.startLocation,
           nextLocation: params.nextLocation,
+          tonightAccommodation: params.tonightAccommodation,
           tripShape: params.tripShape,
           thinking: params.thinking,
           preferences: params.preferences,

@@ -84,3 +84,23 @@ export function shouldStripTools(stepNumber: number, ceiling: number, elapsedMs:
   if (elapsedMs > TURN_TIME_BUDGET_MS) return true
   return ceiling - stepNumber <= 1
 }
+
+/**
+ * How much of `creditsCharged` has actually been taken from the ledger at a
+ * given point in a day-generation request (Finding 3, whole-branch review).
+ *
+ * `chargeExtraAiCredits` used to run BEFORE `processUserRequest`, so every
+ * failure path refunded the full `creditsCharged` correctly. Moving that
+ * charge to run only AFTER the model call succeeds (so a timed-out or failed
+ * generation is never billed for work that never happened) means a failure
+ * BEFORE that point has only ever consumed the flat 1-credit
+ * `tryConsumeAiCredit` — refunding the full `creditsCharged` there would mint
+ * the difference as free credits. A failure AFTER the extra charge succeeded
+ * must still refund the full amount.
+ *
+ * `extraChargeApplied` is true once `chargeExtraAiCredits` has been awaited
+ * without throwing; false at every point before that.
+ */
+export function chargedSoFar(creditsCharged: number, extraChargeApplied: boolean): number {
+  return extraChargeApplied ? creditsCharged : 1
+}

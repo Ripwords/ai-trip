@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
+  chargedSoFar,
   creditsForSteps,
   discussStepCeiling,
   MAX_DISCUSS_STEPS,
@@ -160,5 +161,28 @@ describe("shouldStripTools", () => {
   it("leaves headroom for the final reply inside the 300s function limit", () => {
     // The model still has to WRITE the answer after tools are stripped.
     assert.ok(TURN_TIME_BUDGET_MS <= 200_000)
+  })
+})
+
+describe("chargedSoFar", () => {
+  // Finding 3 (whole-branch review): ai.post.ts moved chargeExtraAiCredits to
+  // run AFTER processUserRequest succeeds, so a failure before that point has
+  // only ever consumed the flat 1-credit tryConsumeAiCredit call. Refunding
+  // the full 3-credit creditsCharged there would mint the other 2 as free
+  // credits (GREATEST(count-3,0) run against a ledger that only ever went up
+  // by 1).
+  it("is exactly 1 before the extra charge has run, regardless of the thinking price", () => {
+    assert.equal(chargedSoFar(3, false), 1)
+    assert.equal(chargedSoFar(1, false), 1)
+  })
+
+  it("is the full creditsCharged once the extra charge has succeeded", () => {
+    assert.equal(chargedSoFar(3, true), 3)
+  })
+
+  it("is a no-op amount (1) for a non-thinking request either way", () => {
+    // creditsCharged is 1 for a normal request, so pre/post-charge refund
+    // amounts must coincide — there is no "extra" to under- or over-refund.
+    assert.equal(chargedSoFar(1, false), chargedSoFar(1, true))
   })
 })

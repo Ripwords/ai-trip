@@ -3,7 +3,11 @@ import { z } from "zod"
 import { db } from "../../../../../db"
 import { trips, itineraryDays, activities, tripIdeas } from "../../../../../db/schema"
 import { dayIdParamsSchema } from "../../../../../utils/schemas"
-import { processUserRequest, type FlightPromptInput } from "../../../../../lib/ai"
+import {
+  processUserRequest,
+  resolveStayContext,
+  type FlightPromptInput,
+} from "../../../../../lib/ai"
 import { getTripFlightsForUser } from "../../../../../lib/trip-flights"
 import { enrichItinerary, partitionGeocoded } from "../../../../../lib/enrich"
 import { computeAndSaveSegments } from "../../../../../lib/segments"
@@ -17,7 +21,7 @@ import { guardCostEstimate } from "../../../../../lib/cost-guard"
 import { filterDuplicateActivities } from "../../../../../utils/activity-dedup"
 import { refundAiCredit, chargeExtraAiCredits } from "../../../../../utils/ai-limits"
 import { thinkingAvailable } from "../../../../../lib/ai-config"
-import { THINKING_CREDIT_MULTIPLIER } from "../../../../../utils/ai-credit-cost"
+import { THINKING_CREDIT_MULTIPLIER, chargedSoFar } from "../../../../../utils/ai-credit-cost"
 import { beginRunDay, endRunDay } from "../../../../../lib/generation-run"
 import { generationRunStore } from "../../../../../lib/generation-run-store"
 import {
@@ -151,13 +155,22 @@ export default defineEventHandler(async (event) => {
   // whatever month it happens to be when the failure lands (a request that
   // starts at 23:59 on the 31st must not credit the next month's bucket).
   let creditRefunded = false
+  // Tracks how much of `creditsCharged` has actually left the ledger so far —
+  // see `chargedSoFar`. Starts at `false`: only `tryConsumeAiCredit`'s flat 1
+  // credit has been taken until the extra-credit charge below succeeds. This
+  // is what makes refundOnce correct on BOTH sides of that charge: refunding
+  // the full `creditsCharged` before it has run would mint the difference as
+  // free credits (only 1 was ever taken); refunding just 1 after it has run
+  // would pocket the other 2 on every later failure.
+  let extraChargeApplied = false
   const refundOnce = async (usageMonth: string): Promise<void> => {
     if (creditRefunded) return
     creditRefunded = true
-    // Refund what was actually charged, not a hard-coded 1. A thinking-mode
-    // generation consumes `creditsCharged` up front; refunding 1 of 3 on a 502
-    // silently pocketed the other 2 on every failure.
-    await refundAiCredit(session.user.id, usageMonth, creditsCharged)
+    await refundAiCredit(
+      session.user.id,
+      usageMonth,
+      chargedSoFar(creditsCharged, extraChargeApplied),
+    )
   }
 
   const generate = async () => {
@@ -166,11 +179,6 @@ export default defineEventHandler(async (event) => {
     // 403/404 never burns a credit. Note this still runs *after* the run claim
     // above, so a racer that loses the claim never reaches the ledger at all.
     const usageMonth = await tryConsumeAiCredit(session.user.id)
-
-    // tryConsumeAiCredit takes exactly one credit and owns the 429 gate. Charge
-    // the remainder right here — before the model call, so the work is never
-    // given away, and matched by refundOnce on every failure path below.
-    await chargeExtraAiCredits(session.user.id, creditsCharged - 1, usageMonth)
 
     // Fetch saved ideas for AI context
     const savedIdeasRows = await db.query.tripIdeas.findMany({
@@ -205,17 +213,25 @@ export default defineEventHandler(async (event) => {
     // The forward counterpart of previousStayDay. Only used in thinking mode:
     // it is what lets generation see that the traveler relocates tomorrow and
     // finish today on the right side of the region.
-    const nextStayDay = allTripDays
-      .filter((d) => d.dayNumber > day.dayNumber && d.accommodationName)
-      .toSorted((a, b) => a.dayNumber - b.dayNumber)[0]
-    const nextLocation = nextStayDay?.accommodationName
-      ? {
-          name: nextStayDay.accommodationName,
-          address: nextStayDay.accommodationAddress,
-          lat: nextStayDay.accommodationLat,
-          lng: nextStayDay.accommodationLng,
-        }
-      : null
+    //
+    // resolveStayContext carries "tonight" forward across a multi-night stay
+    // (only the FIRST day of a stay sets accommodationName — see
+    // buildTripShapeCtx) and only reports `next` when TOMORROW's carried stay
+    // genuinely differs from tonight's. Reading day.accommodationName alone —
+    // which is null on every night but the first — used to let a stay several
+    // days out masquerade as relocating "after tonight" (finding 1, whole-
+    // branch review): on an A/A/A/B trip, planning day 2 (still two nights
+    // from the actual move) saw nextLocation = Hotel B.
+    const { tonight: tonightStay, next: nextLocation } = resolveStayContext(
+      allTripDays.map((d) => ({
+        dayNumber: d.dayNumber,
+        accommodationName: d.accommodationName,
+        accommodationAddress: d.accommodationAddress,
+        accommodationLat: d.accommodationLat,
+        accommodationLng: d.accommodationLng,
+      })),
+      day.dayNumber,
+    )
 
     // Flight context — landing/departure times shape what fits on this day.
     // Degrades to "no flights" on failure rather than blocking the request.
@@ -303,6 +319,7 @@ export default defineEventHandler(async (event) => {
             }
           : undefined,
         nextLocation: thinking && nextLocation ? nextLocation : undefined,
+        tonightAccommodation: thinking && tonightStay ? { name: tonightStay.name } : undefined,
         tripShape: thinking
           ? allTripDays.map((d) => ({
               dayNumber: d.dayNumber,
@@ -319,12 +336,24 @@ export default defineEventHandler(async (event) => {
       })
     } catch (e: unknown) {
       console.error("[ai.post] AI processing failed:", e)
+      // Reached before the extra-credit charge below, so refundOnce refunds
+      // only the flat 1 credit tryConsumeAiCredit took — see chargedSoFar.
       await refundOnce(usageMonth)
       throw createError({
         statusCode: 502,
         message: "AI service is temporarily unavailable. Please try again.",
       })
     }
+
+    // Charge the remaining THINKING_CREDIT_MULTIPLIER-1 credits only now that
+    // the model call has actually succeeded — moved here (was: before
+    // processUserRequest) so a thinking-mode generation that fails or times
+    // out via withOneRetry's double model call (~8x normal latency, no
+    // wall-clock guard) is never billed 3 credits for work that never
+    // completed. tryConsumeAiCredit's flat 1 credit still runs first and
+    // still owns the 429 gate, so no work is ever given away free.
+    await chargeExtraAiCredits(session.user.id, creditsCharged - 1, usageMonth)
+    extraChargeApplied = true
 
     console.log("[ai.post] AI result:", {
       intent: result.intent,
