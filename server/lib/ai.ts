@@ -448,7 +448,12 @@ async function handleAdd(
       estimatedDurationMinutes: number | null
       address?: string | null
     }[]
-    accommodation?: { name: string; address: string | null; lat?: number | null; lng?: number | null }
+    accommodation?: {
+      name: string
+      address: string | null
+      lat?: number | null
+      lng?: number | null
+    }
     startLocation?: StartLocation
     preferences?: TripPreferences
     otherDayActivities?: { name: string; type: string }[]
@@ -562,7 +567,12 @@ async function handleFillGaps(
       estimatedDurationMinutes: number | null
       address?: string | null
     }[]
-    accommodation?: { name: string; address: string | null; lat?: number | null; lng?: number | null }
+    accommodation?: {
+      name: string
+      address: string | null
+      lat?: number | null
+      lng?: number | null
+    }
     startLocation?: StartLocation
     preferences?: TripPreferences
     otherDayActivities?: { name: string; type: string }[]
