@@ -5,8 +5,10 @@ import {
   discussStepCeiling,
   MAX_DISCUSS_STEPS,
   MAX_DISCUSS_STEPS_THINKING,
+  shouldStripTools,
   STEPS_PER_CREDIT,
   THINKING_CREDIT_MULTIPLIER,
+  TURN_TIME_BUDGET_MS,
 } from "./ai-credit-cost"
 
 describe("creditsForSteps", () => {
@@ -129,5 +131,34 @@ describe("MAX_DISCUSS_STEPS_THINKING", () => {
     // step count alone. discuss.post.ts must strip tools on elapsed time too.
     // If that guard is ever removed, drop this ceiling back to MAX_DISCUSS_STEPS.
     assert.ok(MAX_DISCUSS_STEPS_THINKING <= 40)
+  })
+})
+
+describe("shouldStripTools", () => {
+  it("leaves tools available early in a normal turn", () => {
+    assert.equal(shouldStripTools(0, MAX_DISCUSS_STEPS, 0), false)
+    assert.equal(shouldStripTools(5, MAX_DISCUSS_STEPS, 10_000), false)
+  })
+
+  it("strips tools on the last permitted step so the turn always writes a reply", () => {
+    // Pre-existing behaviour: without this the loop could end on a tool call and
+    // the user got silence.
+    assert.equal(shouldStripTools(MAX_DISCUSS_STEPS - 1, MAX_DISCUSS_STEPS, 0), true)
+  })
+
+  it("strips tools once the time budget is spent, even with steps to spare", () => {
+    // The guard that makes the raised thinking ceiling safe. 40 thinking steps
+    // can exceed Vercel's 300s limit, and a timeout kills the process before the
+    // refund runs — billing the user 3x for nothing.
+    assert.equal(shouldStripTools(3, MAX_DISCUSS_STEPS_THINKING, TURN_TIME_BUDGET_MS + 1), true)
+  })
+
+  it("does not strip just below the time budget", () => {
+    assert.equal(shouldStripTools(3, MAX_DISCUSS_STEPS_THINKING, TURN_TIME_BUDGET_MS - 1), false)
+  })
+
+  it("leaves headroom for the final reply inside the 300s function limit", () => {
+    // The model still has to WRITE the answer after tools are stripped.
+    assert.ok(TURN_TIME_BUDGET_MS <= 200_000)
   })
 })

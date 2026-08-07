@@ -16,11 +16,17 @@ import {
   fallbackDiscussMessage,
 } from "../../../lib/discuss-agent"
 import { chargeExtraAiCredits, refundAiCredit } from "../../../utils/ai-limits"
-import { creditsForSteps, MAX_DISCUSS_STEPS, STEPS_PER_CREDIT } from "../../../utils/ai-credit-cost"
+import {
+  creditsForSteps,
+  discussStepCeiling,
+  shouldStripTools,
+  STEPS_PER_CREDIT,
+  THINKING_CREDIT_MULTIPLIER,
+} from "../../../utils/ai-credit-cost"
 import { getTripWithRelations } from "../../../lib/trips"
 import { buildTripContext } from "../../../lib/discuss-context"
 import { getTripFlightsForUser } from "../../../lib/trip-flights"
-import { AI_PROVIDER_OPTIONS } from "../../../lib/ai-config"
+import { aiProviderOptions, thinkingAvailable } from "../../../lib/ai-config"
 import type { FlightPromptInput } from "../../../lib/ai"
 import { stampGroup } from "../../../lib/proposal-targeting"
 import type { Proposal } from "../../../lib/proposals"
@@ -38,6 +44,11 @@ const discussBodySchema = z.object({
     .min(1)
     .max(40),
   dayId: z.string().uuid().optional(),
+  /**
+   * Traveler opted into deeper reasoning for this turn. Untrusted — ANDed with
+   * thinkingAvailable() below before it can affect the model or the price.
+   */
+  thinking: z.boolean().optional().default(false),
 })
 
 // buildTripContext lives in lib/discuss-context so it can be unit-tested
@@ -55,6 +66,12 @@ export default defineEventHandler(async (event) => {
   if (!trip) {
     throw createError({ statusCode: 404, message: "Trip not found" })
   }
+
+  // Resolved once. Without a DeepSeek key getModel serves Gemini, which ignores
+  // deepseek-namespaced provider options — charging the multiplier there would
+  // bill 3x for a turn that never reasoned.
+  const thinking = body.thinking && thinkingAvailable()
+  const stepCeiling = discussStepCeiling(thinking)
 
   // Consume credit AFTER auth + body validation + access + existence checks,
   // so every throw above never needs a refund. Every throw below this point
@@ -85,10 +102,17 @@ export default defineEventHandler(async (event) => {
     // trade-off.
     settled = true
     if (!streamedAny) {
-      await refundAiCredit(session.user.id, usageMonth)
+      // Exactly 1, in BOTH modes. Unlike day generation, discuss charges the
+      // remainder at settle time rather than up front — so a turn that reaches
+      // this branch has only ever consumed the single tryConsumeAiCredit
+      // credit. Refunding the multiplier here would mint the user free credits.
+      await refundAiCredit(session.user.id, usageMonth, 1)
       return 0
     }
-    const creditsUsed = creditsForSteps(steps)
+    // The ceiling must match the one the turn actually ran under, or a 40-step
+    // thinking turn bills as though it had stopped at 30.
+    const creditsUsed =
+      creditsForSteps(steps, stepCeiling) * (thinking ? THINKING_CREDIT_MULTIPLIER : 1)
     await chargeExtraAiCredits(session.user.id, creditsUsed - 1, usageMonth)
     return creditsUsed
   }
@@ -290,25 +314,32 @@ export default defineEventHandler(async (event) => {
             : { role: "assistant", content: m.content },
       )
 
+      const turnStartedAt = Date.now()
       const result = await discussAgent.stream(agentMessages, {
         toolsets: { discuss: tools },
-        maxSteps: MAX_DISCUSS_STEPS,
-        providerOptions: AI_PROVIDER_OPTIONS,
+        maxSteps: stepCeiling,
+        providerOptions: aiProviderOptions(thinking),
         // The step budget used to be a guillotine: if the final step happened to be
         // a tool call, the loop stopped with response.text === "" and the user got
         // nothing but an apology. Two overrides fix that:
         //
-        //  1. On the last permitted step, strip the toolset. With no tools to call,
-        //     the model has no choice but to spend that step writing a reply — so
+        //  1. On the last permitted step (or once the wall-clock budget is spent —
+        //     see shouldStripTools), strip the toolset. With no tools to call, the
+        //     model has no choice but to spend that step writing a reply — so
         //     hitting the ceiling now degrades to a partial answer, never silence.
+        //     The wall-clock arm is what keeps the raised thinking ceiling inside
+        //     the 300s function limit — a timeout would kill the process before
+        //     settleCredits runs.
         //  2. Otherwise, tell the model what it has left and what it costs. The
         //     system prompt asks it to wind down when "running low on steps", which
         //     it could never honour before — it has no view of its own step count.
         //     Returning a plain string is a valid `Instructions`; it re-states the
         //     agent's own prompt verbatim plus a runtime note, so nothing is lost.
         prepareStep: ({ stepNumber }) => {
-          const remaining = MAX_DISCUSS_STEPS - stepNumber
-          if (remaining <= 1) return { activeTools: [] }
+          if (shouldStripTools(stepNumber, stepCeiling, Date.now() - turnStartedAt)) {
+            return { activeTools: [] }
+          }
+          const remaining = stepCeiling - stepNumber
           return {
             instructions: `${DISCUSS_SYSTEM_PROMPT}
 
@@ -336,6 +367,12 @@ export default defineEventHandler(async (event) => {
         if (mapped.type === "tool") {
           toolLines.push(mapped.line)
           await stream.push(toSseFrame({ event: "tool", data: { line: mapped.line } }))
+        } else if (mapped.type === "thinking") {
+          // Display-only. Deliberately NOT appended to streamedText: reasoning
+          // is not the reply, must not be persisted, and must not make
+          // `streamedAny` true — a turn that only thought delivered nothing and
+          // is still refunded below.
+          await stream.push(toSseFrame({ event: "thinking", data: { delta: mapped.delta } }))
         } else {
           streamedText += mapped.delta
           await stream.push(toSseFrame({ event: "text", data: { delta: mapped.delta } }))

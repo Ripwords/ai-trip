@@ -62,3 +62,25 @@ export function creditsForSteps(steps: number, ceiling: number = MAX_DISCUSS_STE
   const capped = Math.min(steps, ceiling)
   return Math.max(1, Math.ceil(capped / STEPS_PER_CREDIT))
 }
+
+/**
+ * Wall-clock budget for one discuss turn's TOOL phase.
+ *
+ * Vercel's function limit is 300s. Tools are stripped at this mark so the model
+ * still has ~100s to write its reply inside that limit. This is what makes
+ * MAX_DISCUSS_STEPS_THINKING safe: step count is a poor proxy for time when
+ * thinking mode runs ~8x slower per step, and a timeout kills the process
+ * before the endpoint's refund can run.
+ */
+export const TURN_TIME_BUDGET_MS = 200_000
+
+/**
+ * Whether this step must run without tools — either it is the last permitted
+ * step, or the turn has spent its time budget.
+ *
+ * Pure so the policy is testable; the endpoint supplies the elapsed time.
+ */
+export function shouldStripTools(stepNumber: number, ceiling: number, elapsedMs: number): boolean {
+  if (elapsedMs > TURN_TIME_BUDGET_MS) return true
+  return ceiling - stepNumber <= 1
+}
