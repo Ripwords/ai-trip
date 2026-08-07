@@ -174,6 +174,25 @@ export default defineEventHandler(async (event) => {
         }
       : null
 
+    // The forward counterpart of previousStayDay. Only used in thinking mode:
+    // it is what lets generation see that the traveler relocates tomorrow and
+    // finish today on the right side of the region.
+    const nextStayDay = allTripDays
+      .filter((d) => d.dayNumber > day.dayNumber && d.accommodationName)
+      .toSorted((a, b) => a.dayNumber - b.dayNumber)[0]
+    const nextLocation = nextStayDay?.accommodationName
+      ? {
+          name: nextStayDay.accommodationName,
+          address: nextStayDay.accommodationAddress,
+          lat: nextStayDay.accommodationLat,
+          lng: nextStayDay.accommodationLng,
+        }
+      : null
+
+    // TODO(Task 5): replace with the real request-derived value once the body
+    // schema gains a `thinking` field (ANDed with thinkingAvailable()).
+    const thinking = false
+
     // Flight context — landing/departure times shape what fits on this day.
     // Degrades to "no flights" on failure rather than blocking the request.
     let flights: FlightPromptInput[] = []
@@ -258,6 +277,14 @@ export default defineEventHandler(async (event) => {
               lat: startLocation.lat,
               lng: startLocation.lng,
             }
+          : undefined,
+        nextLocation: thinking && nextLocation ? nextLocation : undefined,
+        tripShape: thinking
+          ? allTripDays.map((d) => ({
+              dayNumber: d.dayNumber,
+              date: d.date,
+              accommodationName: d.accommodationName,
+            }))
           : undefined,
         preferences: trip.preferences ?? undefined,
         otherDayActivities,

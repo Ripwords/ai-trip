@@ -4,6 +4,8 @@ import {
   SCHEDULE_RULES,
   addResultSchema,
   buildFlightsCtx,
+  buildNextStayCtx,
+  buildTripShapeCtx,
   fillGapsResultSchema,
   formatAnchor,
   optimizeResultSchema,
@@ -240,5 +242,110 @@ describe("buildFlightsCtx", () => {
   it("only states the 'only a flagged leg constrains this day' rule when a planning date is supplied", () => {
     const out = buildFlightsCtx(flights, "2026-08-17")
     assert.ok(/only a leg flagged/i.test(out))
+  })
+})
+
+describe("buildNextStayCtx", () => {
+  const next = {
+    name: "Ryokan Kurashiki",
+    address: "4-1 Honmachi, Kurashiki",
+    lat: 34.5951,
+    lng: 133.7715,
+  }
+
+  it("returns an empty string when there is no later stay", () => {
+    assert.equal(buildNextStayCtx(null, { name: "Hotel Gracery Shinjuku" }), "")
+    assert.equal(buildNextStayCtx(undefined, { name: "Hotel Gracery Shinjuku" }), "")
+  })
+
+  it("returns an empty string when the traveler does not move", () => {
+    // "You relocate to Hotel X" when they are already at Hotel X is noise that
+    // invites the model to invent a transfer that isn't happening.
+    assert.equal(
+      buildNextStayCtx(
+        { ...next, name: "Hotel Gracery Shinjuku" },
+        {
+          name: "Hotel Gracery Shinjuku",
+        },
+      ),
+      "",
+    )
+  })
+
+  it("ignores case and surrounding whitespace when comparing stays", () => {
+    assert.equal(
+      buildNextStayCtx(
+        { ...next, name: " hotel gracery SHINJUKU " },
+        {
+          name: "Hotel Gracery Shinjuku",
+        },
+      ),
+      "",
+    )
+  })
+
+  it("names the next base with full precision when the traveler relocates", () => {
+    const out = buildNextStayCtx(next, { name: "Hotel Gracery Shinjuku" })
+    assert.ok(out.includes("Ryokan Kurashiki"))
+    assert.ok(out.includes("34.5951"))
+  })
+
+  it("tells the model to shorten tomorrow's transfer and not strand the traveler", () => {
+    const out = buildNextStayCtx(next, { name: "Hotel Gracery Shinjuku" })
+    assert.ok(/transfer/i.test(out))
+    assert.ok(/strand|far from/i.test(out))
+  })
+
+  it("still emits guidance when tonight's stay is unknown", () => {
+    // A day with no accommodation of its own still benefits from knowing where
+    // the traveler ends up next.
+    const out = buildNextStayCtx(next, null)
+    assert.ok(out.includes("Ryokan Kurashiki"))
+  })
+})
+
+describe("buildTripShapeCtx", () => {
+  const days = [
+    { dayNumber: 1, date: "2026-08-10", accommodationName: "Hotel Gracery Shinjuku" },
+    { dayNumber: 2, date: "2026-08-11", accommodationName: null },
+    { dayNumber: 3, date: "2026-08-12", accommodationName: "Ryokan Kurashiki" },
+  ]
+
+  it("returns an empty string when there is nothing to show", () => {
+    assert.equal(buildTripShapeCtx([], 1), "")
+  })
+
+  it("lists every day with its date and stay", () => {
+    // Day generation only ever saw its OWN day plus a flat list of other
+    // days' activity names — it could not see the trip's shape at all.
+    const out = buildTripShapeCtx(days, 2)
+    assert.ok(out.includes("Day 1"))
+    assert.ok(out.includes("Day 3"))
+    assert.ok(out.includes("Ryokan Kurashiki"))
+  })
+
+  it("marks the day being planned", () => {
+    const out = buildTripShapeCtx(days, 2)
+    const marked = out.split("\n").filter((l) => l.includes("PLANNING NOW"))
+    assert.equal(marked.length, 1)
+    assert.ok(marked[0]!.includes("Day 2"))
+  })
+
+  it("carries a multi-night stay forward instead of showing a gap", () => {
+    // Day 2 sets no accommodation of its own: the traveler is still at Day 1's
+    // hotel. Rendering it blank reads as "no stay booked" and invites the model
+    // to treat the day as unanchored.
+    const out = buildTripShapeCtx(days, 1)
+    const day2 = out.split("\n").find((l) => l.includes("Day 2"))
+    assert.ok(day2?.includes("Hotel Gracery Shinjuku"))
+  })
+
+  it("does not invent a stay before the first one is known", () => {
+    const out = buildTripShapeCtx(
+      [{ dayNumber: 1, date: "2026-08-10", accommodationName: null }, ...days.slice(1)],
+      1,
+    )
+    const day1 = out.split("\n").find((l) => l.includes("Day 1"))
+    assert.ok(!day1?.includes("staying at"))
   })
 })
