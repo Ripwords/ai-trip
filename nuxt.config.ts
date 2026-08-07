@@ -1,4 +1,9 @@
 import tailwindcss from "@tailwindcss/vite"
+// Single source of truth for the function timeout. The AI endpoints' wall-clock
+// guards (TURN_TIME_BUDGET_MS, GENERATION_MODEL_BUDGET_MS) are sized against
+// this number, and a test asserts they keep headroom under it. Safe to import
+// here: ai-credit-cost.ts has zero imports of its own by design.
+import { VERCEL_FUNCTION_MAX_DURATION_SECONDS } from "./server/utils/ai-credit-cost"
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -43,6 +48,26 @@ export default defineNuxtConfig({
     nitroAutoImports: true,
   },
   nitro: {
+    // Pin the serverless function timeout instead of inheriting the plan
+    // default. The discuss endpoint strips its toolset at TURN_TIME_BUDGET_MS
+    // (40s) and day generation caps its model phase at
+    // GENERATION_MODEL_BUDGET_MS (35s); both assume they have room to finish
+    // and settle credits inside this ceiling. Left unset, the platform default
+    // applied — and if that were under the budgets the guards could never fire: the
+    // process would be killed mid-flight, skipping the refund entirely and
+    // billing the traveler for work they never received.
+    //
+    // Nitro bundles all server routes into one function, so this is global.
+    // 60s is the Vercel HOBBY ceiling and this project is on Hobby — a higher
+    // value is rejected at build time. On Pro this can go to 300s; raise it in
+    // ai-credit-cost.ts (the constant imported above) together with
+    // TURN_TIME_BUDGET_MS and GENERATION_MODEL_BUDGET_MS, which are sized
+    // against it and guarded by a headroom test.
+    vercel: {
+      functions: {
+        maxDuration: VERCEL_FUNCTION_MAX_DURATION_SECONDS,
+      },
+    },
     experimental: {
       tasks: true,
     },

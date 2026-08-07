@@ -19,9 +19,15 @@ import { countryByAlpha2 } from "~/data/countries"
 import { normalizeTransportMode } from "../../../../../utils/transport"
 import { guardCostEstimate } from "../../../../../lib/cost-guard"
 import { filterDuplicateActivities } from "../../../../../utils/activity-dedup"
-import { refundAiCredit, chargeExtraAiCredits } from "../../../../../utils/ai-limits"
+import { refundAiCredit, chargeExtraAiCredits, getAiUsage } from "../../../../../utils/ai-limits"
 import { thinkingAvailable } from "../../../../../lib/ai-config"
-import { THINKING_CREDIT_MULTIPLIER, chargedSoFar } from "../../../../../utils/ai-credit-cost"
+import {
+  THINKING_CREDIT_MULTIPLIER,
+  chargedSoFar,
+  canAffordThinking,
+  GENERATION_MODEL_BUDGET_MS,
+} from "../../../../../utils/ai-credit-cost"
+import { withTimeout } from "../../../../../lib/retry"
 import { beginRunDay, endRunDay } from "../../../../../lib/generation-run"
 import { generationRunStore } from "../../../../../lib/generation-run-store"
 import {
@@ -67,7 +73,26 @@ export default defineEventHandler(async (event) => {
   // Resolve ONCE, here, and use this everywhere below. A request that asks for
   // thinking while the Gemini fallback is active would otherwise be charged 3x
   // for a call that provably never reasoned.
-  const thinking = thinkingRequested && thinkingAvailable()
+  let thinking = thinkingRequested && thinkingAvailable()
+  if (thinking) {
+    // tryConsumeAiCredit gates on ONE credit, and the remaining
+    // THINKING_CREDIT_MULTIPLIER-1 are charged afterwards with no limit check —
+    // so a traveler at 99/100 could finish a thinking generation at 102/100.
+    // Check the full price up front instead. Only read the ledger when thinking
+    // was actually requested; the normal path should not pay for this query.
+    const { remaining } = await getAiUsage(session.user.id)
+    if (!canAffordThinking(remaining, THINKING_CREDIT_MULTIPLIER)) {
+      // Downgrade rather than 429: the traveler still gets their itinerary, at
+      // the normal price. Refusing outright would spend their last credits on
+      // an error instead of a day plan.
+      console.info(
+        "[ai.post] thinking downgraded — %d credits left, needs %d",
+        remaining,
+        THINKING_CREDIT_MULTIPLIER,
+      )
+      thinking = false
+    }
+  }
   const creditsCharged = thinking ? THINKING_CREDIT_MULTIPLIER : 1
 
   // Sanitize before consuming: this is pure string validation, so a rejection
@@ -268,72 +293,85 @@ export default defineEventHandler(async (event) => {
           ? { lat: geoActivity.lat!, lng: geoActivity.lng! }
           : undefined
 
-    // Process the user's request through the AI
+    // Process the user's request through the AI.
+    //
+    // Wrapped in a wall-clock budget: `processUserRequest` runs its model calls
+    // through `withOneRetry`, so a thinking-mode generation can invoke the model
+    // TWICE at ~8x normal latency. Without this the platform would kill the
+    // function mid-call — skipping the catch below, so the credit consumed above
+    // is never refunded and a run-bound request leaves its `runId` claimed until
+    // the stale-claim window expires. The timeout cannot recall the in-flight
+    // call, but it returns control here while the function is still alive, which
+    // is what lets the refund run at all.
     let result
     try {
-      result = await processUserRequest({
-        prompt,
-        intent,
-        destination: dayLocation,
-        tripDestination: trip.destination,
-        // Research cache identity + search query. `destination` is free text (the
-        // trip name, or a country name); the country code disambiguates two trips
-        // to the same-named city, and the country name sharpens the web search.
-        countryCode: trip.countryCode,
-        countryName: trip.countryCode
-          ? (countryByAlpha2.get(trip.countryCode)?.name ?? null)
-          : null,
-        tripId: id,
-        dayId,
-        transportMode,
-        date: day.date,
-        dayNumber: day.dayNumber,
-        currencyCode: trip.currencyCode || "USD",
-        existingActivities: day.activities.map((a) => ({
-          id: a.id,
-          name: a.name,
-          type: a.type,
-          suggestedTime: a.suggestedTime,
-          estimatedDurationMinutes: a.estimatedDurationMinutes,
-          address: a.address,
-          lat: a.lat,
-          lng: a.lng,
-          openingHours: a.openingHours,
-        })),
-        accommodation: day.accommodationName
-          ? {
-              name: day.accommodationName,
-              address: day.accommodationAddress,
-              lat: day.accommodationLat,
-              lng: day.accommodationLng,
-            }
-          : undefined,
-        startLocation: startLocation
-          ? {
-              name: startLocation.name,
-              address: startLocation.address,
-              // Fetched at :168-175 and, until now, discarded right here. Without
-              // them the model geolocated last night's hotel from its name alone.
-              lat: startLocation.lat,
-              lng: startLocation.lng,
-            }
-          : undefined,
-        nextLocation: thinking && nextLocation ? nextLocation : undefined,
-        tonightAccommodation: thinking && tonightStay ? { name: tonightStay.name } : undefined,
-        tripShape: thinking
-          ? allTripDays.map((d) => ({
-              dayNumber: d.dayNumber,
-              date: d.date,
-              accommodationName: d.accommodationName,
-            }))
-          : undefined,
-        preferences: trip.preferences ?? undefined,
-        otherDayActivities,
-        tripNotes: trip.tripNotes,
-        savedIdeas: savedIdeasRows,
-        flights,
-        thinking,
-      })
+      result = await withTimeout(
+        processUserRequest({
+          prompt,
+          intent,
+          destination: dayLocation,
+          tripDestination: trip.destination,
+          // Research cache identity + search query. `destination` is free text (the
+          // trip name, or a country name); the country code disambiguates two trips
+          // to the same-named city, and the country name sharpens the web search.
+          countryCode: trip.countryCode,
+          countryName: trip.countryCode
+            ? (countryByAlpha2.get(trip.countryCode)?.name ?? null)
+            : null,
+          tripId: id,
+          dayId,
+          transportMode,
+          date: day.date,
+          dayNumber: day.dayNumber,
+          currencyCode: trip.currencyCode || "USD",
+          existingActivities: day.activities.map((a) => ({
+            id: a.id,
+            name: a.name,
+            type: a.type,
+            suggestedTime: a.suggestedTime,
+            estimatedDurationMinutes: a.estimatedDurationMinutes,
+            address: a.address,
+            lat: a.lat,
+            lng: a.lng,
+            openingHours: a.openingHours,
+          })),
+          accommodation: day.accommodationName
+            ? {
+                name: day.accommodationName,
+                address: day.accommodationAddress,
+                lat: day.accommodationLat,
+                lng: day.accommodationLng,
+              }
+            : undefined,
+          startLocation: startLocation
+            ? {
+                name: startLocation.name,
+                address: startLocation.address,
+                // Fetched at :168-175 and, until now, discarded right here. Without
+                // them the model geolocated last night's hotel from its name alone.
+                lat: startLocation.lat,
+                lng: startLocation.lng,
+              }
+            : undefined,
+          nextLocation: thinking && nextLocation ? nextLocation : undefined,
+          tonightAccommodation: thinking && tonightStay ? { name: tonightStay.name } : undefined,
+          tripShape: thinking
+            ? allTripDays.map((d) => ({
+                dayNumber: d.dayNumber,
+                date: d.date,
+                accommodationName: d.accommodationName,
+              }))
+            : undefined,
+          preferences: trip.preferences ?? undefined,
+          otherDayActivities,
+          tripNotes: trip.tripNotes,
+          savedIdeas: savedIdeasRows,
+          flights,
+          thinking,
+        }),
+        GENERATION_MODEL_BUDGET_MS,
+        "day generation",
+      )
     } catch (e: unknown) {
       console.error("[ai.post] AI processing failed:", e)
       // Reached before the extra-credit charge below, so refundOnce refunds

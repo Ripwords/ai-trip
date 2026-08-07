@@ -1,9 +1,11 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
+  canAffordThinking,
   chargedSoFar,
   creditsForSteps,
   discussStepCeiling,
+  GENERATION_MODEL_BUDGET_MS,
   MAX_DISCUSS_STEPS,
   MAX_DISCUSS_STEPS_THINKING,
   shouldStripTools,
@@ -11,6 +13,8 @@ import {
   stepCostNote,
   THINKING_CREDIT_MULTIPLIER,
   TURN_TIME_BUDGET_MS,
+  VERCEL_FUNCTION_MAX_DURATION_SECONDS,
+  worstCaseThinkingCredits,
 } from "./ai-credit-cost"
 
 describe("creditsForSteps", () => {
@@ -57,10 +61,11 @@ describe("creditsForSteps", () => {
 })
 
 describe("step budget constants", () => {
-  it("keeps the ceiling within the 300s Vercel function limit at ~1-3s/step", () => {
-    // 30 steps * 3s worst case = 90s, comfortably inside the 300s Fluid Compute
-    // ceiling. If this ever grows past ~90, revisit: a timeout kills the request
-    // mid-flight and the refund in the catch block never runs.
+  it("keeps the step ceiling from being the thing that blows the function limit", () => {
+    // 30 steps * 3s worst case is ~90s, PAST the 60s Hobby ceiling — which is
+    // exactly why TURN_TIME_BUDGET_MS exists and ends the tool phase first.
+    // Time is the real budget; this bound just stops the step count growing
+    // into absurdity.
     assert.ok(MAX_DISCUSS_STEPS <= 90)
   })
 
@@ -129,7 +134,7 @@ describe("MAX_DISCUSS_STEPS_THINKING", () => {
   })
 
   it("is only safe because a wall-clock guard exists", () => {
-    // At ~8x thinking latency this ceiling CAN exceed the 300s function limit on
+    // At ~8x thinking latency this ceiling vastly exceeds the function limit on
     // step count alone. discuss.post.ts must strip tools on elapsed time too.
     // If that guard is ever removed, drop this ceiling back to MAX_DISCUSS_STEPS.
     assert.ok(MAX_DISCUSS_STEPS_THINKING <= 40)
@@ -170,8 +175,8 @@ describe("shouldStripTools", () => {
 
   it("strips tools once the time budget is spent, even with steps to spare", () => {
     // The guard that makes the raised thinking ceiling safe. 40 thinking steps
-    // can exceed Vercel's 300s limit, and a timeout kills the process before the
-    // refund runs — billing the user 3x for nothing.
+    // vastly exceed the function limit, and a timeout kills the process before
+    // the refund runs — billing the user 3x for nothing.
     assert.equal(shouldStripTools(3, MAX_DISCUSS_STEPS_THINKING, TURN_TIME_BUDGET_MS + 1), true)
   })
 
@@ -179,9 +184,9 @@ describe("shouldStripTools", () => {
     assert.equal(shouldStripTools(3, MAX_DISCUSS_STEPS_THINKING, TURN_TIME_BUDGET_MS - 1), false)
   })
 
-  it("leaves headroom for the final reply inside the 300s function limit", () => {
+  it("leaves headroom for the final reply inside the function limit", () => {
     // The model still has to WRITE the answer after tools are stripped.
-    assert.ok(TURN_TIME_BUDGET_MS <= 200_000)
+    assert.ok(TURN_TIME_BUDGET_MS < VERCEL_FUNCTION_MAX_DURATION_SECONDS * 1000)
   })
 })
 
@@ -205,5 +210,85 @@ describe("chargedSoFar", () => {
     // creditsCharged is 1 for a normal request, so pre/post-charge refund
     // amounts must coincide — there is no "extra" to under- or over-refund.
     assert.equal(chargedSoFar(1, false), chargedSoFar(1, true))
+  })
+})
+
+describe("VERCEL_FUNCTION_MAX_DURATION_SECONDS", () => {
+  it("is the value nuxt.config pins, so the guards have a real ceiling to sit under", () => {
+    // TURN_TIME_BUDGET_MS was written against an assumed 300s limit that was
+    // configured NOWHERE — no maxDuration in vercel.json or nuxt.config — so
+    // Vercel applied its plan default. If that default were below the budget
+    // the wall-clock guard could never fire: the function would be killed
+    // mid-stream and settleCredits would never run.
+    //
+    // 60 is the Vercel HOBBY ceiling. A higher value is rejected at build time
+    // on that plan, so this is not a free knob — it is pinned to the plan, and
+    // both budgets below are sized against it.
+    assert.equal(VERCEL_FUNCTION_MAX_DURATION_SECONDS, 60)
+  })
+
+  it("leaves the discuss turn budget real headroom to write a reply", () => {
+    const limitMs = VERCEL_FUNCTION_MAX_DURATION_SECONDS * 1000
+    assert.ok(
+      TURN_TIME_BUDGET_MS < limitMs,
+      "tools must be stripped before the function dies, not after",
+    )
+    assert.ok(
+      limitMs - TURN_TIME_BUDGET_MS >= 15_000,
+      "real time must remain for the model to write its reply after tools are stripped",
+    )
+  })
+
+  it("leaves the generation model budget headroom for enrichment and DB writes", () => {
+    const limitMs = VERCEL_FUNCTION_MAX_DURATION_SECONDS * 1000
+    assert.ok(GENERATION_MODEL_BUDGET_MS < limitMs)
+    assert.ok(
+      limitMs - GENERATION_MODEL_BUDGET_MS >= 15_000,
+      "Google Places enrichment and the segment recompute both run after the model call",
+    )
+  })
+})
+
+describe("worstCaseThinkingCredits", () => {
+  it("is what a maxed-out thinking discuss turn actually bills", () => {
+    // ceil(40/8) = 5 brackets, times the 3x multiplier.
+    assert.equal(worstCaseThinkingCredits(), 15)
+  })
+
+  it("agrees with creditsForSteps at the thinking ceiling", () => {
+    assert.equal(
+      worstCaseThinkingCredits(),
+      creditsForSteps(MAX_DISCUSS_STEPS_THINKING, MAX_DISCUSS_STEPS_THINKING) *
+        THINKING_CREDIT_MULTIPLIER,
+    )
+  })
+})
+
+describe("canAffordThinking", () => {
+  it("allows thinking when the whole worst case still fits in the allowance", () => {
+    assert.equal(canAffordThinking(worstCaseThinkingCredits()), true)
+    assert.equal(canAffordThinking(100), true)
+  })
+
+  it("refuses when even the worst case would overrun the monthly limit", () => {
+    // The overrun this prevents: tryConsumeAiCredit gates on ONE credit, and
+    // the remainder is charged unconditionally at settle. A user at 99/100
+    // could therefore land at 114/100 on a single research-heavy turn.
+    assert.equal(canAffordThinking(worstCaseThinkingCredits() - 1), false)
+    assert.equal(canAffordThinking(1), false)
+    assert.equal(canAffordThinking(0), false)
+  })
+
+  it("treats a negative or garbage remaining as unaffordable", () => {
+    // An already-overrun ledger must not be handed a 3x turn.
+    assert.equal(canAffordThinking(-5), false)
+    assert.equal(canAffordThinking(Number.NaN), false)
+  })
+
+  it("accepts an explicit cost for the flat-priced generation endpoint", () => {
+    // Day generation bills a flat THINKING_CREDIT_MULTIPLIER, not the stepped
+    // discuss price, so it checks against 3 rather than 15.
+    assert.equal(canAffordThinking(3, THINKING_CREDIT_MULTIPLIER), true)
+    assert.equal(canAffordThinking(2, THINKING_CREDIT_MULTIPLIER), false)
   })
 })

@@ -15,13 +15,15 @@ import {
   discussAgent,
   fallbackDiscussMessage,
 } from "../../../lib/discuss-agent"
-import { chargeExtraAiCredits, refundAiCredit } from "../../../utils/ai-limits"
+import { chargeExtraAiCredits, refundAiCredit, getAiUsage } from "../../../utils/ai-limits"
 import {
+  canAffordThinking,
   creditsForSteps,
   discussStepCeiling,
   shouldStripTools,
   stepCostNote,
   THINKING_CREDIT_MULTIPLIER,
+  worstCaseThinkingCredits,
 } from "../../../utils/ai-credit-cost"
 import { getTripWithRelations } from "../../../lib/trips"
 import { buildTripContext } from "../../../lib/discuss-context"
@@ -70,7 +72,26 @@ export default defineEventHandler(async (event) => {
   // Resolved once. Without a DeepSeek key getModel serves Gemini, which ignores
   // deepseek-namespaced provider options — charging the multiplier there would
   // bill 3x for a turn that never reasoned.
-  const thinking = body.thinking && thinkingAvailable()
+  let thinking = body.thinking && thinkingAvailable()
+  if (thinking) {
+    // A discuss turn is step-metered, so its price is not known until it ends —
+    // but tryConsumeAiCredit only gates on ONE credit and the remainder is
+    // charged at settle with no limit check. A traveler at 99/100 could
+    // therefore finish a research-heavy thinking turn at 114/100. Check the
+    // WORST case up front so the ceiling can never be breached, rather than
+    // merely breached less often.
+    const { remaining } = await getAiUsage(session.user.id)
+    if (!canAffordThinking(remaining)) {
+      // Downgrade, don't refuse: the traveler still gets their answer at the
+      // normal price. A 429 would spend their last credits on an error.
+      console.info(
+        "[discuss] thinking downgraded — %d credits left, worst case needs %d",
+        remaining,
+        worstCaseThinkingCredits(),
+      )
+      thinking = false
+    }
+  }
   const stepCeiling = discussStepCeiling(thinking)
 
   // Consume credit AFTER auth + body validation + access + existence checks,
