@@ -15,7 +15,9 @@ import { countryByAlpha2 } from "~/data/countries"
 import { normalizeTransportMode } from "../../../../../utils/transport"
 import { guardCostEstimate } from "../../../../../lib/cost-guard"
 import { filterDuplicateActivities } from "../../../../../utils/activity-dedup"
-import { refundAiCredit } from "../../../../../utils/ai-limits"
+import { refundAiCredit, chargeExtraAiCredits } from "../../../../../utils/ai-limits"
+import { thinkingAvailable } from "../../../../../lib/ai-config"
+import { THINKING_CREDIT_MULTIPLIER } from "../../../../../utils/ai-credit-cost"
 import { beginRunDay, endRunDay } from "../../../../../lib/generation-run"
 import { generationRunStore } from "../../../../../lib/generation-run-store"
 import {
@@ -39,12 +41,30 @@ const aiBodySchema = z.object({
    * generation run so a resumed run never charges twice for the same day.
    */
   runId: z.string().uuid().optional(),
+  /**
+   * Traveler opted into deeper reasoning for this request. Untrusted: the
+   * handler ANDs it with thinkingAvailable() before it can affect the model
+   * OR the price. Defaults false so the full-itinerary loop — which generates
+   * every day and would otherwise cost 3x per day — is never silently upgraded.
+   */
+  thinking: z.boolean().optional().default(false),
 })
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const { id, dayId } = await getValidatedRouterParams(event, dayIdParamsSchema.parse)
-  const { prompt: rawPrompt, intent, runId } = await readValidatedBody(event, aiBodySchema.parse)
+  const {
+    prompt: rawPrompt,
+    intent,
+    runId,
+    thinking: thinkingRequested,
+  } = await readValidatedBody(event, aiBodySchema.parse)
+
+  // Resolve ONCE, here, and use this everywhere below. A request that asks for
+  // thinking while the Gemini fallback is active would otherwise be charged 3x
+  // for a call that provably never reasoned.
+  const thinking = thinkingRequested && thinkingAvailable()
+  const creditsCharged = thinking ? THINKING_CREDIT_MULTIPLIER : 1
 
   // Sanitize before consuming: this is pure string validation, so a rejection
   // here must never cost the traveler a credit. (Phase 3 added a refund here
@@ -134,7 +154,10 @@ export default defineEventHandler(async (event) => {
   const refundOnce = async (usageMonth: string): Promise<void> => {
     if (creditRefunded) return
     creditRefunded = true
-    await refundAiCredit(session.user.id, usageMonth)
+    // Refund what was actually charged, not a hard-coded 1. A thinking-mode
+    // generation consumes `creditsCharged` up front; refunding 1 of 3 on a 502
+    // silently pocketed the other 2 on every failure.
+    await refundAiCredit(session.user.id, usageMonth, creditsCharged)
   }
 
   const generate = async () => {
@@ -143,6 +166,11 @@ export default defineEventHandler(async (event) => {
     // 403/404 never burns a credit. Note this still runs *after* the run claim
     // above, so a racer that loses the claim never reaches the ledger at all.
     const usageMonth = await tryConsumeAiCredit(session.user.id)
+
+    // tryConsumeAiCredit takes exactly one credit and owns the 429 gate. Charge
+    // the remainder right here — before the model call, so the work is never
+    // given away, and matched by refundOnce on every failure path below.
+    await chargeExtraAiCredits(session.user.id, creditsCharged - 1, usageMonth)
 
     // Fetch saved ideas for AI context
     const savedIdeasRows = await db.query.tripIdeas.findMany({
@@ -188,10 +216,6 @@ export default defineEventHandler(async (event) => {
           lng: nextStayDay.accommodationLng,
         }
       : null
-
-    // TODO(Task 5): replace with the real request-derived value once the body
-    // schema gains a `thinking` field (ANDed with thinkingAvailable()).
-    const thinking = false
 
     // Flight context — landing/departure times shape what fits on this day.
     // Degrades to "no flights" on failure rather than blocking the request.
@@ -291,6 +315,7 @@ export default defineEventHandler(async (event) => {
         tripNotes: trip.tripNotes,
         savedIdeas: savedIdeasRows,
         flights,
+        thinking,
       })
     } catch (e: unknown) {
       console.error("[ai.post] AI processing failed:", e)
