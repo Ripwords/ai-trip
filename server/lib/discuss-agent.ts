@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent"
-import { getModel, AI_PROVIDER_OPTIONS } from "./ai-config"
+import { getModel } from "./ai-config"
 
 export const DISCUSS_SYSTEM_PROMPT = `You are the user's trip-planning thinking partner. You know geography, cities, attractions, cuisine, transit, and travel logistics. Use that knowledge — engage from what you already know about the place.
 
@@ -58,9 +58,11 @@ export const discussAgent = new Agent({
   name: "Trip Discussion Partner",
   instructions: DISCUSS_SYSTEM_PROMPT,
   model: getModel("discuss"),
-  // Force DeepSeek out of thinking mode (no-op on Gemini) — thinking mode
-  // buffers the stream and breaks tool round-trips. See AI_PROVIDER_OPTIONS.
-  providerOptions: AI_PROVIDER_OPTIONS,
+  // Provider options are passed PER CALL at the stream site, not here: the
+  // Agent constructor's config type has no field for them, so a value set on
+  // this object literal is silently dropped at runtime (and fails typecheck
+  // — see itinerary-review-ai.ts's copy of this same mistake). See
+  // discuss.post.ts's stream call.
   tools: {},
 })
 

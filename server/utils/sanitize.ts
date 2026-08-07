@@ -89,3 +89,20 @@ export function sanitizePromptInput(input: string): string | null {
 
   return cleaned.length > MAX_INPUT_LENGTH ? cleaned.slice(0, MAX_INPUT_LENGTH).trim() : cleaned
 }
+
+/**
+ * Neutralize bracket/id spoofing and control chars in stored free-text (B8).
+ *
+ * The single implementation shared by every prompt-context builder that
+ * renders stored free text (accommodation names/addresses, activity names)
+ * next to a sentinel or coordinate marker — e.g. `[lat,lng]` in formatAnchor
+ * or `· PLANNING NOW` in buildTripShapeCtx. Without this, a name like
+ * `X] · PLANNING NOW` could forge either one. Do not duplicate this function;
+ * both server/lib/ai.ts and server/lib/discuss-context.ts import it from here.
+ */
+export function escapeCtx(s: string): string {
+  return s
+    .replace(/[[\]]/g, "")
+    .replace(/[\x00-\x1F]/g, " ")
+    .slice(0, 120)
+}

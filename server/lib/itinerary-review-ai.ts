@@ -341,8 +341,10 @@ export async function reviewItineraryWithJudgment(
       name: "Itinerary Reviewer",
       instructions: REVIEWER_SYSTEM_PROMPT,
       model: getModel("discuss"),
-      // Force DeepSeek out of thinking mode (no-op on Gemini). See AI_PROVIDER_OPTIONS.
-      providerOptions: AI_PROVIDER_OPTIONS,
+      // Provider options are passed PER CALL below at agent.generate(...), not
+      // here: the Agent constructor's config type has no field for them, so a
+      // value set on this object literal is silently dropped at runtime (and
+      // fails typecheck).
       tools: reviewerTools,
     })
 
@@ -357,7 +359,12 @@ export async function reviewItineraryWithJudgment(
       // getDistance / getPlaceDetails verification the prompt MANDATES before
       // backtracking-route or closed-on-date may be flagged. At maxSteps 4 the
       // agent had to spend most of its budget reading the itinerary first.
-      { toolsets: { review: reviewerTools }, maxSteps: 8 },
+      {
+        toolsets: { review: reviewerTools },
+        maxSteps: 8,
+        // Force DeepSeek out of thinking mode (no-op on Gemini). See AI_PROVIDER_OPTIONS.
+        providerOptions: AI_PROVIDER_OPTIONS,
+      },
     )
 
     // Second call: structure the agent's prose. Hand-rolling fence-stripping and

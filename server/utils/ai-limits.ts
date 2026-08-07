@@ -113,21 +113,32 @@ export async function chargeExtraAiCredits(
 }
 
 /**
- * Refund one AI credit. Use after a planning step fails and no work was committed.
+ * Refund AI credits. Use after a planning step fails and no work was committed.
  * Does NOT go below zero.
  *
- * NOT idempotent: the SQL is `GREATEST(count - 1, 0)`, so calling this twice for
- * a single consume decrements twice and mints the user a free credit. Each
- * request must refund at most once — where a handler has several failure paths,
- * route them all through one guard (see discuss.post.ts's `settleCredits`).
+ * `amount` defaults to 1. A thinking-mode turn charges
+ * THINKING_CREDIT_MULTIPLIER credits up front, so its failure paths MUST refund
+ * the same number — the default-1 version pocketed 2 of every failed 3-credit
+ * generation.
+ *
+ * NOT idempotent: the SQL is `GREATEST(count - amount, 0)`, so calling this
+ * twice for a single consume decrements twice and mints the user free credits.
+ * Each request must refund at most once — where a handler has several failure
+ * paths, route them all through one guard (see discuss.post.ts's
+ * `settleCredits` and ai.post.ts's `refundOnce`).
  *
  * `month` is the value `tryConsumeAiCredit` returned for this turn. Recomputing
  * "now" here would match zero rows across a month boundary and silently leave the
  * user charged (issue #17).
  */
-export async function refundAiCredit(userId: string, month: string): Promise<void> {
+export async function refundAiCredit(
+  userId: string,
+  month: string,
+  amount: number = 1,
+): Promise<void> {
+  const n = Number.isFinite(amount) ? Math.max(1, Math.floor(amount)) : 1
   await db
     .update(aiUsage)
-    .set({ promptCount: sql`GREATEST(${aiUsage.promptCount} - 1, 0)`, updatedAt: new Date() })
+    .set({ promptCount: sql`GREATEST(${aiUsage.promptCount} - ${n}, 0)`, updatedAt: new Date() })
     .where(and(eq(aiUsage.userId, userId), eq(aiUsage.month, month)))
 }

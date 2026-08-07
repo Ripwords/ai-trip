@@ -57,7 +57,10 @@ export interface StreamChunkLike {
   payload?: unknown
 }
 
-export type DiscussStreamEvent = { type: "tool"; line: string } | { type: "text"; delta: string }
+export type DiscussStreamEvent =
+  | { type: "tool"; line: string }
+  | { type: "text"; delta: string }
+  | { type: "thinking"; delta: string }
 
 function asToolCallPayload(
   p: unknown,
@@ -79,7 +82,7 @@ function asTextDeltaPayload(p: unknown): { text: string } | null {
 /**
  * Map one chunk to an outbound event, or null if it carries nothing the user
  * should see. Only `tool-call` (fires BEFORE the tool runs, so the line can say
- * what is happening now) and `text-delta` are surfaced.
+ * what is happening now), `text-delta`, and `reasoning-delta` are surfaced.
  */
 export function mapChunk(chunk: StreamChunkLike): DiscussStreamEvent | null {
   if (chunk.type === "tool-call") {
@@ -99,6 +102,14 @@ export function mapChunk(chunk: StreamChunkLike): DiscussStreamEvent | null {
     const payload = asTextDeltaPayload(chunk.payload)
     if (!payload || payload.text.length === 0) return null
     return { type: "text", delta: payload.text }
+  }
+
+  // Reasoning content from DeepSeek thinking mode. Surfaced live but NEVER
+  // persisted and never counted as delivered value — see discuss.post.ts.
+  if (chunk.type === "reasoning-delta") {
+    const payload = asTextDeltaPayload(chunk.payload)
+    if (!payload || payload.text.length === 0) return null
+    return { type: "thinking", delta: payload.text }
   }
 
   return null

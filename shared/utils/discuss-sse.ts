@@ -104,4 +104,13 @@ export type DiscussSseEvent =
         messageId?: string
       }
     }
+  | {
+      /**
+       * Live reasoning from thinking mode. Display-only: it is not part of the
+       * reply, is not persisted, and does not count toward whether the turn
+       * delivered value (a turn that only reasoned is still refunded).
+       */
+      event: "thinking"
+      data: { delta: string }
+    }
   | { event: "error"; data: { message: string } }

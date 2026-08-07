@@ -85,3 +85,38 @@ describe("describeToolCall", () => {
     assert.equal(line, `searched Google Maps for '${"x".repeat(80)}'`)
   })
 })
+
+describe("mapChunk reasoning deltas", () => {
+  it("surfaces a reasoning delta as a thinking event", () => {
+    // Until now mapChunk returned null for every non-text, non-tool chunk, so
+    // thinking mode produced a long silence and looked like a hang. This event
+    // is the entire reason the 8x-slower mode is usable.
+    assert.deepEqual(
+      mapChunk({ type: "reasoning-delta", payload: { text: "Checking the hotel's side of town" } }),
+      { type: "thinking", delta: "Checking the hotel's side of town" },
+    )
+  })
+
+  it("drops zero-length reasoning deltas, matching text-delta behaviour", () => {
+    assert.equal(mapChunk({ type: "reasoning-delta", payload: { text: "" } }), null)
+  })
+
+  it("drops a malformed reasoning payload rather than throwing", () => {
+    assert.equal(mapChunk({ type: "reasoning-delta", payload: null }), null)
+    assert.equal(mapChunk({ type: "reasoning-delta", payload: { text: 42 } }), null)
+    assert.equal(mapChunk({ type: "reasoning-delta" }), null)
+  })
+
+  it("still ignores chunk types it does not know", () => {
+    assert.equal(mapChunk({ type: "step-finish", payload: {} }), null)
+    assert.equal(mapChunk({ type: "finish", payload: {} }), null)
+  })
+
+  it("keeps text and reasoning in separate channels", () => {
+    // A reasoning delta must never be appended to the reply body — it is not
+    // the assistant's answer and is deliberately not persisted.
+    const reasoning = mapChunk({ type: "reasoning-delta", payload: { text: "hmm" } })
+    const text = mapChunk({ type: "text-delta", payload: { text: "hmm" } })
+    assert.notDeepEqual(reasoning, text)
+  })
+})

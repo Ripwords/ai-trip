@@ -100,6 +100,11 @@ export interface ChatMessage {
    * from a previous session, where the button would do nothing at all.
    */
   proposalUndoable?: Record<string, boolean>
+  /**
+   * Live reasoning from thinking mode. Display-only and never persisted — the
+   * server does not store it and a reloaded transcript will not have it.
+   */
+  thinkingText?: string
   timestamp: number
 }
 
@@ -114,6 +119,8 @@ const props = defineProps<{
   destination: string
   starters: string[]
   dayLabels: Record<string, string>
+  thinking: boolean
+  thinkingAvailable: boolean
 }>()
 
 const emit = defineEmits<{
@@ -128,6 +135,7 @@ const emit = defineEmits<{
   fillGaps: []
   optimizeRoute: []
   generateFull: []
+  "update:thinking": [value: boolean]
   close: []
   clear: []
 }>()
@@ -857,6 +865,13 @@ const proposalKindMeta: Record<
                   </span>
                 </p>
               </div>
+              <details v-if="msg.thinkingText" class="rounded-lg bg-white/60 px-2 py-1 text-xs">
+                <summary class="flex cursor-pointer items-center gap-1 opacity-70">
+                  <Icon name="lucide:brain" class="dock-tool-icon" />
+                  <span>Thinking</span>
+                </summary>
+                <p class="mt-1 whitespace-pre-wrap opacity-60">{{ msg.thinkingText }}</p>
+              </details>
               <div
                 v-if="isThinkingBubble(msg)"
                 class="dock-thinking"
@@ -1064,6 +1079,25 @@ const proposalKindMeta: Record<
               @blur="onComposerBlur"
               @keydown.enter.exact.prevent="handleSubmit"
             />
+            <button
+              v-if="thinkingAvailable"
+              type="button"
+              class="flex min-h-11 shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs transition"
+              :class="thinking ? 'bg-cta text-white opacity-100' : 'opacity-60'"
+              :aria-pressed="thinking"
+              :title="
+                thinking
+                  ? // 3x the base cost, up to a ceiling of 15 credits (creditsForSteps(MAX_DISCUSS_STEPS_THINKING, MAX_DISCUSS_STEPS_THINKING) * THINKING_CREDIT_MULTIPLIER
+                    // in server/utils/ai-credit-cost.ts) — a discuss turn is step-metered, not flat-rate, so
+                    // stating a single number here would misstate the price on a research-heavy turn.
+                    'Thinking mode on — deeper reasoning, 3× cost. A research-heavy turn can cost up to 15 credits.'
+                  : 'Thinking mode off'
+              "
+              @click="emit('update:thinking', !thinking)"
+            >
+              <Icon name="lucide:brain" class="dock-tool-icon" />
+              <span>{{ thinking ? "3×" : "Think" }}</span>
+            </button>
             <button
               type="button"
               :disabled="!loading && (!input.trim() || limitReached)"
