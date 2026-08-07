@@ -250,7 +250,14 @@ export default defineEventHandler(async (event) => {
             }
           : undefined,
         startLocation: startLocation
-          ? { name: startLocation.name, address: startLocation.address }
+          ? {
+              name: startLocation.name,
+              address: startLocation.address,
+              // Fetched at :168-175 and, until now, discarded right here. Without
+              // them the model geolocated last night's hotel from its name alone.
+              lat: startLocation.lat,
+              lng: startLocation.lng,
+            }
           : undefined,
         preferences: trip.preferences ?? undefined,
         otherDayActivities,

@@ -3,7 +3,9 @@ import { describe, it } from "node:test"
 import {
   SCHEDULE_RULES,
   addResultSchema,
+  buildFlightsCtx,
   fillGapsResultSchema,
+  formatAnchor,
   optimizeResultSchema,
   rescheduleResultSchema,
 } from "./ai"
@@ -121,5 +123,103 @@ describe("buildStrandedNote", () => {
       ),
       null,
     )
+  })
+})
+
+describe("formatAnchor", () => {
+  it("includes the address and coordinates when known", () => {
+    // The model was geolocating hotels from their NAME alone — ai.post.ts fetched
+    // lat/lng then dropped them one line later, and the prompt rendered only the
+    // name. Coordinates are the whole point of the anchor.
+    const out = formatAnchor({
+      name: "Hotel Gracery Shinjuku",
+      address: "1-19-1 Kabukicho, Shinjuku City, Tokyo",
+      lat: 35.6955,
+      lng: 139.7006,
+    })
+    assert.ok(out.includes("Hotel Gracery Shinjuku"))
+    assert.ok(out.includes("1-19-1 Kabukicho"))
+    assert.ok(out.includes("35.6955"))
+    assert.ok(out.includes("139.7006"))
+  })
+
+  it("degrades cleanly when coordinates are missing", () => {
+    const out = formatAnchor({ name: "Some Guesthouse", address: null, lat: null, lng: null })
+    assert.equal(out, "Some Guesthouse")
+  })
+
+  it("renders the address alone when only coordinates are missing", () => {
+    const out = formatAnchor({
+      name: "Some Guesthouse",
+      address: "12 Main St",
+      lat: null,
+      lng: null,
+    })
+    assert.ok(out.includes("12 Main St"))
+    assert.ok(!out.includes("["), "no empty coordinate bracket")
+  })
+})
+
+describe("buildFlightsCtx", () => {
+  const flights = [
+    {
+      departureAirport: "SIN",
+      arrivalAirport: "NRT",
+      departureTimeUtc: null,
+      arrivalTimeUtc: null,
+      departureTimeLocal: "2026-08-10 08:00+08:00",
+      arrivalTimeLocal: "2026-08-10 16:20+09:00",
+    },
+    {
+      departureAirport: "NRT",
+      arrivalAirport: "SIN",
+      departureTimeUtc: null,
+      arrivalTimeUtc: null,
+      departureTimeLocal: "2026-08-17 10:30+09:00",
+      arrivalTimeLocal: "2026-08-17 17:05+08:00",
+    },
+  ]
+
+  it("returns an empty string when there are no flights", () => {
+    assert.equal(buildFlightsCtx(), "")
+    assert.equal(buildFlightsCtx([]), "")
+  })
+
+  it("lists every flight, so the return leg is always visible", () => {
+    const out = buildFlightsCtx(flights)
+    assert.ok(out.includes("SIN → NRT"))
+    assert.ok(out.includes("NRT → SIN"))
+  })
+
+  it("marks which flight falls on the day being planned", () => {
+    // Without this the model had to date-match the list itself against the day
+    // in scope, and silently mis-attributed flights on multi-flight trips.
+    const out = buildFlightsCtx(flights, "2026-08-17")
+    const lines = out.split("\n").filter((l) => l.startsWith("- "))
+    const tagged = lines.filter((l) => l.includes("THIS DAY"))
+    assert.equal(tagged.length, 1)
+    assert.ok(tagged[0]!.includes("NRT → SIN"), "the departure leg is the one on 2026-08-17")
+  })
+
+  it("tags nothing when no flight falls on the planning date", () => {
+    const out = buildFlightsCtx(flights, "2026-08-13")
+    assert.ok(!out.includes("THIS DAY"))
+  })
+
+  it("omits the tag entirely when no planning date is supplied", () => {
+    assert.ok(!buildFlightsCtx(flights).includes("THIS DAY"))
+  })
+
+  it("tells the model to bias a departure day toward the airport", () => {
+    // Times alone never biased the last day's geography — the traveler could be
+    // routed to the far side of the region on their departure morning.
+    const out = buildFlightsCtx(flights, "2026-08-17")
+    assert.ok(/departure airport/i.test(out))
+  })
+
+  it("keeps the existing hard timing rules", () => {
+    const out = buildFlightsCtx(flights, "2026-08-10")
+    assert.ok(out.includes("90 minutes"), "arrival buffer rule")
+    assert.ok(out.includes("3 hours"), "departure buffer rule")
   })
 })
