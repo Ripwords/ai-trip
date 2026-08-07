@@ -583,13 +583,23 @@ export function buildFlightsCtx(flights?: FlightPromptInput[], planningDate?: st
   })
   return `\nTRAVELER'S FLIGHTS:\n${lines.join("\n")}
 FLIGHT RULES (hard):
-- Only a leg tagged "THIS DAY" constrains the day being planned. Untagged legs are context for the rest of the trip — do NOT apply their timings to this day.
 - If a flight ARRIVES on the day being planned, the day starts only after landing plus ~90 minutes for immigration, luggage, and transfer. Schedule NOTHING before that.
 - If a flight DEPARTS on the day being planned, every activity must end at least 3 hours before departure.
 - On a departure day, also bias the day's GEOGRAPHY toward the departure airport: prefer stops on the corridor between the accommodation and the airport, and never place the last stop further from the airport than the accommodation is. Timing rules alone still allow a final morning on the wrong side of the region.
 - When flights leave only part of the day free (evening-only arrival, morning-only departure), plan just that window — do NOT fill the blocked hours, even if meals or blueprint slots fall inside them.`
 }
 ```
+
+**The scoping rule that bullet needs — do not skip this.** The
+"only a flagged leg constrains this day" instruction may be emitted ONLY when
+`planningDate` was supplied. When it is absent nothing is ever tagged, so that
+sentence tells the model to ignore _every_ flight's timing and silently
+suppresses the ~90-minute and 3-hour buffers. Two callers pass no date:
+`handleReschedule` and `discuss-context.ts:155` (the live chat agent). With no
+`planningDate` the output must keep the arrival/departure buffer rules
+unqualified, exactly as before this task. Cover it with a test asserting that
+the date-less output still carries both buffer rules and carries no instruction
+to disregard flight timings.
 
 - [ ] **Step 5: Use `formatAnchor` in the add and fill prompts**
 
