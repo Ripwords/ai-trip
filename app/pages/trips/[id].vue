@@ -851,7 +851,13 @@ const dayLabels = computed<Record<string, string>>(() =>
 
 const aiInput = ref("")
 const aiMessages = ref<ChatMessage[]>([])
-const aiUsage = ref<{ used: number; limit: number; remaining: number } | null>(null)
+const aiUsage = ref<{
+  used: number
+  limit: number
+  remaining: number
+  thinkingAvailable: boolean
+} | null>(null)
+const { enabled: thinkingEnabled, toggle: toggleThinking } = useThinkingMode()
 
 // The persisted transcript. `server: false` on purpose: this is per-user data
 // keyed on the session cookie, and anything fetched during SSR is serialised
@@ -989,6 +995,7 @@ async function handleAiSubmit(text: string) {
         .filter((m) => (m.role === "user" || m.role === "assistant") && m.content.trim().length > 0)
         .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
       dayId: activeDay.value?.id,
+      thinking: thinkingEnabled.value,
     }
 
     const res = await fetch(`/api/trips/${tripId}/discuss`, {
@@ -1032,6 +1039,9 @@ async function handleAiSubmit(text: string) {
         } else if (frame.event === "text") {
           const { delta } = payload as Extract<DiscussSseEvent, { event: "text" }>["data"]
           patch((m) => ({ ...m, content: m.content + delta }))
+        } else if (frame.event === "thinking") {
+          const { delta } = payload as Extract<DiscussSseEvent, { event: "thinking" }>["data"]
+          patch((m) => ({ ...m, thinkingText: (m.thinkingText ?? "") + delta }))
         } else if (frame.event === "done") {
           const donePayload = payload as Extract<DiscussSseEvent, { event: "done" }>["data"]
           const proposals: Proposal[] = donePayload.proposals
@@ -1316,7 +1326,11 @@ async function handleQuickFillGaps() {
   try {
     const data = await $fetch<{ message: string }>(`/api/trips/${tripId}/days/${dayId}/ai`, {
       method: "POST",
-      body: { prompt: "Fill the gaps in this day", intent: "fill_gaps" },
+      body: {
+        prompt: "Fill the gaps in this day",
+        intent: "fill_gaps",
+        thinking: thinkingEnabled.value,
+      },
     })
     aiMessages.value = [
       ...aiMessages.value,
@@ -2309,6 +2323,9 @@ async function recomputeSegments(dayId: string) {
       :destination="trip.destination"
       :starters="aiStarters"
       :day-labels="dayLabels"
+      :thinking="thinkingEnabled"
+      :thinking-available="aiUsage?.thinkingAvailable ?? false"
+      @update:thinking="toggleThinking"
       @submit="handleAiSubmit"
       @apply-proposal="handleAiApplyProposal"
       @dismiss-proposal="handleAiDismissProposal"

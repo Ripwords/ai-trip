@@ -100,6 +100,11 @@ export interface ChatMessage {
    * from a previous session, where the button would do nothing at all.
    */
   proposalUndoable?: Record<string, boolean>
+  /**
+   * Live reasoning from thinking mode. Display-only and never persisted — the
+   * server does not store it and a reloaded transcript will not have it.
+   */
+  thinkingText?: string
   timestamp: number
 }
 
@@ -114,6 +119,8 @@ const props = defineProps<{
   destination: string
   starters: string[]
   dayLabels: Record<string, string>
+  thinking: boolean
+  thinkingAvailable: boolean
 }>()
 
 const emit = defineEmits<{
@@ -128,6 +135,7 @@ const emit = defineEmits<{
   fillGaps: []
   optimizeRoute: []
   generateFull: []
+  "update:thinking": [value: boolean]
   close: []
   clear: []
 }>()
@@ -857,6 +865,13 @@ const proposalKindMeta: Record<
                   </span>
                 </p>
               </div>
+              <details v-if="msg.thinkingText" class="rounded-lg bg-white/60 px-2 py-1 text-xs">
+                <summary class="flex cursor-pointer items-center gap-1 opacity-70">
+                  <Icon name="lucide:brain" class="dock-tool-icon" />
+                  <span>Thinking</span>
+                </summary>
+                <p class="mt-1 whitespace-pre-wrap opacity-60">{{ msg.thinkingText }}</p>
+              </details>
               <div
                 v-if="isThinkingBubble(msg)"
                 class="dock-thinking"
@@ -1064,6 +1079,22 @@ const proposalKindMeta: Record<
               @blur="onComposerBlur"
               @keydown.enter.exact.prevent="handleSubmit"
             />
+            <button
+              v-if="thinkingAvailable"
+              type="button"
+              class="flex items-center gap-1 rounded-full px-2 py-1 text-xs transition"
+              :class="thinking ? 'bg-cta text-white opacity-100' : 'opacity-60'"
+              :aria-pressed="thinking"
+              :title="
+                thinking
+                  ? 'Thinking mode on — deeper reasoning, costs 3 credits per turn'
+                  : 'Thinking mode off'
+              "
+              @click="emit('update:thinking', !thinking)"
+            >
+              <Icon name="lucide:brain" class="dock-tool-icon" />
+              <span>{{ thinking ? "Thinking · 3×" : "Think" }}</span>
+            </button>
             <button
               type="button"
               :disabled="!loading && (!input.trim() || limitReached)"
