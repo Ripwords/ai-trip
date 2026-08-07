@@ -222,4 +222,23 @@ describe("buildFlightsCtx", () => {
     assert.ok(out.includes("90 minutes"), "arrival buffer rule")
     assert.ok(out.includes("3 hours"), "departure buffer rule")
   })
+
+  it("still applies the arrival/departure buffer rules when no planning date is given", () => {
+    // Regression guard: callers with no single planning day (handleReschedule,
+    // discuss context) never tag any leg. The "only a flagged leg constrains
+    // this day" rule must NOT be emitted in that case — it would tell the model
+    // to disregard every flight's timing, silently suppressing the buffers below.
+    const out = buildFlightsCtx(flights)
+    assert.ok(out.includes("90 minutes"), "arrival buffer rule must still be present")
+    assert.ok(out.includes("3 hours"), "departure buffer rule must still be present")
+    assert.ok(
+      !/only a (leg )?flagged|disregard|do not apply|don't apply/i.test(out),
+      "must not instruct the model to disregard/not-apply flight timings",
+    )
+  })
+
+  it("only states the 'only a flagged leg constrains this day' rule when a planning date is supplied", () => {
+    const out = buildFlightsCtx(flights, "2026-08-17")
+    assert.ok(/only a leg flagged/i.test(out))
+  })
 })

@@ -346,9 +346,18 @@ export function buildFlightsCtx(flights?: FlightPromptInput[], planningDate?: st
       "departs",
     )}, ${leg(f.arrivalTimeLocal, f.arrivalTimeUtc, "arrives")}${tag}`
   })
+  // The "only a flagged leg constrains this day" rule is only true — and only
+  // safe to state — when planningDate let us actually tag a leg. Without a
+  // planningDate nothing is ever tagged, so emitting this rule unconditionally
+  // would tell the model to disregard every flight's timing, silently
+  // suppressing the arrival/departure buffer rules below for the one caller
+  // that genuinely has no single planning day (discuss context, which spans
+  // the whole trip).
+  const onlyFlaggedRule = planningDate
+    ? "\n- Only a leg flagged as landing or departing on the day being planned constrains it. Unflagged legs are context for the rest of the trip — do NOT apply their timings to this day."
+    : ""
   return `\nTRAVELER'S FLIGHTS:\n${lines.join("\n")}
-FLIGHT RULES (hard):
-- Only a leg flagged as landing or departing on the day being planned constrains it. Unflagged legs are context for the rest of the trip — do NOT apply their timings to this day.
+FLIGHT RULES (hard):${onlyFlaggedRule}
 - If a flight ARRIVES on the day being planned, the day starts only after landing plus ~90 minutes for immigration, luggage, and transfer. Schedule NOTHING before that.
 - If a flight DEPARTS on the day being planned, every activity must end at least 3 hours before departure.
 - On a departure day, also bias the day's GEOGRAPHY toward the departure airport: prefer stops on the corridor between the accommodation and the airport, and never place the last stop further from the airport than the accommodation is. Timing rules alone still allow a final morning on the wrong side of the region.
@@ -772,6 +781,7 @@ ${params.prompt ? `Traveler wants: ${params.prompt}` : ""}`,
 async function handleReschedule(params: {
   prompt: string
   destination: string
+  date: string
   activities: {
     name: string
     type: string
@@ -795,10 +805,10 @@ async function handleReschedule(params: {
       schema: rescheduleResultSchema,
       system: `You are a schedule optimizer. ${SCHEDULE_RULES} Keep ALL activities — do NOT remove any. Only adjust times and order.`,
       prompt: `The traveler says: "${params.prompt}"
-${formatPreferences(params.preferences)}${buildFlightsCtx(params.flights)}
+${formatPreferences(params.preferences)}${buildFlightsCtx(params.flights, params.date)}
 Current schedule:
 ${JSON.stringify(params.activities.map((a) => ({ name: a.name, type: a.type, time: a.suggestedTime, dur: a.estimatedDurationMinutes, hours: a.openingHours?.length ? a.openingHours : undefined })))}
-${params.startLocation ? `Start point: ${params.startLocation.name}${params.startLocation.address ? ` (${params.startLocation.address})` : ""}` : ""}
+${params.startLocation ? `Start point: ${formatAnchor(params.startLocation)}` : ""}
 
 Adjust the times to fix the issue the traveler described. Return ALL activities with updated times. Keep the same activities — only change when they happen.
 Ensure activity times don't overlap each other. The segments engine handles travel time between activities — do NOT pad estimatedDurationMinutes for travel.`,
@@ -1045,6 +1055,7 @@ export async function processUserRequest(params: {
         const { timeUpdates } = await handleReschedule({
           prompt: params.prompt,
           destination: params.destination,
+          date: params.date,
           activities: params.existingActivities,
           startLocation: params.startLocation,
           preferences: params.preferences,
