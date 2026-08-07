@@ -1021,6 +1021,32 @@ const proposalKindMeta: Record<
         <!-- Wider than the sheet at 320-390px, so the last chip is cut off. Fade
              the trailing edge so that reads as "swipe for more", not as clipping. -->
         <div class="dock-chip-row flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+          <!-- Thinking toggle lives here, NOT in the composer row. The composer
+               is [icon][textarea][send] inside a max-w-28rem container; adding a
+               labelled button there squeezed the textarea until the placeholder
+               wrapped and clipped on a 360px viewport. This row already scrolls
+               horizontally with a trailing fade, so one more control costs
+               nothing. First position: it is a mode that changes what every
+               other action costs, so it should be readable without scrolling. -->
+          <button
+            v-if="thinkingAvailable"
+            type="button"
+            class="dock-chip dock-chip-think"
+            :class="{ 'dock-chip-think--on': thinking }"
+            :aria-pressed="thinking"
+            :title="
+              thinking
+                ? // Ceiling is creditsForSteps(MAX_DISCUSS_STEPS_THINKING, MAX_DISCUSS_STEPS_THINKING)
+                  // * THINKING_CREDIT_MULTIPLIER in server/utils/ai-credit-cost.ts. A discuss turn is
+                  // step-metered, not flat-rate, so a single number would misstate a research-heavy turn.
+                  'Thinking mode on — deeper reasoning, 3× cost. A research-heavy turn can cost up to 15 credits.'
+                : 'Thinking mode off — tap for deeper reasoning at 3× cost'
+            "
+            @click="emit('update:thinking', !thinking)"
+          >
+            <Icon name="lucide:brain" class="h-3.5 w-3.5" />
+            {{ thinking ? "Thinking · 3×" : "Think" }}
+          </button>
           <button
             v-for="qa in quickActions"
             :key="qa.label"
@@ -1079,25 +1105,6 @@ const proposalKindMeta: Record<
               @blur="onComposerBlur"
               @keydown.enter.exact.prevent="handleSubmit"
             />
-            <button
-              v-if="thinkingAvailable"
-              type="button"
-              class="flex min-h-11 shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs transition"
-              :class="thinking ? 'bg-cta text-white opacity-100' : 'opacity-60'"
-              :aria-pressed="thinking"
-              :title="
-                thinking
-                  ? // 3x the base cost, up to a ceiling of 15 credits (creditsForSteps(MAX_DISCUSS_STEPS_THINKING, MAX_DISCUSS_STEPS_THINKING) * THINKING_CREDIT_MULTIPLIER
-                    // in server/utils/ai-credit-cost.ts) — a discuss turn is step-metered, not flat-rate, so
-                    // stating a single number here would misstate the price on a research-heavy turn.
-                    'Thinking mode on — deeper reasoning, 3× cost. A research-heavy turn can cost up to 15 credits.'
-                  : 'Thinking mode off'
-              "
-              @click="emit('update:thinking', !thinking)"
-            >
-              <Icon name="lucide:brain" class="dock-tool-icon" />
-              <span>{{ thinking ? "3×" : "Think" }}</span>
-            </button>
             <button
               type="button"
               :disabled="!loading && (!input.trim() || limitReached)"
@@ -1627,6 +1634,29 @@ const proposalKindMeta: Record<
 }
 .dock-chip-quick :deep(.iconify) {
   color: var(--color-terra-600) !important;
+}
+
+/* Off state reads as available-but-inactive: the neutral .dock-chip surface,
+   dimmed, so it never competes with the terra quick-actions beside it. */
+.dock-chip-think {
+  opacity: 0.75;
+}
+.dock-chip-think:hover {
+  opacity: 1;
+}
+/* On state must be unmistakable — it changes what every other action costs.
+   `--color-cta` is the non-mirroring fill token: the terra ramp inverts in dark
+   mode, which would put dark text on a light chip in one theme and the reverse
+   in the other. cta stays put, so white text is legible in both. */
+.dock-chip-think--on,
+.dock-chip-think--on:hover {
+  opacity: 1;
+  background: var(--color-cta);
+  border-color: var(--color-cta);
+  color: #fff;
+}
+.dock-chip-think--on :deep(.iconify) {
+  color: #fff !important;
 }
 
 .dock-new-reply {
