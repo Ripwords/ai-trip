@@ -23,13 +23,42 @@ export const STEPS_PER_CREDIT = 8
 export const MAX_DISCUSS_STEPS = 30
 
 /**
+ * Hard ceiling on tool-call steps for a THINKING turn.
+ *
+ * Higher than MAX_DISCUSS_STEPS because thinking mode buys the agent room to
+ * research more before proposing — that extra room is part of what the 3x
+ * charge pays for.
+ *
+ * This ceiling is ONLY safe in combination with the elapsed-time guard in
+ * discuss.post.ts's prepareStep. Thinking mode runs ~8x slower per step, so 40
+ * steps can exceed Vercel's 300s function limit on step count alone — and a
+ * timeout kills the process before the catch-block refund runs, billing the
+ * user 3x for nothing. Time is the real budget; this is the secondary cap.
+ * If the time guard is ever removed, drop this back to MAX_DISCUSS_STEPS.
+ */
+export const MAX_DISCUSS_STEPS_THINKING = 40
+
+/** Flat multiplier applied to a thinking turn's whole credit cost. */
+export const THINKING_CREDIT_MULTIPLIER = 3
+
+/** The step ceiling that applies to a turn, given its mode. */
+export function discussStepCeiling(thinking: boolean): number {
+  return thinking ? MAX_DISCUSS_STEPS_THINKING : MAX_DISCUSS_STEPS
+}
+
+/**
  * Credits owed for a turn that used `steps` tool-call steps.
  *
  * Bracketed rather than linear so ordinary conversation stays at 1 credit and
  * only genuine research binges cost more.
+ *
+ * `ceiling` must be the ceiling the turn actually ran under. It used to be
+ * hard-coded to MAX_DISCUSS_STEPS, which silently under-billed a 40-step
+ * thinking turn as though it had stopped at 30. Defaulted so every existing
+ * single-argument caller is unchanged.
  */
-export function creditsForSteps(steps: number): number {
+export function creditsForSteps(steps: number, ceiling: number = MAX_DISCUSS_STEPS): number {
   if (!Number.isFinite(steps) || steps <= 0) return 1
-  const capped = Math.min(steps, MAX_DISCUSS_STEPS)
+  const capped = Math.min(steps, ceiling)
   return Math.max(1, Math.ceil(capped / STEPS_PER_CREDIT))
 }

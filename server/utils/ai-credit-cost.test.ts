@@ -1,6 +1,13 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { creditsForSteps, MAX_DISCUSS_STEPS, STEPS_PER_CREDIT } from "./ai-credit-cost"
+import {
+  creditsForSteps,
+  discussStepCeiling,
+  MAX_DISCUSS_STEPS,
+  MAX_DISCUSS_STEPS_THINKING,
+  STEPS_PER_CREDIT,
+  THINKING_CREDIT_MULTIPLIER,
+} from "./ai-credit-cost"
 
 describe("creditsForSteps", () => {
   it("charges a single credit for an ordinary conversational turn", () => {
@@ -55,5 +62,72 @@ describe("step budget constants", () => {
 
   it("gives the old 10-step turn room to finish", () => {
     assert.ok(MAX_DISCUSS_STEPS > 10)
+  })
+})
+
+describe("creditsForSteps with an explicit ceiling", () => {
+  it("defaults to the normal ceiling when none is given", () => {
+    // Every existing caller passes one argument. Their behaviour must not move.
+    assert.equal(creditsForSteps(MAX_DISCUSS_STEPS + 5), creditsForSteps(MAX_DISCUSS_STEPS))
+  })
+
+  it("bills a thinking turn against the thinking ceiling, not the normal one", () => {
+    // The bug this parameter exists to prevent: creditsForSteps used to clamp at
+    // MAX_DISCUSS_STEPS internally, so a 40-step thinking turn silently billed as 30.
+    const at40 = creditsForSteps(40, MAX_DISCUSS_STEPS_THINKING)
+    assert.equal(at40, 5)
+    assert.ok(at40 > creditsForSteps(40), "the thinking ceiling must bill more than the normal one")
+  })
+
+  it("still clamps at whatever ceiling it was given", () => {
+    assert.equal(
+      creditsForSteps(MAX_DISCUSS_STEPS_THINKING + 10, MAX_DISCUSS_STEPS_THINKING),
+      creditsForSteps(MAX_DISCUSS_STEPS_THINKING, MAX_DISCUSS_STEPS_THINKING),
+    )
+  })
+
+  it("never returns zero or negative for garbage input, ceiling or not", () => {
+    assert.equal(creditsForSteps(-1, MAX_DISCUSS_STEPS_THINKING), 1)
+    assert.equal(creditsForSteps(Number.NaN, MAX_DISCUSS_STEPS_THINKING), 1)
+  })
+})
+
+describe("discussStepCeiling", () => {
+  it("returns the normal ceiling in normal mode", () => {
+    assert.equal(discussStepCeiling(false), MAX_DISCUSS_STEPS)
+  })
+
+  it("returns the raised ceiling in thinking mode", () => {
+    assert.equal(discussStepCeiling(true), MAX_DISCUSS_STEPS_THINKING)
+  })
+})
+
+describe("THINKING_CREDIT_MULTIPLIER", () => {
+  it("is a whole number greater than one", () => {
+    // Fractional multipliers would let a turn bill a fraction of a credit, which
+    // the integer promptCount column cannot represent.
+    assert.ok(Number.isInteger(THINKING_CREDIT_MULTIPLIER))
+    assert.ok(THINKING_CREDIT_MULTIPLIER > 1)
+  })
+
+  it("keeps the worst-case thinking turn inside a sane share of the monthly allowance", () => {
+    // MONTHLY_LIMIT is 100. A single turn must never be able to eat a fifth of it.
+    const worstCase =
+      creditsForSteps(MAX_DISCUSS_STEPS_THINKING, MAX_DISCUSS_STEPS_THINKING) *
+      THINKING_CREDIT_MULTIPLIER
+    assert.ok(worstCase <= 20, `worst-case thinking turn costs ${worstCase} credits`)
+  })
+})
+
+describe("MAX_DISCUSS_STEPS_THINKING", () => {
+  it("is higher than the normal ceiling", () => {
+    assert.ok(MAX_DISCUSS_STEPS_THINKING > MAX_DISCUSS_STEPS)
+  })
+
+  it("is only safe because a wall-clock guard exists", () => {
+    // At ~8x thinking latency this ceiling CAN exceed the 300s function limit on
+    // step count alone. discuss.post.ts must strip tools on elapsed time too.
+    // If that guard is ever removed, drop this ceiling back to MAX_DISCUSS_STEPS.
+    assert.ok(MAX_DISCUSS_STEPS_THINKING <= 40)
   })
 })
