@@ -53,8 +53,8 @@ export const AI_PROVIDER_OPTIONS = {
  */
 export function aiProviderOptions(thinking: boolean) {
   return thinking
-    ? { deepseek: { thinking: { type: "enabled" }, reasoningEffort: "high" } }
-    : { deepseek: { thinking: { type: "disabled" } } }
+    ? ({ deepseek: { thinking: { type: "enabled" }, reasoningEffort: "high" } } as const)
+    : ({ deepseek: { thinking: { type: "disabled" } } } as const)
 }
 
 /**

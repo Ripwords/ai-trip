@@ -120,6 +120,20 @@ describe("aiProviderOptions", () => {
   it("agrees with the AI_PROVIDER_OPTIONS constant in normal mode", () => {
     assert.deepEqual(aiProviderOptions(false), AI_PROVIDER_OPTIONS)
   })
+
+  it("keeps a literal-narrowed return type, so it stays assignable to Mastra's ProviderOptions", () => {
+    // Compile-time guard, not a runtime one: deepEqual above passes at ANY type
+    // width (matching runtime shape is not enough — Mastra's per-call
+    // `providerOptions` slot requires `thinking.type` to be the literal union
+    // "enabled" | "disabled", not `string`). If aiProviderOptions ever regresses
+    // to a widened `string` return (e.g. someone drops the `as const` on either
+    // branch), these assignments fail TYPECHECK, not this assertion — that is
+    // the exact defect this guards, and it is invisible to plain deepEqual.
+    const disabledType: "enabled" | "disabled" = aiProviderOptions(false).deepseek.thinking.type
+    const enabledType: "enabled" | "disabled" = aiProviderOptions(true).deepseek.thinking.type
+    assert.equal(disabledType, "disabled")
+    assert.equal(enabledType, "enabled")
+  })
 })
 
 describe("thinkingAvailable", () => {
