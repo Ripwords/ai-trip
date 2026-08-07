@@ -40,6 +40,35 @@ export const AI_PROVIDER_OPTIONS = {
   deepseek: { thinking: { type: "disabled" } },
 }
 
+/**
+ * Provider options for one call, given whether the traveler opted into thinking.
+ *
+ * Normal mode reproduces AI_PROVIDER_OPTIONS exactly: DeepSeek V4 defaults to a
+ * hidden reasoning phase that is ~8x slower, so it stays explicitly off unless
+ * asked for. Thinking mode turns it on and pins the effort rather than letting
+ * the provider pick, so cost and latency are predictable enough to bill against.
+ *
+ * Everything stays namespaced under `deepseek` — Gemini call sites (and the
+ * no-key Gemini fallback in getModel) ignore the whole object.
+ */
+export function aiProviderOptions(thinking: boolean) {
+  return thinking
+    ? { deepseek: { thinking: { type: "enabled" }, reasoningEffort: "high" } }
+    : { deepseek: { thinking: { type: "disabled" } } }
+}
+
+/**
+ * Whether thinking mode can actually do anything right now.
+ *
+ * False without DEEPSEEK_API_KEY: getModel falls back to Gemini, which ignores
+ * deepseek-namespaced provider options entirely. Endpoints MUST consult this
+ * and downgrade both the mode AND the price — otherwise the fallback charges
+ * the 3x multiplier for a request that never reasoned at all.
+ */
+export function thinkingAvailable(): boolean {
+  return Boolean(process.env.DEEPSEEK_API_KEY)
+}
+
 /** Gemini model used when DEEPSEEK_API_KEY is missing (previous default). */
 const DEEPSEEK_FALLBACK_MODEL = "gemini-3.5-flash"
 
