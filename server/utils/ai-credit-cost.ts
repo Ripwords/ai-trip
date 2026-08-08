@@ -11,39 +11,46 @@ export const STEPS_PER_CREDIT = 8
 /**
  * Hard ceiling on tool-call steps per discuss turn.
  *
- * This is a runaway guard, NOT a UX budget. Real turns land well under it; the
- * number exists so a pathological loop can't run into the function limit
- * (VERCEL_FUNCTION_MAX_DURATION_SECONDS), which would kill the request
- * mid-flight — and because the process dies, the refund in the endpoint's catch
- * block would never run, charging the user for nothing. At ~1-3s/step 30 steps
- * is ~90s, well past the 60s Hobby ceiling, so in practice TURN_TIME_BUDGET_MS
- * ends the tool phase first. That is intended: time is the real budget.
+ * This is a runaway guard, NOT a UX budget — TURN_TIME_BUDGET_MS is the real
+ * constraint and normally ends the tool phase first. The ceiling exists so a
+ * pathological loop can't run into VERCEL_FUNCTION_MAX_DURATION_SECONDS, which
+ * would kill the request mid-flight; because the process dies, the refund in
+ * the endpoint's catch block would never run, charging the user for nothing.
+ *
+ * Sized from measurement, not guesswork. A local probe against the real
+ * DeepSeek API (.superpowers/probe-mastra-vs-sdk.ts) on a realistic 2-tool
+ * planning prompt: non-thinking turns ran ~5.0-5.3s per step with INSTANT fake
+ * tools. Real searchPlaces/getDistance calls add roughly 1.5-2s per step, so
+ * budget ~7s/step. The old value of 30 implied ~210s — three times the entire
+ * function limit, i.e. a number that could never be reached.
  *
  * Reaching this ceiling is not a failure: `prepareStep` strips the toolset on
  * the final step, so the agent always spends it writing a reply.
  */
-export const MAX_DISCUSS_STEPS = 30
+export const MAX_DISCUSS_STEPS = 10
 
 /**
  * Hard ceiling on tool-call steps for a THINKING turn.
  *
- * Higher than MAX_DISCUSS_STEPS because thinking mode buys the agent room to
- * research more before proposing — that extra room is part of what the 3x
- * charge pays for.
+ * LOWER than MAX_DISCUSS_STEPS, which is counter-intuitive until you look at
+ * the clock: a thinking step costs more, so fewer of them fit the same budget.
+ * The old value (40, above the normal ceiling) came from treating "more steps"
+ * as the thing thinking mode buys. It cannot buy that inside 60s.
  *
- * This ceiling is ONLY safe in combination with the elapsed-time guard in
- * discuss.post.ts's prepareStep. Thinking mode runs ~8x slower per step, so 40
- * steps vastly exceed the function limit on step count alone — and a timeout
- * kills the process before the catch-block refund runs, billing the user 3x for
- * nothing. Time is the real budget; this is the secondary cap. If the time
- * guard is ever removed, drop this back to MAX_DISCUSS_STEPS.
+ * Measured (.superpowers/probe-mastra-vs-sdk.ts, real DeepSeek API, same
+ * prompt): thinking at LOW effort ran ~10-13s per step versus ~5.3s
+ * non-thinking. At ~12s/step plus real tool latency, TURN_TIME_BUDGET_MS
+ * affords roughly 3 steps; 8 is a backstop comfortably above typical while
+ * still bounding the bill.
  *
- * On the current 60s ceiling this number is effectively unreachable: the time
- * guard strips tools after a handful of thinking steps. It is kept as the
- * BILLING ceiling (creditsForSteps caps against it) and as headroom for a
- * larger plan, not as a step count any real turn will hit.
+ * What thinking mode actually buys here is better reasoning per step, not more
+ * steps — the same probe saw the thinking run reach a better answer in 10 tool
+ * calls where the non-thinking run took 19.
+ *
+ * This ceiling is only meaningful alongside the elapsed-time guard in
+ * discuss.post.ts's prepareStep; time remains the primary budget.
  */
-export const MAX_DISCUSS_STEPS_THINKING = 40
+export const MAX_DISCUSS_STEPS_THINKING = 8
 
 /** Flat multiplier applied to a thinking turn's whole credit cost. */
 export const THINKING_CREDIT_MULTIPLIER = 3
@@ -111,13 +118,17 @@ export const VERCEL_FUNCTION_MAX_DURATION_SECONDS = 60
 /**
  * Wall-clock budget for one discuss turn's TOOL phase.
  *
- * Tools are stripped at this mark so the model still has ~20s to write its
- * reply inside VERCEL_FUNCTION_MAX_DURATION_SECONDS. This is what makes
- * MAX_DISCUSS_STEPS_THINKING safe: step count is a poor proxy for time when
- * thinking mode runs ~8x slower per step, and a timeout kills the process
- * before the endpoint's refund can run.
+ * Tools are stripped at this mark so the model still has ~25s to write its
+ * reply inside VERCEL_FUNCTION_MAX_DURATION_SECONDS. That reserve is not
+ * generous: a thinking-mode reply step measured ~10-13s on its own, and the
+ * reply is what the traveler actually sees, so it must never be the thing that
+ * gets truncated.
+ *
+ * This is the PRIMARY budget. Step count is a poor proxy for time when a step
+ * ranges from ~5s to ~13s depending on mode, so the step ceilings above are
+ * backstops and this is the constraint that normally binds.
  */
-export const TURN_TIME_BUDGET_MS = 40_000
+export const TURN_TIME_BUDGET_MS = 35_000
 
 /**
  * Wall-clock budget for the model phase of one day generation.

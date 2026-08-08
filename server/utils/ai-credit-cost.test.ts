@@ -39,15 +39,19 @@ describe("creditsForSteps", () => {
     assert.equal(creditsForSteps(10), 2)
   })
 
-  it("scales linearly across brackets", () => {
-    assert.equal(creditsForSteps(17), 3)
-    assert.equal(creditsForSteps(24), 3)
-    assert.equal(creditsForSteps(25), 4)
+  it("scales linearly across brackets, up to where the ceiling clamps", () => {
+    assert.equal(creditsForSteps(STEPS_PER_CREDIT), 1)
+    assert.equal(creditsForSteps(STEPS_PER_CREDIT + 1), 2)
+    // Past MAX_DISCUSS_STEPS the clamp takes over, so higher inputs cannot
+    // bill more. With a 10-step ceiling that caps an ordinary turn at 2.
+    assert.equal(creditsForSteps(25), creditsForSteps(MAX_DISCUSS_STEPS))
   })
 
   it("never exceeds the cost of a full-ceiling run", () => {
     const maxCost = creditsForSteps(MAX_DISCUSS_STEPS)
-    assert.equal(maxCost, 4)
+    // 2, not the old 4: the ceiling dropped from 30 to 10 once it was sized
+    // against measured per-step latency inside a 60s function.
+    assert.equal(maxCost, 2)
     // A run cannot use more steps than the ceiling, so this is the worst case
     // a single prompt can ever bill.
     assert.equal(creditsForSteps(MAX_DISCUSS_STEPS + 5), maxCost)
@@ -69,8 +73,12 @@ describe("step budget constants", () => {
     assert.ok(MAX_DISCUSS_STEPS <= 90)
   })
 
-  it("gives the old 10-step turn room to finish", () => {
-    assert.ok(MAX_DISCUSS_STEPS > 10)
+  it("still lets the 10-step Hoi An research turn complete", () => {
+    // Regression anchor: 9 searchPlaces + 1 runReview. It now exactly fills the
+    // ceiling rather than sitting well inside it, which is the honest position
+    // — at ~7s/step that turn is already ~70s of tool time and the wall-clock
+    // guard, not the step count, is what will stop it.
+    assert.ok(MAX_DISCUSS_STEPS >= 10)
   })
 })
 
@@ -81,11 +89,22 @@ describe("creditsForSteps with an explicit ceiling", () => {
   })
 
   it("bills a thinking turn against the thinking ceiling, not the normal one", () => {
-    // The bug this parameter exists to prevent: creditsForSteps used to clamp at
-    // MAX_DISCUSS_STEPS internally, so a 40-step thinking turn silently billed as 30.
-    const at40 = creditsForSteps(40, MAX_DISCUSS_STEPS_THINKING)
-    assert.equal(at40, 5)
-    assert.ok(at40 > creditsForSteps(40), "the thinking ceiling must bill more than the normal one")
+    // The bug this parameter exists to prevent: creditsForSteps used to clamp
+    // at MAX_DISCUSS_STEPS internally, so a thinking turn billed against the
+    // wrong ceiling. The DIRECTION of the difference has since flipped — the
+    // thinking ceiling is now LOWER, because a thinking step costs ~2x the
+    // wall-clock of a normal one and fewer of them fit the same budget. What
+    // matters is that the ceiling actually applied is the turn's own.
+    const overrun = MAX_DISCUSS_STEPS_THINKING + 20
+    assert.equal(
+      creditsForSteps(overrun, MAX_DISCUSS_STEPS_THINKING),
+      creditsForSteps(MAX_DISCUSS_STEPS_THINKING, MAX_DISCUSS_STEPS_THINKING),
+    )
+    assert.notEqual(
+      creditsForSteps(overrun, MAX_DISCUSS_STEPS_THINKING),
+      creditsForSteps(overrun),
+      "the thinking ceiling must not collapse onto the normal one",
+    )
   })
 
   it("still clamps at whatever ceiling it was given", () => {
@@ -129,8 +148,13 @@ describe("THINKING_CREDIT_MULTIPLIER", () => {
 })
 
 describe("MAX_DISCUSS_STEPS_THINKING", () => {
-  it("is higher than the normal ceiling", () => {
-    assert.ok(MAX_DISCUSS_STEPS_THINKING > MAX_DISCUSS_STEPS)
+  it("is LOWER than the normal ceiling, because a thinking step costs more time", () => {
+    // Deliberately inverted from the original design. Thinking mode was assumed
+    // to buy "more steps"; measured against the real API it buys better
+    // reasoning per step (10 tool calls to reach a better answer where the
+    // non-thinking run needed 19) while each step costs ~2x the wall clock.
+    // Inside a 60s function, more thinking steps simply do not fit.
+    assert.ok(MAX_DISCUSS_STEPS_THINKING < MAX_DISCUSS_STEPS)
   })
 
   it("is only safe because a wall-clock guard exists", () => {
@@ -250,9 +274,25 @@ describe("VERCEL_FUNCTION_MAX_DURATION_SECONDS", () => {
 })
 
 describe("worstCaseThinkingCredits", () => {
+  it("stays a single number, so the UI can state one price honestly", () => {
+    // AiDock's thinking chip says "A turn costs 3 credits" — flat, not a range.
+    // That is only true while the thinking ceiling fits inside ONE credit
+    // bracket. If MAX_DISCUSS_STEPS_THINKING ever exceeds STEPS_PER_CREDIT, a
+    // turn could bill 2 brackets (6 credits) and the copy would understate it,
+    // which is exactly the defect an earlier review caught when the ceiling was
+    // 40 and the UI claimed a flat 3.
+    assert.ok(
+      MAX_DISCUSS_STEPS_THINKING <= STEPS_PER_CREDIT,
+      "thinking ceiling spans more than one credit bracket — AiDock's flat price is now wrong",
+    )
+  })
+
   it("is what a maxed-out thinking discuss turn actually bills", () => {
-    // ceil(40/8) = 5 brackets, times the 3x multiplier.
-    assert.equal(worstCaseThinkingCredits(), 15)
+    // ceil(8/8) = 1 bracket, times the 3x multiplier = 3. Down from 15 when the
+    // thinking ceiling was 40. This also makes canAffordThinking far less
+    // conservative: it now reserves 3 credits rather than 15, so a traveler
+    // near their monthly cap is no longer denied a mode they could afford.
+    assert.equal(worstCaseThinkingCredits(), 3)
   })
 
   it("agrees with creditsForSteps at the thinking ceiling", () => {

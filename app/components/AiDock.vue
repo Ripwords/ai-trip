@@ -1036,10 +1036,15 @@ const proposalKindMeta: Record<
             :aria-pressed="thinking"
             :title="
               thinking
-                ? // Ceiling is creditsForSteps(MAX_DISCUSS_STEPS_THINKING, MAX_DISCUSS_STEPS_THINKING)
-                  // * THINKING_CREDIT_MULTIPLIER in server/utils/ai-credit-cost.ts. A discuss turn is
-                  // step-metered, not flat-rate, so a single number would misstate a research-heavy turn.
-                  'Thinking mode on — deeper reasoning, 3× cost. A research-heavy turn can cost up to 15 credits.'
+                ? // 3 = worstCaseThinkingCredits() in server/utils/ai-credit-cost.ts:
+                  // creditsForSteps(8, 8) * THINKING_CREDIT_MULTIPLIER. A discuss turn is
+                  // step-metered, but the thinking ceiling is now low enough (8 steps, one
+                  // credit bracket) that 3 is both the typical AND the worst case — so a
+                  // single number is honest here. It read as a range of up to 15 while the
+                  // ceiling was 40. Recheck this string if MAX_DISCUSS_STEPS_THINKING ever
+                  // exceeds STEPS_PER_CREDIT, which would reintroduce a range. A test in
+                  // ai-credit-cost.test.ts fails if that happens.
+                  'Thinking mode on — deeper reasoning, 3× cost. A turn costs 3 credits.'
                 : 'Thinking mode off — tap for deeper reasoning at 3× cost'
             "
             @click="emit('update:thinking', !thinking)"
