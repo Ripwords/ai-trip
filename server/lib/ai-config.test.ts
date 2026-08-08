@@ -104,10 +104,30 @@ describe("aiProviderOptions", () => {
     })
   })
 
-  it("enables thinking with an explicit reasoning effort in thinking mode", () => {
+  it("enables thinking at LOW effort, not DeepSeek's high default", () => {
+    // Not a placeholder. DeepSeek defaults to "high"; on deepseek-v4-flash the
+    // levels map straight through, so "low" is a real, faster tier. Under a 60s
+    // function ceiling with the tool phase cut at 40s, "high" spends the whole
+    // budget on a couple of steps and gets its tools stripped before proposing
+    // anything — which would make the 3x price buy nothing.
     assert.deepEqual(aiProviderOptions(true), {
-      deepseek: { thinking: { type: "enabled" }, reasoningEffort: "high" },
+      deepseek: { thinking: { type: "enabled" }, reasoningEffort: "low" },
     })
+  })
+
+  it("only ever emits an effort DeepSeek actually documents", () => {
+    // The provider's zod enum also accepts "medium" and "xhigh", which are not
+    // in DeepSeek's API. Sending one would be silently ignored or rejected.
+    const documented = ["low", "high", "max"]
+    const opts = aiProviderOptions(true).deepseek
+    // The return type is a union across both branches, so the thinking-off
+    // shape has no reasoningEffort at all. Narrow via assert.fail (typed
+    // `never`) rather than assert.ok, which is not a type guard — and check
+    // presence before membership, since `includes(undefined)` would pass
+    // vacuously if the key were ever dropped.
+    const effort = "reasoningEffort" in opts ? opts.reasoningEffort : undefined
+    if (effort === undefined) assert.fail("thinking mode must pin an explicit effort")
+    assert.ok(documented.includes(effort), `${effort} is not a documented DeepSeek effort level`)
   })
 
   it("namespaces everything under `deepseek` so Gemini call sites ignore it", () => {

@@ -43,17 +43,30 @@ export const AI_PROVIDER_OPTIONS = {
 /**
  * Provider options for one call, given whether the traveler opted into thinking.
  *
- * Normal mode reproduces AI_PROVIDER_OPTIONS exactly: DeepSeek V4 defaults to a
- * hidden reasoning phase that is ~8x slower, so it stays explicitly off unless
- * asked for. Thinking mode turns it on and pins the effort rather than letting
- * the provider pick, so cost and latency are predictable enough to bill against.
+ * Normal mode reproduces AI_PROVIDER_OPTIONS exactly: DeepSeek V4 enables
+ * thinking BY DEFAULT (vendor docs, "Thinking Mode"), so it stays explicitly
+ * off unless asked for.
+ *
+ * `reasoningEffort: "low"` is a deliberate choice, not a placeholder. DeepSeek's
+ * default effort is "high"; on deepseek-v4-flash the levels map straight through
+ * (low→low, high→high, max→max), so "low" is a genuinely cheaper, faster tier
+ * rather than an alias. Our functions run under a 60s ceiling
+ * (VERCEL_FUNCTION_MAX_DURATION_SECONDS) and the discuss tool phase is cut off
+ * at 40s — at "high" effort a thinking turn spends that budget on a couple of
+ * steps and gets its tools stripped before it can propose anything. "low" buys
+ * back enough steps for the mode to be worth its 3x price here. Revisit if the
+ * function ceiling ever rises.
+ *
+ * Only "low" | "high" | "max" are documented by DeepSeek. The provider's zod
+ * enum also accepts "medium" and "xhigh"; those are not in the vendor's API and
+ * should not be used.
  *
  * Everything stays namespaced under `deepseek` — Gemini call sites (and the
  * no-key Gemini fallback in getModel) ignore the whole object.
  */
 export function aiProviderOptions(thinking: boolean) {
   return thinking
-    ? ({ deepseek: { thinking: { type: "enabled" }, reasoningEffort: "high" } } as const)
+    ? ({ deepseek: { thinking: { type: "enabled" }, reasoningEffort: "low" } } as const)
     : ({ deepseek: { thinking: { type: "disabled" } } } as const)
 }
 

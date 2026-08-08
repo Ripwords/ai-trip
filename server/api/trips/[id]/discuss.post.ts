@@ -339,6 +339,36 @@ export default defineEventHandler(async (event) => {
       const result = await discussAgent.stream(agentMessages, {
         toolsets: { discuss: tools },
         maxSteps: stepCeiling,
+        // Cast is load-bearing and deliberate. Mastra vendors a FROZEN copy of
+        // the DeepSeek provider types (@mastra/core/dist/_types/@ai-sdk_deepseek-v5)
+        // which declares `reasoningEffort?: "max" | "high"`. DeepSeek documents
+        // "low" | "high" | "max", and the installed @ai-sdk/deepseek@3 accepts
+        // all of them — Mastra's snapshot simply predates "low". Mastra passes
+        // providerOptions straight through to that provider, so "low" is correct
+        // at runtime; only Mastra's stale type disagrees.
+        //
+        // This matters because "low" is what makes thinking mode viable inside
+        // our 60s function ceiling. The same value typechecks fine on the
+        // generateObject paths in server/lib/ai.ts, which talk to the provider
+        // directly — this is a Mastra-only limitation. Remove the cast if Mastra
+        // refreshes its vendored types, or when the discuss path moves to
+        // streamText.
+        // @ts-expect-error Mastra vendors a FROZEN copy of the DeepSeek provider
+        // types (@mastra/core/dist/_types/@ai-sdk_deepseek-v5) declaring
+        // `reasoningEffort?: "max" | "high"`. DeepSeek documents "low" | "high" |
+        // "max" and the installed @ai-sdk/deepseek@3 accepts all three; Mastra's
+        // snapshot simply predates "low", and it exports no public type to cast
+        // to. Mastra passes providerOptions straight through to that provider, so
+        // "low" is correct at RUNTIME — only this stale type disagrees.
+        //
+        // "low" is what makes thinking mode viable inside our 60s function
+        // ceiling. The same value typechecks fine on the generateObject paths in
+        // server/lib/ai.ts, which talk to the provider directly — this is a
+        // Mastra-only limitation.
+        //
+        // Deliberately @ts-expect-error rather than a cast: a cast would assert
+        // something false and persist silently, whereas this FAILS the build the
+        // day Mastra refreshes its types, forcing removal.
         providerOptions: aiProviderOptions(thinking),
         // The step budget used to be a guillotine: if the final step happened to be
         // a tool call, the loop stopped with response.text === "" and the user got
