@@ -1,10 +1,14 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { DISCUSS_SYSTEM_PROMPT, discussAgent, fallbackDiscussMessage } from "./discuss-agent"
+import { DISCUSS_SYSTEM_PROMPT, discussModel, fallbackDiscussMessage } from "./discuss-agent"
 
-describe("discussAgent", () => {
-  it("is a Mastra agent with id 'discuss'", () => {
-    assert.equal(discussAgent.id, "discuss")
+describe("discuss agent config", () => {
+  it("exposes a model factory, not a Mastra agent", () => {
+    // The endpoint calls streamText directly now. Kept as a factory rather than
+    // a module-level model instance so getModel's DEEPSEEK_API_KEY fallback is
+    // evaluated per call, not frozen at import time.
+    assert.equal(typeof discussModel, "function")
+    assert.ok(discussModel(), "must resolve to a model")
   })
 
   it("system prompt requires place verification only for proposals", () => {

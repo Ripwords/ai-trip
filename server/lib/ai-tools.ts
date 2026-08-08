@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { eq } from "drizzle-orm"
 import { z } from "zod"
-import { createTool } from "@mastra/core/tools"
+import { tool } from "ai"
 import { db } from "../db"
 import { activities, itineraryDays } from "../db/schema"
 import { searchPlace, getPlaceDetails, getDistanceMatrix } from "./google-maps"
@@ -49,8 +49,7 @@ export interface TripToolsContext {
 }
 
 export function createTripTools(ctx: TripToolsContext) {
-  const searchPlaces = createTool({
-    id: "searchPlaces",
+  const searchPlaces = tool({
     description:
       "Search Google Places for a venue by name and city. Returns up to 5 candidates with lat/lng and address. Use this to verify a place exists before recommending it. (Use getPlaceDetails afterwards if you need rating, hours, or price level.)",
     inputSchema: z.object({
@@ -77,8 +76,7 @@ export function createTripTools(ctx: TripToolsContext) {
     },
   })
 
-  const getPlaceDetailsTool = createTool({
-    id: "getPlaceDetails",
+  const getPlaceDetailsTool = tool({
     description:
       "Get opening hours, rating, price level, and photos for a Google Place by placeId.",
     inputSchema: z.object({ placeId: z.string() }),
@@ -89,8 +87,7 @@ export function createTripTools(ctx: TripToolsContext) {
     },
   })
 
-  const getDistance = createTool({
-    id: "getDistance",
+  const getDistance = tool({
     description:
       "Get travel time and distance between two coordinates using the configured transport mode. Returns duration in seconds and distance in meters (plus human-readable text fields).",
     inputSchema: z.object({
@@ -111,8 +108,7 @@ export function createTripTools(ctx: TripToolsContext) {
     },
   })
 
-  const readDay = createTool({
-    id: "readDay",
+  const readDay = tool({
     description:
       "Read the current activities, accommodation, and travel segments for the day in scope.",
     inputSchema: z.object({}),
@@ -128,8 +124,7 @@ export function createTripTools(ctx: TripToolsContext) {
     },
   })
 
-  const readTripSummary = createTool({
-    id: "readTripSummary",
+  const readTripSummary = tool({
     description:
       "Read a trimmed view of the entire trip: destination, dates, preferences, and per-day activity names, times, and coordinates.",
     inputSchema: z.object({}),
@@ -140,8 +135,7 @@ export function createTripTools(ctx: TripToolsContext) {
     },
   })
 
-  const runReview = createTool({
-    id: "runReview",
+  const runReview = tool({
     description:
       "Run the deterministic itinerary review for the current trip. Returns critical/warning/suggestion findings (missing data, overlaps, travel-time blowouts, etc.). For the discuss agent: call this when the user explicitly asks 'what's wrong with my day/trip?'. For the reviewer agent: do NOT call — the deterministic findings are already injected into your prompt.",
     inputSchema: z.object({
@@ -240,8 +234,7 @@ interface DiscussToolsContext extends TripToolsContext {
 export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal[]) {
   const trip = createTripTools(ctx)
 
-  const webSearch = createTool({
-    id: "webSearch",
+  const webSearch = tool({
     description:
       "Search the web for real-world information: events, weather, current opening status, comparisons of named venues, festivals, holidays. Provide a single search query string.",
     inputSchema: z.object({
@@ -278,8 +271,7 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
     },
   })
 
-  const proposeAddActivities = createTool({
-    id: "proposeAddActivities",
+  const proposeAddActivities = tool({
     description: `Suggest adding one or more activities to the target day. Defaults to the open day; pass \`dayId\` (a \`[day:…]\` id from the trip context) to target another day, or \`dayIds\` to add the same thing to several days (one card per day). ONLY use after verifying the place via searchPlaces. All costEstimate values MUST be in the trip currency (${ctx.currencyCode}) — do NOT convert to USD.`,
     inputSchema: z.object({
       summary: z.string().min(1),
@@ -339,8 +331,7 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
     },
   })
 
-  const proposeRemoveActivities = createTool({
-    id: "proposeRemoveActivities",
+  const proposeRemoveActivities = tool({
     description:
       "Suggest removing one or more activities from a day. Pass the bracketed ids from the trip context. Defaults to the open day; pass `dayId` to target another.",
     inputSchema: z.object({
@@ -367,8 +358,7 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
     },
   })
 
-  const proposeReschedule = createTool({
-    id: "proposeReschedule",
+  const proposeReschedule = tool({
     description:
       "Change the start time and/or duration of activities on a day. Pass the bracketed ids from the trip context. estimatedDurationMinutes is activity-only and never includes travel time. Defaults to the open day; pass `dayId` to target another.",
     inputSchema: z.object({
@@ -406,8 +396,7 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
     },
   })
 
-  const proposeReorder = createTool({
-    id: "proposeReorder",
+  const proposeReorder = tool({
     description:
       "Reorder existing activities on a day. orderedActivityIds is the new sequence using bracketed ids from the trip context. You can list a partial subset (those move to the front in the given order; unlisted activities keep their relative order behind them). Use this when the user wants to rearrange the sequence WITHOUT changing times (combine with proposeReschedule when both are needed). Defaults to the open day; pass `dayId` to target another.",
     inputSchema: z.object({
@@ -437,8 +426,7 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
     },
   })
 
-  const proposeSetAccommodation = createTool({
-    id: "proposeSetAccommodation",
+  const proposeSetAccommodation = tool({
     description:
       "Set or change accommodation for a day. Use searchPlaces to verify the venue first. Defaults to the open day; pass `dayId` to target another.",
     inputSchema: z.object({

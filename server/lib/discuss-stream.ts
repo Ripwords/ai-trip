@@ -48,13 +48,29 @@ export function describeToolCall(entry: ToolSummaryEntry): string {
 }
 
 /**
- * Structural shape of a Mastra stream chunk. Typed structurally rather than
- * importing the library's deep chunk union: this keeps the mapper unit-testable
- * with plain object literals and independent of Mastra's internal type layout.
+ * Structural shape of an AI SDK `fullStream` chunk. Typed structurally rather
+ * than importing the SDK's deep chunk union: this keeps the mapper unit-testable
+ * with plain object literals and independent of the SDK's internal type layout.
+ *
+ * Chunks are FLAT. Under Mastra they were wrapped (`chunk.payload.text`); the
+ * AI SDK puts the content directly on the chunk, and renames `tool-call`'s
+ * `args` to `input`. Verified against the live API — see the shapes in
+ * .superpowers/probe-chunks.ts.
  */
 export interface StreamChunkLike {
   type: string
-  payload?: unknown
+  /** `text-delta` / `reasoning-delta` carry their content here. */
+  text?: unknown
+  /** `tool-call` carries the tool's name here. */
+  toolName?: unknown
+  /** `tool-call` carries the parsed arguments here (was `args` under Mastra). */
+  input?: unknown
+  /**
+   * Real chunks carry more than the mapper reads — `id`, `toolCallId`,
+   * `providerMetadata`, usage totals. Accepted and ignored, so a test literal
+   * can mirror an actual chunk without the type rejecting the extra keys.
+   */
+  [key: string]: unknown
 }
 
 export type DiscussStreamEvent =
@@ -63,20 +79,18 @@ export type DiscussStreamEvent =
   | { type: "thinking"; delta: string }
 
 function asToolCallPayload(
-  p: unknown,
+  c: StreamChunkLike,
 ): { toolName: string; args?: Record<string, unknown> } | null {
-  if (typeof p !== "object" || p === null) return null
-  const { toolName, args } = p as { toolName?: unknown; args?: unknown }
-  if (typeof toolName !== "string") return null
+  if (typeof c.toolName !== "string") return null
   const safeArgs =
-    typeof args === "object" && args !== null ? (args as Record<string, unknown>) : undefined
-  return { toolName, args: safeArgs }
+    typeof c.input === "object" && c.input !== null
+      ? (c.input as Record<string, unknown>)
+      : undefined
+  return { toolName: c.toolName, args: safeArgs }
 }
 
-function asTextDeltaPayload(p: unknown): { text: string } | null {
-  if (typeof p !== "object" || p === null) return null
-  const { text } = p as { text?: unknown }
-  return typeof text === "string" ? { text } : null
+function asTextPayload(c: StreamChunkLike): { text: string } | null {
+  return typeof c.text === "string" ? { text: c.text } : null
 }
 
 /**
@@ -86,7 +100,7 @@ function asTextDeltaPayload(p: unknown): { text: string } | null {
  */
 export function mapChunk(chunk: StreamChunkLike): DiscussStreamEvent | null {
   if (chunk.type === "tool-call") {
-    const payload = asToolCallPayload(chunk.payload)
+    const payload = asToolCallPayload(chunk)
     if (!payload) return null
     // propose* calls ARE the proposals — they ride the final `done` event as
     // cards, and must never show up as progress lines. Mirrors the existing
@@ -99,7 +113,7 @@ export function mapChunk(chunk: StreamChunkLike): DiscussStreamEvent | null {
   }
 
   if (chunk.type === "text-delta") {
-    const payload = asTextDeltaPayload(chunk.payload)
+    const payload = asTextPayload(chunk)
     if (!payload || payload.text.length === 0) return null
     return { type: "text", delta: payload.text }
   }
@@ -107,7 +121,7 @@ export function mapChunk(chunk: StreamChunkLike): DiscussStreamEvent | null {
   // Reasoning content from DeepSeek thinking mode. Surfaced live but NEVER
   // persisted and never counted as delivered value — see discuss.post.ts.
   if (chunk.type === "reasoning-delta") {
-    const payload = asTextDeltaPayload(chunk.payload)
+    const payload = asTextPayload(chunk)
     if (!payload || payload.text.length === 0) return null
     return { type: "thinking", delta: payload.text }
   }

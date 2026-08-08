@@ -93,7 +93,9 @@ export default defineNuxtConfig({
         }
       : {}),
     externals: {
-      inline: [/^@mastra\//],
+      // @mastra/* was inlined here while the AI layer used Mastra agents; both
+      // packages were removed in favour of calling the AI SDK directly.
+      inline: [],
       external: ["@neondatabase/serverless", "pg", "better-sqlite3", "@resvg/resvg-js", "sharp"],
       traceOptions: {
         ignore: [

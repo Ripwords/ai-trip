@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { and, eq, sql } from "drizzle-orm"
 import { createEventStream } from "h3"
+import { streamText, stepCountIs } from "ai"
 import type { AssistantModelMessage, UserModelMessage } from "ai"
 import { z } from "zod"
 import { db } from "../../../db"
@@ -12,7 +13,7 @@ import { createDiscussTools } from "../../../lib/ai-tools"
 import { getExchangeRate } from "../../../utils/exchange-rate"
 import {
   DISCUSS_SYSTEM_PROMPT,
-  discussAgent,
+  discussModel,
   fallbackDiscussMessage,
 } from "../../../lib/discuss-agent"
 import { chargeExtraAiCredits, refundAiCredit, getAiUsage } from "../../../utils/ai-limits"
@@ -336,39 +337,18 @@ export default defineEventHandler(async (event) => {
       )
 
       const turnStartedAt = Date.now()
-      const result = await discussAgent.stream(agentMessages, {
-        toolsets: { discuss: tools },
-        maxSteps: stepCeiling,
-        // Cast is load-bearing and deliberate. Mastra vendors a FROZEN copy of
-        // the DeepSeek provider types (@mastra/core/dist/_types/@ai-sdk_deepseek-v5)
-        // which declares `reasoningEffort?: "max" | "high"`. DeepSeek documents
-        // "low" | "high" | "max", and the installed @ai-sdk/deepseek@3 accepts
-        // all of them — Mastra's snapshot simply predates "low". Mastra passes
-        // providerOptions straight through to that provider, so "low" is correct
-        // at runtime; only Mastra's stale type disagrees.
-        //
-        // This matters because "low" is what makes thinking mode viable inside
-        // our 60s function ceiling. The same value typechecks fine on the
-        // generateObject paths in server/lib/ai.ts, which talk to the provider
-        // directly — this is a Mastra-only limitation. Remove the cast if Mastra
-        // refreshes its vendored types, or when the discuss path moves to
-        // streamText.
-        // @ts-expect-error Mastra vendors a FROZEN copy of the DeepSeek provider
-        // types (@mastra/core/dist/_types/@ai-sdk_deepseek-v5) declaring
-        // `reasoningEffort?: "max" | "high"`. DeepSeek documents "low" | "high" |
-        // "max" and the installed @ai-sdk/deepseek@3 accepts all three; Mastra's
-        // snapshot simply predates "low", and it exports no public type to cast
-        // to. Mastra passes providerOptions straight through to that provider, so
-        // "low" is correct at RUNTIME — only this stale type disagrees.
-        //
-        // "low" is what makes thinking mode viable inside our 60s function
-        // ceiling. The same value typechecks fine on the generateObject paths in
-        // server/lib/ai.ts, which talk to the provider directly — this is a
-        // Mastra-only limitation.
-        //
-        // Deliberately @ts-expect-error rather than a cast: a cast would assert
-        // something false and persist silently, whereas this FAILS the build the
-        // day Mastra refreshes its types, forcing removal.
+      const result = streamText({
+        model: discussModel(),
+        system: DISCUSS_SYSTEM_PROMPT,
+        messages: agentMessages,
+        tools,
+        // AI SDK equivalent of Mastra's `maxSteps`. Same meaning: the hard cap
+        // on tool-call steps before the loop must stop.
+        stopWhen: stepCountIs(stepCeiling),
+        // Passed straight through to @ai-sdk/deepseek. No cast or suppression
+        // needed any more: Mastra shipped a frozen copy of the DeepSeek option
+        // types that rejected `reasoningEffort: "low"`, which is exactly the
+        // value that makes thinking mode viable inside our 60s ceiling.
         providerOptions: aiProviderOptions(thinking),
         // The step budget used to be a guillotine: if the final step happened to be
         // a tool call, the loop stopped with response.text === "" and the user got
@@ -378,21 +358,20 @@ export default defineEventHandler(async (event) => {
         //     see shouldStripTools), strip the toolset. With no tools to call, the
         //     model has no choice but to spend that step writing a reply — so
         //     hitting the ceiling now degrades to a partial answer, never silence.
-        //     The wall-clock arm is what keeps the raised thinking ceiling inside
-        //     the 300s function limit — a timeout would kill the process before
-        //     settleCredits runs.
+        //     The wall-clock arm is what keeps the turn inside the function limit;
+        //     a timeout would kill the process before settleCredits runs.
         //  2. Otherwise, tell the model what it has left and what it costs. The
         //     system prompt asks it to wind down when "running low on steps", which
         //     it could never honour before — it has no view of its own step count.
-        //     Returning a plain string is a valid `Instructions`; it re-states the
-        //     agent's own prompt verbatim plus a runtime note, so nothing is lost.
+        //     `system` here replaces Mastra's `instructions`; it re-states the
+        //     prompt verbatim plus a runtime note, so nothing is lost.
         prepareStep: ({ stepNumber }) => {
           if (shouldStripTools(stepNumber, stepCeiling, Date.now() - turnStartedAt)) {
             return { activeTools: [] }
           }
           const remaining = stepCeiling - stepNumber
           return {
-            instructions: `${DISCUSS_SYSTEM_PROMPT}
+            system: `${DISCUSS_SYSTEM_PROMPT}
 
 [Runtime] You have ${remaining} tool-call steps left this turn. ${stepCostNote(thinking)} from a small monthly allowance, so treat searching as spending their money: research only what you will actually propose. On your last step the tools are removed and you must write your reply, so wind down before then.`,
           }
@@ -402,17 +381,20 @@ export default defineEventHandler(async (event) => {
 
       for await (const chunk of result.fullStream) {
         // Mastra enqueues provider/model failures as an ordinary `error` chunk and lets
-        // the stream close cleanly — it never calls controller.error(). Without this,
-        // the loop would exit normally and a failed turn would take the clean-finish
-        // path: shipping `done` with the step-budget apology, and (worse) metering a
+        // the stream close cleanly rather than rejecting. Without this, the loop
+        // would exit normally and a failed turn would take the clean-finish path:
+        // shipping `done` with the step-budget apology, and (worse) metering a
         // turn that died mid-answer.
         if (chunk.type === "error") {
-          const err = chunk.payload.error
+          const err = chunk.error
           throw err instanceof Error
             ? err
             : new Error(typeof err === "string" ? err : JSON.stringify(err ?? "stream error"))
         }
-        if (chunk.type === "step-finish") stepsUsed++
+        // Renamed from Mastra's `step-finish`. This counter drives BILLING via
+        // creditsForSteps, so a silent miss here would meter every turn as one
+        // step and undercharge every research-heavy turn.
+        if (chunk.type === "finish-step") stepsUsed++
         const mapped = mapChunk(chunk)
         if (!mapped) continue
         if (mapped.type === "tool") {

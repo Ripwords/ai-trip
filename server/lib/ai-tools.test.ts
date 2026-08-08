@@ -57,12 +57,24 @@ function noDayCtx() {
 // Mastra types a tool's `execute` as `(input, context) => Promise<unknown>` and
 // marks it optional; this helper narrows both so a test can invoke it with just
 // the input and read the `{ ok }` result.
+/**
+ * Invoke a tool's `execute` directly.
+ *
+ * Typed loosely on purpose: AI SDK `tool()` returns a large conditional type
+ * whose `execute` signature varies with the inferred input schema, and pinning
+ * it here would couple every call site to that inference. The tools under test
+ * are exercised through their real schemas elsewhere; this helper only needs to
+ * reach the function.
+ */
 async function runTool<TInput>(
-  tool: { execute?: (input: TInput, context: never) => Promise<unknown> },
+  tool: { execute?: (...args: never[]) => unknown },
   input: TInput,
 ): Promise<{ ok: boolean; error?: string }> {
   assert.ok(tool.execute, "tool must expose an execute fn")
-  const result = await tool.execute(input, undefined as never)
+  const result = await (tool.execute as (i: TInput, c: unknown) => Promise<unknown>)(
+    input,
+    undefined,
+  )
   return result as { ok: boolean; error?: string }
 }
 

@@ -310,8 +310,6 @@ export async function reviewItineraryWithJudgment(
   let judgment: ItineraryReviewJudgmentStatus = { ran: false, reason: "not-attempted" }
 
   try {
-    const { Mastra } = await import("@mastra/core/mastra")
-    const { Agent } = await import("@mastra/core/agent")
     const { generateObject } = await import("ai")
 
     const tools = createTripTools({
@@ -336,36 +334,26 @@ export async function reviewItineraryWithJudgment(
       readTripSummary: tools.readTripSummary,
     }
 
-    const reviewAgent = new Agent({
-      id: "reviewer",
-      name: "Itinerary Reviewer",
-      instructions: REVIEWER_SYSTEM_PROMPT,
-      model: getModel("discuss"),
-      // Provider options are passed PER CALL below at agent.generate(...), not
-      // here: the Agent constructor's config type has no field for them, so a
-      // value set on this object literal is silently dropped at runtime (and
-      // fails typecheck).
-      tools: reviewerTools,
-    })
-
-    const mastra = new Mastra({ agents: { reviewer: reviewAgent } })
-    const agent = mastra.getAgent("reviewer")
+    const { generateText, stepCountIs } = await import("ai")
 
     const alreadyFlagged = deterministicFlat.map((f) => ({ dayId: f.dayId, code: f.code }))
 
-    const agentResponse = await agent.generate(
-      buildJudgmentPrompt({ trip, options, alreadyFlagged }),
+    // Was a Mastra `Agent` + `Mastra` instance. Removed: this is one
+    // generateText call with a fixed toolset, and Mastra's frozen provider-option
+    // types were blocking `reasoningEffort` values the real provider accepts.
+    const agentResponse = await generateText({
+      model: getModel("discuss"),
+      system: REVIEWER_SYSTEM_PROMPT,
+      tools: reviewerTools,
       // The schedule is injected, so every step here is available for the
       // getDistance / getPlaceDetails verification the prompt MANDATES before
-      // backtracking-route or closed-on-date may be flagged. At maxSteps 4 the
+      // backtracking-route or closed-on-date may be flagged. At 4 steps the
       // agent had to spend most of its budget reading the itinerary first.
-      {
-        toolsets: { review: reviewerTools },
-        maxSteps: 8,
-        // Force DeepSeek out of thinking mode (no-op on Gemini). See AI_PROVIDER_OPTIONS.
-        providerOptions: AI_PROVIDER_OPTIONS,
-      },
-    )
+      stopWhen: stepCountIs(8),
+      // Force DeepSeek out of thinking mode (no-op on Gemini).
+      providerOptions: AI_PROVIDER_OPTIONS,
+      prompt: buildJudgmentPrompt({ trip, options, alreadyFlagged }),
+    })
 
     // Second call: structure the agent's prose. Hand-rolling fence-stripping and
     // JSON.parse over the tool-loop output is what made this pass fail silently —
