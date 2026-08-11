@@ -466,10 +466,17 @@ async function handleCurrencyChange(newCurrency: string) {
   }
 }
 
-async function updatePreference(key: string, value: string | string[]): Promise<boolean> {
+async function updatePreference(
+  key: string,
+  value: string | string[] | number | null,
+): Promise<boolean> {
   if (!trip.value) return false
   const currentPrefs = trip.value.preferences ?? {}
-  const updatedPrefs = { ...currentPrefs, [key]: value || undefined }
+  // `null` means "clear this preference" and is sent through as-is — the server
+  // schema accepts it and every reader treats null and absent alike. Other
+  // falsy values (empty string, empty array) still collapse to undefined, which
+  // is how the selects above have always cleared themselves.
+  const updatedPrefs = { ...currentPrefs, [key]: value === null ? null : value || undefined }
   try {
     await $fetch(`/api/trips/${tripId}`, {
       method: "PUT",

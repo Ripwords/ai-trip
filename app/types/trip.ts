@@ -61,6 +61,8 @@ export interface TripResponse {
     interests?: string[]
     travelStyle?: string[]
     transportMode?: "driving" | "walking" | "transit" | "bicycling"
+    /** Optional headcount. Unset means "let the AI work it out and say so". */
+    partySize?: number | null
   } | null
   days: TripDay[]
   _role: string

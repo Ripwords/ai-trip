@@ -9,6 +9,7 @@ import {
   getDayOfWeek,
   type FlightPromptInput,
 } from "./ai"
+import type { ResolvedPartySize } from "./party-size"
 import { getModel, AI_PROVIDER_OPTIONS } from "./ai-config"
 import { withOneRetry } from "./retry"
 
@@ -19,6 +20,8 @@ export interface TripOutlineInput {
   startDate: string
   endDate: string
   preferences?: TripPreferences
+  /** Resolved party size — see server/lib/party-size.ts. */
+  party?: ResolvedPartySize
   tripNotes?: string | null
   savedIdeas: { name: string; type: string; description: string | null }[]
   days: {
@@ -141,7 +144,7 @@ function buildPrompt(input: TripOutlineInput): string {
 DAYS:
 ${buildDaysCtx(input.days)}
 ${buildFlightsCtx(input.flights)}
-${formatPreferences(input.preferences)}${buildTripNotesCtx(input.tripNotes)}${buildSavedIdeasCtx(input.savedIdeas)}
+${formatPreferences(input.preferences, input.party)}${buildTripNotesCtx(input.tripNotes)}${buildSavedIdeasCtx(input.savedIdeas)}
 
 Produce one outline entry for ONLY these day numbers: ${emptyNumbers.join(", ")}. Do not produce entries for any other day.
 

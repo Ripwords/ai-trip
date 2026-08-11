@@ -88,4 +88,17 @@ export interface TripPreferences {
   pace?: "relaxed" | "moderate" | "packed"
   travelStyle?: string[]
   transportMode?: "driving" | "walking" | "transit" | "bicycling"
+  /**
+   * How many people are travelling. Optional and genuinely unset for most
+   * trips — the AI paths fall back to the trip's member count and then to
+   * saying what they assumed. Unlike its neighbours here this is a fact rather
+   * than a soft signal, so the prompt builders render it in its own block
+   * instead of the "soft signals" list. See server/lib/party-size.ts.
+   *
+   * Nullable as well as optional: clearing the field in the settings sheet
+   * sends `null`, and `preferences` is written to jsonb wholesale, so the null
+   * lands in the column verbatim. Every reader goes through `clampPartySize`,
+   * which treats null and absent identically.
+   */
+  partySize?: number | null
 }

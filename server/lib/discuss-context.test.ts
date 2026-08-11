@@ -28,6 +28,46 @@ const trip: DiscussContextTrip = {
   ],
 }
 
+// This is the trip that produced the defect: asked how much cash to convert,
+// the agent quoted a range "for two" and only admitted, when pressed, that it
+// had made the number up. The context now carries the headcount, or says
+// plainly that there isn't one.
+describe("buildTripContext party size", () => {
+  it("states a party size the traveler set", () => {
+    const ctx = buildTripContext(trip, null, undefined, undefined, undefined, {
+      size: 2,
+      source: "setting",
+    })
+    assert.match(ctx, /PARTY SIZE: 2 travelers/)
+    assert.match(ctx, /hard fact/)
+  })
+
+  it("marks a party size inferred from trip members as inferred", () => {
+    const ctx = buildTripContext(trip, null, undefined, undefined, undefined, {
+      size: 4,
+      source: "members",
+    })
+    assert.match(ctx, /PARTY SIZE: 4 travelers/)
+    assert.match(ctx, /inferred/)
+  })
+
+  it("tells the agent to name its assumption when no party size is known", () => {
+    const ctx = buildTripContext(trip, null, undefined, undefined, undefined, {
+      size: null,
+      source: "unknown",
+    })
+    assert.match(ctx, /PARTY SIZE: not recorded/)
+    assert.match(ctx, /assuming/)
+  })
+
+  // Callers that pass no party at all get the unknown guidance rather than
+  // silence — the old behaviour was silence, and silence is what produced the
+  // invented "for two".
+  it("defaults to the unknown guidance when the caller passes nothing", () => {
+    assert.match(buildTripContext(trip, null), /PARTY SIZE: not recorded/)
+  })
+})
+
 // The agent only ever saw prefs.budget — the "budget"|"moderate"|"luxury"
 // string — so it could not answer "am I over budget?" while happily generating
 // costEstimate values against a number it had never been shown.
