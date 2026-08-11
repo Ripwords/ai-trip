@@ -3,12 +3,8 @@ import { userPassports, user } from "../db/schema"
 import { and, isNotNull, eq, lte, gt } from "drizzle-orm"
 import { sendPassportExpiryEmail } from "../lib/email"
 import { countries } from "../../app/data/countries"
-
-const MILESTONES = [
-  { key: "1m", months: 1, label: "1 month" },
-  { key: "3m", months: 3, label: "3 months" },
-  { key: "6m", months: 6, label: "6 months" },
-] as const
+import { EXPIRY_REMINDER_MILESTONES } from "../../app/utils/passport-renewal"
+import type { ExpiryReminderMilestone } from "../../app/utils/passport-renewal"
 
 function addMonths(date: Date, months: number): Date {
   const result = new Date(date)
@@ -55,8 +51,8 @@ export default defineTask({
       const expiry = new Date(passport.expiryDate + "T00:00:00")
 
       // Determine which milestone we're at
-      let currentMilestone: (typeof MILESTONES)[number] | null = null
-      for (const milestone of MILESTONES) {
+      let currentMilestone: ExpiryReminderMilestone | null = null
+      for (const milestone of EXPIRY_REMINDER_MILESTONES) {
         const threshold = addMonths(now, milestone.months)
         if (expiry <= threshold) {
           currentMilestone = milestone
