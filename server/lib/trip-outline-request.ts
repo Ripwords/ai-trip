@@ -9,7 +9,7 @@
 import { eq } from "drizzle-orm"
 import { db } from "../db"
 import { tripIdeas } from "../db/schema"
-import { getTripWithRelations } from "./trips"
+import { getTripWithRelations, loadPartySize } from "./trips"
 import { getTripFlightsForUser } from "./trip-flights"
 import { buildTripOutline, type TripOutline, type TripOutlineInput } from "./trip-outline"
 
@@ -54,6 +54,7 @@ export async function buildOutlineForTrip(
     startDate: trip.startDate,
     endDate: trip.endDate,
     preferences: trip.preferences ?? undefined,
+    party: await loadPartySize(trip),
     tripNotes: trip.tripNotes,
     savedIdeas,
     days: sortedDays.map((d) => ({

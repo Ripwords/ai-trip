@@ -9,6 +9,7 @@ import {
   type FlightPromptInput,
 } from "../../../../../lib/ai"
 import { getTripFlightsForUser } from "../../../../../lib/trip-flights"
+import { loadPartySize } from "../../../../../lib/trips"
 import { enrichItinerary, partitionGeocoded } from "../../../../../lib/enrich"
 import { computeAndSaveSegments } from "../../../../../lib/segments"
 import { lockTripForStayWrite, reconcileTripStays } from "../../../../../lib/booking-sync"
@@ -363,6 +364,7 @@ export default defineEventHandler(async (event) => {
               }))
             : undefined,
           preferences: trip.preferences ?? undefined,
+          party: await loadPartySize(trip),
           otherDayActivities,
           tripNotes: trip.tripNotes,
           savedIdeas: savedIdeasRows,

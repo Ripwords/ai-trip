@@ -3,6 +3,7 @@ import { transportModes } from "./transport"
 import { EXPENSE_CATEGORIES } from "../../shared/utils/expense-categories"
 import { SPLIT_MODES } from "../../shared/utils/splits"
 import { isSupportedCurrency } from "../../shared/utils/currency"
+import { PARTY_SIZE_MAX, PARTY_SIZE_MIN } from "../lib/party-size"
 import {
   EXPENSE_PAGE_SIZE_DEFAULT,
   EXPENSE_PAGE_SIZE_MAX,
@@ -73,6 +74,11 @@ export const tripPreferencesSchema = z.object({
   pace: paceEnum.optional(),
   travelStyle: z.array(z.string()).optional(),
   transportMode: transportModeEnum.optional(),
+  // Optional on purpose: an unset party size falls back to the trip's member
+  // count and then to the model saying what it assumed (server/lib/party-size.ts).
+  // `.nullish()` so the settings sheet can clear it back to "not set" by sending
+  // null, which is stored as an absent key rather than a bogus 0.
+  partySize: z.number().int().min(PARTY_SIZE_MIN).max(PARTY_SIZE_MAX).nullish(),
 })
 
 // Note: `.refine()` returns a `ZodEffects`, which doesn't expose `.partial()`

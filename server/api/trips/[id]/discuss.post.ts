@@ -26,7 +26,7 @@ import {
   THINKING_CREDIT_MULTIPLIER,
   worstCaseThinkingCredits,
 } from "../../../utils/ai-credit-cost"
-import { getTripWithRelations } from "../../../lib/trips"
+import { getTripWithRelations, loadPartySize } from "../../../lib/trips"
 import { buildTripContext } from "../../../lib/discuss-context"
 import { getTripFlightsForUser } from "../../../lib/trip-flights"
 import { aiProviderOptions, thinkingAvailable } from "../../../lib/ai-config"
@@ -234,6 +234,12 @@ export default defineEventHandler(async (event) => {
       console.error("[discuss.post] Spend context unavailable, proceeding without:", e)
     }
 
+    // How many people the answers are for. `loadPartySize` already swallows its
+    // own failures and returns "unknown", which the context renders as an
+    // instruction to state the assumption — the degraded path is still better
+    // than the silent guess this replaced.
+    const party = await loadPartySize(trip)
+
     // Inject trip context into the latest user message so the agent has it on every turn
     // without needing to call read_day / read_trip_summary.
     const tripContext = tripForCtx
@@ -243,6 +249,7 @@ export default defineEventHandler(async (event) => {
           flights,
           { tripNotes: trip.tripNotes, savedIdeas },
           spend,
+          party,
         )
       : ""
     if (tripContext) {

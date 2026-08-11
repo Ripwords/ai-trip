@@ -27,6 +27,10 @@ const startDate = ref(toIsoDate(defaultStart))
 const endDate = ref(toIsoDate(defaultEnd))
 const budget = ref("")
 const pace = ref("")
+// Blank on purpose — an unset party size falls back to the trip's member count
+// and then to the AI naming whatever it assumed, which beats prefilling "2" and
+// having every traveler silently accept a number they never chose.
+const partySize = ref("")
 const currencyCode = ref("USD")
 const userTouchedCurrency = ref(false)
 const travelStyle = ref<string[]>([])
@@ -107,7 +111,23 @@ function toggleStyle(style: string) {
   else travelStyle.value.push(style)
 }
 
-const canSubmit = computed(() => !!countryCode.value && rangeValid.value && !loading.value)
+// `null` covers both "left blank" and "typed something that isn't a headcount".
+// The bounds mirror PARTY_SIZE_MIN/MAX in server/lib/party-size.ts — the server
+// rejects anything outside them, so catch it here rather than on submit.
+const PARTY_SIZE_MIN = 1
+const PARTY_SIZE_MAX = 50
+const parsedPartySize = computed(() => {
+  const raw = partySize.value.trim()
+  if (!raw) return null
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n < PARTY_SIZE_MIN || n > PARTY_SIZE_MAX) return null
+  return n
+})
+const partySizeValid = computed(() => !partySize.value.trim() || parsedPartySize.value !== null)
+
+const canSubmit = computed(
+  () => !!countryCode.value && rangeValid.value && partySizeValid.value && !loading.value,
+)
 
 async function handleCreate() {
   error.value = ""
@@ -117,6 +137,10 @@ async function handleCreate() {
   }
   if (!rangeValid.value) {
     error.value = "End date must be on or after start date"
+    return
+  }
+  if (!partySizeValid.value) {
+    error.value = `Travellers must be a whole number between ${PARTY_SIZE_MIN} and ${PARTY_SIZE_MAX}, or left blank`
     return
   }
   loading.value = true
@@ -133,6 +157,7 @@ async function handleCreate() {
         preferences: {
           budget: budget.value || undefined,
           pace: pace.value || undefined,
+          partySize: parsedPartySize.value ?? undefined,
           travelStyle: travelStyle.value.length ? travelStyle.value : undefined,
         },
       },
@@ -223,6 +248,34 @@ async function handleCreate() {
             <option value="packed">Packed</option>
           </select>
         </div>
+      </div>
+
+      <!-- Travellers -->
+      <div>
+        <label for="partySize" class="block text-sm font-medium text-sand-700">
+          Travellers
+          <span class="font-normal text-sand-500">(optional)</span>
+        </label>
+        <input
+          id="partySize"
+          v-model="partySize"
+          type="number"
+          inputmode="numeric"
+          :min="PARTY_SIZE_MIN"
+          :max="PARTY_SIZE_MAX"
+          step="1"
+          placeholder="Leave blank and we'll work it out"
+          class="form-input"
+          aria-describedby="partySizeHelp"
+        />
+        <p v-if="!partySizeValid" class="mt-1 text-xs text-red-600">
+          Enter a whole number between {{ PARTY_SIZE_MIN }} and {{ PARTY_SIZE_MAX }}, or leave it
+          blank.
+        </p>
+        <p v-else id="partySizeHelp" class="mt-1 text-xs text-sand-500">
+          How many people are going. Used to size costs, rooms and bookings — if you leave it blank
+          we'll count the people you invite, and otherwise the AI will say what it assumed.
+        </p>
       </div>
 
       <!-- Currency -->

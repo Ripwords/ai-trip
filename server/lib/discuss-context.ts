@@ -7,6 +7,7 @@ import {
   type FlightPromptInput,
 } from "./ai"
 import { escapeCtx } from "../utils/sanitize"
+import { buildPartySizeCtx, type ResolvedPartySize } from "./party-size"
 
 /** The slice of a trip the discuss context needs — structurally satisfied by getTripWithRelations. */
 export interface DiscussContextTrip {
@@ -76,6 +77,7 @@ export function buildTripContext(
   flights?: FlightPromptInput[],
   extras?: DiscussContextExtras,
   spend?: DiscussContextSpend,
+  party?: ResolvedPartySize,
 ): string {
   const lines: string[] = []
   lines.push(
@@ -84,6 +86,15 @@ export function buildTripContext(
 
   const spendLine = buildSpendLine(spend, trip.currencyCode || "USD")
   if (spendLine) lines.push(spendLine)
+
+  // Headcount, including the "nobody wrote one down" case. This is the one
+  // surface that answers in prose — "convert RM 1,200–1,800, that covers the
+  // two of you" is the exact shape of the defect party size exists to stop, so
+  // the unknown branch's guidance is rendered here and nowhere else.
+  const partyCtx = buildPartySizeCtx(party ?? { size: null, source: "unknown" }, {
+    guideWhenUnknown: true,
+  })
+  if (partyCtx) lines.push(partyCtx.trimStart())
 
   const prefs = trip.preferences
   if (prefs) {

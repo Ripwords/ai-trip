@@ -8,6 +8,7 @@ import {
   buildTripShapeCtx,
   fillGapsResultSchema,
   formatAnchor,
+  formatPreferences,
   optimizeResultSchema,
   rescheduleResultSchema,
   resolveStayContext,
@@ -126,6 +127,42 @@ describe("buildStrandedNote", () => {
       ),
       null,
     )
+  })
+})
+
+describe("formatPreferences party size", () => {
+  // The stored setting alone reaches every prompt builder, including the ones
+  // (optimize, reschedule) that never learned to pass a resolved party.
+  it("renders a stored party size without any caller plumbing", () => {
+    const out = formatPreferences({ partySize: 4 })
+    assert.match(out, /PARTY SIZE: 4 travelers/)
+  })
+
+  it("prefers the resolved party the caller passes", () => {
+    const out = formatPreferences({ partySize: 4 }, { size: 2, source: "setting" })
+    assert.match(out, /PARTY SIZE: 2 travelers/)
+    assert.doesNotMatch(out, /4 travelers/)
+  })
+
+  it("carries a member-count party even when preferences are absent", () => {
+    assert.match(formatPreferences(undefined, { size: 3, source: "members" }), /3 travelers/)
+  })
+
+  // Party size is a fact; the preferences block explicitly tells the model its
+  // contents are soft signals it may override. Keeping them separate is the
+  // difference between "plan for 4" and "consider planning for around 4".
+  it("keeps the party size out of the soft-signals block", () => {
+    const out = formatPreferences({ pace: "relaxed", partySize: 4 })
+    assert.ok(
+      out.indexOf("PARTY SIZE") < out.indexOf("TRAVELER PREFERENCES"),
+      "party size should precede the soft-signals block",
+    )
+    assert.doesNotMatch(out.slice(out.indexOf("TRAVELER PREFERENCES")), /PARTY SIZE/)
+  })
+
+  it("stays empty when nothing is known, as generation prompts expect", () => {
+    assert.equal(formatPreferences(undefined), "")
+    assert.equal(formatPreferences({}), "")
   })
 })
 

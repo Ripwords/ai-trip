@@ -20,7 +20,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
-  updatePreference: [key: string, value: string | string[]]
+  // `null` clears a preference back to unset — partySize needs it, since 0 is
+  // not a valid headcount and an empty string is not a valid number.
+  updatePreference: [key: string, value: string | string[] | number | null]
   changeCurrency: [newCurrency: string]
   tripInfoSaved: [payload: unknown]
 }>()
@@ -43,6 +45,32 @@ useModalA11y(sheetRef, {
 
 // Shared with the per-expense currency picker — see shared/utils/currency.ts.
 const currencies = TRIP_CURRENCIES
+
+// Mirrors PARTY_SIZE_MIN/MAX in server/lib/party-size.ts, which is what the
+// request schema enforces.
+const PARTY_SIZE_MIN = 1
+const PARTY_SIZE_MAX = 50
+
+/**
+ * Clearing the field sends `null` (unset — fall back to the member count, then
+ * to the AI stating its assumption); anything outside the supported range is
+ * discarded rather than sent, since the server would reject it anyway and the
+ * input's own min/max already flag it.
+ */
+function onPartySizeChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const raw = input.value.trim()
+  if (!raw) {
+    emit("updatePreference", "partySize", null)
+    return
+  }
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n < PARTY_SIZE_MIN || n > PARTY_SIZE_MAX) {
+    input.value = String(props.trip.preferences?.partySize ?? "")
+    return
+  }
+  emit("updatePreference", "partySize", n)
+}
 
 const transportModes = [
   { value: "driving", label: "Drive / taxi" },
@@ -334,6 +362,29 @@ async function commitTripInfo() {
                 <option value="moderate">Moderate</option>
                 <option value="packed">Packed</option>
               </select>
+            </div>
+
+            <div class="sm:col-span-2">
+              <label for="prefPartySize" class="block text-xs font-medium text-sand-500">
+                Travellers
+              </label>
+              <input
+                id="prefPartySize"
+                :value="trip.preferences?.partySize ?? ''"
+                type="number"
+                inputmode="numeric"
+                :min="PARTY_SIZE_MIN"
+                :max="PARTY_SIZE_MAX"
+                step="1"
+                placeholder="Not set"
+                class="input-focus mt-1 block min-h-11 w-full rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm"
+                aria-describedby="prefPartySizeHelp"
+                @change="onPartySizeChange"
+              />
+              <p id="prefPartySizeHelp" class="mt-1 text-xs text-sand-500">
+                Sizes costs, rooms and bookings. Leave it blank and we'll count the people on this
+                trip — failing that, the AI will tell you what it assumed.
+              </p>
             </div>
 
             <div class="sm:col-span-2">
