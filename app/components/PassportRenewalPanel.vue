@@ -45,7 +45,7 @@ const TONE_CLASS: Record<PassportRenewalTone, string> = {
         :key="renewal.countryCode"
         class="flex flex-wrap items-center gap-x-4 gap-y-2 py-3"
       >
-        <span class="text-xl leading-none" aria-hidden="true">{{ renewal.flag }}</span>
+        <PassportCover :country-code="renewal.countryCode" :width="44" />
 
         <div class="min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-2">
