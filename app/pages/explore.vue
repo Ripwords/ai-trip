@@ -11,30 +11,34 @@ useSeoMeta({
 // Fetch visited countries
 const { data: visitedList, refresh } = useLazyFetch("/api/visited-countries")
 
-// Passport nationality — controls visa data for tooltips
+// Passport nationality — controls visa data for tooltips.
+// Only saves once initialization has settled, so seeding the default passport
+// never counts as a user choice.
 const { nationality, save: saveNationality, fetch: fetchNationality } = useNationality()
-onMounted(async () => {
-  if (!nationality.value) {
-    try {
-      const passports = await $fetch("/api/user/passports")
-      if (passports.length > 0) {
-        nationality.value = passports[0]!.countryCode
-      } else {
-        await fetchNationality()
-      }
-    } catch {
-      await fetchNationality()
-    }
-  }
-})
 
 const nationalityInitialized = ref(false)
 watch(nationality, (val) => {
-  if (!nationalityInitialized.value) {
-    nationalityInitialized.value = true
-    return
-  }
+  if (!nationalityInitialized.value) return
   saveNationality(val)
+})
+
+onMounted(async () => {
+  try {
+    // Summary endpoint keeps the decrypted passport number off this page.
+    const passports = await $fetch("/api/user/passports/summary")
+    const configured = passports.find((p) => p.isDefault) ?? passports[0]
+    if (configured) {
+      nationality.value = configured.countryCode
+    } else if (!nationality.value) {
+      await fetchNationality()
+    }
+  } catch {
+    if (!nationality.value) await fetchNationality()
+  } finally {
+    // Let the seeding write flush before arming the save watcher.
+    await nextTick()
+    nationalityInitialized.value = true
+  }
 })
 
 // Fetch visa statuses — reactively refetches when nationality changes
