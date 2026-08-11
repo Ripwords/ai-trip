@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { buildPassportHistory } from "../utils/passport-history"
 import type { PassportFlight, PassportVisitedCountry } from "../utils/passport-history"
+import type { RenewalPassport } from "../utils/passport-renewal"
 
 definePageMeta({ layout: "app" })
 useSeoMeta({
@@ -19,6 +20,12 @@ const {
   status: visitedStatus,
   error: visitedError,
 } = useLazyFetch<PassportVisitedCountry[]>("/api/visited-countries")
+
+// Summary endpoint on purpose — this page only displays, so it never needs the
+// decrypted passport number that /api/user/passports returns.
+const { data: passportDocuments, status: passportDocumentsStatus } = useLazyFetch<
+  RenewalPassport[]
+>("/api/user/passports/summary")
 
 const selectedYear = ref<number | null>(null)
 
@@ -83,6 +90,11 @@ const periodLabel = computed(() =>
         </button>
       </div>
     </header>
+
+    <PassportRenewalPanel
+      :passports="passportDocuments"
+      :loading="passportDocumentsStatus === 'pending'"
+    />
 
     <div
       v-if="isLoading && !hasAnyData"
