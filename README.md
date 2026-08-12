@@ -97,22 +97,22 @@ Installable on iOS and Android, offline-capable via service worker, with periodi
 
 ## Tech Stack
 
-| Layer            | Technology                                                                                                                     |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Framework**    | [Nuxt 4](https://nuxt.com) (Vue 3, Nitro server)                                                                               |
-| **Language**     | TypeScript (strict; no `any`)                                                                                                  |
-| **Auth**         | [BetterAuth](https://better-auth.com) — Google OAuth, session management                                                        |
-| **Database**     | [Drizzle ORM](https://orm.drizzle.team) + [Neon PostgreSQL](https://neon.tech)                                                 |
-| **AI**           | [Vercel AI SDK](https://sdk.vercel.ai) calling [DeepSeek](https://deepseek.com) V4 Flash and [Google Gemini](https://ai.google.dev) |
-| **Maps**         | [Google Maps Platform](https://developers.google.com/maps) — Places, Distance Matrix, Geocoding                                |
-| **3D**           | [TresJS](https://tresjs.org) (Three.js for Vue)                                                                                |
-| **Cache / KV**   | [Upstash Redis](https://upstash.com) as the Nitro storage driver                                                               |
-| **Email**        | [Resend](https://resend.com)                                                                                                   |
-| **Flights**      | [AeroDataBox](https://rapidapi.com/aedbx-aedbx/api/aerodatabox) via RapidAPI                                                    |
-| **Styling**      | [Tailwind CSS 4](https://tailwindcss.com) with a custom sand/terra design system                                               |
-| **Validation**   | [Zod 4](https://zod.dev)                                                                                                       |
-| **Tooling**      | [oxlint](https://oxc.rs) + [oxfmt](https://oxc.rs), [Bun](https://bun.sh) runtime and test runner                              |
-| **Deployment**   | [Vercel](https://vercel.com)                                                                                                   |
+| Layer          | Technology                                                                                                                          |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Framework**  | [Nuxt 4](https://nuxt.com) (Vue 3, Nitro server)                                                                                    |
+| **Language**   | TypeScript (strict; no `any`)                                                                                                       |
+| **Auth**       | [BetterAuth](https://better-auth.com) — Google OAuth, session management                                                            |
+| **Database**   | [Drizzle ORM](https://orm.drizzle.team) + [Neon PostgreSQL](https://neon.tech)                                                      |
+| **AI**         | [Vercel AI SDK](https://sdk.vercel.ai) calling [DeepSeek](https://deepseek.com) V4 Flash and [Google Gemini](https://ai.google.dev) |
+| **Maps**       | [Google Maps Platform](https://developers.google.com/maps) — Places, Distance Matrix, Geocoding                                     |
+| **3D**         | [TresJS](https://tresjs.org) (Three.js for Vue)                                                                                     |
+| **Cache / KV** | [Upstash Redis](https://upstash.com) as the Nitro storage driver                                                                    |
+| **Email**      | [Resend](https://resend.com)                                                                                                        |
+| **Flights**    | [AeroDataBox](https://rapidapi.com/aedbx-aedbx/api/aerodatabox) via RapidAPI                                                        |
+| **Styling**    | [Tailwind CSS 4](https://tailwindcss.com) with a custom sand/terra design system                                                    |
+| **Validation** | [Zod 4](https://zod.dev)                                                                                                            |
+| **Tooling**    | [oxlint](https://oxc.rs) + [oxfmt](https://oxc.rs), [Bun](https://bun.sh) runtime and test runner                                   |
+| **Deployment** | [Vercel](https://vercel.com)                                                                                                        |
 
 ## Getting Started
 
@@ -188,19 +188,19 @@ bun run dev           # http://localhost:3000
 
 ### Scripts
 
-| Command                | Description                                    |
-| ---------------------- | ---------------------------------------------- |
-| `bun run dev`          | Dev server with HMR                            |
-| `bun run build`        | Production build                               |
-| `bun run preview`      | Preview the production build                   |
-| `bun test`             | Run the test suite (86 test files)             |
-| `bun run check`        | Format check + lint                            |
-| `bun run fix`          | Autofix lint, then format                      |
-| `bun run db:gen`       | Generate Drizzle schema + BetterAuth tables    |
-| `bun run db:push`      | Push schema changes                            |
-| `bun run db:migrate`   | Run migrations                                 |
-| `bun run db:seed-test` | Seed test data                                 |
-| `bun run docker:dev`   | Start local Postgres                           |
+| Command                | Description                                 |
+| ---------------------- | ------------------------------------------- |
+| `bun run dev`          | Dev server with HMR                         |
+| `bun run build`        | Production build                            |
+| `bun run preview`      | Preview the production build                |
+| `bun test`             | Run the test suite (86 test files)          |
+| `bun run check`        | Format check + lint                         |
+| `bun run fix`          | Autofix lint, then format                   |
+| `bun run db:gen`       | Generate Drizzle schema + BetterAuth tables |
+| `bun run db:push`      | Push schema changes                         |
+| `bun run db:migrate`   | Run migrations                              |
+| `bun run db:seed-test` | Seed test data                              |
+| `bun run docker:dev`   | Start local Postgres                        |
 
 > **Note:** `drizzle-kit` loads `.env` itself and overrides inline shell variables, so `DATABASE_URL=... bun run db:migrate` will **not** retarget the database the way you expect. Edit `.env` instead.
 
@@ -245,16 +245,16 @@ ai-trip/
 
 32 tables, grouped by concern:
 
-| Domain            | Tables                                                                                              |
-| ----------------- | --------------------------------------------------------------------------------------------------- |
-| **Auth**          | `user`, `session`, `account`, `verification`                                                        |
-| **Trips**         | `trips`, `itinerary_days`, `activities`, `travel_segments`, `trip_ideas`, `stays`                   |
-| **Collaboration** | `trip_members`, `activity_log`, `activity_votes`, `activity_comments`, `activity_participants`      |
-| **AI**            | `ai_usage`, `trip_chat_messages`, `trip_generation_runs`                                            |
-| **Planning**      | `checklists`, `checklist_items`, `reservations`, `packing_templates`                                |
-| **Money**         | `expenses`, `expense_attachments`                                                                   |
-| **Profile**       | `user_profiles`, `user_passports`, `visited_countries`                                              |
-| **Reference**     | `visa_requirements`, `flights`, `flight_api_cache`                                                  |
+| Domain            | Tables                                                                                         |
+| ----------------- | ---------------------------------------------------------------------------------------------- |
+| **Auth**          | `user`, `session`, `account`, `verification`                                                   |
+| **Trips**         | `trips`, `itinerary_days`, `activities`, `travel_segments`, `trip_ideas`, `stays`              |
+| **Collaboration** | `trip_members`, `activity_log`, `activity_votes`, `activity_comments`, `activity_participants` |
+| **AI**            | `ai_usage`, `trip_chat_messages`, `trip_generation_runs`                                       |
+| **Planning**      | `checklists`, `checklist_items`, `reservations`, `packing_templates`                           |
+| **Money**         | `expenses`, `expense_attachments`                                                              |
+| **Profile**       | `user_profiles`, `user_passports`, `visited_countries`                                         |
+| **Reference**     | `visa_requirements`, `flights`, `flight_api_cache`                                             |
 
 ## AI Pipeline
 
@@ -262,29 +262,29 @@ AI Trip is an **intent engine**, not a chatbot. A natural language request is cl
 
 ### Intent types
 
-| Intent          | Example                          | What happens                                            |
-| --------------- | -------------------------------- | ------------------------------------------------------- |
+| Intent          | Example                          | What happens                                             |
+| --------------- | -------------------------------- | -------------------------------------------------------- |
 | `add`           | "Add a ramen shop near Shibuya"  | Grounded search → generate candidate → Places enrichment |
-| `remove`        | "Remove the castle visit"        | Name-match → delete activity                            |
-| `modify`        | "Change the restaurant to sushi" | Replace activity with a new resolved place              |
-| `reschedule`    | "Move dinner earlier"            | Recompute schedule respecting opening hours             |
-| `optimize`      | "Minimize walking time"          | Reorder using Distance Matrix travel times              |
-| `fill_gaps`     | "Fill the empty afternoon"       | Generate activities for open time slots                 |
-| `accommodation` | "Find a hotel near the station"  | Search and set the day's accommodation                  |
-| `general`       | Mixed or unclear requests        | Best-effort interpretation                              |
+| `remove`        | "Remove the castle visit"        | Name-match → delete activity                             |
+| `modify`        | "Change the restaurant to sushi" | Replace activity with a new resolved place               |
+| `reschedule`    | "Move dinner earlier"            | Recompute schedule respecting opening hours              |
+| `optimize`      | "Minimize walking time"          | Reorder using Distance Matrix travel times               |
+| `fill_gaps`     | "Fill the empty afternoon"       | Generate activities for open time slots                  |
+| `accommodation` | "Find a hotel near the station"  | Search and set the day's accommodation                   |
+| `general`       | Mixed or unclear requests        | Best-effort interpretation                               |
 
 ### Model routing
 
 Models are registered per handler in `server/lib/ai-config.ts`, so any handler can be re-pointed without touching business logic:
 
-| Key        | Model                    | Why                                                                       |
-| ---------- | ------------------------ | ------------------------------------------------------------------------- |
-| `default`  | DeepSeek V4 Flash        | Main generation path                                                      |
-| `discuss`  | DeepSeek V4 Flash        | Streaming chat with tool round-trips                                      |
-| `research` | Gemini 3.1 Flash Lite    | Google Search grounding is Gemini-only                                    |
-| `classify` | Gemini 3.1 Flash Lite    | Cheap, fast intent classification                                         |
+| Key        | Model                 | Why                                    |
+| ---------- | --------------------- | -------------------------------------- |
+| `default`  | DeepSeek V4 Flash     | Main generation path                   |
+| `discuss`  | DeepSeek V4 Flash     | Streaming chat with tool round-trips   |
+| `research` | Gemini 3.1 Flash Lite | Google Search grounding is Gemini-only |
+| `classify` | Gemini 3.1 Flash Lite | Cheap, fast intent classification      |
 
-DeepSeek V4 defaults to a hidden *thinking* phase that hurts latency and tool round-trips, so it is explicitly disabled; opting in runs at `reasoningEffort: "low"` to fit the 60s function ceiling. Without `DEEPSEEK_API_KEY`, DeepSeek-routed keys fall back to Gemini 3.5 Flash.
+DeepSeek V4 defaults to a hidden _thinking_ phase that hurts latency and tool round-trips, so it is explicitly disabled; opting in runs at `reasoningEffort: "low"` to fit the 60s function ceiling. Without `DEEPSEEK_API_KEY`, DeepSeek-routed keys fall back to Gemini 3.5 Flash.
 
 ### Schedule rules
 
@@ -304,14 +304,14 @@ Each user gets **100 AI prompts per month**, metered atomically. Streaming turns
 
 ### Trips
 
-| Method   | Endpoint               | Description                                 |
-| -------- | ---------------------- | ------------------------------------------- |
-| `GET`    | `/api/trips`           | List the user's trips                       |
+| Method   | Endpoint               | Description                                   |
+| -------- | ---------------------- | --------------------------------------------- |
+| `GET`    | `/api/trips`           | List the user's trips                         |
 | `POST`   | `/api/trips`           | Create a trip (auto-generates itinerary days) |
-| `GET`    | `/api/trips/:id`       | Trip details                                |
-| `PUT`    | `/api/trips/:id`       | Update a trip                               |
-| `DELETE` | `/api/trips/:id`       | Delete a trip                               |
-| `POST`   | `/api/trips/:id/share` | Generate a share token                      |
+| `GET`    | `/api/trips/:id`       | Trip details                                  |
+| `PUT`    | `/api/trips/:id`       | Update a trip                                 |
+| `DELETE` | `/api/trips/:id`       | Delete a trip                                 |
+| `POST`   | `/api/trips/:id/share` | Generate a share token                        |
 
 ### Itinerary
 
@@ -325,13 +325,13 @@ Each user gets **100 AI prompts per month**, metered atomically. Streaming turns
 
 ### Activities
 
-| Method     | Endpoint                                         | Description       |
-| ---------- | ------------------------------------------------ | ----------------- |
-| `POST`     | `/api/trips/:id/activities`                      | Add an activity   |
+| Method     | Endpoint                                         | Description        |
+| ---------- | ------------------------------------------------ | ------------------ |
+| `POST`     | `/api/trips/:id/activities`                      | Add an activity    |
 | `PUT`      | `/api/trips/:id/activities/:activityId`          | Update an activity |
 | `DELETE`   | `/api/trips/:id/activities`                      | Remove an activity |
-| `POST`     | `/api/trips/:id/activities/:activityId/vote`     | Vote              |
-| `GET/POST` | `/api/trips/:id/activities/:activityId/comments` | Comments          |
+| `POST`     | `/api/trips/:id/activities/:activityId/vote`     | Vote               |
+| `GET/POST` | `/api/trips/:id/activities/:activityId/comments` | Comments           |
 
 ### Members
 
@@ -361,13 +361,13 @@ Each user gets **100 AI prompts per month**, metered atomically. Streaming turns
 
 ### Other
 
-| Method     | Endpoint                 | Description                 |
-| ---------- | ------------------------ | --------------------------- |
-| `GET`      | `/api/ai/usage`          | AI prompt quota remaining   |
-| `POST`     | `/api/ai/layover-tips`   | Layover recommendations     |
-| `GET`      | `/api/stats`             | Dashboard statistics        |
-| `GET`      | `/api/exchange-rate`     | Currency conversion         |
-| `GET/POST` | `/api/visited-countries` | Travel history              |
+| Method     | Endpoint                 | Description               |
+| ---------- | ------------------------ | ------------------------- |
+| `GET`      | `/api/ai/usage`          | AI prompt quota remaining |
+| `POST`     | `/api/ai/layover-tips`   | Layover recommendations   |
+| `GET`      | `/api/stats`             | Dashboard statistics      |
+| `GET`      | `/api/exchange-rate`     | Currency conversion       |
+| `GET/POST` | `/api/visited-countries` | Travel history            |
 
 ## Security
 
@@ -381,10 +381,10 @@ Each user gets **100 AI prompts per month**, metered atomically. Streaming turns
 
 ## Scheduled Tasks
 
-| Schedule                | Task                  | Description                             |
-| ----------------------- | --------------------- | --------------------------------------- |
-| Jan 1 & Jul 1, 03:00    | Visa data import      | Refresh cached visa requirements        |
-| Daily, 09:00            | Passport expiry check | Email reminders for expiring passports  |
+| Schedule             | Task                  | Description                            |
+| -------------------- | --------------------- | -------------------------------------- |
+| Jan 1 & Jul 1, 03:00 | Visa data import      | Refresh cached visa requirements       |
+| Daily, 09:00         | Passport expiry check | Email reminders for expiring passports |
 
 ## Contributing
 
