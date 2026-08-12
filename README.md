@@ -1,166 +1,186 @@
 <p align="center">
-  <img src="public/pwa-192x192.png" alt="AI Trip" width="80" height="80" />
+  <img src=".github/assets/banner.png" alt="AI Trip — structured AI itineraries where every place is verified against Google Maps" width="100%" />
 </p>
 
 <h1 align="center">AI Trip</h1>
 
 <p align="center">
-  <strong>AI-powered travel itinerary planner with real places verified by Google Maps.</strong>
+  <strong>An AI travel planner that builds structured, editable itineraries — where every place is verified against Google Maps instead of invented by a language model.</strong>
 </p>
 
 <p align="center">
+  <a href="https://www.plantrip.my"><img alt="Live demo" src="https://img.shields.io/badge/demo-plantrip.my-d44425?style=flat-square" /></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-3d3328?style=flat-square" /></a>
+  <img alt="Nuxt 4" src="https://img.shields.io/badge/Nuxt-4-00DC82?style=flat-square&logo=nuxtdotjs&logoColor=white" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white" />
+  <img alt="Bun" src="https://img.shields.io/badge/Bun-runtime-000000?style=flat-square&logo=bun&logoColor=white" />
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/Postgres-Drizzle-4169E1?style=flat-square&logo=postgresql&logoColor=white" />
+  <a href="https://vercel.com"><img alt="Deployed on Vercel" src="https://img.shields.io/badge/deploy-Vercel-000000?style=flat-square&logo=vercel&logoColor=white" /></a>
+</p>
+
+<p align="center">
+  <a href="#why-this-exists">Why</a> ·
   <a href="#features">Features</a> ·
   <a href="#tech-stack">Tech Stack</a> ·
   <a href="#getting-started">Getting Started</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#ai-pipeline">AI Pipeline</a> ·
-  <a href="#api-reference">API Reference</a>
+  <a href="#api-reference">API Reference</a> ·
+  <a href="#security">Security</a>
 </p>
 
 ---
 
-## Overview
+## Why this exists
 
-AI Trip is a full-stack travel planning application that combines structured AI itinerary generation with verified Google Maps data. Unlike chat-based travel assistants, AI Trip produces **editable, JSON-driven itineraries** where every location is validated against Google Places — no hallucinated restaurants, no invented addresses.
+Ask a chatbot to plan a trip and it will happily invent a restaurant that closed in 2019, put a museum on the wrong side of the city, and schedule two hours of walking between lunch and a 14:00 reservation. The output looks great and falls apart the moment you try to use it.
 
-Plan trips collaboratively, track expenses, manage reservations, check visa requirements, and visualize your travel history on a 3D globe.
+AI Trip inverts that. The model is only allowed to **propose candidates**; everything a traveller actually sees is resolved through Google Places first:
+
+```
+User prompt → sanitize → classify intent → generate candidates
+            → resolve via Google Places → enrich (lat/lng, hours, rating, photos)
+            → schedule against real travel times → persist as structured JSON
+```
+
+The result is a **JSON-driven itinerary** you can drag, edit, split costs on, and share — not a wall of chat text. Every activity carries a real `place_id`, real coordinates, and real opening hours.
+
+**Live at [plantrip.my](https://www.plantrip.my).**
 
 ## Features
 
-### Trip Planning
+### Trip planning
 
-- **AI itinerary generation** — Intent-based planning (add, remove, optimize, reschedule, fill gaps) powered by Google Gemini
-- **Google Maps enrichment** — Every activity verified with real coordinates, ratings, photos, and opening hours
-- **Drag-and-drop reordering** — Rearrange activities with automatic travel time recalculation
-- **Day-by-day editor** — Structured itinerary with time slots, accommodation, and notes
-- **Route optimization** — Minimize travel time using Distance Matrix API
-- **Ideas bucket** — Save places to consider, promote to itinerary when ready
+- **Intent-based AI planning** — natural language commands are classified into structured operations (add, remove, modify, reschedule, optimize, fill gaps, accommodation) rather than free-form chat
+- **Google Maps enrichment** — every activity carries verified coordinates, ratings, photos, price level, and opening hours
+- **Streaming discuss mode** — talk through a plan with the AI and accept proposals individually, with live SSE streaming
+- **Trip-level generation** — generate a whole multi-day itinerary in one pass, then refine day by day
+- **Drag-and-drop reordering** — rearrange activities with automatic travel-time recalculation
+- **Route optimization** — reorder a day to minimize travel using the Distance Matrix API
+- **Ideas bucket** — park places you're considering, promote them into the itinerary when ready
 
 ### Collaboration
 
-- **Team trips** — Invite members as owner, editor, or viewer
-- **Activity voting** — +1/-1 voting on suggested activities
-- **Comments** — Discuss activities inline
-- **Participant tracking** — Mark who's attending each activity
-- **Audit trail** — Full activity log of all changes
-- **Shareable links** — Public read-only view via share token
+- **Team trips** — invite members as owner, editor, or viewer, enforced on every request
+- **Activity voting** — +1 / −1 on proposed activities
+- **Inline comments** — discuss individual activities
+- **Participant tracking** — mark who is attending what
+- **Audit trail** — every trip mutation logged with actor, action, and metadata
+- **Shareable links** — public read-only itinerary view via share token
 
-### Travel Documents
+### Travel documents
 
-- **Passport manager** — Encrypted storage (AES-256-GCM) with expiry reminders
-- **Visa checker** — Requirement lookup by passport and destination
-- **Flight tracking** — AeroDataBox integration with layover detection
-- **Reservations** — Track hotels, flights, and car rentals with encrypted confirmation numbers
-- **Document uploads** — Attach tickets, confirmations, and receipts
-- **Packing checklists** — Reusable templates with categories
+- **Passport manager** — AES-256-GCM encrypted at rest, with expiry and recommended-renewal dates
+- **Visa checker** — requirement lookup by passport nationality and destination
+- **Flight tracking** — AeroDataBox integration, layover detection, Flighty CSV import
+- **Reservations** — hotels, flights, and car rentals with encrypted confirmation numbers
+- **Packing checklists** — reusable templates with categories
 
-### Expense Management
+### Money
 
-- **Expense tracking** — Log costs per activity or day
-- **Custom splits** — Track who paid and who owes
-- **Currency conversion** — Real-time exchange rates
-- **CSV export** — Export expenses for reporting
+- **Expense tracking** — per activity or per day
+- **Custom splits** — who paid, who owes
+- **Receipt attachments** — bounded uploads behind a pluggable storage interface
+- **Currency conversion** — live exchange rates
+- **CSV export** — for reporting or reimbursement
 
 ### Visualizations
 
-- **Interactive maps** — Day-by-day route visualization
-- **3D globe** — Visited countries and flight paths (Three.js)
-- **Travel statistics** — Dashboard with trip stats and upcoming flights
-- **Scratch map** — Track visited countries with layover detection
+- **Interactive maps** — day-by-day route rendering
+- **3D globe** — visited countries and flight paths (Three.js via TresJS)
+- **Scratch map** — travel history with layover-aware country detection
+- **Dashboard stats** — trip counts, upcoming flights, distance travelled
 
 ### Progressive Web App
 
-- Installable on iOS and Android
-- Offline-capable with service worker caching
-- Periodic background sync
+Installable on iOS and Android, offline-capable via service worker, with periodic background sync.
 
 ## Tech Stack
 
-| Layer            | Technology                                                                                                      |
-| ---------------- | --------------------------------------------------------------------------------------------------------------- |
-| **Framework**    | [Nuxt 4](https://nuxt.com) (Vue 3, Nitro server)                                                                |
-| **Auth**         | [BetterAuth](https://better-auth.com) (Google OAuth, session management)                                        |
-| **Database**     | [Drizzle ORM](https://orm.drizzle.team) + [Neon PostgreSQL](https://neon.tech)                                  |
-| **AI**           | [Google Gemini](https://ai.google.dev) via [Vercel AI SDK](https://sdk.vercel.ai) + [Mastra](https://mastra.ai) |
-| **Maps**         | [Google Maps Platform](https://developers.google.com/maps) (Places, Distance Matrix, Geocoding)                 |
-| **3D**           | [TresJS](https://tresjs.org) (Three.js for Vue)                                                                 |
-| **File Storage** | [Vercel Blob](https://vercel.com/docs/storage/vercel-blob)                                                      |
-| **Email**        | [Resend](https://resend.com)                                                                                    |
-| **Flights**      | [AeroDataBox](https://rapidapi.com/aedbx-aedbx/api/aerodatabox) (RapidAPI)                                      |
-| **Styling**      | [Tailwind CSS 4](https://tailwindcss.com)                                                                       |
-| **Validation**   | [Zod 4](https://zod.dev)                                                                                        |
-| **Linting**      | [oxlint](https://oxc.rs) + [oxfmt](https://oxc.rs)                                                              |
-| **Runtime**      | [Bun](https://bun.sh)                                                                                           |
-| **Deployment**   | [Vercel](https://vercel.com)                                                                                    |
+| Layer            | Technology                                                                                                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Framework**    | [Nuxt 4](https://nuxt.com) (Vue 3, Nitro server)                                                                               |
+| **Language**     | TypeScript (strict; no `any`)                                                                                                  |
+| **Auth**         | [BetterAuth](https://better-auth.com) — Google OAuth, session management                                                        |
+| **Database**     | [Drizzle ORM](https://orm.drizzle.team) + [Neon PostgreSQL](https://neon.tech)                                                 |
+| **AI**           | [Vercel AI SDK](https://sdk.vercel.ai) calling [DeepSeek](https://deepseek.com) V4 Flash and [Google Gemini](https://ai.google.dev) |
+| **Maps**         | [Google Maps Platform](https://developers.google.com/maps) — Places, Distance Matrix, Geocoding                                |
+| **3D**           | [TresJS](https://tresjs.org) (Three.js for Vue)                                                                                |
+| **Cache / KV**   | [Upstash Redis](https://upstash.com) as the Nitro storage driver                                                               |
+| **Email**        | [Resend](https://resend.com)                                                                                                   |
+| **Flights**      | [AeroDataBox](https://rapidapi.com/aedbx-aedbx/api/aerodatabox) via RapidAPI                                                    |
+| **Styling**      | [Tailwind CSS 4](https://tailwindcss.com) with a custom sand/terra design system                                               |
+| **Validation**   | [Zod 4](https://zod.dev)                                                                                                       |
+| **Tooling**      | [oxlint](https://oxc.rs) + [oxfmt](https://oxc.rs), [Bun](https://bun.sh) runtime and test runner                              |
+| **Deployment**   | [Vercel](https://vercel.com)                                                                                                   |
 
 ## Getting Started
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) (v1.0+)
-- [Neon](https://neon.tech) PostgreSQL database (or any PostgreSQL instance)
-- Google Cloud project with APIs enabled:
-  - Places API (New)
-  - Distance Matrix API
-  - Geocoding API
-  - OAuth 2.0 credentials
-- [Google AI Studio](https://aistudio.google.com) API key (Gemini)
-- [Resend](https://resend.com) API key (for invite emails)
+- [Bun](https://bun.sh) v1.0+
+- A PostgreSQL database — [Neon](https://neon.tech) in production, or the bundled Docker Compose setup locally
+- A Google Cloud project with **Places API (New)**, **Distance Matrix API**, **Geocoding API**, and OAuth 2.0 credentials
+- A [Google AI Studio](https://aistudio.google.com) key (Gemini) — required
+- A [DeepSeek](https://platform.deepseek.com) key — optional; the app falls back to Gemini 3.5 Flash without it
+- A [Resend](https://resend.com) key for invite and reminder emails
 
 ### Setup
 
-1. **Clone and install**
+**1. Clone and install**
 
 ```bash
-git clone https://github.com/your-username/ai-trip.git
+git clone https://github.com/Ripwords/ai-trip.git
 cd ai-trip
 bun install
 ```
 
-2. **Configure environment**
+**2. Configure environment**
 
 ```bash
 cp .env.example .env
 ```
 
-Fill in the required values:
-
 ```bash
-# Database (Neon PostgreSQL)
-DATABASE_URL=postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/dbname?sslmode=verify-full
-DATABASE_URL_UNPOOLED=postgresql://user:pass@ep-xxx.region.aws.neon.tech/dbname?sslmode=verify-full
+# Database — Neon, or the local Docker Postgres
+DATABASE_URL=postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/db?sslmode=verify-full
+DATABASE_URL_UNPOOLED=postgresql://user:pass@ep-xxx.region.aws.neon.tech/db?sslmode=verify-full
 
 # Auth
-BETTER_AUTH_SECRET=           # openssl rand -base64 32
+BETTER_AUTH_SECRET=              # openssl rand -base64 32
 NUXT_PUBLIC_BETTER_AUTH_URL=http://localhost:3000
-
-# Google OAuth (Cloud Console → APIs & Services → Credentials)
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
 
-# AI & Maps
+# AI
 GOOGLE_GENERATIVE_AI_API_KEY=your-gemini-api-key
-NUXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-maps-api-key
+DEEPSEEK_API_KEY=               # optional — falls back to Gemini 3.5 Flash
+
+# Maps — public key is referer-restricted, private key is IP-restricted
+NUXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-browser-maps-key
+NUXT_PRIVATE_GOOGLE_MAPS_API_KEY=your-server-maps-key
 
 # Email
 RESEND_API_KEY=re_xxxxx
 RESEND_FROM_EMAIL=AI Trip <noreply@yourdomain.com>
 
-# Encryption (for passports & confirmation numbers)
-ENCRYPTION_KEY=              # openssl rand -base64 32
+# Encryption for passports and confirmation numbers
+ENCRYPTION_KEY=                  # openssl rand -base64 32
 
-# Optional: Flight tracking
-AERODATABOX_API_KEY=         # RapidAPI free tier (~600 calls/month)
+# Optional
+AERODATABOX_API_KEY=             # RapidAPI free tier, ~600 calls/month
+RECEIPT_STORAGE_DRIVER=database  # database | memory
 ```
 
-3. **Set up the database**
+**3. Set up the database**
 
 ```bash
-bun run db:gen        # Generate schema + auth tables
-bun run db:push       # Push schema to database
+bun run docker:dev    # optional — local Postgres via Docker Compose
+bun run db:gen        # generate Drizzle schema + BetterAuth tables
+bun run db:push       # push schema to the database
 ```
 
-4. **Start developing**
+**4. Run it**
 
 ```bash
 bun run dev           # http://localhost:3000
@@ -168,100 +188,117 @@ bun run dev           # http://localhost:3000
 
 ### Scripts
 
-| Command                | Description                                 |
-| ---------------------- | ------------------------------------------- |
-| `bun run dev`          | Start dev server with HMR                   |
-| `bun run build`        | Build for production                        |
-| `bun run preview`      | Preview production build                    |
-| `bun run db:gen`       | Generate Drizzle schema + BetterAuth tables |
-| `bun run db:push`      | Push schema changes to database             |
-| `bun run db:migrate`   | Run database migrations                     |
-| `bun run db:seed-test` | Seed test data                              |
-| `bun run lint`         | Run oxlint                                  |
-| `bun run fmt`          | Format code with oxfmt                      |
-| `bun run fix`          | Lint fix + format                           |
+| Command                | Description                                    |
+| ---------------------- | ---------------------------------------------- |
+| `bun run dev`          | Dev server with HMR                            |
+| `bun run build`        | Production build                               |
+| `bun run preview`      | Preview the production build                   |
+| `bun test`             | Run the test suite (86 test files)             |
+| `bun run check`        | Format check + lint                            |
+| `bun run fix`          | Autofix lint, then format                      |
+| `bun run db:gen`       | Generate Drizzle schema + BetterAuth tables    |
+| `bun run db:push`      | Push schema changes                            |
+| `bun run db:migrate`   | Run migrations                                 |
+| `bun run db:seed-test` | Seed test data                                 |
+| `bun run docker:dev`   | Start local Postgres                           |
+
+> **Note:** `drizzle-kit` loads `.env` itself and overrides inline shell variables, so `DATABASE_URL=... bun run db:migrate` will **not** retarget the database the way you expect. Edit `.env` instead.
 
 ## Architecture
 
 ```
 ai-trip/
 ├── app/                        # Nuxt client
-│   ├── components/             # 44 Vue components
-│   ├── composables/            # 12 composables (maps, exports, dark mode, etc.)
-│   ├── layouts/                # App layouts
+│   ├── components/             # 48 Vue components
+│   ├── composables/            # 31 composables (maps, exports, theme, motion…)
+│   ├── layouts/                # App shells
 │   ├── middleware/             # Auth route guard
 │   ├── pages/                  # 10 route pages
 │   ├── plugins/                # Nuxt plugins
-│   ├── utils/                  # Client utilities
 │   └── lib/                    # Auth client
 │
 ├── server/                     # Nitro backend
-│   ├── api/                    # ~87 API route handlers
+│   ├── api/                    # ~108 route handlers
 │   ├── db/
-│   │   ├── schema/             # 23 Drizzle tables
-│   │   └── migrations/         # Database migrations
-│   ├── lib/                    # Core logic
-│   │   ├── ai.ts               # AI engine (intent classification + generation)
-│   │   ├── auth.ts             # BetterAuth configuration
+│   │   ├── schema/             # 32 Drizzle tables
+│   │   └── migrations/         # Drizzle migrations
+│   ├── lib/
+│   │   ├── ai.ts               # Intent classification + generation
+│   │   ├── ai-config.ts        # Model registry & provider routing
+│   │   ├── ai-tools.ts         # Tool definitions for the planner
 │   │   ├── enrich.ts           # Google Places enrichment
-│   │   ├── google-maps.ts      # Places API wrapper
-│   │   ├── segments.ts         # Travel time computation
-│   │   ├── encryption.ts       # AES-256-GCM encryption
-│   │   └── email.ts            # Email templates (Resend)
+│   │   ├── google-maps.ts      # Places / Distance Matrix wrapper
+│   │   ├── segments.ts         # Travel-time computation
+│   │   ├── encryption.ts       # AES-256-GCM
+│   │   ├── receipt-storage.ts  # Pluggable receipt storage
+│   │   └── auth.ts             # BetterAuth configuration
 │   ├── utils/                  # Auth helpers, rate limiting, validation
 │   └── tasks/                  # Scheduled cron tasks
 │
-├── public/                     # Static assets
-└── docker/                     # Docker configuration
+├── shared/                     # Types shared across client and server
+├── docs/                       # Design specs and implementation plans
+├── docker/                     # Local Postgres compose file
+└── public/                     # Static assets, PWA icons, 3D models
 ```
 
-### Database Schema
+### Database domains
 
-23 tables organized across these domains:
+32 tables, grouped by concern:
 
-- **Auth** — `user`, `session`, `account`, `verification`
-- **Trips** — `trips`, `itinerary_days`, `activities`, `travel_segments`, `trip_ideas`
-- **Collaboration** — `trip_members`, `activity_log`, `activity_votes`, `activity_comments`, `activity_participants`
-- **Planning** — `checklists`, `checklist_items`, `expenses`, `reservations`, `documents`, `packing_templates`
-- **User Profile** — `user_profiles`, `user_passports`, `visited_countries`
-- **Data** — `ai_usage`, `visa_requirements`, `flights`
+| Domain            | Tables                                                                                              |
+| ----------------- | --------------------------------------------------------------------------------------------------- |
+| **Auth**          | `user`, `session`, `account`, `verification`                                                        |
+| **Trips**         | `trips`, `itinerary_days`, `activities`, `travel_segments`, `trip_ideas`, `stays`                   |
+| **Collaboration** | `trip_members`, `activity_log`, `activity_votes`, `activity_comments`, `activity_participants`      |
+| **AI**            | `ai_usage`, `trip_chat_messages`, `trip_generation_runs`                                            |
+| **Planning**      | `checklists`, `checklist_items`, `reservations`, `packing_templates`                                |
+| **Money**         | `expenses`, `expense_attachments`                                                                   |
+| **Profile**       | `user_profiles`, `user_passports`, `visited_countries`                                              |
+| **Reference**     | `visa_requirements`, `flights`, `flight_api_cache`                                                  |
 
 ## AI Pipeline
 
-AI Trip uses an intent-based planning system — not a chatbot. Users issue natural language commands that are classified into structured operations.
+AI Trip is an **intent engine**, not a chatbot. A natural language request is classified into a structured operation, and each operation has a deterministic handler.
 
-### How It Works
+### Intent types
 
-```
-User prompt → Sanitize → Classify intent → Execute handler → Enrich with Google Maps → Save
-```
+| Intent          | Example                          | What happens                                            |
+| --------------- | -------------------------------- | ------------------------------------------------------- |
+| `add`           | "Add a ramen shop near Shibuya"  | Grounded search → generate candidate → Places enrichment |
+| `remove`        | "Remove the castle visit"        | Name-match → delete activity                            |
+| `modify`        | "Change the restaurant to sushi" | Replace activity with a new resolved place              |
+| `reschedule`    | "Move dinner earlier"            | Recompute schedule respecting opening hours             |
+| `optimize`      | "Minimize walking time"          | Reorder using Distance Matrix travel times              |
+| `fill_gaps`     | "Fill the empty afternoon"       | Generate activities for open time slots                 |
+| `accommodation` | "Find a hotel near the station"  | Search and set the day's accommodation                  |
+| `general`       | Mixed or unclear requests        | Best-effort interpretation                              |
 
-### Intent Types
+### Model routing
 
-| Intent          | Example                          | What happens                                           |
-| --------------- | -------------------------------- | ------------------------------------------------------ |
-| `add`           | "Add a ramen shop near Shibuya"  | Web search → generate activity → Places API enrichment |
-| `remove`        | "Remove the castle visit"        | Name-match → delete activity                           |
-| `modify`        | "Change the restaurant to sushi" | Replace activity with new search                       |
-| `reschedule`    | "Move dinner earlier"            | Recompute schedule respecting opening hours            |
-| `optimize`      | "Minimize walking time"          | Reorder using Distance Matrix travel times             |
-| `fill_gaps`     | "Fill empty afternoon slots"     | Generate activities for open time slots                |
-| `accommodation` | "Find a hotel near the station"  | Search and set day accommodation                       |
-| `general`       | Mixed or unclear requests        | Best-effort interpretation                             |
+Models are registered per handler in `server/lib/ai-config.ts`, so any handler can be re-pointed without touching business logic:
 
-### Schedule Rules
+| Key        | Model                    | Why                                                                       |
+| ---------- | ------------------------ | ------------------------------------------------------------------------- |
+| `default`  | DeepSeek V4 Flash        | Main generation path                                                      |
+| `discuss`  | DeepSeek V4 Flash        | Streaming chat with tool round-trips                                      |
+| `research` | Gemini 3.1 Flash Lite    | Google Search grounding is Gemini-only                                    |
+| `classify` | Gemini 3.1 Flash Lite    | Cheap, fast intent classification                                         |
 
-The AI enforces realistic scheduling:
+DeepSeek V4 defaults to a hidden *thinking* phase that hurts latency and tool round-trips, so it is explicitly disabled; opting in runs at `reasoningEffort: "low"` to fit the 60s function ceiling. Without `DEEPSEEK_API_KEY`, DeepSeek-routed keys fall back to Gemini 3.5 Flash.
 
-- Activities between 07:00–22:00
-- Meal windows: breakfast 07:30–09:30, lunch 11:30–14:00, dinner 18:00–21:00
+### Schedule rules
+
+The planner enforces schedules a human could actually walk:
+
+- Activities constrained to 07:00–22:00
+- Meal windows — breakfast 07:30–09:30, lunch 11:30–14:00, dinner 18:00–21:00
 - 30-minute buffer between activities
-- Respects venue opening hours
-- Cross-day deduplication (no repeated suggestions)
+- Venue opening hours respected
+- Cross-day deduplication, so the same place is never suggested twice
 
-### Rate Limits
+### Rate limits
 
-Each user gets **100 AI prompts per month**, tracked atomically to prevent over-usage.
+Each user gets **100 AI prompts per month**, metered atomically. Streaming turns are billed per step and settled non-idempotently at the end of the stream.
 
 ## API Reference
 
@@ -269,12 +306,12 @@ Each user gets **100 AI prompts per month**, tracked atomically to prevent over-
 
 | Method   | Endpoint               | Description                                 |
 | -------- | ---------------------- | ------------------------------------------- |
-| `GET`    | `/api/trips`           | List user's trips                           |
-| `POST`   | `/api/trips`           | Create trip (auto-generates itinerary days) |
-| `GET`    | `/api/trips/:id`       | Get trip details                            |
-| `PUT`    | `/api/trips/:id`       | Update trip                                 |
-| `DELETE` | `/api/trips/:id`       | Delete trip                                 |
-| `POST`   | `/api/trips/:id/share` | Generate share token                        |
+| `GET`    | `/api/trips`           | List the user's trips                       |
+| `POST`   | `/api/trips`           | Create a trip (auto-generates itinerary days) |
+| `GET`    | `/api/trips/:id`       | Trip details                                |
+| `PUT`    | `/api/trips/:id`       | Update a trip                               |
+| `DELETE` | `/api/trips/:id`       | Delete a trip                               |
+| `POST`   | `/api/trips/:id/share` | Generate a share token                      |
 
 ### Itinerary
 
@@ -284,17 +321,17 @@ Each user gets **100 AI prompts per month**, tracked atomically to prevent over-
 | `PUT`  | `/api/trips/:id/days/:dayId/reorder`       | Reorder activities      |
 | `PUT`  | `/api/trips/:id/days/:dayId/accommodation` | Set accommodation       |
 | `POST` | `/api/trips/:id/days/:dayId/restore`       | Undo day changes        |
-| `GET`  | `/api/trips/:id/days/:dayId/segments`      | Get travel segments     |
+| `GET`  | `/api/trips/:id/days/:dayId/segments`      | Travel segments         |
 
 ### Activities
 
 | Method     | Endpoint                                         | Description       |
 | ---------- | ------------------------------------------------ | ----------------- |
-| `POST`     | `/api/trips/:id/activities`                      | Add activity      |
-| `PUT`      | `/api/trips/:id/activities/:activityId`          | Update activity   |
-| `DELETE`   | `/api/trips/:id/activities`                      | Remove activity   |
-| `POST`     | `/api/trips/:id/activities/:activityId/vote`     | Vote on activity  |
-| `GET/POST` | `/api/trips/:id/activities/:activityId/comments` | Activity comments |
+| `POST`     | `/api/trips/:id/activities`                      | Add an activity   |
+| `PUT`      | `/api/trips/:id/activities/:activityId`          | Update an activity |
+| `DELETE`   | `/api/trips/:id/activities`                      | Remove an activity |
+| `POST`     | `/api/trips/:id/activities/:activityId/vote`     | Vote              |
+| `GET/POST` | `/api/trips/:id/activities/:activityId/comments` | Comments          |
 
 ### Members
 
@@ -310,44 +347,55 @@ Each user gets **100 AI prompts per month**, tracked atomically to prevent over-
 | Method | Endpoint                       | Description          |
 | ------ | ------------------------------ | -------------------- |
 | `GET`  | `/api/places/search`           | Search Google Places |
-| `GET`  | `/api/places/:placeId/details` | Get place details    |
+| `GET`  | `/api/places/:placeId/details` | Place details        |
 
-### Travel Documents
+### Travel documents
 
 | Method     | Endpoint                      | Description             |
 | ---------- | ----------------------------- | ----------------------- |
 | `GET/POST` | `/api/user/passports`         | Manage passports        |
 | `GET`      | `/api/visa/check`             | Check visa requirements |
 | `GET/POST` | `/api/flights`                | Manage flights          |
+| `POST`     | `/api/flights/import`         | Import a Flighty CSV    |
 | `GET/POST` | `/api/trips/:id/reservations` | Manage reservations     |
-| `POST`     | `/api/trips/:id/documents`    | Upload documents        |
 
 ### Other
 
 | Method     | Endpoint                 | Description                 |
 | ---------- | ------------------------ | --------------------------- |
-| `GET`      | `/api/ai/usage`          | Check AI prompt usage       |
-| `POST`     | `/api/ai/layover-tips`   | Get layover recommendations |
+| `GET`      | `/api/ai/usage`          | AI prompt quota remaining   |
+| `POST`     | `/api/ai/layover-tips`   | Layover recommendations     |
 | `GET`      | `/api/stats`             | Dashboard statistics        |
 | `GET`      | `/api/exchange-rate`     | Currency conversion         |
 | `GET/POST` | `/api/visited-countries` | Travel history              |
 
 ## Security
 
-- **Encryption** — Passport numbers and confirmation numbers encrypted with AES-256-GCM at rest
-- **Auth** — Session-based with 30-day expiry, httpOnly cookies, JWE caching
-- **Rate limiting** — Global (300 req/60s) with stricter limits on auth and sensitive endpoints
-- **CSP** — Nonce-based Content Security Policy
-- **Input sanitization** — AI prompts sanitized to prevent injection
-- **Access control** — Role-based trip access (owner/editor/viewer) checked on every request
-- **Audit logging** — All trip modifications logged with user, action, and metadata
+- **Encryption at rest** — passport numbers and reservation confirmation numbers are AES-256-GCM encrypted
+- **Sessions** — httpOnly cookies, 30-day expiry, JWE-cached session lookups
+- **Rate limiting** — global 300 req/60s, with tighter per-route buckets; auth endpoints are bucketed separately so shared limits cannot cause spurious logouts
+- **Content Security Policy** — nonce-based, via `nuxt-security`
+- **Prompt sanitization** — user input is sanitized before reaching any model
+- **Access control** — owner/editor/viewer roles checked on every trip-scoped request
+- **Audit logging** — every mutation recorded with actor, action, and metadata
 
 ## Scheduled Tasks
 
-| Schedule               | Task                  | Description                            |
-| ---------------------- | --------------------- | -------------------------------------- |
-| Jan 1 & Jul 1, 3:00 AM | Visa data import      | Refresh cached visa requirements       |
-| Daily, 9:00 AM         | Passport expiry check | Email reminders for expiring passports |
+| Schedule                | Task                  | Description                             |
+| ----------------------- | --------------------- | --------------------------------------- |
+| Jan 1 & Jul 1, 03:00    | Visa data import      | Refresh cached visa requirements        |
+| Daily, 09:00            | Passport expiry check | Email reminders for expiring passports  |
+
+## Contributing
+
+Issues and pull requests are welcome. A few house rules:
+
+- **Conventional Commits** — `feat:`, `fix:`, `chore:`, and friends
+- **Tests first** — this project follows TDD; `bun test` should pass before you open a PR
+- **Strict TypeScript** — no `any`, no `as unknown as X` unless genuinely unavoidable
+- **Run `bun run check`** before pushing, and `bun run build` for anything touching Vue templates — typecheck alone does not catch template compile errors
+
+Design specs and implementation plans for shipped features live in [`docs/`](docs/).
 
 ## License
 
