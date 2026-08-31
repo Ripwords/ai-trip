@@ -1,3 +1,4 @@
+import "zod/compile"
 import { randomUUID } from "node:crypto"
 import { eq } from "drizzle-orm"
 import { z } from "zod"
@@ -120,7 +121,63 @@ export function createTripTools(ctx: TripToolsContext) {
           travelSegments: true,
         },
       })
-      return day ?? { error: "day not found" }
+      if (!day) return { error: "day not found" }
+
+      // Project instead of returning the row. A tool result is validated
+      // against the AI SDK's jsonValueSchema before the NEXT step runs, and
+      // that admits only null/string/number/boolean/object/array. Drizzle
+      // hands back `timestamp` columns as JS `Date`, so `updatedAt` here and
+      // `lastEnrichAttempt` on each activity failed it, and every turn in
+      // which the model called readDay died with AI_InvalidPromptError one
+      // step later. An allowlist keeps the next timestamp column from
+      // silently doing it again; ai-tools.test.ts asserts the output against
+      // the SDK's own schema.
+      return {
+        id: day.id,
+        tripId: day.tripId,
+        dayNumber: day.dayNumber,
+        date: day.date,
+        notes: day.notes,
+        stayId: day.stayId,
+        accommodationName: day.accommodationName,
+        accommodationPlaceId: day.accommodationPlaceId,
+        accommodationAddress: day.accommodationAddress,
+        accommodationLat: day.accommodationLat,
+        accommodationLng: day.accommodationLng,
+        activities: day.activities.map((a) => ({
+          id: a.id,
+          itineraryDayId: a.itineraryDayId,
+          name: a.name,
+          placeId: a.placeId,
+          type: a.type,
+          description: a.description,
+          lat: a.lat,
+          lng: a.lng,
+          address: a.address,
+          rating: a.rating,
+          priceLevel: a.priceLevel,
+          openingHours: a.openingHours,
+          photos: a.photos,
+          suggestedTime: a.suggestedTime,
+          estimatedDurationMinutes: a.estimatedDurationMinutes,
+          costEstimate: a.costEstimate,
+          tags: a.tags,
+          sortOrder: a.sortOrder,
+          notes: a.notes,
+          actualCost: a.actualCost,
+        })),
+        travelSegments: day.travelSegments.map((s) => ({
+          id: s.id,
+          itineraryDayId: s.itineraryDayId,
+          fromActivityId: s.fromActivityId,
+          toActivityId: s.toActivityId,
+          durationSeconds: s.durationSeconds,
+          distanceMeters: s.distanceMeters,
+          durationText: s.durationText,
+          distanceText: s.distanceText,
+          mode: s.mode,
+        })),
+      }
     },
   })
 

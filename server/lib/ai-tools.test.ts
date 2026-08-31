@@ -10,6 +10,7 @@ process.env.DATABASE_URL ??= "postgres://user:pass@localhost:5432/db"
 
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { modelMessageSchema } from "ai"
 import type { Proposal } from "./proposals"
 
 const { createTripTools, createDiscussTools } = await import("./ai-tools")
@@ -66,16 +67,19 @@ function noDayCtx() {
  * are exercised through their real schemas elsewhere; this helper only needs to
  * reach the function.
  */
+async function runToolRaw<TInput>(
+  tool: { execute?: (...args: never[]) => unknown },
+  input: TInput,
+): Promise<unknown> {
+  assert.ok(tool.execute, "tool must expose an execute fn")
+  return (tool.execute as (i: TInput, c: unknown) => Promise<unknown>)(input, undefined)
+}
+
 async function runTool<TInput>(
   tool: { execute?: (...args: never[]) => unknown },
   input: TInput,
 ): Promise<{ ok: boolean; error?: string }> {
-  assert.ok(tool.execute, "tool must expose an execute fn")
-  const result = await (tool.execute as (i: TInput, c: unknown) => Promise<unknown>)(
-    input,
-    undefined,
-  )
-  return result as { ok: boolean; error?: string }
+  return (await runToolRaw(tool, input)) as { ok: boolean; error?: string }
 }
 
 const sampleActivity = {
@@ -100,6 +104,120 @@ describe("createTripTools", () => {
       "runReview",
       "searchPlaces",
     ])
+  })
+})
+
+describe("readDay", () => {
+  // `updatedAt` on itinerary_days and `lastEnrichAttempt` on activities are
+  // drizzle `timestamp` columns, so a raw row carries JS `Date` objects.
+  // readDay used to return that row verbatim. The AI SDK validates every
+  // message against ModelMessage[] before each step, and a tool result's
+  // `output.value` must satisfy jsonValueSchema, which admits only
+  // null/string/number/boolean/object/array. A `Date` fails it, so the step
+  // AFTER any readDay call died with AI_InvalidPromptError and took the whole
+  // turn with it. Asserting against the SDK's own exported schema is the point:
+  // it fails again the moment a non-JSON value creeps back into the projection.
+  const dayRow = {
+    id: ACTIVE_DAY,
+    tripId: TRIP_ID,
+    dayNumber: 1,
+    date: "2026-04-01",
+    notes: "temple day",
+    stayId: null,
+    accommodationName: "Park Hyatt",
+    accommodationPlaceId: "place-1",
+    accommodationAddress: "Nishi-Shinjuku, Tokyo",
+    accommodationLat: 35.6855,
+    accommodationLng: 139.6917,
+    updatedAt: new Date("2026-08-05T10:00:00.000Z"),
+    activities: [
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        itineraryDayId: ACTIVE_DAY,
+        name: "Afuri Ramen",
+        placeId: "place-2",
+        type: "restaurant",
+        description: "yuzu shio",
+        lat: 35.6628,
+        lng: 139.7315,
+        address: "Roppongi, Tokyo",
+        rating: "4.3",
+        priceLevel: 2,
+        openingHours: ["Mon 11:00-22:00"],
+        photos: [],
+        suggestedTime: "12:30",
+        estimatedDurationMinutes: 60,
+        costEstimate: "15.00",
+        tags: ["lunch"],
+        sortOrder: 0,
+        notes: null,
+        actualCost: null,
+        lastEnrichAttempt: new Date("2026-08-04T09:00:00.000Z"),
+      },
+    ],
+    travelSegments: [
+      {
+        id: "33333333-3333-4333-8333-333333333333",
+        itineraryDayId: ACTIVE_DAY,
+        fromActivityId: "11111111-1111-4111-8111-111111111111",
+        toActivityId: "44444444-4444-4444-8444-444444444444",
+        durationSeconds: 900,
+        distanceMeters: 1200,
+        durationText: "15 mins",
+        distanceText: "1.2 km",
+        mode: "walking",
+      },
+    ],
+  }
+
+  function stubDay(row: unknown) {
+    db.query.itineraryDays.findFirst = (async () =>
+      row) as unknown as typeof db.query.itineraryDays.findFirst
+  }
+
+  it("returns a payload the AI SDK accepts as a tool result", async () => {
+    stubDay(dayRow)
+    const result = await runToolRaw(createTripTools(activeCtx()).readDay, {})
+
+    const parsed = modelMessageSchema.safeParse({
+      role: "tool",
+      content: [
+        {
+          type: "tool-result",
+          toolCallId: "call-1",
+          toolName: "readDay",
+          output: { type: "json", value: result },
+        },
+      ],
+    })
+    assert.ok(
+      parsed.success,
+      `readDay output is not a valid ModelMessage tool result: ${JSON.stringify(parsed.error?.issues)}`,
+    )
+  })
+
+  it("keeps the day, activity, and travel-segment fields the agent plans with", async () => {
+    stubDay(dayRow)
+    const day = (await runToolRaw(createTripTools(activeCtx()).readDay, {})) as {
+      id: string
+      date: string
+      accommodationName: string | null
+      activities: { id: string; name: string; suggestedTime: string | null }[]
+      travelSegments: { durationSeconds: number | null }[]
+    }
+
+    assert.equal(day.id, ACTIVE_DAY)
+    assert.equal(day.date, "2026-04-01")
+    assert.equal(day.accommodationName, "Park Hyatt")
+    assert.equal(day.activities[0]?.id, "11111111-1111-4111-8111-111111111111")
+    assert.equal(day.activities[0]?.suggestedTime, "12:30")
+    assert.equal(day.travelSegments[0]?.durationSeconds, 900)
+  })
+
+  it("reports a missing day instead of throwing", async () => {
+    stubDay(undefined)
+    const result = await runToolRaw(createTripTools(activeCtx()).readDay, {})
+    assert.deepEqual(result, { error: "day not found" })
   })
 })
 
