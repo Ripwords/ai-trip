@@ -75,6 +75,7 @@ export const trips = pgTable(
     // reserveExpenseSlot is what produces the 400; this is the backstop that
     // makes "at most 200" true regardless of which code path did the writing.
     check("trips_expense_count_within_cap", sql`${table.expenseCount} between 0 and 200`),
+    check("trips_status_is_lifecycle", sql`${table.status} in ('active', 'cancelled')`),
   ],
 )
 

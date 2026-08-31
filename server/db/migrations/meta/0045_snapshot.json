@@ -1,6 +1,6 @@
 {
-  "id": "7442b3e6-8f1e-4ddd-91e9-75b2cdbabbf7",
-  "prevId": "4d9e311d-d905-4f7e-bf85-db8118a5b198",
+  "id": "c84ec00e-43fb-4bf2-8dc5-8e6d2afb1088",
+  "prevId": "7442b3e6-8f1e-4ddd-91e9-75b2cdbabbf7",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3340,6 +3340,10 @@
         "trips_expense_count_within_cap": {
           "name": "trips_expense_count_within_cap",
           "value": "\"trips\".\"expense_count\" between 0 and 200"
+        },
+        "trips_status_is_lifecycle": {
+          "name": "trips_status_is_lifecycle",
+          "value": "\"trips\".\"status\" in ('active', 'cancelled')"
         }
       },
       "isRLSEnabled": false
