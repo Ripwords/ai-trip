@@ -308,13 +308,31 @@ export default defineNuxtConfig({
 
   // Robots configuration
   robots: {
-    disallow: ["/dashboard", "/settings", "/trips", "/invite", "/explore", "/api"],
+    disallow: [
+      "/dashboard",
+      "/settings",
+      "/trips",
+      "/invite",
+      "/explore",
+      "/api",
+      "/sign-in",
+      "/oauth",
+    ],
     blockAiBots: true,
   },
 
   // Sitemap configuration
   sitemap: {
-    exclude: ["/dashboard/**", "/settings/**", "/trips/**", "/invite/**", "/explore/**", "/api/**"],
+    exclude: [
+      "/dashboard/**",
+      "/settings/**",
+      "/trips/**",
+      "/invite/**",
+      "/explore/**",
+      "/api/**",
+      "/sign-in",
+      "/oauth/**",
+    ],
     cacheMaxAgeSeconds: 600,
   },
 
@@ -362,10 +380,50 @@ export default defineNuxtConfig({
         xssValidator: false,
       },
     },
+    // Same bucket-sharing trap as get-session above, one level down: everything
+    // under /api/auth/oauth2/** keys on a single ip + pattern bucket, so
+    // authorize, consent, public-client, userinfo AND token refresh all draw
+    // from one budget. 30/min is a credential-endpoint budget and would strand
+    // an office or VPN egress IP whose users connect the same MCP client, or a
+    // long-lived agent refreshing its access token. 120 leaves room for that
+    // while staying well under the global 300 — these are deliberate,
+    // low-frequency actions per user, not a per-navigation read like
+    // get-session. Note better-auth applies its own 30/60s limit to
+    // /oauth2/authorize independently of this.
+    "/api/auth/oauth2/**": {
+      security: {
+        rateLimiter: { tokensPerInterval: 120, interval: 60000 },
+        xssValidator: false,
+      },
+    },
     "/api/auth/**": {
       security: {
         rateLimiter: { tokensPerInterval: 30, interval: 60000 },
         xssValidator: false,
+      },
+    },
+    // Tool calling, not a credential endpoint: one agent session opens with
+    // initialize + tools/list and then spends a request per tool call, so a
+    // single multi-step planning turn can run to dozens. 30/min would break
+    // ordinary use. This sits in the same class as get-session — a hot path
+    // driven by normal usage — so it gets the same 300. Bearer-token auth
+    // scopes it, the monthly AI credit caps the expensive work behind it, and
+    // the underlying trip endpoints keep their own limits; this is a burst
+    // guard, not the security control. xssValidator off because JSON-RPC
+    // arguments legitimately carry free text (place names, trip notes).
+    "/api/mcp": {
+      security: {
+        rateLimiter: { tokensPerInterval: 300, interval: 60000 },
+        xssValidator: false,
+      },
+    },
+    // Unauthenticated, cacheable OAuth/OIDC discovery documents that every MCP
+    // client fetches before it can do anything at all. Rate-limiting these into
+    // a 429 breaks connection setup with an error that points nowhere near the
+    // cause, and several clients behind one NAT all probe them independently.
+    "/.well-known/**": {
+      security: {
+        rateLimiter: { tokensPerInterval: 600, interval: 60000 },
       },
     },
     "/api/visa/**": {
