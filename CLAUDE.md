@@ -55,3 +55,23 @@ interface EnrichedLocation {
 - Nuxt fullstack project — use Nuxt server routes for backend logic
 - Never output unstructured/chat-style itineraries — always use structured JSON
 - Never hardcode or hallucinate location data — always validate against Google Maps
+
+## MCP authorization server
+
+`server/lib/auth.ts` registers `mcp()` from `@better-auth/mcp`, which turns this app into
+an OAuth 2.1 authorization server for MCP clients. Two things about it will bite you.
+
+**Regenerating the auth schema needs a manual fix.** `bun run auth:gen` (and `db:gen`, which
+calls it) still emits the OAuth tables correctly, but writes
+`clientCredentialsScopes: text("client_credentials_scopes").array().default()` — a
+`.default()` with no argument, which does not typecheck. Change it back to `.default([])`
+after every regeneration. The pinned `@better-auth/cli` is 1.4.21 and there is no 1.7.x
+release, so this is not fixable by upgrading yet.
+
+**The app will not boot against a database missing migration 0044.** The oauth-provider's
+`init` hook seeds a row into `oauth_resource`, and better-auth memoizes the auth context per
+process. If that table is absent the whole context fails, so _every_ authenticated route
+500s — including `/api/auth/get-session` — and it does not recover when the database
+catches up, only on a process restart. Production is safe because `vercel-build` runs
+`drizzle-kit migrate` first, but that step is skipped when `VERCEL_ENV` is not `production`,
+so any preview pointed at an unmigrated database is fully broken rather than degraded.
