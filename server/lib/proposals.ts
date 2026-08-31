@@ -1,3 +1,4 @@
+import "zod/compile"
 import { randomUUID } from "node:crypto"
 import { and, asc, eq, inArray } from "drizzle-orm"
 import { z } from "zod"

@@ -1,3 +1,4 @@
+import "zod/compile"
 import { eq, and, type SQL } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../../db"

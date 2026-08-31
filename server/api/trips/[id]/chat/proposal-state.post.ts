@@ -1,3 +1,4 @@
+import "zod/compile"
 import { z } from "zod"
 import { uuidParamsSchema } from "../../../../utils/schemas"
 import { recordProposalState } from "../../../../lib/trip-chat"

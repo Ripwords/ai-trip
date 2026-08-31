@@ -1,3 +1,4 @@
+import "zod/compile"
 import { z } from "zod"
 import type { GenerationRunStartResponse } from "#shared/utils/generation-run-contract"
 import { uuidParamsSchema } from "../../../utils/schemas"

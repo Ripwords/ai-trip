@@ -1,3 +1,4 @@
+import "zod/compile"
 import { eq } from "drizzle-orm"
 import { db } from "../../db"
 import { visaRequirements } from "../../db/schema"

@@ -67,7 +67,7 @@
     "vue-router": "^5.1.0",
     "vuedraggable": "4.1.0",
     "ws": "^8.21.0",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@better-auth/cli": "^1.4.21",

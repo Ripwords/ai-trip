@@ -1,3 +1,4 @@
+import "zod/compile"
 import { generateText, Output, stepCountIs } from "ai"
 import { google } from "@ai-sdk/google"
 import { z } from "zod"

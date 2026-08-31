@@ -92,6 +92,15 @@ export default defineNuxtConfig({
           },
         }
       : {}),
+    // Keep `import "zod/compile"` in the bundle. Nitro replaces Rollup's
+    // treeshake.moduleSideEffects with its own matcher, which consults this
+    // allowlist and never reads a package's own `sideEffects` field. Zod
+    // declares `sideEffects: ["./compile.js"]`, but Nitro cannot see it, so
+    // every side-effect-only `import "zod/compile"` was dropped from
+    // .output and the AOT compiler never installed in production. It still
+    // ran under `nuxt dev` and `bun test`, neither of which treeshakes,
+    // which is what made the no-op invisible.
+    moduleSideEffects: ["zod/compile"],
     externals: {
       // @mastra/* was inlined here while the AI layer used Mastra agents; both
       // packages were removed in favour of calling the AI SDK directly.

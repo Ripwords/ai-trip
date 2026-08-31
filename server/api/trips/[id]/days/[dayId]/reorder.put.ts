@@ -1,3 +1,4 @@
+import "zod/compile"
 import { and, eq, asc } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../../../../../db"

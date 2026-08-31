@@ -1,3 +1,4 @@
+import "zod/compile"
 import { z } from "zod"
 import { transportModes } from "./transport"
 import { EXPENSE_CATEGORIES } from "../../shared/utils/expense-categories"

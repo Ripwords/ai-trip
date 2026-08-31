@@ -1,3 +1,4 @@
+import "zod/compile"
 import { createHash } from "crypto"
 import { eq } from "drizzle-orm"
 import { z } from "zod"

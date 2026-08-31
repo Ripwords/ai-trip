@@ -1,3 +1,4 @@
+import "zod/compile"
 import { tool } from "ai"
 import { z } from "zod"
 import type { TripPreferences } from "../db/schema/trips"

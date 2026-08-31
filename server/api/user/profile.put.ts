@@ -1,3 +1,4 @@
+import "zod/compile"
 import { z } from "zod"
 import { db } from "../../db"
 import { userProfiles } from "../../db/schema"

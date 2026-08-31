@@ -1,3 +1,4 @@
+import "zod/compile"
 import { z } from "zod"
 import { checkVisaRequirements } from "../../lib/visa-checker"
 import { countryByAlpha2 } from "../../../app/data/countries"

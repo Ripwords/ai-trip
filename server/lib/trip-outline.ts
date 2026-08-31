@@ -1,3 +1,4 @@
+import "zod/compile"
 import { z } from "zod"
 import type { TripPreferences } from "../db/schema/trips"
 import { sanitizePromptInput } from "../utils/sanitize"

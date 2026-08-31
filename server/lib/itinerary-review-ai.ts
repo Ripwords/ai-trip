@@ -1,3 +1,4 @@
+import "zod/compile"
 import { randomUUID } from "node:crypto"
 import { z } from "zod"
 import {

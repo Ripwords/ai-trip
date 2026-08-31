@@ -1,3 +1,4 @@
+import "zod/compile"
 import { z } from "zod"
 import { reviewItinerary, type ReviewableFlight } from "../../../lib/itinerary-review"
 import { reviewItineraryWithJudgment } from "../../../lib/itinerary-review-ai"
