@@ -1,6 +1,7 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server"
 import { z } from "zod"
 
+import { deriveTripStatus } from "../../shared/utils/trip-status"
 import { db } from "../db"
 import { addActivitySchema, createTripSchema, uuidParamsSchema } from "../utils/schemas"
 import { requireTripAccess } from "../utils/trip-access"
@@ -91,7 +92,7 @@ export const MCP_TOOLS: readonly RegisteredMcpTool[] = [
     name: "list_trips",
     title: "List trips",
     description:
-      "List every trip the signed-in user owns or is an active member of, as a compact summary.",
+      "List every trip the signed-in user owns or is an active member of, as a compact summary. Each trip's status is derived from its dates (upcoming, ongoing or completed) and reflects cancellation.",
     scope: MCP_SCOPES.read,
     inputSchema: z.object({}),
     execute: async (_input, ctx) => {
@@ -112,7 +113,9 @@ export const MCP_TOOLS: readonly RegisteredMcpTool[] = [
         orderBy: (trip, { desc }) => [desc(trip.createdAt)],
       })
 
-      return rows.map(({ days, ...trip }) => Object.assign(trip, { dayCount: days.length }))
+      return rows.map(({ days, ...trip }) =>
+        Object.assign(trip, { status: deriveTripStatus(trip), dayCount: days.length }),
+      )
     },
   }),
 
@@ -120,7 +123,7 @@ export const MCP_TOOLS: readonly RegisteredMcpTool[] = [
     name: "get_trip",
     title: "Get a trip",
     description:
-      "Fetch one trip in full: its itinerary days, the activities on each day and the travel segments between them.",
+      "Fetch one trip in full: its itinerary days, the activities on each day and the travel segments between them. The trip's status is derived from its dates (upcoming, ongoing or completed) and reflects cancellation.",
     scope: MCP_SCOPES.read,
     inputSchema: tripIdSchema,
     execute: async (input, ctx) => {
@@ -129,7 +132,7 @@ export const MCP_TOOLS: readonly RegisteredMcpTool[] = [
       const trip = await getTripWithRelations(input.tripId)
       if (!trip) throw createError({ statusCode: 404, message: "Trip not found" })
 
-      return withoutShareToken(trip)
+      return withoutShareToken({ ...trip, status: deriveTripStatus(trip) })
     },
   }),
 

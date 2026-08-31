@@ -316,6 +316,13 @@
       "when": 1788152130019,
       "tag": "0044_sloppy_energizer",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1788152130020,
+      "tag": "0045_trip_status_lifecycle",
+      "breakpoints": true
     }
   ]
 }

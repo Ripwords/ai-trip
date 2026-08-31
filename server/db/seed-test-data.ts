@@ -192,7 +192,7 @@ async function seed() {
         destination: t.destination,
         startDate: t.start,
         endDate: t.end,
-        status: "upcoming",
+        status: "active",
         preferences: {},
         currencyCode: "USD",
       })

@@ -13,6 +13,7 @@ import {
   check,
 } from "drizzle-orm/pg-core"
 import { relations, sql } from "drizzle-orm"
+import type { TripLifecycle } from "../../../shared/utils/trip-status"
 import { user } from "./auth-schema"
 import { itineraryDays } from "./itineraries"
 import { tripIdeas } from "./trip-ideas"
@@ -34,7 +35,13 @@ export const trips = pgTable(
     countryCode: char("country_code", { length: 2 }),
     startDate: date("start_date").notNull(),
     endDate: date("end_date").notNull(),
-    status: text("status").notNull().default("upcoming"),
+    /**
+     * Stores only the lifecycle fact a user can set: `active` or `cancelled`.
+     * The status a reader sees (upcoming/ongoing/completed/cancelled) is
+     * derived from the dates by `deriveTripStatus`. The column formerly held
+     * derived-looking values (`draft`, `upcoming`) that nothing ever advanced.
+     */
+    status: text("status").notNull().default("active").$type<TripLifecycle>(),
     preferences: jsonb("preferences").$type<TripPreferences>().default({}),
     budget: numeric("budget", { precision: 10, scale: 2 }),
     currencyCode: text("currency_code").notNull().default("USD"),

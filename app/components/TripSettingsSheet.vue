@@ -180,7 +180,7 @@ async function commitTripInfo() {
     const body: Record<string, unknown> = {}
     if (countryChanged.value && countryCode.value) body.countryCode = countryCode.value
     if (nameChanged.value) body.name = name.value.trim() || null
-    if (statusChanged.value) body.status = cancelled.value ? "cancelled" : "upcoming"
+    if (statusChanged.value) body.status = cancelled.value ? "cancelled" : "active"
     if (datesChanged.value) {
       body.startDate = startDate.value
       body.endDate = endDate.value

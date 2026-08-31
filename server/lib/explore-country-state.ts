@@ -1,4 +1,5 @@
 import { countryByAlpha2 } from "../../app/data/countries"
+import { deriveTripStatus } from "../../shared/utils/trip-status"
 
 export interface ManualVisitedCountryRow {
   countryCode: string
@@ -58,7 +59,7 @@ export function buildEffectiveVisitedCountries(input: {
     if (existing?.visitType === "visited") continue
     if (trip.exploreSuppressedAt) continue
 
-    const status = resolveTripStatus(trip, today)
+    const status = deriveTripStatus(trip, today)
     if (status === "completed") {
       byCountry.set(code, {
         countryCode: code,
@@ -84,18 +85,6 @@ export function buildEffectiveVisitedCountries(input: {
   return Array.from(byCountry.values())
 }
 
-function resolveTripStatus(
-  trip: ExploreTripRow,
-  today: Date,
-): "upcoming" | "ongoing" | "completed" | "cancelled" {
-  if (trip.status === "cancelled") return "cancelled"
-
-  const todayKey = dateKey(today)
-  if (trip.endDate < todayKey) return "completed"
-  if (trip.startDate > todayKey) return "upcoming"
-  return "ongoing"
-}
-
 function normalizeVisitType(value: string): EffectiveVisitedCountry["visitType"] | null {
   if (value === "visited" || value === "layover" || value === "want_to_visit") return value
   return null
@@ -105,12 +94,4 @@ function normalizeCountryCode(value: string | null): string | null {
   if (!value) return null
   const code = value.toUpperCase()
   return code.length === 2 ? code : null
-}
-
-function dateKey(date: Date): string {
-  return [
-    String(date.getFullYear()).padStart(4, "0"),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-")
 }

@@ -4,6 +4,7 @@ import { transportModes } from "./transport"
 import { EXPENSE_CATEGORIES } from "../../shared/utils/expense-categories"
 import { SPLIT_MODES } from "../../shared/utils/splits"
 import { isSupportedCurrency } from "../../shared/utils/currency"
+import { TRIP_LIFECYCLES } from "../../shared/utils/trip-status"
 import { PARTY_SIZE_MAX, PARTY_SIZE_MIN } from "../lib/party-size"
 import {
   EXPENSE_PAGE_SIZE_DEFAULT,
@@ -21,7 +22,7 @@ export const paginationSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
-export const tripStatusEnum = z.enum(["upcoming", "ongoing", "completed", "cancelled"])
+export const tripLifecycleEnum = z.enum(TRIP_LIFECYCLES)
 
 /**
  * A decimal money amount, as a string, sized to fit the `numeric(16, 2)`
@@ -103,7 +104,7 @@ export const updateTripSchema = createTripSchema
   // converts every money column in one transaction.
   .omit({ currencyCode: true })
   .extend({
-    status: tripStatusEnum.optional(),
+    status: tripLifecycleEnum.optional(),
     budget: moneyString.nullish(),
     tripNotes: z.string().nullish(),
   })
