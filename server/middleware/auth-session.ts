@@ -15,7 +15,9 @@ declare module "h3" {
 //  - /api/**   every handler already calls requireAuth(event) itself, and
 //              better-auth's own routes resolve the session internally.
 //  - assets    _nuxt, _ipx, favicons, source maps and friends.
-const SKIP = /^\/(api|_nuxt|_ipx|_vercel|__nuxt|favicon|apple-touch-icon|sw\.js|manifest)/
+//  - .well-known  OAuth discovery, probed unauthenticated by MCP clients.
+const SKIP =
+  /^\/(api|_nuxt|_ipx|_vercel|__nuxt|favicon|apple-touch-icon|sw\.js|manifest|\.well-known)/
 
 /**
  * Resolves the session for document requests via better-auth's server API — a
