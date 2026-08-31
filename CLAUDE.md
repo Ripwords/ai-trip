@@ -59,7 +59,17 @@ interface EnrichedLocation {
 ## MCP authorization server
 
 `server/lib/auth.ts` registers `mcp()` from `@better-auth/mcp`, which turns this app into
-an OAuth 2.1 authorization server for MCP clients. Two things about it will bite you.
+an OAuth 2.1 authorization server for MCP clients. Three things about it will bite you.
+
+**Client registration is open on purpose.** `allowDynamicClientRegistration` alone is not
+enough: the provider authorizes a registration through one of three modes, and with only that
+flag set the sole surviving mode is session-backed, which every standard MCP client fails —
+they register before anyone has signed in, so they never reach the browser step that would
+create the session. `allowUnauthenticatedClientRegistration: true` opens the third mode.
+`clientPrivileges` is not the gate for this and never was; it is skipped entirely when there
+is no session. Registering grants nothing on its own — a real user still passes `/sign-in`
+and `/oauth/consent`, and the provider refuses `client_credentials` to an unauthenticated
+registration — so the consent screen, not registration, is where a hostile client is stopped.
 
 **Regenerating the auth schema needs a manual fix.** `bun run auth:gen` (and `db:gen`, which
 calls it) still emits the OAuth tables correctly, but writes

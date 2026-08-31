@@ -208,8 +208,16 @@ export const auth = betterAuth({
       consentPage: "/oauth/consent",
       resource: MCP_RESOURCE,
       allowDynamicClientRegistration: true,
+      // MCP clients register before anyone has signed in — that is the whole
+      // shape of the flow, and a session-only gate locks every standard client
+      // out at discovery. Registration on its own grants nothing: the client
+      // still has to send a real user through /sign-in and /oauth/consent, and
+      // the provider refuses `client_credentials` to an unauthenticated
+      // registration, so no token is reachable without a human.
+      allowUnauthenticatedClientRegistration: true,
       scopes: ["openid", "profile", "email", "offline_access", "trips:read", "trips:write"],
-      // Without a callback there is no privilege check at all: any signed-in
+      // Session-backed registration and every other client mutation still run
+      // through this. Without a callback there is no privilege check at all: any signed-in
       // user could register a client. A falsy return denies, and `undefined`
       // is falsy, so every allowed case must return `true` explicitly. `banned`
       // reaches us through the admin plugin's index signature, hence the narrowing.
