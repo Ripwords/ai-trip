@@ -1,12 +1,59 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { dash } from "@better-auth/infra"
+import { mcp } from "@better-auth/mcp"
 import { eq, and } from "drizzle-orm"
 import { db } from "../db"
-import { admin } from "better-auth/plugins"
+import { admin, jwt } from "better-auth/plugins"
 import { activityLog, tripMembers, user as userTable } from "../db/schema"
 
 if (!process.env.BETTER_AUTH_SECRET) throw new Error("BETTER_AUTH_SECRET must be set")
+
+/** Where better-auth is mounted. Also the path RFC 8414 clients insert into the
+ *  `/.well-known/oauth-authorization-server` probe, hence the export. */
+export const AUTH_BASE_PATH = "/api/auth"
+
+const MCP_RESOURCE_PATH = "/api/mcp"
+const MCP_RESOURCE_FALLBACK = `http://localhost:3000${MCP_RESOURCE_PATH}`
+
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"])
+
+/**
+ * The RFC 8707 resource identifier for this MCP server.
+ *
+ * `mcp()` validates this at construction time and *throws* on anything that is
+ * not HTTPS or HTTP-on-loopback — which would take down the whole app at import
+ * time. `nuxt dev --host` advertising `http://192.168.1.5:3000` is exactly that
+ * case, so an unusable base degrades to the loopback default instead.
+ */
+function resolveMcpResource(base: string | undefined): string {
+  if (!base) {
+    console.warn(
+      `[mcp] NUXT_PUBLIC_BETTER_AUTH_URL is unset; MCP resource falls back to ${MCP_RESOURCE_FALLBACK}`,
+    )
+    return MCP_RESOURCE_FALLBACK
+  }
+
+  let url: URL
+  try {
+    url = new URL(MCP_RESOURCE_PATH, base)
+  } catch {
+    console.warn(
+      `[mcp] NUXT_PUBLIC_BETTER_AUTH_URL is not a URL (${base}); MCP resource falls back to ${MCP_RESOURCE_FALLBACK}`,
+    )
+    return MCP_RESOURCE_FALLBACK
+  }
+
+  if (url.protocol === "https:") return url.toString()
+  if (url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname)) return url.toString()
+
+  console.warn(
+    `[mcp] NUXT_PUBLIC_BETTER_AUTH_URL (${base}) is neither HTTPS nor loopback HTTP, which the MCP resource must be; falling back to ${MCP_RESOURCE_FALLBACK}`,
+  )
+  return MCP_RESOURCE_FALLBACK
+}
+
+export const MCP_RESOURCE = resolveMcpResource(process.env.NUXT_PUBLIC_BETTER_AUTH_URL)
 
 const useSecure =
   process.env.BETTER_AUTH_URL?.startsWith("https://") ?? process.env.NODE_ENV === "production"
@@ -14,7 +61,7 @@ const useSecure =
 export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.NUXT_PUBLIC_BETTER_AUTH_URL,
-  basePath: "/api/auth",
+  basePath: AUTH_BASE_PATH,
   appName: "AI Trip",
   experimental: {
     joins: true, // Enable database joins for better performance
@@ -141,6 +188,8 @@ export const auth = betterAuth({
       // Stricter rate limits on auth endpoints to prevent brute force
       "/sign-in/*": { window: 60, max: 10 },
       "/callback/*": { window: 60, max: 10 },
+      "/oauth2/token": { window: 60, max: 20 },
+      "/oauth2/register": { window: 3600, max: 5 },
     },
   },
   plugins: [
@@ -150,6 +199,21 @@ export const auth = betterAuth({
         enabled: true,
         updateInterval: 300000, // Update interval in ms (default: 5 minutes)
       },
+    }),
+    // The oauth-provider behind mcp() reads the JWT plugin's options unguarded,
+    // so the authorize flow throws without this.
+    jwt(),
+    mcp({
+      loginPage: "/sign-in",
+      consentPage: "/oauth/consent",
+      resource: MCP_RESOURCE,
+      allowDynamicClientRegistration: true,
+      scopes: ["openid", "profile", "email", "offline_access", "trips:read", "trips:write"],
+      // Without a callback there is no privilege check at all: any signed-in
+      // user could register a client. A falsy return denies, and `undefined`
+      // is falsy, so every allowed case must return `true` explicitly. `banned`
+      // reaches us through the admin plugin's index signature, hence the narrowing.
+      clientPrivileges: ({ user }) => user != null && user.banned !== true,
     }),
   ],
 })

@@ -309,6 +309,13 @@
       "when": 1785926419618,
       "tag": "0043_activity_touches_day",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1788152130019,
+      "tag": "0044_sloppy_energizer",
+      "breakpoints": true
     }
   ]
 }
