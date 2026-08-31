@@ -74,6 +74,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   const target = resolveAuthRedirect({
     path: to.path,
+    // `/oauth/consent` bounces a signed-out visitor to `/sign-in` carrying this
+    // verbatim. Rebuilding it from `to.query` would drop the repeated `resource`
+    // and `ba_param` entries that the authorization signature covers.
+    search: to.fullPath.startsWith(to.path) ? to.fullPath.slice(to.path.length) : "",
     isAuthenticated,
     isServer: import.meta.server,
   })
