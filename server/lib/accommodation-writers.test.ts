@@ -58,7 +58,7 @@ const CANNOT_DRIFT: Record<string, string> = {
   "lib/booking-sync.ts": "the reconciler",
   "lib/stays.ts": "syncDayAccommodation, the single writer",
   // Inserts blank days at trip creation — no accommodation to imply a run.
-  "api/trips/index.post.ts": "inserts days with no accommodation",
+  "lib/trip-writes.ts": "inserts days with no accommodation",
   // Sets `stay_id` only, deliberately leaving `accommodation_*` untouched.
   "db/backfill-stays.ts": "links days to stays, never rewrites the cache",
   // Columns unrelated to accommodation.
