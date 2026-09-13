@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import draggable from "vuedraggable"
+import { VueDraggable } from "vue-draggable-plus"
 
 interface Activity {
   id: string
@@ -79,7 +79,7 @@ watch(
   () => props.day.activities,
   (newActivities) => {
     // Don't clobber the local order mid-drag; otherwise keep the rendered list
-    // (localActivities drives the <draggable>) in sync with the source of truth.
+    // (localActivities drives the <VueDraggable>) in sync with the source of truth.
     if (!isDragging.value) localActivities.value = [...newActivities]
   },
   { deep: true, immediate: true },
@@ -160,9 +160,8 @@ function timeToMinutes(time: string): number | null {
     </p>
 
     <div v-if="day.activities.length" class="pl-3 sm:pl-5 border-l-2 border-terra-200">
-      <draggable
+      <VueDraggable
         v-model="localActivities"
-        item-key="id"
         handle=".drag-handle"
         :disabled="readonly"
         ghost-class="opacity-30"
@@ -177,46 +176,44 @@ function timeToMinutes(time: string): number | null {
         @start="isDragging = true"
         @end="handleDragEnd"
       >
-        <template #item="{ element: activity, index }">
-          <div>
-            <!-- Time conflict warning -->
-            <div
-              v-if="isOutOfOrder(index)"
-              class="mb-2 flex items-center gap-1.5 rounded-lg bg-terra-50 px-3 py-2 text-sm text-terra-700"
-            >
-              <Icon name="lucide:alert-triangle" class="h-3.5 w-3.5 shrink-0" />
-              <span>Schedule conflict: activities overlap in time</span>
-            </div>
+        <div v-for="(activity, index) in localActivities" :key="activity.id">
+          <!-- Time conflict warning -->
+          <div
+            v-if="isOutOfOrder(index)"
+            class="mb-2 flex items-center gap-1.5 rounded-lg bg-terra-50 px-3 py-2 text-sm text-terra-700"
+          >
+            <Icon name="lucide:alert-triangle" class="h-3.5 w-3.5 shrink-0" />
+            <span>Schedule conflict: activities overlap in time</span>
+          </div>
 
-            <div :id="`activity-${activity.id}`">
-              <ActivityCard
-                :activity="activity"
-                :index="index"
-                :currency-code="currencyCode"
-                :highlighted="activity.id === highlightedActivityId"
-                :readonly="readonly"
-                :participants="participantsMap?.[activity.id]"
-                :members="members"
-                @edit="emit('editActivity', $event)"
-                @delete="emit('deleteActivity', $event)"
-                @click="emit('clickActivity', $event)"
-                @toggle-participant="
-                  (activityId: string, userId: string) =>
-                    emit('toggleParticipant', activityId, userId)
-                "
-              />
-            </div>
-            <TravelSegmentDivider
-              v-if="index < localActivities.length - 1 && !isDragging"
-              :duration-text="getSegmentForActivity(activity.id)?.durationText ?? null"
-              :distance-text="getSegmentForActivity(activity.id)?.distanceText ?? null"
-              :mode="getSegmentForActivity(activity.id)?.mode ?? travelMode ?? null"
-              :preferred-mode="travelMode ?? null"
-              :maps-url="getPairMapsUrl(activity, localActivities[index + 1])"
+          <div :id="`activity-${activity.id}`">
+            <ActivityCard
+              :activity="activity"
+              :index="index"
+              :currency-code="currencyCode"
+              :highlighted="activity.id === highlightedActivityId"
+              :readonly="readonly"
+              :participants="participantsMap?.[activity.id]"
+              :members="members"
+              @edit="emit('editActivity', $event)"
+              @delete="emit('deleteActivity', $event)"
+              @click="emit('clickActivity', $event)"
+              @toggle-participant="
+                (activityId: string, userId: string) =>
+                  emit('toggleParticipant', activityId, userId)
+              "
             />
           </div>
-        </template>
-      </draggable>
+          <TravelSegmentDivider
+            v-if="index < localActivities.length - 1 && !isDragging"
+            :duration-text="getSegmentForActivity(activity.id)?.durationText ?? null"
+            :distance-text="getSegmentForActivity(activity.id)?.distanceText ?? null"
+            :mode="getSegmentForActivity(activity.id)?.mode ?? travelMode ?? null"
+            :preferred-mode="travelMode ?? null"
+            :maps-url="getPairMapsUrl(activity, localActivities[index + 1])"
+          />
+        </div>
+      </VueDraggable>
 
       <button
         v-if="!readonly"

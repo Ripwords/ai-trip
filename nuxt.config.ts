@@ -155,7 +155,7 @@ export default defineNuxtConfig({
         "dayjs/plugin/relativeTime", // CJS
         "dayjs/plugin/utc", // CJS
         "@better-auth/infra/client",
-        "vuedraggable", // CJS
+        "vue-draggable-plus",
         "sortablejs",
         "better-auth/client/plugins",
         "@googlemaps/markerclusterer",

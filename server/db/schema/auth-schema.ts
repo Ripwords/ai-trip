@@ -1,5 +1,14 @@
 import { relations } from "drizzle-orm"
-import { pgTable, text, timestamp, boolean, integer, jsonb, index } from "drizzle-orm/pg-core"
+import {
+  pgTable,
+  text,
+  timestamp,
+  boolean,
+  integer,
+  jsonb,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/pg-core"
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -164,6 +173,10 @@ export const oauthClientResource = pgTable(
     createdAt: timestamp("created_at"),
   },
   (table) => [
+    uniqueIndex("oauthClientResource_clientId_resourceId_uidx").on(
+      table.clientId,
+      table.resourceId,
+    ),
     index("oauthClientResource_clientId_idx").on(table.clientId),
     index("oauthClientResource_resourceId_idx").on(table.resourceId),
   ],
@@ -187,8 +200,8 @@ export const oauthRefreshToken = pgTable(
     authorizationCodeId: text("authorization_code_id"),
     resources: text("resources").array(),
     requestedUserInfoClaims: text("requested_user_info_claims").array(),
-    expiresAt: timestamp("expires_at"),
-    createdAt: timestamp("created_at"),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").notNull(),
     revoked: timestamp("revoked"),
     rotatedAt: timestamp("rotated_at"),
     rotationReplayResponse: text("rotation_replay_response"),
@@ -209,7 +222,7 @@ export const oauthAccessToken = pgTable(
   "oauth_access_token",
   {
     id: text("id").primaryKey(),
-    token: text("token").unique(),
+    token: text("token").notNull().unique(),
     clientId: text("client_id")
       .notNull()
       .references(() => oauthClient.clientId, { onDelete: "cascade" }),
@@ -224,8 +237,8 @@ export const oauthAccessToken = pgTable(
     refreshId: text("refresh_id").references(() => oauthRefreshToken.id, {
       onDelete: "cascade",
     }),
-    expiresAt: timestamp("expires_at"),
-    createdAt: timestamp("created_at"),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").notNull(),
     revoked: timestamp("revoked"),
     confirmation: jsonb("confirmation"),
     scopes: text("scopes").array().notNull(),
@@ -251,8 +264,8 @@ export const oauthConsent = pgTable(
     resources: text("resources").array(),
     requestedUserInfoClaims: text("requested_user_info_claims").array(),
     scopes: text("scopes").array().notNull(),
-    createdAt: timestamp("created_at"),
-    updatedAt: timestamp("updated_at"),
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
   },
   (table) => [
     index("oauthConsent_clientId_idx").on(table.clientId),
