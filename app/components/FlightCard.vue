@@ -92,8 +92,7 @@ function onLogoError() {
   logoSourceIdx.value++
 }
 
-const todayIso = new Date().toISOString().split("T")[0]!
-const flown = computed(() => hasFlown(props.flight, todayIso))
+const flown = computed(() => hasFlown(props.flight))
 const block = computed(() => blockMinutes(props.flight))
 const notes = computed(() => delayNotes(props.flight))
 

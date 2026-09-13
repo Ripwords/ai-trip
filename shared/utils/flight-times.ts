@@ -1,5 +1,3 @@
-import { isUpcomingFlight, type OrderableFlight } from "./flight-order"
-
 /**
  * A leg's four clock readings, kept apart so a delay can never be mistaken for
  * a change to the booking.
@@ -21,6 +19,11 @@ function instant(value: string | Date | null): number | null {
   if (!value) return null
   const ms = value instanceof Date ? value.getTime() : Date.parse(value)
   return Number.isNaN(ms) ? null : ms
+}
+
+function isPast(value: string | Date | null, now: number): boolean {
+  const ms = instant(value)
+  return ms !== null && ms <= now
 }
 
 function minutesBetween(from: string | Date | null, to: string | Date | null): number | null {
@@ -61,15 +64,20 @@ export function blockMinutes(
 }
 
 /**
- * Has this leg already operated, as of the UTC day `todayIso` names?
+ * Has this leg already operated, as of the instant `now`?
  *
  * Actuals alone are not proof. AeroDataBox's `revisedTime` is the airline's own
  * estimate until the leg operates, so an upcoming delayed flight already reports
- * a non-null actual.
+ * a non-null actual arrival for an arrival that has not happened. Comparing that
+ * instant against the clock is what separates the estimate from the event.
+ *
+ * The UTC day is too coarse to ask this. It cannot tell a leg that landed an
+ * hour ago from one still in the air, and it answers no all day for a leg the
+ * traveler watched land this morning.
  */
-export function hasFlown(flight: LegTimes & OrderableFlight, todayIso: string): boolean {
-  if (!flight.actualDepartureTime || !flight.actualArrivalTime) return false
-  return !isUpcomingFlight(flight, todayIso)
+export function hasFlown(flight: LegTimes, now: number = Date.now()): boolean {
+  if (instant(flight.actualDepartureTime) === null) return false
+  return isPast(flight.actualArrivalTime, now)
 }
 
 /**

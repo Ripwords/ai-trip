@@ -120,10 +120,7 @@ function computeLayoverMinutes(
   return diff
 }
 
-export function useLayoverDetection(
-  flights: Ref<FlightItem[] | null>,
-  todayIso: string = new Date().toISOString().split("T")[0]!,
-) {
+export function useLayoverDetection(flights: Ref<FlightItem[] | null>, now: number = Date.now()) {
   const flightListItems = computed<FlightListItem[]>(() => {
     const sorted = flights.value
     if (!sorted || sorted.length === 0) return []
@@ -153,7 +150,7 @@ export function useLayoverDetection(
 
       const scheduledMinutes = computeLayoverMinutes(inbound, outbound, "scheduled")
       const actualMinutes = computeLayoverMinutes(inbound, outbound, "actual")
-      const retrospective = hasFlown(inbound, todayIso) && hasFlown(outbound, todayIso)
+      const retrospective = hasFlown(inbound, now) && hasFlown(outbound, now)
 
       const minutesByBasis = { actual: actualMinutes, scheduled: scheduledMinutes }
       const preference: ("actual" | "scheduled")[] = retrospective

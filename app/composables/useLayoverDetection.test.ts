@@ -42,8 +42,8 @@ function sinConnection(): FlightItem[] {
   ]
 }
 
-function layovers(items: FlightItem[], todayIso = "2026-09-01"): LayoverInfo[] {
-  const { flightListItems } = useLayoverDetection(ref(items), todayIso)
+function layovers(items: FlightItem[], nowIso = "2026-09-01T00:00:00Z"): LayoverInfo[] {
+  const { flightListItems } = useLayoverDetection(ref(items), Date.parse(nowIso))
   return flightListItems.value.filter((i): i is LayoverInfo => i.type === "layover")
 }
 
@@ -126,7 +126,7 @@ describe("useLayoverDetection", () => {
 
 describe("a booked 6h layover at CDG whose onward leg pushed back 2h13m", () => {
   it("reports the booked and the real ground time, each off its own clock", () => {
-    const [layover] = layovers(cdgConnection(), "2026-08-20")
+    const [layover] = layovers(cdgConnection(), "2026-08-20T00:00:00Z")
     assert.equal(layover?.scheduledMinutes, 360)
     assert.equal(layover?.actualMinutes, 493)
   })
@@ -139,17 +139,17 @@ describe("a booked 6h layover at CDG whose onward leg pushed back 2h13m", () => 
     const flights = cdgConnection()
     flights[0] = flight({ ...flights[0]!, actualArrivalTime: "2026-08-16T07:40:00.000Z" })
 
-    for (const todayIso of ["2026-08-10", "2026-08-20"]) {
-      const [layover] = layovers(flights, todayIso)
+    for (const nowIso of ["2026-08-10T00:00:00Z", "2026-08-20T00:00:00Z"]) {
+      const [layover] = layovers(flights, nowIso)
       assert.ok(
         layover?.durationMinutes === 360 || layover?.durationMinutes === 513,
-        `headlined ${layover?.durationMinutes} on ${todayIso}`,
+        `headlined ${layover?.durationMinutes} on ${nowIso}`,
       )
     }
   })
 
   it("headlines the real ground time and drops the advice once both legs have flown", () => {
-    const [layover] = layovers(cdgConnection(), "2026-08-20")
+    const [layover] = layovers(cdgConnection(), "2026-08-20T00:00:00Z")
     assert.equal(layover?.retrospective, true)
     assert.equal(layover?.durationMinutes, 493)
     assert.equal(layover?.basis, "actual")
@@ -158,7 +158,7 @@ describe("a booked 6h layover at CDG whose onward leg pushed back 2h13m", () => 
   })
 
   it("headlines the booking while the legs are still upcoming", () => {
-    const [layover] = layovers(cdgConnection(), "2026-08-10")
+    const [layover] = layovers(cdgConnection(), "2026-08-10T00:00:00Z")
     assert.equal(layover?.retrospective, false)
     assert.equal(layover?.durationMinutes, 360)
     assert.equal(layover?.basis, "scheduled")
@@ -167,7 +167,7 @@ describe("a booked 6h layover at CDG whose onward leg pushed back 2h13m", () => 
 
   it("is not retrospective merely because the airline published its delay", () => {
     // Both legs carry actuals a week out; nothing has flown.
-    const [layover] = layovers(cdgConnection(), "2026-08-10")
+    const [layover] = layovers(cdgConnection(), "2026-08-10T00:00:00Z")
     assert.equal(layover?.retrospective, false)
   })
 
@@ -179,7 +179,7 @@ describe("a booked 6h layover at CDG whose onward leg pushed back 2h13m", () => 
       actualDepartureTime: "2026-08-16T13:03:00.000Z",
       departureTime: "2026-08-16T13:03:00.000Z",
     })
-    const [layover] = layovers(flights, "2026-08-10")
+    const [layover] = layovers(flights, "2026-08-10T00:00:00Z")
     assert.equal(layover?.scheduledMinutes, 170)
     assert.equal(layover?.actualMinutes, 303)
     assert.equal(layover?.recommendationLabel, "Stay in airport")
