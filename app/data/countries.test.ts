@@ -1,12 +1,15 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 
+import { isSupportedCurrency } from "#shared/utils/currency"
+
 import {
   countries,
   countryByAlpha2,
   countryCenter,
   countryCurrency,
   countryZoom,
+  defaultTripCurrency,
   isCountryCode,
 } from "./countries"
 
@@ -116,5 +119,44 @@ describe("helper accessors", () => {
     assert.equal(isCountryCode("ZZ"), false)
     assert.equal(isCountryCode(""), false)
     assert.equal(isCountryCode(null), false)
+  })
+})
+
+describe("defaultTripCurrency", () => {
+  it("only ever preselects a currency POST /api/trips will accept", () => {
+    for (const c of countries) {
+      const picked = defaultTripCurrency(c.alpha2)
+      assert.ok(
+        isSupportedCurrency(picked),
+        `${c.alpha2} (${c.name}) preselects ${picked}, which POST /api/trips rejects`,
+      )
+    }
+  })
+
+  it("keeps the country's own currency when it is supported", () => {
+    assert.equal(defaultTripCurrency("JP"), "JPY")
+    assert.equal(defaultTripCurrency("MY"), "MYR")
+    assert.equal(defaultTripCurrency("CH"), "CHF")
+    assert.equal(defaultTripCurrency("FR"), "EUR")
+  })
+
+  it("falls back to USD when the FX provider cannot price the currency", () => {
+    assert.equal(countryCurrency("DZ"), "DZD")
+    assert.equal(defaultTripCurrency("DZ"), "USD")
+    assert.equal(countryCurrency("EG"), "EGP")
+    assert.equal(defaultTripCurrency("EG"), "USD")
+  })
+
+  it("falls back to USD for three-decimal currencies", () => {
+    assert.equal(countryCurrency("KW"), "KWD")
+    assert.equal(defaultTripCurrency("KW"), "USD")
+    assert.equal(countryCurrency("BH"), "BHD")
+    assert.equal(defaultTripCurrency("BH"), "USD")
+  })
+
+  it("falls back to USD for an unknown or absent country", () => {
+    assert.equal(defaultTripCurrency("ZZ"), "USD")
+    assert.equal(defaultTripCurrency(null), "USD")
+    assert.equal(defaultTripCurrency(undefined), "USD")
   })
 })
