@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
-import { dash } from "@better-auth/infra"
+import { dash, sentinel } from "@better-auth/infra"
 import { mcp } from "@better-auth/mcp"
 import { eq, and } from "drizzle-orm"
 import { db } from "../db"
@@ -196,6 +196,7 @@ export const auth = betterAuth({
   },
   plugins: [
     admin(),
+    sentinel(),
     dash({
       activityTracking: {
         enabled: true,
