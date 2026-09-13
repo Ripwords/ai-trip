@@ -1,6 +1,7 @@
 import { countryByAlpha2 } from "../data/countries"
 import { iataToCountry } from "./iata-to-country"
 import { compareFlightsByDeparture } from "#shared/utils/flight-order"
+import { connectionMinutes } from "#shared/utils/flight-times"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const PRE_TRIP_WINDOW_DAYS = 7
@@ -24,6 +25,15 @@ export interface DashboardFlight {
   arrivalAirport: string | null
   departureTime: string | null
   arrivalTime: string | null
+  /**
+   * The booked pair and the operated pair, kept apart. `departureTime` and
+   * `arrivalTime` above coalesce them per end, which is safe to display and
+   * unsafe to subtract.
+   */
+  scheduledDepartureTime: string | null
+  actualDepartureTime: string | null
+  scheduledArrivalTime: string | null
+  actualArrivalTime: string | null
   terminal?: string | null
   gate?: string | null
   status?: string | null
@@ -378,10 +388,13 @@ function buildOutboundFlightChain(flights: DashboardFlight[]): DashboardFlight[]
   return chain
 }
 
+const MAX_CONNECTION_MINUTES = 36 * 60
+
 function isLikelyConnection(previous: DashboardFlight, next: DashboardFlight): boolean {
-  if (previous.arrivalTime && next.departureTime) {
-    const gap = new Date(next.departureTime).getTime() - new Date(previous.arrivalTime).getTime()
-    return gap >= 0 && gap <= 36 * 60 * 60 * 1000
+  const gap =
+    connectionMinutes(previous, next, "actual") ?? connectionMinutes(previous, next, "scheduled")
+  if (gap !== null) {
+    return gap >= 0 && gap <= MAX_CONNECTION_MINUTES
   }
 
   const dayGap =
