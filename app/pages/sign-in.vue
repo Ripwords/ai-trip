@@ -33,7 +33,7 @@ function signInWithGoogle() {
     // the repeated `resource` and `ba_param` entries the authorization signature
     // covers. `resolveSignInTarget` owns where this may send someone afterwards.
     callbackURL: resolveSignInTarget(window.location.search),
-    errorCallbackURL: "/",
+    errorCallbackURL: "/auth/error",
   })
 }
 </script>

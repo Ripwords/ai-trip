@@ -105,6 +105,9 @@ export const auth = betterAuth({
       strategy: "jwe", // Use JWE strategy for best security
     },
   },
+  onAPIError: {
+    errorURL: "/auth/error",
+  },
   advanced: {
     // Use secure, httpOnly cookies — prevents XSS from stealing session tokens
     cookiePrefix: "ai-trip",

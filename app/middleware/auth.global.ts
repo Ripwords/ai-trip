@@ -1,5 +1,10 @@
 import type { AuthState } from "../utils/auth-redirect"
-import { isGuestOnlyPath, isProtectedPath, resolveAuthRedirect } from "../utils/auth-redirect"
+import {
+  isAuthErrorPath,
+  isGuestOnlyPath,
+  isProtectedPath,
+  resolveAuthRedirect,
+} from "../utils/auth-redirect"
 
 /**
  * Server-side: the session was already resolved by `server/middleware/auth-session.ts`
@@ -51,6 +56,29 @@ async function authStateFromClient(): Promise<AuthState> {
   return cached.value
 }
 
+/**
+ * Never navigate while Vue is still hydrating: the router would swap routes
+ * before mount, making Vue hydrate the target page's vnodes against the current
+ * page's server-rendered DOM. Dev builds detect and repair the mismatches
+ * ("Hydration completed but contains mismatches"); production builds skip that
+ * recovery and leave a corrupted, half-rendered page (landing hero grafted into
+ * the dashboard, blank content). Defer the redirect until hydration has
+ * finished instead.
+ */
+function redirect(target: string | null) {
+  if (!target) return
+
+  const nuxtApp = useNuxtApp()
+  if (import.meta.client && nuxtApp.isHydrating) {
+    nuxtApp.hooks.hookOnce("app:suspense:resolve", () => {
+      navigateTo(target)
+    })
+    return
+  }
+
+  return navigateTo(target)
+}
+
 export default defineNuxtRouteMiddleware(async (to) => {
   // Sign-out redirect carries ?logout=1 — skip the auth check so we don't
   // race BetterAuth's cookie clearing and bounce back to /dashboard via the
@@ -60,8 +88,31 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   const needsAuth = isProtectedPath(to.path)
   const guestOnly = isGuestOnlyPath(to.path)
+  const authError = isAuthErrorPath(to.path)
 
-  if (!needsAuth && !guestOnly) return
+  if (!needsAuth && !guestOnly && !authError) return
+
+  // The raw query string, not a rebuild from `to.query`: `/oauth/consent`
+  // bounces a signed-out visitor to `/sign-in` carrying this verbatim, and
+  // flattening it to an object would drop the repeated `resource` and
+  // `ba_param` entries that the authorization signature covers.
+  const search = to.fullPath.startsWith(to.path) ? to.fullPath.slice(to.path.length) : ""
+
+  // `/auth/error` is better-auth's `onAPIError.errorURL` target and nothing else
+  // routes there, so whether it may render is settled by its query string alone.
+  // Short-circuited before any session lookup on purpose: the page exists for
+  // the moment auth itself broke, and `resolveAuthRedirect` decides this case
+  // ahead of its session gate, so `"unknown"` here is honest rather than a stub.
+  if (authError) {
+    return redirect(
+      resolveAuthRedirect({
+        path: to.path,
+        search,
+        isAuthenticated: "unknown",
+        isServer: import.meta.server,
+      }),
+    )
+  }
 
   // `/` is served from a shared ISR edge cache (see nuxt.config routeRules).
   // Never touch the session or redirect for a guest-only route on the server:
@@ -72,32 +123,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   const isAuthenticated = import.meta.server ? authStateFromRequest() : await authStateFromClient()
 
-  const target = resolveAuthRedirect({
-    path: to.path,
-    // `/oauth/consent` bounces a signed-out visitor to `/sign-in` carrying this
-    // verbatim. Rebuilding it from `to.query` would drop the repeated `resource`
-    // and `ba_param` entries that the authorization signature covers.
-    search: to.fullPath.startsWith(to.path) ? to.fullPath.slice(to.path.length) : "",
-    isAuthenticated,
-    isServer: import.meta.server,
-  })
-
-  if (!target) return
-
-  // Never navigate while Vue is still hydrating: the router would swap routes
-  // before mount, making Vue hydrate the target page's vnodes against the
-  // current page's server-rendered DOM. Dev builds detect and repair the
-  // mismatches ("Hydration completed but contains mismatches"); production
-  // builds skip that recovery and leave a corrupted, half-rendered page
-  // (landing hero grafted into the dashboard, blank content). Defer the
-  // redirect until hydration has finished instead.
-  const nuxtApp = useNuxtApp()
-  if (import.meta.client && nuxtApp.isHydrating) {
-    nuxtApp.hooks.hookOnce("app:suspense:resolve", () => {
-      navigateTo(target)
-    })
-    return
-  }
-
-  return navigateTo(target)
+  return redirect(
+    resolveAuthRedirect({
+      path: to.path,
+      search,
+      isAuthenticated,
+      isServer: import.meta.server,
+    }),
+  )
 })

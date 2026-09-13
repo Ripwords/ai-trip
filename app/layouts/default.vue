@@ -19,7 +19,7 @@ function signInWithGoogle() {
   authClient.signIn.social({
     provider: "google",
     callbackURL: "/dashboard",
-    errorCallbackURL: "/",
+    errorCallbackURL: "/auth/error",
   })
 }
 </script>

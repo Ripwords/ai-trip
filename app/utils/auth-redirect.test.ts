@@ -1,6 +1,12 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { resolveAuthRedirect, resolveSignInTarget, sanitizeReturnPath } from "./auth-redirect"
+import {
+  AUTH_ERROR_ROUTE,
+  hasAuthErrorCode,
+  resolveAuthRedirect,
+  resolveSignInTarget,
+  sanitizeReturnPath,
+} from "./auth-redirect"
 
 describe("resolveAuthRedirect", () => {
   it("redirects unauthenticated users away from protected routes to /", () => {
@@ -193,6 +199,73 @@ describe("routes that participate in an OAuth authorization", () => {
           isServer,
         }),
         null,
+      )
+    }
+  })
+})
+
+describe("the better-auth error page", () => {
+  // `/auth/error` is the `onAPIError.errorURL` target in `server/lib/auth.ts`.
+  // better-auth's `/api/auth/error` endpoint always attaches an `error` code —
+  // falling back to the literal `UNKNOWN` when it has nothing better — so an
+  // arrival with no code was typed by hand, not caused by a failure.
+  it("keeps a visitor who arrived carrying an error code", () => {
+    for (const isServer of [true, false]) {
+      for (const isAuthenticated of [true, false, "unknown" as const]) {
+        assert.equal(
+          resolveAuthRedirect({
+            path: AUTH_ERROR_ROUTE,
+            search: "?error=UNKNOWN&error_description=Something%20broke",
+            isAuthenticated,
+            isServer,
+          }),
+          null,
+        )
+      }
+    }
+  })
+
+  it("sends a hand-typed visit home, whatever the session state", () => {
+    for (const search of [undefined, "", "?", "?error=", "?foo=bar"]) {
+      for (const isAuthenticated of [true, false, "unknown" as const]) {
+        assert.equal(
+          resolveAuthRedirect({
+            path: AUTH_ERROR_ROUTE,
+            search,
+            isAuthenticated,
+            isServer: true,
+          }),
+          "/",
+          `expected search ${JSON.stringify(search)} to be treated as no error`,
+        )
+      }
+    }
+  })
+
+  it("does not claim an error for a path that merely starts with the route", () => {
+    assert.equal(
+      resolveAuthRedirect({
+        path: `${AUTH_ERROR_ROUTE}-report`,
+        isAuthenticated: false,
+        isServer: false,
+      }),
+      null,
+    )
+  })
+})
+
+describe("hasAuthErrorCode", () => {
+  it("accepts a query string with or without its leading ?", () => {
+    assert.equal(hasAuthErrorCode("?error=invalid_state"), true)
+    assert.equal(hasAuthErrorCode("error=invalid_state"), true)
+  })
+
+  it("rejects an absent or empty code", () => {
+    for (const search of [undefined, "", "?", "?error=", "?error_description=nope"]) {
+      assert.equal(
+        hasAuthErrorCode(search),
+        false,
+        `expected ${JSON.stringify(search)} to be false`,
       )
     }
   })

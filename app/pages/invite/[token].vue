@@ -32,7 +32,7 @@ function signInWithGoogle() {
   authClient.signIn.social({
     provider: "google",
     callbackURL: safeToken ? `/invite/${safeToken}` : "/dashboard",
-    errorCallbackURL: "/",
+    errorCallbackURL: "/auth/error",
   })
 }
 

@@ -37,6 +37,26 @@ export const PROTECTED_PREFIXES: Readonly<Record<string, SignedOutDestination>> 
 export const GUEST_ONLY_ROUTES = new Set(["/"])
 
 /**
+ * better-auth's `onAPIError.errorURL` target (set in `server/lib/auth.ts`).
+ * Nothing in the app links here: `/api/auth/error` 302s to it, always attaching
+ * an `error` code — falling back to the literal `UNKNOWN` when it has nothing
+ * better. Deliberately outside `PROTECTED_PREFIXES` and `GUEST_ONLY_ROUTES`,
+ * because an auth failure is exactly the moment the session state is worthless.
+ */
+export const AUTH_ERROR_ROUTE = "/auth/error"
+
+export function isAuthErrorPath(path: string): boolean {
+  return path === AUTH_ERROR_ROUTE
+}
+
+/** Whether a failure actually sent the visitor here, rather than the address bar. */
+export function hasAuthErrorCode(search: string | undefined): boolean {
+  if (!search) return false
+  const raw = search.startsWith("?") ? search.slice(1) : search
+  return !!new URLSearchParams(raw).get("error")
+}
+
+/**
  * Tri-state on purpose. `"unknown"` means the session lookup itself failed
  * (network error, 429 from the shared `/api/auth/**` rate-limit bucket, a 5xx)
  * — which is NOT the same as "this user is signed out". Collapsing the two is
@@ -170,6 +190,13 @@ function signInCarrying(path: string, search: string | undefined): string {
  */
 export function resolveAuthRedirect(input: AuthRedirectInput): string | null {
   const { path, search, isAuthenticated, isServer } = input
+
+  // Settled before the session gate on purpose. The error page belongs to
+  // neither signed-in nor signed-out visitors, and an `"unknown"` session must
+  // not be what leaves a hand-typed URL rendering an error with nothing to
+  // report. No code in the query means nothing failed, so go home.
+  if (isAuthErrorPath(path)) return hasAuthErrorCode(search) ? null : "/"
+
   const destination = signedOutDestination(path)
   const guestOnly = isGuestOnlyPath(path)
 
