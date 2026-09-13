@@ -175,8 +175,10 @@ describe("buildInsertRow", () => {
     airline: "EVA",
     departureAirport: "KUL",
     arrivalAirport: "TPE",
-    departureTime: new Date("2030-10-01T15:30"),
-    arrivalTime: new Date("2030-10-01T20:25"),
+    scheduledDepartureTime: new Date("2030-10-01T15:30"),
+    actualDepartureTime: new Date("2030-10-01T15:38"),
+    scheduledArrivalTime: new Date("2030-10-01T20:25"),
+    actualArrivalTime: new Date("2030-10-01T20:31"),
     terminal: "1",
     gate: "C34",
     status: "scheduled" as const,
@@ -196,8 +198,10 @@ describe("buildInsertRow", () => {
       airline: "EVA Air",
       departureAirport: "KUL",
       arrivalAirport: "TPE",
-      departureTime: new Date("2030-10-01T15:45"),
-      arrivalTime: new Date("2030-10-01T20:30"),
+      scheduledDepartureTime: new Date("2030-10-01T15:45"),
+      actualDepartureTime: new Date("2030-10-01T15:52"),
+      scheduledArrivalTime: new Date("2030-10-01T20:30"),
+      actualArrivalTime: new Date("2030-10-01T20:44"),
       terminal: "1M",
       gate: "C36",
       status: "scheduled",
@@ -207,7 +211,10 @@ describe("buildInsertRow", () => {
     expect(out.airline).toBe("EVA Air")
     expect(out.terminal).toBe("1M")
     expect(out.gate).toBe("C36")
-    expect(out.departureTime).toEqual(looked.departureTime)
+    expect(out.scheduledDepartureTime).toEqual(looked.scheduledDepartureTime)
+    expect(out.actualDepartureTime).toEqual(looked.actualDepartureTime)
+    expect(out.scheduledArrivalTime).toEqual(looked.scheduledArrivalTime)
+    expect(out.actualArrivalTime).toEqual(looked.actualArrivalTime)
     expect(out.rawApiResponse).toEqual({ foo: "bar" })
     expect(out.apiLastFetchedAt).toBeInstanceOf(Date)
   })
@@ -217,8 +224,10 @@ describe("buildInsertRow", () => {
       airline: null,
       departureAirport: null,
       arrivalAirport: null,
-      departureTime: null,
-      arrivalTime: null,
+      scheduledDepartureTime: null,
+      actualDepartureTime: null,
+      scheduledArrivalTime: null,
+      actualArrivalTime: null,
       terminal: null,
       gate: null,
       status: "scheduled",
@@ -228,7 +237,30 @@ describe("buildInsertRow", () => {
     expect(out.airline).toBe("EVA")
     expect(out.terminal).toBe("1")
     expect(out.gate).toBe("C34")
-    expect(out.departureTime).toEqual(csvRow.departureTime)
+    expect(out.scheduledDepartureTime).toEqual(csvRow.scheduledDepartureTime)
+    expect(out.actualArrivalTime).toEqual(csvRow.actualArrivalTime)
     expect(out.status).toBe("scheduled")
+  })
+
+  it("never fills a scheduled field from an actual one, or the reverse", () => {
+    const looked = {
+      airline: "EVA Air",
+      departureAirport: "KUL",
+      arrivalAirport: "TPE",
+      scheduledDepartureTime: null,
+      actualDepartureTime: new Date("2030-10-01T15:52"),
+      scheduledArrivalTime: new Date("2030-10-01T20:30"),
+      actualArrivalTime: null,
+      terminal: "1M",
+      gate: "C36",
+      status: "scheduled",
+      rawApiResponse: {} as Record<string, unknown>,
+    }
+    const out = buildInsertRow(csvRow, looked, "user-1")
+
+    expect(out.scheduledDepartureTime).toEqual(csvRow.scheduledDepartureTime)
+    expect(out.actualDepartureTime).toEqual(looked.actualDepartureTime)
+    expect(out.scheduledArrivalTime).toEqual(looked.scheduledArrivalTime)
+    expect(out.actualArrivalTime).toEqual(csvRow.actualArrivalTime)
   })
 })
