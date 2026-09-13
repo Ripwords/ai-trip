@@ -41,7 +41,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   },
   delayed: {
     label: "Delayed",
-    color: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+    color: "bg-amber-100 text-amber-700",
   },
   landed: {
     label: "Landed",
@@ -49,7 +49,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   },
   cancelled: {
     label: "Cancelled",
-    color: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+    color: "bg-red-100 text-red-700",
   },
 }
 
