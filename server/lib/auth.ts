@@ -63,9 +63,6 @@ export const auth = betterAuth({
   baseURL: process.env.NUXT_PUBLIC_BETTER_AUTH_URL,
   basePath: AUTH_BASE_PATH,
   appName: "AI Trip",
-  experimental: {
-    joins: true, // Enable database joins for better performance
-  },
   trustedOrigins: (() => {
     const origins = ["http://localhost:3000"]
     const baseUrl = process.env.NUXT_PUBLIC_BETTER_AUTH_URL
@@ -113,7 +110,9 @@ export const auth = betterAuth({
     cookiePrefix: "ai-trip",
     useSecureCookies: useSecure,
     // Generate new session token on refresh to prevent session fixation
-    generateId: undefined, // use default secure random ID generation
+    database: {
+      joins: true,
+    },
     ipAddress: {
       ipAddressHeaders: ["x-vercel-forwarded-for", "x-forwarded-for"],
     },
