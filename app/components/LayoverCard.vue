@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { LayoverInfo } from "../composables/useLayoverDetection"
-import { formatDuration } from "../utils/flight-facts"
+import { formatDuration, layoverFactLine } from "../utils/flight-facts"
+import { arrivalDelayMinutes, departureDelayMinutes } from "#shared/utils/flight-times"
 
 const props = defineProps<{
   layover: LayoverInfo
@@ -8,7 +9,7 @@ const props = defineProps<{
 
 // Fetch visa status for the layover country to pass to AI tips
 const visaStatus = ref<string | null>(null)
-if (props.layover.country) {
+if (props.layover.country && !props.layover.retrospective) {
   useFetch("/api/visa/check", {
     query: { destination: props.layover.country },
   }).then(({ data }) => {
@@ -28,6 +29,16 @@ const aiTips = ref<{
 } | null>(null)
 const aiError = ref<string | null>(null)
 
+const factLine = computed(() =>
+  layoverFactLine({
+    scheduledMinutes: props.layover.scheduledMinutes,
+    inboundFlightNumber: props.layover.arrivalFlight.flightNumber,
+    inboundArrivalDelayMinutes: arrivalDelayMinutes(props.layover.arrivalFlight),
+    outboundFlightNumber: props.layover.departureFlight.flightNumber,
+    outboundDepartureDelayMinutes: departureDelayMinutes(props.layover.departureFlight),
+  }),
+)
+
 const recommendationStyle = computed(() => {
   switch (props.layover.recommendation) {
     case "stay":
@@ -36,6 +47,8 @@ const recommendationStyle = computed(() => {
       return "bg-amber-50 text-amber-700"
     case "explore":
       return "bg-forest-50 text-forest-700"
+    case null:
+      return ""
   }
 })
 
@@ -47,6 +60,8 @@ const recommendationIcon = computed(() => {
       return "lucide:clock"
     case "explore":
       return "lucide:map-pin"
+    case null:
+      return "lucide:clock"
   }
 })
 
@@ -99,14 +114,22 @@ async function fetchAiTips() {
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-center gap-2">
           <span class="text-sm font-semibold text-sand-900">
-            <template v-if="layover.durationMinutes !== null">
+            <template v-if="layover.durationMinutes === null">
+              Connection at {{ layover.airport }}
+            </template>
+            <template v-else-if="layover.retrospective">
+              {{ formatDuration(layover.durationMinutes) }} on the ground at {{ layover.airport }}
+            </template>
+            <template v-else>
               {{ formatDuration(layover.durationMinutes) }} layover at {{ layover.airport }}
             </template>
-            <template v-else> Connection at {{ layover.airport }} </template>
           </span>
           <VisaBadge v-if="layover.country" :destination-country="layover.country" />
         </div>
-        <div class="mt-1 flex flex-wrap items-center gap-2">
+        <p v-if="layover.retrospective && factLine" class="mt-1 text-xs text-sand-600">
+          {{ factLine }}
+        </p>
+        <div v-else-if="!layover.retrospective" class="mt-1 flex flex-wrap items-center gap-2">
           <span
             v-if="layover.durationMinutes !== null"
             class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium"
@@ -120,6 +143,7 @@ async function fetchAiTips() {
 
       <!-- AI tips button -->
       <button
+        v-if="!layover.retrospective"
         type="button"
         :aria-expanded="showAiTips"
         :disabled="aiTipsLoading"
