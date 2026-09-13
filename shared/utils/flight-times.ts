@@ -1,3 +1,5 @@
+import { isUpcomingFlight, type OrderableFlight } from "./flight-order"
+
 /**
  * A leg's four clock readings, kept apart so a delay can never be mistaken for
  * a change to the booking.
@@ -56,4 +58,34 @@ export function blockMinutes(
   if (scheduled !== null) return { minutes: scheduled, basis: "scheduled" }
 
   return null
+}
+
+/**
+ * Has this leg already operated, as of the UTC day `todayIso` names?
+ *
+ * Actuals alone are not proof. AeroDataBox's `revisedTime` is the airline's own
+ * estimate until the leg operates, so an upcoming delayed flight already reports
+ * a non-null actual.
+ */
+export function hasFlown(flight: LegTimes & OrderableFlight, todayIso: string): boolean {
+  if (!flight.actualDepartureTime || !flight.actualArrivalTime) return false
+  return !isUpcomingFlight(flight, todayIso)
+}
+
+/**
+ * Ground time between two legs, read off ONE clock. Both ends come from the
+ * named basis or the answer is null; there is no path that mixes a scheduled
+ * arrival with an actual departure.
+ *
+ * Raw minutes, with none of the guards a caller may want: negative values from
+ * rows filed out of order and implausibly long gaps both come back as-is.
+ */
+export function connectionMinutes(
+  inbound: LegTimes,
+  outbound: LegTimes,
+  basis: "actual" | "scheduled",
+): number | null {
+  return basis === "actual"
+    ? minutesBetween(inbound.actualArrivalTime, outbound.actualDepartureTime)
+    : minutesBetween(inbound.scheduledArrivalTime, outbound.scheduledDepartureTime)
 }
