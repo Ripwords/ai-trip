@@ -330,6 +330,13 @@
       "when": 1789314207065,
       "tag": "0046_special_reavers",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1789316195811,
+      "tag": "0047_fancy_quicksilver",
+      "breakpoints": true
     }
   ]
 }

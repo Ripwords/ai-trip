@@ -9,7 +9,7 @@ import {
   index,
   integer,
 } from "drizzle-orm/pg-core"
-import { relations } from "drizzle-orm"
+import { relations, sql } from "drizzle-orm"
 import { user } from "./auth-schema"
 import { trips } from "./trips"
 
@@ -26,8 +26,19 @@ export const flights = pgTable(
     airline: text("airline"),
     departureAirport: text("departure_airport"),
     arrivalAirport: text("arrival_airport"),
-    departureTime: timestamp("departure_time", { withTimezone: true }),
-    arrivalTime: timestamp("arrival_time", { withTimezone: true }),
+    scheduledDepartureTime: timestamp("scheduled_departure_time", { withTimezone: true }),
+    actualDepartureTime: timestamp("actual_departure_time", { withTimezone: true }),
+    scheduledArrivalTime: timestamp("scheduled_arrival_time", { withTimezone: true }),
+    actualArrivalTime: timestamp("actual_arrival_time", { withTimezone: true }),
+    // Generated rather than dropped: readers that predate the scheduled/actual split
+    // (ordering, the trip page, the AI prompts) still get one instant per end, while
+    // every writer is forced to say which clock it is reporting.
+    departureTime: timestamp("departure_time", { withTimezone: true }).generatedAlwaysAs(
+      sql`coalesce(actual_departure_time, scheduled_departure_time)`,
+    ),
+    arrivalTime: timestamp("arrival_time", { withTimezone: true }).generatedAlwaysAs(
+      sql`coalesce(actual_arrival_time, scheduled_arrival_time)`,
+    ),
     terminal: text("terminal"),
     gate: text("gate"),
     status: text("status").notNull().default("scheduled"),
