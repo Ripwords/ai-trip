@@ -89,6 +89,7 @@
     "vue-tsc": "^3.3.11"
   },
   "overrides": {
+    "@better-auth/utils": "0.4.2",
     "samlify>camelcase": "6.3.0",
     "sharp": "0.34.5"
   }
