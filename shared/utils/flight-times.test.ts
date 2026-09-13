@@ -172,31 +172,43 @@ describe("blockMinutes", () => {
 
 describe("hasFlown", () => {
   const LEG = {
-    ...UNKNOWN,
-    flightDate: "2026-08-16",
-    departureTime: "2026-08-16T14:00:00Z",
     scheduledDepartureTime: "2026-08-16T14:00:00Z",
     actualDepartureTime: "2026-08-16T16:13:00Z",
     scheduledArrivalTime: "2026-08-16T20:00:00Z",
     actualArrivalTime: "2026-08-16T21:50:00Z",
   }
 
+  const at = (iso: string) => Date.parse(iso)
+
   it("is false when the actual arrival is missing, however long ago the leg was", () => {
-    assert.equal(hasFlown({ ...LEG, actualArrivalTime: null }, "2026-09-01"), false)
+    assert.equal(hasFlown({ ...LEG, actualArrivalTime: null }, at("2026-09-01T00:00:00Z")), false)
   })
 
   it("is false when the actual departure is missing, however long ago the leg was", () => {
-    assert.equal(hasFlown({ ...LEG, actualDepartureTime: null }, "2026-09-01"), false)
+    assert.equal(hasFlown({ ...LEG, actualDepartureTime: null }, at("2026-09-01T00:00:00Z")), false)
   })
 
   it("is false for an upcoming leg that already reports both actuals", () => {
     // AeroDataBox fills `revisedTime` from the airline's own estimate the moment
     // a delay is published, days before the aircraft moves.
-    assert.equal(hasFlown(LEG, "2026-08-15"), false)
+    assert.equal(hasFlown(LEG, at("2026-08-15T09:00:00Z")), false)
   })
 
-  it("is true once both actuals are known and the leg is no longer upcoming", () => {
-    assert.equal(hasFlown(LEG, "2026-08-17"), true)
+  it("is false while the leg is still in the air on a flight date already past", () => {
+    assert.equal(hasFlown(LEG, at("2026-08-16T21:49:00Z")), false)
+  })
+
+  it("is true the minute the leg lands, hours before the UTC day turns over", () => {
+    assert.equal(hasFlown(LEG, at("2026-08-16T21:51:00Z")), true)
+  })
+
+  it("is true for a leg that landed on an earlier day", () => {
+    assert.equal(hasFlown(LEG, at("2026-08-20T00:00:00Z")), true)
+  })
+
+  it("reads the wall clock when the caller names no instant", () => {
+    assert.equal(hasFlown(LEG), true)
+    assert.equal(hasFlown({ ...LEG, actualArrivalTime: "2999-01-01T00:00:00Z" }), false)
   })
 })
 
