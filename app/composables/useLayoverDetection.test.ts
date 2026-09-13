@@ -171,6 +171,29 @@ describe("a booked 6h layover at CDG whose onward leg pushed back 2h13m", () => 
     assert.equal(layover?.retrospective, false)
   })
 
+  it("is retrospective once the onward leg has pushed back, before it lands", () => {
+    // The traveler is airborne out of CDG. The ground time is spent and
+    // measured; the card has nothing left to advise.
+    const [layover] = layovers(cdgConnection(), "2026-08-16T18:00:00Z")
+    assert.equal(layover?.retrospective, true)
+    assert.equal(layover?.durationMinutes, 493)
+    assert.equal(layover?.basis, "actual")
+    assert.equal(layover?.recommendation, null)
+  })
+
+  it("still advises while the traveler is waiting at the gate", () => {
+    const [layover] = layovers(cdgConnection(), "2026-08-16T12:00:00Z")
+    assert.equal(layover?.retrospective, false)
+    assert.equal(layover?.recommendationLabel, "Go explore!")
+  })
+
+  it("is retrospective even when the onward leg never reports an arrival", () => {
+    const flights = cdgConnection()
+    flights[1] = flight({ ...flights[1]!, actualArrivalTime: null })
+    const [layover] = layovers(flights, "2026-08-16T18:00:00Z")
+    assert.equal(layover?.retrospective, true)
+  })
+
   it("advises off the booked figure, not off the delay", () => {
     const flights = cdgConnection()
     flights[1] = flight({

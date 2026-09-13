@@ -7,6 +7,7 @@ import {
   connectionMinutes,
   departureDelayMinutes,
   hasFlown,
+  layoverIsOver,
 } from "./flight-times"
 
 const UNKNOWN = {
@@ -209,6 +210,37 @@ describe("hasFlown", () => {
   it("reads the wall clock when the caller names no instant", () => {
     assert.equal(hasFlown(LEG), true)
     assert.equal(hasFlown({ ...LEG, actualArrivalTime: "2999-01-01T00:00:00Z" }), false)
+  })
+})
+
+describe("layoverIsOver", () => {
+  const INBOUND = { ...UNKNOWN, actualArrivalTime: "2026-08-16T08:00:00Z" }
+  const OUTBOUND = { ...UNKNOWN, actualDepartureTime: "2026-08-16T16:13:00Z" }
+
+  const at = (iso: string) => Date.parse(iso)
+
+  it("is false before the inbound has landed", () => {
+    assert.equal(layoverIsOver(INBOUND, OUTBOUND, at("2026-08-16T07:00:00Z")), false)
+  })
+
+  it("is false while the traveler is still on the ground waiting", () => {
+    assert.equal(layoverIsOver(INBOUND, OUTBOUND, at("2026-08-16T12:00:00Z")), false)
+  })
+
+  it("is true the minute the outbound pushes back", () => {
+    assert.equal(layoverIsOver(INBOUND, OUTBOUND, at("2026-08-16T16:14:00Z")), true)
+  })
+
+  it("does not wait on where the outbound is going", () => {
+    // The outbound lands hours later, and may never report an actual arrival at
+    // all. Neither fact is about the ground time already behind the traveler.
+    assert.equal(layoverIsOver(INBOUND, OUTBOUND, at("2026-08-20T00:00:00Z")), true)
+  })
+
+  it("is false when either endpoint was never reported", () => {
+    const late = at("2026-09-01T00:00:00Z")
+    assert.equal(layoverIsOver({ ...INBOUND, actualArrivalTime: null }, OUTBOUND, late), false)
+    assert.equal(layoverIsOver(INBOUND, { ...OUTBOUND, actualDepartureTime: null }, late), false)
   })
 })
 
