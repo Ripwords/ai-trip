@@ -263,4 +263,26 @@ describe("buildInsertRow", () => {
     expect(out.scheduledArrivalTime).toEqual(looked.scheduledArrivalTime)
     expect(out.actualArrivalTime).toEqual(csvRow.actualArrivalTime)
   })
+
+  it("covers the other half of the matrix: actual departure and scheduled arrival missing", () => {
+    const looked = {
+      airline: "EVA Air",
+      departureAirport: "KUL",
+      arrivalAirport: "TPE",
+      scheduledDepartureTime: new Date("2030-10-01T15:45"),
+      actualDepartureTime: null,
+      scheduledArrivalTime: null,
+      actualArrivalTime: new Date("2030-10-01T20:44"),
+      terminal: "1M",
+      gate: "C36",
+      status: "scheduled",
+      rawApiResponse: {} as Record<string, unknown>,
+    }
+    const out = buildInsertRow(csvRow, looked, "user-1")
+
+    expect(out.scheduledDepartureTime).toEqual(looked.scheduledDepartureTime)
+    expect(out.actualDepartureTime).toEqual(csvRow.actualDepartureTime)
+    expect(out.scheduledArrivalTime).toEqual(csvRow.scheduledArrivalTime)
+    expect(out.actualArrivalTime).toEqual(looked.actualArrivalTime)
+  })
 })

@@ -38,9 +38,9 @@ interface AeroDataBoxTime {
 interface AeroDataBoxLeg {
   airport?: AeroDataBoxAirport
   scheduledTime?: AeroDataBoxTime
-  /** What actually happened at the gate, once the airline has confirmed it. */
+  /** The airline's latest gate time. Confirmed fact once flown, a revised estimate before that. */
   revisedTime?: AeroDataBoxTime
-  /** Wheels up / wheels down. The best actual available when no revised gate time exists. */
+  /** Wheels up / wheels down, so a runway time rather than a gate one. */
   runwayTime?: AeroDataBoxTime
   terminal?: string
   gate?: string
@@ -114,12 +114,17 @@ function scheduledInstant(leg: AeroDataBoxLeg | undefined): Date | null {
 }
 
 /**
- * What the leg actually did: the confirmed gate time, or the runway time if that is
- * all there is.
+ * The best reading of what the leg did, preferring the airline's revised gate time
+ * over the runway time.
  *
- * `predictedTime` is deliberately not consulted. It is the API forecasting a flight
- * that has not landed, and recording it as an actual would let a guess masquerade as
- * a delay the traveler experienced.
+ * `predictedTime` is deliberately not consulted, because that one is the API's own
+ * forecast rather than anything the airline reported.
+ *
+ * Two known imprecisions, both narrower than the bug this replaced. `revisedTime` is
+ * the airline's estimate until the flight has actually operated, so a future leg can
+ * report a delay that has not happened yet. And `runwayTime` measures the runway, not
+ * the gate, so falling back to it on one end only makes `blockMinutes` gate-to-runway
+ * and understates it by the taxi. Gating on flight status would fix the first.
  */
 function actualInstant(leg: AeroDataBoxLeg | undefined): Date | null {
   return toDate(leg?.revisedTime?.utc ?? leg?.runwayTime?.utc)
