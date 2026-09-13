@@ -1,7 +1,7 @@
 import { computed, type Ref } from "vue"
 import { iataToCountry } from "../utils/iata-to-country"
 import { departureInstant } from "#shared/utils/flight-order"
-import { connectionMinutes, hasFlown, type LegTimes } from "#shared/utils/flight-times"
+import { connectionMinutes, layoverIsOver, type LegTimes } from "#shared/utils/flight-times"
 
 export interface FlightItem {
   id: string
@@ -150,7 +150,7 @@ export function useLayoverDetection(flights: Ref<FlightItem[] | null>, now: numb
 
       const scheduledMinutes = computeLayoverMinutes(inbound, outbound, "scheduled")
       const actualMinutes = computeLayoverMinutes(inbound, outbound, "actual")
-      const retrospective = hasFlown(inbound, now) && hasFlown(outbound, now)
+      const retrospective = layoverIsOver(inbound, outbound, now)
 
       const minutesByBasis = { actual: actualMinutes, scheduled: scheduledMinutes }
       const preference: ("actual" | "scheduled")[] = retrospective

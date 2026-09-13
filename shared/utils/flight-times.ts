@@ -81,6 +81,25 @@ export function hasFlown(flight: LegTimes, now: number = Date.now()): boolean {
 }
 
 /**
+ * Is the ground time between these two legs already behind the traveler?
+ *
+ * A layover has only two endpoints of its own: the inbound touching down and
+ * the outbound pushing back. Once both are in the past the gap is spent and
+ * measured, and a card about it can only state what happened.
+ *
+ * Asking `hasFlown` of both whole legs is a different, stricter question. It
+ * waits on where the outbound is going, which is not part of the layover, so a
+ * traveler already airborne out of the connection still gets advice about it.
+ */
+export function layoverIsOver(
+  inbound: LegTimes,
+  outbound: LegTimes,
+  now: number = Date.now(),
+): boolean {
+  return isPast(inbound.actualArrivalTime, now) && isPast(outbound.actualDepartureTime, now)
+}
+
+/**
  * Ground time between two legs, read off ONE clock. Both ends come from the
  * named basis or the answer is null; there is no path that mixes a scheduled
  * arrival with an actual departure.
