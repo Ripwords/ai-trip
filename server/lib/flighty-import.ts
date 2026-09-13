@@ -12,8 +12,10 @@ export interface ParsedFlightyRow {
   airline: string
   departureAirport: string
   arrivalAirport: string
-  departureTime: Date | null
-  arrivalTime: Date | null
+  scheduledDepartureTime: Date | null
+  actualDepartureTime: Date | null
+  scheduledArrivalTime: Date | null
+  actualArrivalTime: Date | null
   terminal: string | null
   gate: string | null
   status: "scheduled" | "landed" | "cancelled"
@@ -206,8 +208,10 @@ export function parseFlightyCsv(input: string, today: Date): FlightyParseResult 
       airline,
       departureAirport: from.toUpperCase(),
       arrivalAirport: to.toUpperCase(),
-      departureTime: parseDateOrNull(depActual || depScheduled),
-      arrivalTime: parseDateOrNull(arrActual || arrScheduled),
+      scheduledDepartureTime: parseDateOrNull(depScheduled),
+      actualDepartureTime: parseDateOrNull(depActual),
+      scheduledArrivalTime: parseDateOrNull(arrScheduled),
+      actualArrivalTime: parseDateOrNull(arrActual),
       terminal: idx.depTerminal >= 0 ? cells[idx.depTerminal] || null : null,
       gate: idx.depGate >= 0 ? cells[idx.depGate] || null : null,
       status,

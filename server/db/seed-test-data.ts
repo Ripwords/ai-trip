@@ -242,8 +242,8 @@ async function seed() {
       airline: f.airline,
       departureAirport: f.dep,
       arrivalAirport: f.arr,
-      departureTime: new Date(`${f.date}T08:00:00Z`),
-      arrivalTime: new Date(`${f.date}T14:00:00Z`),
+      scheduledDepartureTime: new Date(`${f.date}T08:00:00Z`),
+      scheduledArrivalTime: new Date(`${f.date}T14:00:00Z`),
       status: f.status,
     })
     flightsCreated++
