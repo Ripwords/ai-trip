@@ -190,6 +190,10 @@ const { flightListItems, layoverCoveredFlightIds } = useLayoverDetection(
       arrivalAirport: string | null
       departureTime: string | null
       arrivalTime: string | null
+      scheduledDepartureTime: string | null
+      actualDepartureTime: string | null
+      scheduledArrivalTime: string | null
+      actualArrivalTime: string | null
       arrivalTimeLocal?: string | null
       [key: string]: unknown
     }[]

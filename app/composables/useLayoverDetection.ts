@@ -1,6 +1,7 @@
 import { computed, type Ref } from "vue"
 import { iataToCountry } from "../utils/iata-to-country"
 import { departureInstant } from "#shared/utils/flight-order"
+import { connectionMinutes, hasFlown, type LegTimes } from "#shared/utils/flight-times"
 
 export interface FlightItem {
   id: string
@@ -12,6 +13,15 @@ export interface FlightItem {
   departureTime: string | null
   arrivalTime: string | null
   /**
+   * The booked pair and the operated pair, kept apart. `departureTime` and
+   * `arrivalTime` above coalesce them per end, which is safe to display and
+   * unsafe to subtract.
+   */
+  scheduledDepartureTime: string | null
+  actualDepartureTime: string | null
+  scheduledArrivalTime: string | null
+  actualArrivalTime: string | null
+  /**
    * Wall clock at the ARRIVAL airport as the airline reported it, e.g.
    * "2026-08-16 11:05+07:00" (`deriveFlightFields`). Null on rows the flight API
    * never enriched.
@@ -20,11 +30,18 @@ export interface FlightItem {
   [key: string]: unknown
 }
 
-export interface LayoverInfo {
+interface LayoverBase {
   type: "layover"
   airport: string
   country: string | undefined
+  /** Headline value. This is what `/api/ai/layover-tips` is posted. */
   durationMinutes: number | null
+  /** Inbound `scheduledArrivalTime` to outbound `scheduledDepartureTime`. */
+  scheduledMinutes: number | null
+  /** Inbound `actualArrivalTime` to outbound `actualDepartureTime`. */
+  actualMinutes: number | null
+  /** Which clock `durationMinutes` was read off. */
+  basis: "actual" | "scheduled"
   arrivalFlight: FlightItem
   departureFlight: FlightItem
   arrivalTime: string | null
@@ -35,9 +52,20 @@ export interface LayoverInfo {
    */
   arrivalTimeLocal: string | null
   departureTime: string | null
-  recommendation: "stay" | "tight" | "explore"
-  recommendationLabel: string
 }
+
+/**
+ * A layover is either still ahead of the traveler, in which case the card
+ * advises, or already behind them, in which case it can only state what
+ * happened. The union is what stops a retrospective card carrying advice.
+ */
+export type LayoverInfo =
+  | (LayoverBase & { retrospective: true; recommendation: null; recommendationLabel: null })
+  | (LayoverBase & {
+      retrospective: false
+      recommendation: "stay" | "tight" | "explore"
+      recommendationLabel: string
+    })
 
 export interface FlightEntry {
   type: "flight"
@@ -48,7 +76,7 @@ export type FlightListItem = FlightEntry | LayoverInfo
 
 function getRecommendation(
   durationMinutes: number | null,
-): Pick<LayoverInfo, "recommendation" | "recommendationLabel"> {
+): Pick<LayoverInfo & { retrospective: false }, "recommendation" | "recommendationLabel"> {
   if (durationMinutes === null) {
     return { recommendation: "stay", recommendationLabel: "Connection detected" }
   }
@@ -70,32 +98,32 @@ function areDatesClose(dateA: string, dateB: string): boolean {
 }
 
 /**
- * Compute layover duration in minutes from local display times.
+ * Layover duration in minutes, both ends read off the named clock.
  * Flights often cross timezone boundaries, so raw UTC timestamps can produce
- * negative diffs even when the local times are correct. We parse the arrival
- * and departure times and if the diff is negative (timezone artifact on the
- * same flightDate), we return null to indicate "connection detected" without
- * an exact duration.
+ * negative diffs even when the local times are correct. If the diff is negative
+ * (timezone artifact on the same flightDate), we return null to indicate
+ * "connection detected" without an exact duration.
  */
 function computeLayoverMinutes(
-  arrivalTime: string | null,
-  departureTime: string | null,
+  inbound: LegTimes,
+  outbound: LegTimes,
+  basis: "actual" | "scheduled",
 ): number | null {
-  if (!arrivalTime || !departureTime) return null
-
-  const arrivalMs = new Date(arrivalTime).getTime()
-  const departureMs = new Date(departureTime).getTime()
-  const diffMs = departureMs - arrivalMs
+  const diff = connectionMinutes(inbound, outbound, basis)
+  if (diff === null) return null
 
   // Negative or zero diff = timezone artifact, can't compute reliable duration
-  if (diffMs <= 0) return null
+  if (diff <= 0) return null
   // More than 24 hours = unlikely to be a single layover
-  if (diffMs > 24 * 60 * 60 * 1000) return null
+  if (diff > 24 * 60) return null
 
-  return Math.round(diffMs / 60000)
+  return diff
 }
 
-export function useLayoverDetection(flights: Ref<FlightItem[] | null>) {
+export function useLayoverDetection(
+  flights: Ref<FlightItem[] | null>,
+  todayIso: string = new Date().toISOString().split("T")[0]!,
+) {
   const flightListItems = computed<FlightListItem[]>(() => {
     const sorted = flights.value
     if (!sorted || sorted.length === 0) return []
@@ -123,22 +151,37 @@ export function useLayoverDetection(flights: Ref<FlightItem[] | null>) {
         continue
       }
 
-      const durationMinutes = computeLayoverMinutes(inbound.arrivalTime, outbound.departureTime)
-      const { recommendation, recommendationLabel } = getRecommendation(durationMinutes)
+      const scheduledMinutes = computeLayoverMinutes(inbound, outbound, "scheduled")
+      const actualMinutes = computeLayoverMinutes(inbound, outbound, "actual")
+      const retrospective = hasFlown(inbound, todayIso) && hasFlown(outbound, todayIso)
 
-      items.push({
+      const minutesByBasis = { actual: actualMinutes, scheduled: scheduledMinutes }
+      const preference: ("actual" | "scheduled")[] = retrospective
+        ? ["actual", "scheduled"]
+        : ["scheduled", "actual"]
+      const basis = preference.find((clock) => minutesByBasis[clock] !== null) ?? "scheduled"
+      const durationMinutes = minutesByBasis[basis]
+
+      const base = {
         type: "layover",
         airport: inbound.arrivalAirport,
         country: iataToCountry[inbound.arrivalAirport] ?? undefined,
         durationMinutes,
+        scheduledMinutes,
+        actualMinutes,
+        basis,
         arrivalFlight: inbound,
         departureFlight: outbound,
         arrivalTime: inbound.arrivalTime,
         arrivalTimeLocal: inbound.arrivalTimeLocal ?? null,
         departureTime: outbound.departureTime,
-        recommendation,
-        recommendationLabel,
-      })
+      } satisfies LayoverBase
+
+      items.push(
+        retrospective
+          ? { ...base, retrospective: true, recommendation: null, recommendationLabel: null }
+          : { ...base, retrospective: false, ...getRecommendation(durationMinutes) },
+      )
     }
 
     return items
