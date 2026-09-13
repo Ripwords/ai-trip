@@ -78,4 +78,42 @@ describe("getTripFlightsForUser", () => {
     assert.equal(row.departureAirport, "JFK")
     assert.equal("rawApiResponse" in row, false)
   })
+
+  it("returns legs in departure order even when flightDate labels disagree", async () => {
+    const leg = (flightNumber: string, flightDate: string, departureTime: string) => ({
+      id: flightNumber,
+      userId: "user-1",
+      tripId: "trip-1",
+      flightNumber,
+      flightDate,
+      airline: null,
+      departureAirport: null,
+      arrivalAirport: null,
+      departureTime: new Date(departureTime),
+      arrivalTime: null,
+      terminal: null,
+      gate: null,
+      status: "landed",
+      rawApiResponse: null,
+      apiLastFetchedAt: new Date(),
+      lookupSchemaVersion: Number.MAX_SAFE_INTEGER,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    // EK3391 boards LHR at 05:24 the morning after the red-eye that fed it, so
+    // its flightDate label is a day behind its actual departure.
+    const { db } = makeFakeDb([
+      leg("EK3322", "2025-09-23", "2025-09-23T18:25:00Z"),
+      leg("EK3391", "2025-09-13", "2025-09-14T05:24:00Z"),
+      leg("EK3", "2025-09-13", "2025-09-13T22:27:00Z"),
+    ])
+
+    const result = await getTripFlightsForUser({ tripId: "trip-1", userId: "user-1" }, db)
+
+    assert.deepEqual(
+      result.map((r) => (r as Record<string, unknown>).flightNumber),
+      ["EK3", "EK3391", "EK3322"],
+    )
+  })
 })

@@ -46,6 +46,24 @@ describe("useLayoverDetection", () => {
     assert.equal(layovers(sinConnection()).length, 1)
   })
 
+  it("detects the same connection when the list runs newest-first", () => {
+    // The past-flights lists are rendered most recent first, so the leg that
+    // lands at the transfer airport sits *below* the one that leaves it.
+    const [layover] = layovers(sinConnection().toReversed())
+    assert.equal(layover?.airport, "SIN")
+    assert.equal(layover?.arrivalFlight.id, "f1")
+    assert.equal(layover?.departureFlight.id, "f2")
+    assert.equal(layover?.durationMinutes, 360)
+  })
+
+  it("places the newest-first layover card between the two legs", () => {
+    const { flightListItems } = useLayoverDetection(ref(sinConnection().toReversed()))
+    assert.deepEqual(
+      flightListItems.value.map((i) => (i.type === "layover" ? "layover" : i.flight.id)),
+      ["f2", "layover", "f1"],
+    )
+  })
+
   it("carries the airport-local arrival wall clock, not just the UTC instant (issue #15)", () => {
     // The layover-tips prompt and its 30-day cache key are bucketed off this.
     // Only the UTC instant used to reach the endpoint, so the server had to guess
@@ -59,5 +77,10 @@ describe("useLayoverDetection", () => {
     flights[0] = flight({ ...flights[0]!, arrivalTimeLocal: null })
     const [layover] = layovers(flights)
     assert.equal(layover?.arrivalTimeLocal, null)
+  })
+
+  it("marks the arriving leg as the one whose visa badge the layover card carries", () => {
+    const { layoverCoveredFlightIds } = useLayoverDetection(ref(sinConnection().toReversed()))
+    assert.deepEqual([...layoverCoveredFlightIds.value], ["f1"])
   })
 })
