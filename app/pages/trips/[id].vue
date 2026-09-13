@@ -5,6 +5,11 @@ import type { ReviewFinding } from "~/types/review"
 import type { ChatMessage } from "~/components/AiDock.vue"
 import { countryByAlpha2 } from "~/data/countries"
 import { parseSseFrames } from "../../utils/sse-parse"
+import {
+  compareFlightsByDeparture,
+  isUpcomingFlight,
+  type OrderableFlight,
+} from "#shared/utils/flight-order"
 import type { DiscussSseEvent } from "#shared/utils/discuss-sse"
 import type { TripExpenseSummary } from "#shared/utils/expense-summary"
 import type { ExpenseListParams } from "#shared/utils/expense-list"
@@ -165,30 +170,17 @@ const sortedTripFlights = computed(() => {
   if (!tripFlights.value) return []
   const today = new Date().toISOString().split("T")[0]!
   return [...tripFlights.value].toSorted((a, b) => {
-    const aDate = (a as Record<string, unknown>).flightDate as string
-    const bDate = (b as Record<string, unknown>).flightDate as string
-    const aUpcoming = aDate >= today
-    const bUpcoming = bDate >= today
+    const aUpcoming = isUpcomingFlight(a as OrderableFlight, today)
+    const bUpcoming = isUpcomingFlight(b as OrderableFlight, today)
     // Upcoming flights first
     if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1
-    const dateCmp = aDate.localeCompare(bDate)
+    const cmp = compareFlightsByDeparture(a as OrderableFlight, b as OrderableFlight)
     // Upcoming: ascending, Past: descending
-    if (dateCmp !== 0) return aUpcoming ? dateCmp : -dateCmp
-    const aDep = (a as Record<string, unknown>).departureTime as string | null
-    const bDep = (b as Record<string, unknown>).departureTime as string | null
-    if (aDep && bDep) {
-      const aLocal = new Date(aDep).toLocaleTimeString("en-US", { hour12: false })
-      const bLocal = new Date(bDep).toLocaleTimeString("en-US", { hour12: false })
-      const timeCmp = aLocal.localeCompare(bLocal)
-      return aUpcoming ? timeCmp : -timeCmp
-    }
-    if (!aDep) return 1
-    if (!bDep) return -1
-    return 0
+    return aUpcoming ? cmp : -cmp
   })
 })
 
-const { flightListItems } = useLayoverDetection(
+const { flightListItems, layoverCoveredFlightIds } = useLayoverDetection(
   sortedTripFlights as unknown as Ref<
     {
       id: string
@@ -2268,7 +2260,7 @@ async function recomputeSegments(dayId: string) {
             <FlightCard
               v-if="item.type === 'flight'"
               :flight="item.flight"
-              :hide-visa-badge="flightListItems[idx + 1]?.type === 'layover'"
+              :hide-visa-badge="layoverCoveredFlightIds.has(item.flight.id)"
               @delete="deleteTripFlight"
             />
             <LayoverCard v-else-if="item.type === 'layover'" :layover="item" />

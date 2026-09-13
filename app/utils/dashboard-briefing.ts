@@ -1,5 +1,6 @@
 import { countryByAlpha2 } from "../data/countries"
 import { iataToCountry } from "./iata-to-country"
+import { compareFlightsByDeparture } from "#shared/utils/flight-order"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const PRE_TRIP_WINDOW_DAYS = 7
@@ -110,7 +111,7 @@ export function buildPreTripBriefing(input: {
 
   const tripFlights = flights
     ?.filter((flight) => flight.tripId === trip.id)
-    .toSorted(compareFlights)
+    .toSorted(compareFlightsByDeparture)
   const outboundFlights = buildOutboundFlightChain(tripFlights || [])
   const departureDate = effectiveTravelDate(trip, tripFlights)
   const daysUntil = daysUntilDate(departureDate, today)
@@ -166,7 +167,7 @@ export function getTripJourneyKind(
 ): TripJourneyKind {
   if (!defaultPassport?.countryCode || !flights?.length) return "outbound"
   if (tripCountryCode && tripCountryCode !== defaultPassport.countryCode) return "outbound"
-  const lastFlight = flights.toSorted(compareFlights).at(-1)
+  const lastFlight = flights.toSorted(compareFlightsByDeparture).at(-1)
   const arrivalCountry = lastFlight?.arrivalAirport
     ? iataToCountry[lastFlight.arrivalAirport]
     : null
@@ -395,15 +396,9 @@ function effectiveTravelDate(
 ): string {
   const firstFlight = flights
     ?.filter((flight) => flight.tripId === trip.id)
-    .toSorted(compareFlights)[0]
+    .toSorted(compareFlightsByDeparture)[0]
   if (firstFlight && firstFlight.flightDate < trip.startDate) return firstFlight.flightDate
   return trip.startDate
-}
-
-function compareFlights(a: DashboardFlight, b: DashboardFlight): number {
-  const dateCompare = a.flightDate.localeCompare(b.flightDate)
-  if (dateCompare !== 0) return dateCompare
-  return (a.departureTime ?? "").localeCompare(b.departureTime ?? "")
 }
 
 function flightRoute(flight: DashboardFlight): string {

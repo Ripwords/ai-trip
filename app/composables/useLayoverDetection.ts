@@ -1,5 +1,6 @@
 import { computed, type Ref } from "vue"
 import { iataToCountry } from "../utils/iata-to-country"
+import { departureInstant } from "#shared/utils/flight-order"
 
 export interface FlightItem {
   id: string
@@ -105,39 +106,57 @@ export function useLayoverDetection(flights: Ref<FlightItem[] | null>) {
       const current = sorted[i]!
       items.push({ type: "flight", flight: current })
 
-      // Check if next flight forms a connection
-      if (i < sorted.length - 1) {
-        const next = sorted[i + 1]!
+      if (i === sorted.length - 1) continue
+      const next = sorted[i + 1]!
 
-        // Same transfer airport?
-        if (
-          current.arrivalAirport &&
-          next.departureAirport &&
-          current.arrivalAirport === next.departureAirport &&
-          areDatesClose(current.flightDate, next.flightDate)
-        ) {
-          const durationMinutes = computeLayoverMinutes(current.arrivalTime, next.departureTime)
-          const { recommendation, recommendationLabel } = getRecommendation(durationMinutes)
+      // Upcoming lists run oldest-first, past lists newest-first, so the
+      // neighbour below a card is the leg that follows it in one direction and
+      // the leg that fed it in the other. Read the pair chronologically.
+      const [inbound, outbound] =
+        departureInstant(current) <= departureInstant(next) ? [current, next] : [next, current]
 
-          items.push({
-            type: "layover",
-            airport: current.arrivalAirport,
-            country: iataToCountry[current.arrivalAirport] ?? undefined,
-            durationMinutes,
-            arrivalFlight: current,
-            departureFlight: next,
-            arrivalTime: current.arrivalTime,
-            arrivalTimeLocal: current.arrivalTimeLocal ?? null,
-            departureTime: next.departureTime,
-            recommendation,
-            recommendationLabel,
-          })
-        }
+      if (
+        !inbound.arrivalAirport ||
+        inbound.arrivalAirport !== outbound.departureAirport ||
+        !areDatesClose(inbound.flightDate, outbound.flightDate)
+      ) {
+        continue
       }
+
+      const durationMinutes = computeLayoverMinutes(inbound.arrivalTime, outbound.departureTime)
+      const { recommendation, recommendationLabel } = getRecommendation(durationMinutes)
+
+      items.push({
+        type: "layover",
+        airport: inbound.arrivalAirport,
+        country: iataToCountry[inbound.arrivalAirport] ?? undefined,
+        durationMinutes,
+        arrivalFlight: inbound,
+        departureFlight: outbound,
+        arrivalTime: inbound.arrivalTime,
+        arrivalTimeLocal: inbound.arrivalTimeLocal ?? null,
+        departureTime: outbound.departureTime,
+        recommendation,
+        recommendationLabel,
+      })
     }
 
     return items
   })
 
-  return { flightListItems }
+  /**
+   * Flights whose arrival country already has a visa badge on the layover card
+   * beside them. The layover is not always the card below — past lists run
+   * newest-first — so match on the flight itself, not on list position.
+   */
+  const layoverCoveredFlightIds = computed(
+    () =>
+      new Set(
+        flightListItems.value
+          .filter((i): i is LayoverInfo => i.type === "layover" && !!i.country)
+          .map((i) => i.arrivalFlight.id),
+      ),
+  )
+
+  return { flightListItems, layoverCoveredFlightIds }
 }

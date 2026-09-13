@@ -2,6 +2,7 @@ import { and, eq, lt } from "drizzle-orm"
 import { db as defaultDb } from "../db"
 import { flights } from "../db/schema"
 import { deriveFlightFields, lookupFlight, FLIGHT_LOOKUP_SCHEMA_VERSION } from "./flight-api"
+import { compareFlightsByDeparture } from "../../shared/utils/flight-order"
 
 type FlightRow = typeof flights.$inferSelect
 type DbHandle = typeof defaultDb
@@ -61,13 +62,18 @@ export async function getTripFlightsForUser(
   const db = dbOverride ?? defaultDb
   const rows = await db.query.flights.findMany({
     where: and(eq(flights.tripId, args.tripId), eq(flights.userId, args.userId)),
-    orderBy: (f, { asc, sql }) => [asc(f.flightDate), sql`${f.departureTime} ASC NULLS LAST`],
   })
 
   const migrated: FlightRow[] = []
   for (const row of rows) {
     migrated.push(await maybeMigrateRow(db, row))
   }
+
+  // Order after the migration pass, not in SQL: a row that was just enriched
+  // arrives with a departureTime the query could not have seen. Ordering here
+  // also means the AI prompts that read these rows get the same sequence the
+  // trip page shows, from the same comparator.
+  migrated.sort(compareFlightsByDeparture)
 
   return migrated.map((row) => {
     const { rawApiResponse, ...rest } = row
