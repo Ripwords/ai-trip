@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { LayoverInfo } from "../composables/useLayoverDetection"
+import { formatDuration } from "../utils/flight-facts"
 
 const props = defineProps<{
   layover: LayoverInfo
@@ -26,14 +27,6 @@ const aiTips = ref<{
   returnBy: string
 } | null>(null)
 const aiError = ref<string | null>(null)
-
-function formatDuration(minutes: number): string {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h === 0) return `${m}m`
-  if (m === 0) return `${h}h`
-  return `${h}h ${m}m`
-}
 
 const recommendationStyle = computed(() => {
   switch (props.layover.recommendation) {
