@@ -1,7 +1,13 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 
-import { arrivalDelayMinutes, blockMinutes, departureDelayMinutes } from "./flight-times"
+import {
+  arrivalDelayMinutes,
+  blockMinutes,
+  connectionMinutes,
+  departureDelayMinutes,
+  hasFlown,
+} from "./flight-times"
 
 const UNKNOWN = {
   scheduledDepartureTime: null,
@@ -161,5 +167,70 @@ describe("blockMinutes", () => {
 
   it("is null when nothing is known", () => {
     assert.equal(blockMinutes(UNKNOWN), null)
+  })
+})
+
+describe("hasFlown", () => {
+  const LEG = {
+    ...UNKNOWN,
+    flightDate: "2026-08-16",
+    departureTime: "2026-08-16T14:00:00Z",
+    scheduledDepartureTime: "2026-08-16T14:00:00Z",
+    actualDepartureTime: "2026-08-16T16:13:00Z",
+    scheduledArrivalTime: "2026-08-16T20:00:00Z",
+    actualArrivalTime: "2026-08-16T21:50:00Z",
+  }
+
+  it("is false when the actual arrival is missing, however long ago the leg was", () => {
+    assert.equal(hasFlown({ ...LEG, actualArrivalTime: null }, "2026-09-01"), false)
+  })
+
+  it("is false when the actual departure is missing, however long ago the leg was", () => {
+    assert.equal(hasFlown({ ...LEG, actualDepartureTime: null }, "2026-09-01"), false)
+  })
+
+  it("is false for an upcoming leg that already reports both actuals", () => {
+    // AeroDataBox fills `revisedTime` from the airline's own estimate the moment
+    // a delay is published, days before the aircraft moves.
+    assert.equal(hasFlown(LEG, "2026-08-15"), false)
+  })
+
+  it("is true once both actuals are known and the leg is no longer upcoming", () => {
+    assert.equal(hasFlown(LEG, "2026-08-17"), true)
+  })
+})
+
+describe("connectionMinutes", () => {
+  const INBOUND = {
+    ...UNKNOWN,
+    scheduledArrivalTime: "2026-08-16T08:00:00Z",
+    actualArrivalTime: "2026-08-16T08:00:00Z",
+  }
+  const OUTBOUND = {
+    ...UNKNOWN,
+    scheduledDepartureTime: "2026-08-16T14:00:00Z",
+    actualDepartureTime: "2026-08-16T16:13:00Z",
+  }
+
+  it("measures the booked ground time off the scheduled clock", () => {
+    assert.equal(connectionMinutes(INBOUND, OUTBOUND, "scheduled"), 360)
+  })
+
+  it("measures the ground time actually spent off the actual clock", () => {
+    assert.equal(connectionMinutes(INBOUND, OUTBOUND, "actual"), 493)
+  })
+
+  it("refuses a scheduled answer when only the actual departure is known", () => {
+    assert.equal(
+      connectionMinutes(INBOUND, { ...OUTBOUND, scheduledDepartureTime: null }, "scheduled"),
+      null,
+    )
+  })
+
+  it("refuses an actual answer when only the scheduled arrival is known", () => {
+    assert.equal(
+      connectionMinutes({ ...INBOUND, actualArrivalTime: null }, OUTBOUND, "actual"),
+      null,
+    )
   })
 })
