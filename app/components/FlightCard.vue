@@ -218,7 +218,7 @@ function unlinkTrip() {
         v-for="note in notes"
         :key="note.label"
         class="text-xs"
-        :class="note.tone === 'late' ? 'text-amber-700 dark:text-amber-300' : 'text-forest-700'"
+        :class="note.tone === 'late' ? 'text-amber-700' : 'text-forest-700'"
       >
         {{ note.label }} · scheduled
         <NuxtTime :datetime="note.scheduledTime" locale="en-US" hour="2-digit" minute="2-digit" />
