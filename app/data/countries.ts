@@ -1,3 +1,5 @@
+import { isSupportedCurrency } from "#shared/utils/currency"
+
 export interface CountryInfo {
   numeric: string
   alpha2: string
@@ -2440,6 +2442,26 @@ export function countryZoom(code: string | null | undefined): number | null {
 export function countryCurrency(code: string | null | undefined): string | null {
   if (!code) return null
   return countryByAlpha2.get(code.toUpperCase())?.currency ?? null
+}
+
+/**
+ * The currency to preselect when a trip's destination is `code`.
+ *
+ * Deliberately not `countryCurrency`. That returns the country's real
+ * circulating currency, and 144 of the 238 countries here circulate one that
+ * `SUPPORTED_CURRENCIES` excludes — the FX provider cannot price it, or it has
+ * three decimals and would truncate real money. Preselecting it sent a code
+ * `POST /api/trips` rejects, so creating a trip to any of those countries
+ * failed on a field the traveller never touched, and `humanMessage` reduced the
+ * ZodError to "Failed to create trip" with no mention of the currency.
+ *
+ * USD is the fallback rather than nothing: the field is required downstream and
+ * every amount on the trip is denominated in it, so a traveller changing it
+ * afterwards means a `/convert-currency` run, not a silent reinterpretation.
+ */
+export function defaultTripCurrency(code: string | null | undefined): string {
+  const currency = countryCurrency(code)
+  return currency && isSupportedCurrency(currency) ? currency : "USD"
 }
 
 export function countryName(code: string | null | undefined): string | null {

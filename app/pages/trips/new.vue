@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { countryByAlpha2 } from "~/data/countries"
+import { TRIP_CURRENCIES } from "#shared/utils/currency"
+
+import { defaultTripCurrency } from "~/data/countries"
 
 definePageMeta({ layout: "app" })
 useSeoMeta({
@@ -53,29 +55,12 @@ const rangeValid = computed(
   () => !!startDate.value && !!endDate.value && endDate.value >= startDate.value,
 )
 
-const baseCurrencies = [
-  { code: "USD", label: "USD ($)" },
-  { code: "EUR", label: "EUR (€)" },
-  { code: "GBP", label: "GBP (£)" },
-  { code: "JPY", label: "JPY (¥)" },
-  { code: "KRW", label: "KRW (₩)" },
-  { code: "THB", label: "THB (฿)" },
-  { code: "SGD", label: "SGD (S$)" },
-  { code: "AUD", label: "AUD (A$)" },
-  { code: "CAD", label: "CAD (C$)" },
-  { code: "MYR", label: "MYR (RM)" },
-  { code: "IDR", label: "IDR (Rp)" },
-  { code: "TWD", label: "TWD (NT$)" },
-  { code: "VND", label: "VND (₫)" },
-  { code: "PHP", label: "PHP (₱)" },
-  { code: "INR", label: "INR (₹)" },
-  { code: "CNY", label: "CNY (¥)" },
-]
-
-// Currencies shown in the dropdown — the base 16 plus the auto-picked currency
-// for the selected country if it isn't already on the list.
+// The picker list plus the country's own currency when that is one the API
+// accepts but the picker does not list (CHF on a Swiss trip, say). Anything
+// `defaultTripCurrency` hands back is already in `SUPPORTED_CURRENCIES`, so no
+// option here can be one the server will reject.
 const currencies = computed(() => {
-  const set = new Map(baseCurrencies.map((c) => [c.code, c]))
+  const set = new Map(TRIP_CURRENCIES.map((c) => [c.code, { code: c.code, label: c.label }]))
   if (currencyCode.value && !set.has(currencyCode.value)) {
     set.set(currencyCode.value, { code: currencyCode.value, label: currencyCode.value })
   }
@@ -86,8 +71,7 @@ const currencies = computed(() => {
 // overrode it explicitly.
 watch(countryCode, (code) => {
   if (!code || userTouchedCurrency.value) return
-  const c = countryByAlpha2.get(code)
-  if (c) currencyCode.value = c.currency
+  currencyCode.value = defaultTripCurrency(code)
 })
 
 function onCurrencyChange() {
