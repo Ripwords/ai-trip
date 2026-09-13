@@ -16,6 +16,10 @@ interface Flight {
   arrivalAirport: string | null
   departureTime: string | null
   arrivalTime: string | null
+  scheduledDepartureTime: string | null
+  actualDepartureTime: string | null
+  scheduledArrivalTime: string | null
+  actualArrivalTime: string | null
   terminal: string | null
   gate: string | null
   status: string

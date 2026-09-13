@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { iataToCountry } from "../utils/iata-to-country"
+import { delayNotes, formatDuration } from "../utils/flight-facts"
+import { blockMinutes, hasFlown } from "#shared/utils/flight-times"
 
 interface Flight {
   id: string
@@ -10,6 +12,10 @@ interface Flight {
   arrivalAirport: string | null
   departureTime: string | null
   arrivalTime: string | null
+  scheduledDepartureTime: string | null
+  actualDepartureTime: string | null
+  scheduledArrivalTime: string | null
+  actualArrivalTime: string | null
   terminal?: string | null
   gate?: string | null
   status?: string
@@ -85,6 +91,11 @@ const airlineLogoUrl = computed(() => {
 function onLogoError() {
   logoSourceIdx.value++
 }
+
+const todayIso = new Date().toISOString().split("T")[0]!
+const flown = computed(() => hasFlown(props.flight, todayIso))
+const block = computed(() => blockMinutes(props.flight))
+const notes = computed(() => delayNotes(props.flight))
 
 const arrivalCountry = computed(() => {
   if (!props.flight.arrivalAirport) return null
@@ -196,6 +207,22 @@ function unlinkTrip() {
       <span v-if="flight.terminal">· Terminal {{ flight.terminal }}</span>
       <span v-if="flight.gate">· Gate {{ flight.gate }}</span>
       <VisaBadge v-if="arrivalCountry && !hideVisaBadge" :destination-country="arrivalCountry" />
+    </div>
+
+    <!-- What actually happened, once the leg has operated -->
+    <div v-if="flown" class="mt-2 space-y-1">
+      <p v-if="block" class="text-xs text-sand-600">
+        {{ formatDuration(block.minutes) }} gate to gate
+      </p>
+      <p
+        v-for="note in notes"
+        :key="note.label"
+        class="text-xs"
+        :class="note.tone === 'late' ? 'text-amber-700 dark:text-amber-300' : 'text-forest-700'"
+      >
+        {{ note.label }} · scheduled
+        <NuxtTime :datetime="note.scheduledTime" locale="en-US" hour="2-digit" minute="2-digit" />
+      </p>
     </div>
 
     <!-- Trip link -->
