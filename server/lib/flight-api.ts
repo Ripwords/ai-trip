@@ -30,9 +30,18 @@ interface AeroDataBoxAirport {
   timeZone?: string
 }
 
+interface AeroDataBoxTime {
+  local?: string
+  utc?: string
+}
+
 interface AeroDataBoxLeg {
   airport?: AeroDataBoxAirport
-  scheduledTime?: { local?: string; utc?: string }
+  scheduledTime?: AeroDataBoxTime
+  /** What actually happened at the gate, once the airline has confirmed it. */
+  revisedTime?: AeroDataBoxTime
+  /** Wheels up / wheels down. The best actual available when no revised gate time exists. */
+  runwayTime?: AeroDataBoxTime
   terminal?: string
   gate?: string
 }
@@ -86,12 +95,34 @@ export interface FlightLookupResult {
   airline: string | null
   departureAirport: string | null
   arrivalAirport: string | null
-  departureTime: Date | null
-  arrivalTime: Date | null
+  scheduledDepartureTime: Date | null
+  actualDepartureTime: Date | null
+  scheduledArrivalTime: Date | null
+  actualArrivalTime: Date | null
   terminal: string | null
   gate: string | null
   status: string
   rawApiResponse: Record<string, unknown>
+}
+
+function toDate(utc: string | undefined): Date | null {
+  return utc ? new Date(utc) : null
+}
+
+function scheduledInstant(leg: AeroDataBoxLeg | undefined): Date | null {
+  return toDate(leg?.scheduledTime?.utc)
+}
+
+/**
+ * What the leg actually did: the confirmed gate time, or the runway time if that is
+ * all there is.
+ *
+ * `predictedTime` is deliberately not consulted. It is the API forecasting a flight
+ * that has not landed, and recording it as an actual would let a guess masquerade as
+ * a delay the traveler experienced.
+ */
+function actualInstant(leg: AeroDataBoxLeg | undefined): Date | null {
+  return toDate(leg?.revisedTime?.utc ?? leg?.runwayTime?.utc)
 }
 
 function parseFlightResponse(flight: AeroDataBoxFlight): FlightLookupResult {
@@ -99,12 +130,10 @@ function parseFlightResponse(flight: AeroDataBoxFlight): FlightLookupResult {
     airline: flight.airline?.name ?? null,
     departureAirport: flight.departure?.airport?.iata ?? null,
     arrivalAirport: flight.arrival?.airport?.iata ?? null,
-    departureTime: flight.departure?.scheduledTime?.utc
-      ? new Date(flight.departure.scheduledTime.utc)
-      : null,
-    arrivalTime: flight.arrival?.scheduledTime?.utc
-      ? new Date(flight.arrival.scheduledTime.utc)
-      : null,
+    scheduledDepartureTime: scheduledInstant(flight.departure),
+    actualDepartureTime: actualInstant(flight.departure),
+    scheduledArrivalTime: scheduledInstant(flight.arrival),
+    actualArrivalTime: actualInstant(flight.arrival),
     terminal: flight.departure?.terminal ?? null,
     gate: flight.departure?.gate ?? null,
     status: flight.status ?? "scheduled",
