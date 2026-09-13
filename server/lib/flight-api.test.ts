@@ -176,3 +176,124 @@ describe("deriveFlightFields", () => {
     expect(derived.arrivalTimeLocal).toBeNull()
   })
 })
+
+describe("scheduled vs actual times from the API", () => {
+  const lookupWith = async (departure: unknown, arrival: unknown) => {
+    const { impl } = makeFetch([
+      {
+        ok: true,
+        body: [
+          {
+            airline: { name: "EVA Air" },
+            departure: { airport: { iata: "KUL" }, ...(departure as object) },
+            arrival: { airport: { iata: "TPE" }, ...(arrival as object) },
+            status: "scheduled",
+          },
+        ],
+      },
+    ])
+    return lookupFlight("BR228", FUTURE_DATE, {
+      store: makeMemoryStore(),
+      fetchImpl: impl,
+      now: () => new Date("2099-05-26T11:00:00Z"),
+    })
+  }
+
+  it("maps scheduledTime.utc onto the scheduled fields", async () => {
+    const result = await lookupWith(
+      { scheduledTime: { utc: "2099-05-26T12:25Z" } },
+      { scheduledTime: { utc: "2099-05-26T16:25Z" } },
+    )
+
+    expect(result?.scheduledDepartureTime?.toISOString()).toBe(
+      new Date("2099-05-26T12:25Z").toISOString(),
+    )
+    expect(result?.scheduledArrivalTime?.toISOString()).toBe(
+      new Date("2099-05-26T16:25Z").toISOString(),
+    )
+  })
+
+  it("takes revisedTime.utc as the actual, leaving the scheduled fields alone", async () => {
+    const result = await lookupWith(
+      {
+        scheduledTime: { utc: "2099-05-26T12:25Z" },
+        revisedTime: { utc: "2099-05-26T14:38Z" },
+      },
+      {
+        scheduledTime: { utc: "2099-05-26T16:25Z" },
+        revisedTime: { utc: "2099-05-26T18:15Z" },
+      },
+    )
+
+    expect(result?.scheduledDepartureTime?.toISOString()).toBe(
+      new Date("2099-05-26T12:25Z").toISOString(),
+    )
+    expect(result?.actualDepartureTime?.toISOString()).toBe(
+      new Date("2099-05-26T14:38Z").toISOString(),
+    )
+    expect(result?.actualArrivalTime?.toISOString()).toBe(
+      new Date("2099-05-26T18:15Z").toISOString(),
+    )
+  })
+
+  it("falls back to runwayTime.utc for the actual when revisedTime is absent", async () => {
+    const result = await lookupWith(
+      {
+        scheduledTime: { utc: "2099-05-26T12:25Z" },
+        runwayTime: { utc: "2099-05-26T12:41Z" },
+      },
+      {
+        scheduledTime: { utc: "2099-05-26T16:25Z" },
+        runwayTime: { utc: "2099-05-26T16:30Z" },
+      },
+    )
+
+    expect(result?.actualDepartureTime?.toISOString()).toBe(
+      new Date("2099-05-26T12:41Z").toISOString(),
+    )
+    expect(result?.actualArrivalTime?.toISOString()).toBe(
+      new Date("2099-05-26T16:30Z").toISOString(),
+    )
+  })
+
+  it("prefers revisedTime over runwayTime when the API reports both", async () => {
+    const result = await lookupWith(
+      {
+        scheduledTime: { utc: "2099-05-26T12:25Z" },
+        revisedTime: { utc: "2099-05-26T14:38Z" },
+        runwayTime: { utc: "2099-05-26T14:55Z" },
+      },
+      { scheduledTime: { utc: "2099-05-26T16:25Z" } },
+    )
+
+    expect(result?.actualDepartureTime?.toISOString()).toBe(
+      new Date("2099-05-26T14:38Z").toISOString(),
+    )
+  })
+
+  it("does not treat predictedTime as an actual", async () => {
+    const result = await lookupWith(
+      {
+        scheduledTime: { utc: "2099-05-26T12:25Z" },
+        predictedTime: { utc: "2099-05-26T13:10Z" },
+      },
+      {
+        scheduledTime: { utc: "2099-05-26T16:25Z" },
+        predictedTime: { utc: "2099-05-26T17:05Z" },
+      },
+    )
+
+    expect(result?.actualDepartureTime).toBeNull()
+    expect(result?.actualArrivalTime).toBeNull()
+  })
+
+  it("leaves the actual fields null when neither revisedTime nor runwayTime is present", async () => {
+    const result = await lookupWith(
+      { scheduledTime: { utc: "2099-05-26T12:25Z" } },
+      { scheduledTime: { utc: "2099-05-26T16:25Z" } },
+    )
+
+    expect(result?.actualDepartureTime).toBeNull()
+    expect(result?.actualArrivalTime).toBeNull()
+  })
+})
