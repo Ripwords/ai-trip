@@ -112,8 +112,6 @@ const props = defineProps<{
   messages: ChatMessage[]
   input: string
   loading: boolean
-  usageUsed: number | null
-  usageLimit: number | null
   usageRemaining: number | null
   hasActivities: boolean
   destination: string
@@ -477,9 +475,11 @@ watch(
 )
 
 const limitReached = computed(() => (props.usageRemaining ?? 1) <= 0)
+// Usage stays out of the way until it matters; the full count lives in Settings.
+const creditsNotice = computed(() => lowCreditsNotice(props.usageRemaining))
 
 const placeholder = computed(() => {
-  if (limitReached.value) return "Limit reached. Resets next month."
+  if (limitReached.value) return "Out of AI credits until next month."
   if (props.loading) return "Thinking..."
   return "Ask, discuss, or push back..."
 })
@@ -771,14 +771,6 @@ const proposalKindMeta: Record<
           </span>
         </div>
         <div class="flex shrink-0 items-center gap-1">
-          <span
-            v-if="usageUsed != null && usageLimit != null"
-            class="mr-1 text-[10px] uppercase tracking-[0.18em] tabular-nums"
-            :class="(usageRemaining ?? 1) <= 10 ? 'font-medium text-terra-500' : 'text-sand-600'"
-            :title="`${usageUsed}/${usageLimit} AI prompts used this month`"
-          >
-            {{ usageUsed }} / {{ usageLimit }}
-          </span>
           <button
             v-if="messages.length > 0"
             type="button"
@@ -815,9 +807,6 @@ const proposalKindMeta: Record<
         <div v-if="messages.length === 0" class="flex flex-col gap-3">
           <p class="font-display text-[18px] italic leading-snug text-sand-900">
             Tell me what to change, or pick a suggestion below.
-          </p>
-          <p class="text-[12px] text-sand-600">
-            Each reply uses 1 of your {{ usageLimit ?? 100 }} monthly credits.
           </p>
 
           <div v-if="starters.length > 0" class="mt-2 flex flex-col gap-2">
@@ -1015,6 +1004,17 @@ const proposalKindMeta: Record<
           </button>
         </Transition>
       </div>
+
+      <p
+        v-if="creditsNotice"
+        role="status"
+        class="mx-auto w-full max-w-[28rem] shrink-0 px-4 pb-1.5 text-[12px] text-sand-600"
+      >
+        {{ creditsNotice }}
+        <NuxtLink to="/settings" class="underline underline-offset-2 hover:text-sand-900"
+          >Usage</NuxtLink
+        >
+      </p>
 
       <!-- Quick action chips -->
       <div class="mx-auto w-full max-w-[28rem] shrink-0 px-4 pb-2">

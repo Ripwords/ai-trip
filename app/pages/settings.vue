@@ -68,12 +68,12 @@ const modeIcons: Record<string, string> = {
 
     <!-- AI Usage -->
     <div class="rounded-2xl border border-sand-200 bg-white p-6">
-      <h2 class="text-sm font-semibold text-sand-900">AI Usage</h2>
+      <h2 class="text-sm font-semibold text-sand-900">AI credits</h2>
       <div v-if="aiUsage" class="mt-4">
         <div class="flex items-baseline justify-between">
           <p class="text-sm text-sand-600">
             <span class="font-semibold text-sand-900">{{ aiUsage.used }}</span> /
-            {{ aiUsage.limit }} prompts used
+            {{ aiUsage.limit }} credits used
           </p>
           <p class="text-xs text-sand-600">Resets monthly</p>
         </div>
@@ -82,7 +82,7 @@ const modeIcons: Record<string, string> = {
           :aria-valuemin="0"
           :aria-valuemax="aiUsage.limit"
           :aria-valuenow="aiUsage.used"
-          :aria-label="`AI prompts used: ${aiUsage.used} of ${aiUsage.limit}`"
+          :aria-label="`AI credits used: ${aiUsage.used} of ${aiUsage.limit}`"
           class="mt-2 h-2 w-full rounded-full bg-sand-200"
         >
           <div

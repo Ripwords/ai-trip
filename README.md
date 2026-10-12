@@ -298,7 +298,7 @@ The planner enforces schedules a human could actually walk:
 
 ### Rate limits
 
-Each user gets **100 AI prompts per month**, metered atomically. Streaming turns are billed per step and settled non-idempotently at the end of the stream.
+Each user gets **100 AI credits per month**, metered atomically. The trip page stays quiet about usage until 10 or fewer credits remain, then shows a short notice in the AI dock; the full count is under **Settings → AI credits**. Streaming turns are billed per step and settled non-idempotently at the end of the stream.
 
 ## API Reference
 
@@ -361,13 +361,13 @@ Each user gets **100 AI prompts per month**, metered atomically. Streaming turns
 
 ### Other
 
-| Method     | Endpoint                 | Description               |
-| ---------- | ------------------------ | ------------------------- |
-| `GET`      | `/api/ai/usage`          | AI prompt quota remaining |
-| `POST`     | `/api/ai/layover-tips`   | Layover recommendations   |
-| `GET`      | `/api/stats`             | Dashboard statistics      |
-| `GET`      | `/api/exchange-rate`     | Currency conversion       |
-| `GET/POST` | `/api/visited-countries` | Travel history            |
+| Method     | Endpoint                 | Description             |
+| ---------- | ------------------------ | ----------------------- |
+| `GET`      | `/api/ai/usage`          | AI credits remaining    |
+| `POST`     | `/api/ai/layover-tips`   | Layover recommendations |
+| `GET`      | `/api/stats`             | Dashboard statistics    |
+| `GET`      | `/api/exchange-rate`     | Currency conversion     |
+| `GET/POST` | `/api/visited-countries` | Travel history          |
 
 ## Security
 
