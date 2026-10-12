@@ -1,3 +1,4 @@
+import { and, eq } from "drizzle-orm"
 import { db } from "../../db"
 import { flights } from "../../db/schema"
 import { createFlightSchema } from "../../utils/schemas"
@@ -10,6 +11,21 @@ export default defineEventHandler(async (event) => {
   // If tripId provided, verify user has access to that trip
   if (body.tripId) {
     await requireTripAccess(body.tripId, session.user.id)
+  }
+
+  // One row per (user, flight number, date) — the unique index. Checked before
+  // the paid AeroDataBox lookup; the insert below still guards the race.
+  const duplicateMessage = `${body.flightNumber} on ${body.flightDate} is already in your flights.`
+  const existing = await db.query.flights.findFirst({
+    where: and(
+      eq(flights.userId, session.user.id),
+      eq(flights.flightNumber, body.flightNumber),
+      eq(flights.flightDate, body.flightDate),
+    ),
+    columns: { id: true },
+  })
+  if (existing) {
+    throw createError({ statusCode: 409, message: duplicateMessage })
   }
 
   // Look up flight data from AeroDataBox
@@ -36,7 +52,15 @@ export default defineEventHandler(async (event) => {
       apiLastFetchedAt: flightData ? new Date() : null,
       lookupSchemaVersion: FLIGHT_LOOKUP_SCHEMA_VERSION,
     })
+    .onConflictDoNothing({
+      target: [flights.userId, flights.flightNumber, flights.flightDate],
+    })
     .returning()
+
+  // A concurrent add of the same flight won between the check and the insert.
+  if (!flight) {
+    throw createError({ statusCode: 409, message: duplicateMessage })
+  }
 
   return flight
 })
