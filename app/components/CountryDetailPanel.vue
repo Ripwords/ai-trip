@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { countryFlag } from "../data/countries"
 import type { CountryInfo } from "../data/countries"
 import type { VisitType } from "./ScratchMap.vue"
 
@@ -75,9 +76,9 @@ function handleSetType(type: VisitType) {
       <div class="flex items-center justify-between border-b border-sand-200 px-5 py-4">
         <div>
           <h2 :id="desktopHeadingId" class="font-display text-lg text-sand-900">
-            {{ country.name }}
+            {{ countryFlag(country.alpha2) }} {{ country.name }}
           </h2>
-          <p class="text-sm text-sand-500">{{ country.region }} &middot; {{ country.alpha2 }}</p>
+          <p class="text-sm text-sand-500">{{ country.region }}</p>
         </div>
         <button
           type="button"
@@ -208,9 +209,9 @@ function handleSetType(type: VisitType) {
       <div class="flex items-center justify-between px-5 pb-3 pt-4">
         <div>
           <h2 :id="mobileHeadingId" class="font-display text-lg text-sand-900">
-            {{ country.name }}
+            {{ countryFlag(country.alpha2) }} {{ country.name }}
           </h2>
-          <p class="text-sm text-sand-500">{{ country.region }} &middot; {{ country.alpha2 }}</p>
+          <p class="text-sm text-sand-500">{{ country.region }}</p>
         </div>
         <button
           type="button"
