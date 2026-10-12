@@ -190,7 +190,7 @@ const roleBadgeClass: Record<string, string> = {
           <option value="viewer">Viewer</option>
         </select>
       </div>
-      <p v-if="inviteError" role="alert" class="text-xs text-red-600">{{ inviteError }}</p>
+      <p v-if="inviteError" role="alert" class="text-xs text-red-700">{{ inviteError }}</p>
       <button
         type="submit"
         :disabled="inviteLoading"
@@ -281,7 +281,7 @@ const roleBadgeClass: Record<string, string> = {
           </span>
           <button
             v-if="currentRole === 'owner' && member.role !== 'owner'"
-            class="rounded p-1 text-sand-300 transition hover:text-red-500"
+            class="rounded p-1 text-sand-300 transition hover:text-red-700"
             title="Remove"
             @click="handleRemove(member)"
           >
@@ -319,7 +319,7 @@ const roleBadgeClass: Record<string, string> = {
             </div>
           </div>
           <button
-            class="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-sand-200 px-2.5 text-xs font-medium text-sand-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+            class="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-sand-200 px-2.5 text-xs font-medium text-sand-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700"
             @click="handleRemove(invite)"
           >
             Revoke
@@ -331,7 +331,7 @@ const roleBadgeClass: Record<string, string> = {
     <!-- Leave trip (non-owners only) -->
     <div v-if="currentRole !== 'owner'" class="mt-4 border-t border-sand-100 pt-4">
       <button
-        class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50"
+        class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50"
         @click="handleLeave"
       >
         <Icon name="lucide:log-out" class="h-3.5 w-3.5" />

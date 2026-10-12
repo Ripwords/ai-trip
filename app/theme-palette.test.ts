@@ -104,12 +104,6 @@ function retiredColours(source: string): string[] {
   return [...found]
 }
 
-/**
- * Files owned by other in-flight work that still carry retired colours. This
- * list may only shrink: once a file is clean, drop it so it stays clean.
- */
-const PENDING = new Set(["components/AiDock.vue", "components/TripOverview.vue"])
-
 describe("Lagoon theme", () => {
   it("keeps the descendant in scoped `.dark` selectors instead of letting :global() drop it", () => {
     // Vue compiles `:global(.dark) .x {}` to a bare `.dark {}`: the rule lands
@@ -122,7 +116,7 @@ describe("Lagoon theme", () => {
 
   it("leaves no retired warm or navy colours hard-coded outside the theme tokens", () => {
     const offenders = files
-      .filter((f) => !PENDING.has(f.name) && !f.name.startsWith("assets/"))
+      .filter((f) => !f.name.startsWith("assets/"))
       .map((f) => ({ file: f.name, colours: retiredColours(f.source) }))
       .filter((f) => f.colours.length > 0)
     assert.deepEqual(offenders, [])

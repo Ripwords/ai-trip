@@ -321,7 +321,7 @@ function formatDuration(minutes: number): string {
               type="button"
               role="menuitem"
               tabindex="-1"
-              class="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none"
+              class="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm text-red-700 hover:bg-red-50 focus:bg-red-50 focus:outline-none"
               @click="menuAction('delete')"
             >
               <Icon name="lucide:trash-2" class="h-4 w-4" />

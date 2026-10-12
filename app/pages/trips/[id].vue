@@ -1791,7 +1791,7 @@ async function recomputeSegments(dayId: string) {
                   </button>
                   <button
                     type="button"
-                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50"
                     @click="
                       () => {
                         handleToggleShare()

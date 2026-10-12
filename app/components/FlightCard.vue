@@ -58,7 +58,7 @@ const statusConfig: Record<FlightStatus, { label: string; color: string }> = {
   },
   cancelled: {
     label: "Cancelled",
-    color: "bg-red-100 text-red-700",
+    color: "bg-red-50 text-red-700",
   },
 }
 
@@ -150,7 +150,7 @@ function unlinkTrip() {
         </span>
         <button
           type="button"
-          class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-red-500 focus-ring"
+          class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-red-700 focus-ring"
           aria-label="Delete flight"
           @click="emit('delete', flight.id)"
         >

@@ -433,7 +433,7 @@ const dashboardBriefing = computed(() =>
 
             <button
               type="button"
-              class="absolute right-2 top-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-400 opacity-100 transition hover:bg-red-50 hover:text-red-600 focus-ring sm:opacity-0 sm:group-hover:opacity-100"
+              class="absolute right-2 top-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-400 opacity-100 transition hover:bg-red-50 hover:text-red-700 focus-ring sm:opacity-0 sm:group-hover:opacity-100"
               :aria-label="`Delete trip to ${trip.destination}`"
               @click.stop="handleDelete(trip.id, trip.destination)"
             >

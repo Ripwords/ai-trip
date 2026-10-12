@@ -63,7 +63,7 @@ async function post() {
 <template>
   <div class="mt-2 rounded-xl border border-sand-200 bg-white p-3">
     <p v-if="status === 'pending'" class="text-xs text-sand-500">Loading comments...</p>
-    <p v-else-if="status === 'error'" class="text-xs text-red-600">
+    <p v-else-if="status === 'error'" class="text-xs text-red-700">
       Couldn't load comments.
       <button type="button" class="underline underline-offset-2" @click="refresh()">Retry</button>
     </p>

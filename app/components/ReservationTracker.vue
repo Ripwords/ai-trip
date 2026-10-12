@@ -92,7 +92,7 @@ const typeIcons: Record<string, string> = {
 const statusClasses: Record<string, string> = {
   confirmed: "bg-forest-50 text-forest-700",
   pending: "bg-amber-50 text-amber-700",
-  cancelled: "bg-red-50 text-red-600",
+  cancelled: "bg-red-50 text-red-700",
 }
 
 function resetForm() {
@@ -500,7 +500,7 @@ const dateGridClass = computed(() => {
               <button
                 v-if="!readonly"
                 type="button"
-                class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-red-500 active:scale-95 focus-ring"
+                class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-red-700 active:scale-95 focus-ring"
                 title="Delete"
                 aria-label="Delete reservation"
                 @click="deleteReservation(r.id)"

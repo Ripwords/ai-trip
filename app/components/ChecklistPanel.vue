@@ -380,7 +380,7 @@ function checkedCount(checklist: Checklist): number {
             </button>
             <button
               type="button"
-              class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:bg-red-50 hover:text-red-600 focus-ring"
+              class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:bg-red-50 hover:text-red-700 focus-ring"
               title="Delete"
               aria-label="Delete checklist"
               @click.stop="deleteChecklist(checklist.id)"
@@ -479,7 +479,7 @@ function checkedCount(checklist: Checklist): number {
                   </button>
                   <button
                     type="button"
-                    class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:text-red-500 focus-ring"
+                    class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:text-red-700 focus-ring"
                     title="Delete item"
                     aria-label="Delete item"
                     @click="deleteItem(checklist.id, item.id)"
@@ -537,7 +537,7 @@ function checkedCount(checklist: Checklist): number {
                 </button>
                 <button
                   type="button"
-                  class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:text-red-500 focus-ring"
+                  class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:text-red-700 focus-ring"
                   title="Delete item"
                   aria-label="Delete item"
                   @click="deleteItem(checklist.id, item.id)"

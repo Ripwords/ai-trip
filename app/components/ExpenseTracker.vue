@@ -1188,7 +1188,7 @@ function getMemberName(userId: string | null): string {
               <button
                 v-if="!readonly"
                 type="button"
-                class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-red-500 active:scale-95 focus-ring"
+                class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-red-700 active:scale-95 focus-ring"
                 title="Delete"
                 aria-label="Delete expense"
                 @click="deleteExpense(expense.id)"
@@ -1303,7 +1303,7 @@ function getMemberName(userId: string | null): string {
           <div v-if="!readonly" class="mt-4 flex justify-end">
             <button
               type="button"
-              class="min-h-9 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+              class="min-h-9 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
               @click="deleteOpenReceipt"
             >
               Delete receipt
