@@ -5,22 +5,8 @@ import { google } from "@ai-sdk/google"
 import { getModel } from "../../lib/ai-config"
 import { sanitizePromptInput } from "../../utils/sanitize"
 import { refundAiCredit } from "../../utils/ai-limits"
-import { layoverTipsCacheKey, timeOfDayBucket, formatLayoverDuration } from "../../lib/ai-cache"
-
-const bodySchema = z.object({
-  airport: z.string().min(2).max(4).toUpperCase(),
-  durationMinutes: z.number().int().positive(),
-  visaStatus: z.string().nullable(),
-  /**
-   * Wall clock at the layover airport, e.g. "2026-08-16 03:00+08:00".
-   *
-   * NOT the UTC `flights.arrivalTime`: that column is `timestamp with timezone`
-   * and serialises with `Z`, and a UTC instant cannot say what the airport clock
-   * read. Optional so a stale client bundle degrades to an "unknown" bucket
-   * rather than a wrong one (issue #15).
-   */
-  arrivalTimeLocal: z.string().nullable().optional(),
-})
+import { layoverTipsCacheKey, timeOfDayBucket } from "../../lib/ai-cache"
+import { buildLayoverTipsPrompt, layoverTipsBodySchema } from "../../lib/layover-tips-prompt"
 
 const layoverTipsSchema = z.object({
   recommendation: z.string().describe("One-sentence summary of what to do during the layover"),
@@ -34,12 +20,13 @@ const layoverTipsSchema = z.object({
 })
 
 const generateLayoverTips = defineCachedFunction(
-  async (airport: string, durationMinutes: number, visaStatus: string, timeOfDay: string) => {
+  async (
+    airport: string,
+    durationMinutes: number | null,
+    visaStatus: string,
+    timeOfDay: string,
+  ) => {
     const model = getModel("research")
-
-    const requiresAirportOnly = visaStatus === "visa_required" || visaStatus === "visa-required"
-    const duration = formatLayoverDuration(durationMinutes)
-    const isShort = durationMinutes < 180
 
     const result = await generateText({
       model,
@@ -48,19 +35,7 @@ const generateLayoverTips = defineCachedFunction(
       },
       output: Output.object({ schema: layoverTipsSchema }),
       stopWhen: stepCountIs(5),
-      prompt: `You are a travel expert helping a traveler with a ${duration} layover at ${airport} (IATA airport code).
-
-Time of arrival (local): ${timeOfDay}
-Visa status: ${visaStatus || "unknown"}
-
-Provide practical, specific advice:
-- What they can realistically do in ${duration.replace(/-/g, " ")} (including immigration and transit time)
-- Specific places, attractions, or food near the airport or reachable in the time
-- Exact transit options (train, bus, taxi) with approximate costs and travel times
-- When they should head back to the airport (accounting for security lines and immigration)
-
-Be concise and practical.${isShort ? " This layover is under 3 hours — focus on in-airport options only." : ""}
-${requiresAirportOnly ? "VISA RESTRICTION: the traveler needs a visa for this country and likely cannot exit immigration. Focus ONLY on airside / transit-zone options." : ""}`,
+      prompt: buildLayoverTipsPrompt({ airport, durationMinutes, visaStatus, timeOfDay }),
     })
 
     // Throw rather than assert with `!`: an undefined output would otherwise be
@@ -82,7 +57,7 @@ ${requiresAirportOnly ? "VISA RESTRICTION: the traveler needs a visa for this co
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
 
-  const body = await readValidatedBody(event, bodySchema.parse)
+  const body = await readValidatedBody(event, layoverTipsBodySchema.parse)
 
   // Sanitize user-controlled fields before embedding in AI prompt
   const sanitizedAirport = sanitizePromptInput(body.airport)
@@ -98,7 +73,8 @@ export default defineEventHandler(async (event) => {
   // Minutes all the way through. `Math.round` turned a 179-minute layover into
   // "3 hours" and lost the "under 3 hours" instruction; `Math.floor` then asked
   // the model what to do "in 0 hours" on a 45-minute connection (issue #15).
-  const durationMinutes = body.durationMinutes
+  // Null means unknown, and the prompt says so (B20).
+  const durationMinutes = body.durationMinutes ?? null
   // Coarse bucket, used for BOTH the prompt and the cache key so the cached answer
   // always corresponds to the key it is stored under.
   const timeOfDay = timeOfDayBucket(body.arrivalTimeLocal)

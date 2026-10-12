@@ -80,7 +80,9 @@ async function fetchAiTips() {
       method: "POST",
       body: {
         airport: props.layover.airport,
-        durationMinutes: props.layover.durationMinutes ?? 180,
+        // Null when the connection length is unknown; the server says so to
+        // the model rather than pretending it is 3 hours.
+        durationMinutes: props.layover.durationMinutes,
         visaStatus: visaStatus.value,
         // The airport's local wall clock, never the UTC instant: the server
         // buckets time-of-day textually and cannot recover a local hour from a
