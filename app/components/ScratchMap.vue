@@ -569,60 +569,62 @@ function resetZoom() {
 
 /* ── Light Mode ────────────────────────────────────────── */
 .scratch-map {
-  --map-ocean: #79aeb0;
-  --map-country: #e6dcbf;
-  --map-country-hover: #f0e7cd;
-  --map-visited: #ec6e4a;
-  --map-visited-hover: #df5a34;
-  --map-layover: #4fa9c2;
-  --map-layover-hover: #3f97b0;
-  --map-want: #7aa35f;
-  --map-want-hover: #658b4b;
-  --map-border: #b3a678;
+  --map-ocean: #c4e1e4;
+  --map-country: #f4f7f7;
+  --map-country-hover: #ffffff;
+  --map-visited: #e2533b;
+  --map-visited-hover: #c94530;
+  --map-layover: #3b6fc0;
+  --map-layover-hover: #2f5aa3;
+  --map-want: #4f9a6e;
+  --map-want-hover: #3f845c;
+  --map-border: #93a4a8;
   --map-texture: soft-light;
   --map-texture-opacity: 0.32;
   --map-overlay-bg: rgba(255, 255, 255, 0.92);
-  --map-overlay-border: rgba(0, 0, 0, 0.08);
-  --map-overlay-text: #3d3328;
-  --map-overlay-accent: #d44425;
-  --map-layover-accent-color: #2e8a9e;
+  --map-overlay-border: rgba(19, 38, 43, 0.08);
+  --map-overlay-text: #13262b;
+  --map-overlay-accent: #c4432d;
+  --map-layover-accent-color: #2f5aa3;
   --map-want-accent-color: #3a6a3f;
   --map-btn-bg: rgba(255, 255, 255, 0.82);
-  --map-btn-text: #5a4b3a;
+  --map-btn-text: #3f565d;
   --map-btn-hover: rgba(255, 255, 255, 1);
-  --map-tooltip-bg: #3d3328;
-  --map-tooltip-text: #faf8f5;
+  --map-tooltip-bg: #13262b;
+  --map-tooltip-text: #f4f7f7;
   --map-tooltip-badge-bg: rgba(255, 255, 255, 0.18);
   background: var(--map-ocean);
 }
 
 /* ── Dark Mode ─────────────────────────────────────────── */
-:global(.dark) .scratch-map {
-  --map-ocean: #1d3236;
-  --map-country: #4b5040;
-  --map-country-hover: #5b6150;
-  --map-visited: #ec7355;
-  --map-visited-hover: #f4a184;
-  --map-layover: #57a6bd;
-  --map-layover-hover: #7dc3d4;
-  --map-want: #82a874;
-  --map-want-hover: #9bbf90;
-  --map-border: #333829;
+/* Plain `.dark` ancestor, not :global(.dark): Vue compiles `:global(.dark) .x`
+   to a bare `.dark`, which drops the descendant and styles <html> instead. */
+.dark .scratch-map {
+  --map-ocean: #1f3639;
+  --map-country: #212b2e;
+  --map-country-hover: #2c3a3e;
+  --map-visited: #e0907f;
+  --map-visited-hover: #e9a898;
+  --map-layover: #6b8fc4;
+  --map-layover-hover: #8eaad3;
+  --map-want: #7cc49a;
+  --map-want-hover: #98d2b0;
+  --map-border: #3a4a4e;
   --map-texture: soft-light;
   --map-texture-opacity: 0.22;
-  --map-overlay-bg: rgba(12, 21, 36, 0.92);
-  --map-overlay-border: rgba(255, 255, 255, 0.1);
-  --map-overlay-text: #c8d6e5;
-  --map-overlay-accent: #f07b5a;
-  --map-layover-accent-color: #7dc3d4;
-  --map-want-accent-color: #96c098;
-  --map-btn-bg: rgba(30, 48, 68, 0.85);
-  --map-btn-text: #c8d6e5;
-  --map-btn-hover: rgba(42, 68, 96, 0.95);
-  --map-tooltip-bg: #1e3044;
-  --map-tooltip-text: #e2e8f0;
-  --map-tooltip-badge-bg: rgba(255, 255, 255, 0.12);
-  border-color: #1e3044;
+  --map-overlay-bg: rgba(29, 38, 41, 0.92);
+  --map-overlay-border: rgba(220, 229, 230, 0.1);
+  --map-overlay-text: #dce5e6;
+  --map-overlay-accent: #e0907f;
+  --map-layover-accent-color: #8eaad3;
+  --map-want-accent-color: #7cc49a;
+  --map-btn-bg: rgba(29, 38, 41, 0.9);
+  --map-btn-text: #dce5e6;
+  --map-btn-hover: rgba(44, 58, 62, 0.96);
+  --map-tooltip-bg: #1d2629;
+  --map-tooltip-text: #dce5e6;
+  --map-tooltip-badge-bg: rgba(220, 229, 230, 0.12);
+  border-color: #2c3a3e;
   background: var(--map-ocean);
 }
 
@@ -674,20 +676,20 @@ function resetZoom() {
   background: var(--map-tooltip-badge-bg);
 }
 .map-tooltip-visa-free {
-  background: rgba(74, 222, 128, 0.2);
-  color: #86efac;
+  background: rgba(124, 196, 154, 0.2);
+  color: #7cc49a;
 }
 .map-tooltip-visa-arrival {
-  background: rgba(96, 165, 250, 0.2);
-  color: #93c5fd;
+  background: rgba(142, 170, 211, 0.2);
+  color: #8eaad3;
 }
 .map-tooltip-visa-evisa {
-  background: rgba(251, 191, 36, 0.2);
-  color: #fcd34d;
+  background: rgba(217, 178, 106, 0.2);
+  color: #d9b26a;
 }
 .map-tooltip-visa-required {
-  background: rgba(248, 113, 113, 0.2);
-  color: #fca5a5;
+  background: rgba(224, 144, 127, 0.2);
+  color: #e0907f;
 }
 
 /* ── Overlay elements ──────────────────────────────────── */

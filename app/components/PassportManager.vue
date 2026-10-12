@@ -182,7 +182,7 @@ function isExpiringSoon(date: string): boolean {
                 <span
                   v-if="passport.expiryDate"
                   class="flex items-center gap-1"
-                  :class="isExpiringSoon(passport.expiryDate) ? 'text-red-600' : 'text-sand-600'"
+                  :class="isExpiringSoon(passport.expiryDate) ? 'text-red-700' : 'text-sand-600'"
                 >
                   <Icon name="lucide:calendar" class="h-3 w-3" />
                   Exp
@@ -194,7 +194,7 @@ function isExpiringSoon(date: string): boolean {
                   />
                   <span
                     v-if="isExpiringSoon(passport.expiryDate)"
-                    class="rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-600"
+                    class="rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700"
                   >
                     Expiring soon
                   </span>
@@ -230,7 +230,7 @@ function isExpiringSoon(date: string): boolean {
               <button
                 type="button"
                 aria-label="Remove passport"
-                class="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-500 hover:bg-red-50 hover:text-red-500"
+                class="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-500 hover:bg-red-50 hover:text-red-700"
                 @click="removePassport(passport.id)"
               >
                 <Icon name="lucide:trash-2" class="h-3.5 w-3.5" />

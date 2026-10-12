@@ -68,7 +68,7 @@ const severityMeta: Record<
     label: "Critical",
     icon: "lucide:circle-alert",
     badgeClass: "bg-red-50 text-red-700",
-    iconClass: "text-red-500",
+    iconClass: "text-red-700",
   },
   warning: {
     label: "Warnings",
@@ -274,7 +274,7 @@ onMounted(() => {
     <div
       v-if="error"
       role="alert"
-      class="mt-4 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700"
+      class="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
     >
       {{ error }}
     </div>

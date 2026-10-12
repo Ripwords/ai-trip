@@ -33,14 +33,14 @@ const props = defineProps<{
 }>()
 
 const DAY_COLORS = [
-  "#E85D3A",
+  "#0E7C86",
   "#3B82F6",
   "#22C55E",
   "#F59E0B",
   "#A855F7",
   "#EC4899",
-  "#14B8A6",
-  "#F97316",
+  "#E2533B",
+  "#56707A",
   "#6366F1",
   "#84CC16",
 ]
@@ -91,10 +91,10 @@ const uniqueTypes = computed(() => {
 })
 
 const markerColors: Record<string, string> = {
-  attraction: "#3B82F6",
-  restaurant: "#F97316",
+  attraction: "#3B6FC0",
+  restaurant: "#E2533B",
   hotel: "#22C55E",
-  transport: "#6B7280",
+  transport: "#56707A",
   shopping: "#A855F7",
   entertainment: "#EC4899",
 }
@@ -366,7 +366,7 @@ function updateMarkers() {
             width: 34px;
             height: 34px;
             border-radius: 50%;
-            background: #E85D3A;
+            background: #0E7C86;
             color: white;
             display: flex;
             align-items: center;
@@ -479,7 +479,7 @@ onMounted(() => {
             <span
               class="inline-block h-1.5 w-1.5 rounded-full"
               :style="{
-                background: hiddenTypes.has(type) ? '#78716c' : markerColors[type] || '#3B82F6',
+                background: hiddenTypes.has(type) ? '#93A4A8' : markerColors[type] || '#3B6FC0',
               }"
             />
             {{ formatType(type) }}
@@ -499,18 +499,20 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #3d3328;
+  color: #13262b;
 }
 .map-btn:hover {
   background: #ffffff;
 }
 
-:global(.dark) .map-btn {
-  background: rgba(26, 23, 20, 0.85);
-  color: rgba(255, 255, 255, 0.8);
+/* Plain `.dark` ancestor, not :global(.dark): Vue compiles `:global(.dark) .x`
+   to a bare `.dark`, which drops the descendant and styles <html> instead. */
+.dark .map-btn {
+  background: rgba(29, 38, 41, 0.92);
+  color: #dce5e6;
 }
-:global(.dark) .map-btn:hover {
-  background: rgba(26, 23, 20, 0.95);
+.dark .map-btn:hover {
+  background: rgba(44, 58, 62, 0.96);
 }
 
 .map-overlay {
@@ -519,36 +521,36 @@ onMounted(() => {
   -webkit-backdrop-filter: blur(12px);
 }
 .map-overlay-text {
-  color: #3d3328;
+  color: #13262b;
 }
 
 .map-filter-pill {
   background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(61, 51, 40, 0.12);
+  border: 1px solid rgba(19, 38, 43, 0.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #3d3328;
+  color: #13262b;
 }
 .map-filter-pill.is-hidden {
   background: rgba(255, 255, 255, 0.5);
-  color: #9f8b6f;
+  color: #6f8489;
   text-decoration: line-through;
 }
 
-:global(.dark) .map-overlay {
-  background: rgba(26, 23, 20, 0.85);
+.dark .map-overlay {
+  background: rgba(29, 38, 41, 0.9);
 }
-:global(.dark) .map-overlay-text {
-  color: rgba(255, 255, 255, 0.8);
+.dark .map-overlay-text {
+  color: #dce5e6;
 }
 
-:global(.dark) .map-filter-pill {
-  background: rgba(26, 23, 20, 0.85);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.8);
+.dark .map-filter-pill {
+  background: rgba(29, 38, 41, 0.9);
+  border-color: rgba(220, 229, 230, 0.12);
+  color: #dce5e6;
 }
-:global(.dark) .map-filter-pill.is-hidden {
-  background: rgba(26, 23, 20, 0.5);
-  color: rgba(255, 255, 255, 0.35);
+.dark .map-filter-pill.is-hidden {
+  background: rgba(29, 38, 41, 0.5);
+  color: rgba(220, 229, 230, 0.4);
 }
 </style>

@@ -39,51 +39,51 @@ const prefersReducedMotion = useReducedMotion()
 const theme = computed(() =>
   isDark.value
     ? {
-        clearColor: "#1a1714",
-        oceanColor: "#1e3050",
-        landColor: "#3d7a4a",
-        visitedColor: "#f07b5a",
-        layoverColor: "#4aa5b9",
-        wantColor: "#6aa06d",
-        borderColor: "#2a5040",
+        clearColor: "#172023",
+        oceanColor: "#1f3639",
+        landColor: "#212b2e",
+        visitedColor: "#e0907f",
+        layoverColor: "#6b8fc4",
+        wantColor: "#7cc49a",
+        borderColor: "#3a4a4e",
         borderOpacity: 0.7,
-        atmosphere: "#4a8ab5",
+        atmosphere: "#5fa8ad",
         atmosphereOpacity: 0.04,
-        overlayBg: "rgba(10, 15, 26, 0.92)",
-        overlayBorder: "rgba(255, 255, 255, 0.1)",
-        overlayText: "#c8d6e5",
-        overlayAccent: "#f07b5a",
-        layoverAccent: "#7dc3d4",
-        wantAccent: "#96c098",
-        btnBg: "rgba(20, 40, 60, 0.85)",
-        btnText: "#c8d6e5",
-        btnHover: "rgba(30, 55, 80, 0.95)",
-        tooltipBg: "#162840",
-        tooltipText: "#e2e8f0",
-        tooltipBadgeBg: "rgba(255, 255, 255, 0.12)",
+        overlayBg: "rgba(29, 38, 41, 0.92)",
+        overlayBorder: "rgba(220, 229, 230, 0.1)",
+        overlayText: "#dce5e6",
+        overlayAccent: "#e0907f",
+        layoverAccent: "#8eaad3",
+        wantAccent: "#7cc49a",
+        btnBg: "rgba(29, 38, 41, 0.9)",
+        btnText: "#dce5e6",
+        btnHover: "rgba(44, 58, 62, 0.96)",
+        tooltipBg: "#1d2629",
+        tooltipText: "#dce5e6",
+        tooltipBadgeBg: "rgba(220, 229, 230, 0.12)",
       }
     : {
-        clearColor: "#faf8f5",
-        oceanColor: "#2a4f72",
-        landColor: "#7aab7e",
-        visitedColor: "#f07b5a",
-        layoverColor: "#7dc3d4",
-        wantColor: "#6aa06d",
-        borderColor: "#4a8060",
+        clearColor: "#f4f7f7",
+        oceanColor: "#c4e1e4",
+        landColor: "#f4f7f7",
+        visitedColor: "#e2533b",
+        layoverColor: "#5b8bd3",
+        wantColor: "#4f9a6e",
+        borderColor: "#93a4a8",
         borderOpacity: 0.4,
-        atmosphere: "#6ab0d0",
+        atmosphere: "#72c4cb",
         atmosphereOpacity: 0.06,
         overlayBg: "rgba(255, 255, 255, 0.92)",
-        overlayBorder: "rgba(0, 0, 0, 0.1)",
-        overlayText: "#1a3a5c",
-        overlayAccent: "#d44425",
-        layoverAccent: "#2e8a9e",
+        overlayBorder: "rgba(19, 38, 43, 0.1)",
+        overlayText: "#13262b",
+        overlayAccent: "#c4432d",
+        layoverAccent: "#2f5aa3",
         wantAccent: "#3a6a3f",
         btnBg: "rgba(255, 255, 255, 0.85)",
-        btnText: "#1a3a5c",
+        btnText: "#13262b",
         btnHover: "rgba(255, 255, 255, 1)",
-        tooltipBg: "#1a3a5c",
-        tooltipText: "#f0f4f8",
+        tooltipBg: "#13262b",
+        tooltipText: "#f4f7f7",
         tooltipBadgeBg: "rgba(255, 255, 255, 0.15)",
       },
 )
@@ -318,7 +318,7 @@ function buildColorTextureWithBorders(img: HTMLImageElement): CanvasTexture {
   ctx.drawImage(img, 0, 0, TEX_WIDTH, TEX_HEIGHT)
 
   // Thin near-black outline at low opacity — reads as a crisp, quiet border.
-  ctx.strokeStyle = "rgba(20, 15, 10, 0.2)"
+  ctx.strokeStyle = "rgba(10, 20, 22, 0.2)"
   ctx.lineWidth = 1.4
   ctx.lineJoin = "round"
   for (const feat of allFeatures) {
@@ -697,18 +697,20 @@ function animateToCentroid(info: CountryInfo) {
 <style scoped>
 /* ── Container ────────────────────────────────────── */
 .globe-container {
-  border: 1px solid var(--map-overlay-border, rgba(0, 0, 0, 0.08));
-  background: var(--map-ocean, #dceef5);
+  border: 1px solid var(--map-overlay-border, rgba(19, 38, 43, 0.08));
+  background: var(--map-ocean, #e3f3f4);
 }
-:global(.dark) .globe-container {
-  border-color: #1e3044;
-  background: #0c1524;
+/* Plain `.dark` ancestor, not :global(.dark): Vue compiles `:global(.dark) .x`
+   to a bare `.dark`, which drops the descendant and styles <html> instead. */
+.dark .globe-container {
+  border-color: #2c3a3e;
+  background: #172023;
 }
 
 /* ── Tooltip ──────────────────────────────────────── */
 .globe-tooltip {
-  background: var(--map-tooltip-bg, #3d3328);
-  color: var(--map-tooltip-text, #faf8f5);
+  background: var(--map-tooltip-bg, #13262b);
+  color: var(--map-tooltip-text, #f4f7f7);
   border-radius: 10px;
   padding: 8px 12px;
   font-size: 12px;
@@ -718,9 +720,9 @@ function animateToCentroid(info: CountryInfo) {
     0 1px 4px rgba(0, 0, 0, 0.15);
   backdrop-filter: blur(8px);
 }
-:global(.dark) .globe-tooltip {
-  background: #1e3044;
-  color: #e2e8f0;
+.dark .globe-tooltip {
+  background: #1d2629;
+  color: #dce5e6;
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.5),
     0 1px 4px rgba(0, 0, 0, 0.3);
@@ -747,34 +749,22 @@ function animateToCentroid(info: CountryInfo) {
   letter-spacing: 0.01em;
 }
 
+/* The tooltip is a dark surface in both themes, so one light set reads on it. */
 .globe-visa-free {
-  background: rgba(74, 222, 128, 0.2);
-  color: #22c55e;
+  background: rgba(124, 196, 154, 0.2);
+  color: #7cc49a;
 }
 .globe-visa-arrival {
-  background: rgba(96, 165, 250, 0.2);
-  color: #3b82f6;
+  background: rgba(142, 170, 211, 0.2);
+  color: #8eaad3;
 }
 .globe-visa-evisa {
-  background: rgba(251, 191, 36, 0.2);
-  color: #d97706;
+  background: rgba(217, 178, 106, 0.2);
+  color: #d9b26a;
 }
 .globe-visa-required {
-  background: rgba(248, 113, 113, 0.2);
-  color: #ef4444;
-}
-
-:global(.dark) .globe-visa-free {
-  color: #86efac;
-}
-:global(.dark) .globe-visa-arrival {
-  color: #93c5fd;
-}
-:global(.dark) .globe-visa-evisa {
-  color: #fcd34d;
-}
-:global(.dark) .globe-visa-required {
-  color: #fca5a5;
+  background: rgba(224, 144, 127, 0.2);
+  color: #e0907f;
 }
 
 /* Tooltip transition */
@@ -793,57 +783,57 @@ function animateToCentroid(info: CountryInfo) {
 /* ── Overlay (stats) ──────────────────────────────── */
 .globe-overlay {
   background: var(--map-overlay-bg, rgba(255, 255, 255, 0.92));
-  border: 1px solid var(--map-overlay-border, rgba(0, 0, 0, 0.08));
+  border: 1px solid var(--map-overlay-border, rgba(19, 38, 43, 0.08));
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(12px);
 }
-:global(.dark) .globe-overlay {
-  background: rgba(12, 21, 36, 0.92);
-  border-color: rgba(255, 255, 255, 0.1);
+.dark .globe-overlay {
+  background: rgba(29, 38, 41, 0.92);
+  border-color: rgba(220, 229, 230, 0.1);
 }
 
 .globe-overlay-text {
-  color: var(--map-overlay-text, #3d3328);
+  color: var(--map-overlay-text, #13262b);
 }
-:global(.dark) .globe-overlay-text {
-  color: #c8d6e5;
+.dark .globe-overlay-text {
+  color: #dce5e6;
 }
 
 .globe-overlay-accent {
-  color: var(--map-overlay-accent, #d44425);
+  color: var(--map-overlay-accent, #c4432d);
 }
-:global(.dark) .globe-overlay-accent {
-  color: #f07b5a;
+.dark .globe-overlay-accent {
+  color: #e0907f;
 }
 
 .globe-layover-accent {
-  color: var(--map-layover-accent-color, #2e8a9e);
+  color: var(--map-layover-accent-color, #2f5aa3);
 }
-:global(.dark) .globe-layover-accent {
-  color: #7dc3d4;
+.dark .globe-layover-accent {
+  color: #8eaad3;
 }
 
 .globe-want-accent {
-  color: var(--map-want-accent-color, #7c3aed);
+  color: var(--map-want-accent-color, #3a6a3f);
 }
-:global(.dark) .globe-want-accent {
-  color: #a78bfa;
+.dark .globe-want-accent {
+  color: #7cc49a;
 }
 
 /* ── Button ───────────────────────────────────────── */
 .globe-btn {
   background: var(--map-btn-bg, rgba(255, 255, 255, 0.82));
-  color: var(--map-btn-text, #5a4b3a);
+  color: var(--map-btn-text, #3f565d);
   backdrop-filter: blur(8px);
 }
 .globe-btn:hover {
   background: var(--map-btn-hover, rgba(255, 255, 255, 1));
 }
-:global(.dark) .globe-btn {
-  background: rgba(30, 48, 68, 0.85);
-  color: #c8d6e5;
+.dark .globe-btn {
+  background: rgba(29, 38, 41, 0.9);
+  color: #dce5e6;
 }
-:global(.dark) .globe-btn:hover {
-  background: rgba(42, 68, 96, 0.95);
+.dark .globe-btn:hover {
+  background: rgba(44, 58, 62, 0.96);
 }
 </style>

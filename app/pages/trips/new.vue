@@ -207,7 +207,7 @@ async function handleCreate() {
             :min="startDate || undefined"
             class="form-input"
           />
-          <p v-if="!rangeValid && startDate && endDate" class="mt-1 text-xs text-red-600">
+          <p v-if="!rangeValid && startDate && endDate" class="mt-1 text-xs text-red-700">
             End date must be on or after start date.
           </p>
         </div>
@@ -252,7 +252,7 @@ async function handleCreate() {
           class="form-input"
           aria-describedby="partySizeHelp"
         />
-        <p v-if="!partySizeValid" class="mt-1 text-xs text-red-600">
+        <p v-if="!partySizeValid" class="mt-1 text-xs text-red-700">
           Enter a whole number between {{ PARTY_SIZE_MIN }} and {{ PARTY_SIZE_MAX }}, or leave it
           blank.
         </p>
@@ -292,7 +292,7 @@ async function handleCreate() {
         </div>
       </div>
 
-      <p v-if="error" role="alert" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+      <p v-if="error" role="alert" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
         {{ error }}
       </p>
 
@@ -330,13 +330,13 @@ async function handleCreate() {
 
 .form-input:focus {
   border-color: var(--color-terra-400);
-  box-shadow: 0 0 0 3px rgba(240, 123, 90, 0.1);
+  box-shadow: 0 0 0 3px rgba(14, 124, 134, 0.15);
   outline: none;
 }
 
 /* Select arrow */
 select.form-input {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239f8b6f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236f8489' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   background-size: 1rem;

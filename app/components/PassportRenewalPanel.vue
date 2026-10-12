@@ -16,7 +16,7 @@ const TONE_CLASS: Record<PassportRenewalTone, string> = {
   good: "bg-sand-100 text-sand-700",
   info: "bg-ocean-50 text-ocean-700",
   warn: "bg-amber-50 text-amber-700",
-  danger: "bg-red-50 text-red-600",
+  danger: "bg-red-50 text-red-700",
 }
 </script>
 

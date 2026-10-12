@@ -177,7 +177,7 @@ useBodyScrollLock(() => props.open)
               @change="onPick"
             />
           </label>
-          <p v-if="error" role="alert" class="text-xs text-red-600">{{ error }}</p>
+          <p v-if="error" role="alert" class="text-xs text-red-700">{{ error }}</p>
         </div>
 
         <div v-else-if="phase === 'previewing' && preview" class="mt-4 space-y-4">
@@ -240,7 +240,7 @@ useBodyScrollLock(() => props.open)
             </ul>
           </details>
 
-          <p v-if="error" role="alert" class="text-xs text-red-600">{{ error }}</p>
+          <p v-if="error" role="alert" class="text-xs text-red-700">{{ error }}</p>
 
           <div class="flex justify-end gap-2">
             <button

@@ -26,7 +26,7 @@ export default defineNuxtPlugin(() => {
     meta: [
       {
         name: "theme-color",
-        content: computed(() => (isDark.value ? "#1a1714" : "#faf8f5")),
+        content: computed(() => (isDark.value ? "#172023" : "#f4f7f7")),
       },
       {
         name: "apple-mobile-web-app-status-bar-style",

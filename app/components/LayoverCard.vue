@@ -159,7 +159,7 @@ async function fetchAiTips() {
 
     <!-- Expanded AI tips -->
     <div v-if="showAiTips && (aiTips || aiError)" class="mt-3 border-t border-sand-200 pt-3">
-      <div v-if="aiError" role="alert" class="text-xs text-red-500">{{ aiError }}</div>
+      <div v-if="aiError" role="alert" class="text-xs text-red-700">{{ aiError }}</div>
       <div v-else-if="aiTips" class="space-y-2 text-xs text-sand-700">
         <p class="font-medium text-sand-900">{{ aiTips.recommendation }}</p>
         <ul class="list-inside list-disc space-y-1">

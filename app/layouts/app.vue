@@ -160,7 +160,7 @@ onUnmounted(() => {
                 <div class="my-1 border-t border-sand-100" />
 
                 <button
-                  class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 transition hover:bg-red-50"
+                  class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-700 transition hover:bg-red-50"
                   @click="logout"
                 >
                   <Icon name="lucide:log-out" class="h-4 w-4" />

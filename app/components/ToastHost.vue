@@ -48,7 +48,7 @@ function runAction(t: Toast) {
             class="h-5 w-5 shrink-0"
             :class="{
               'text-forest-500': t.type === 'success',
-              'text-red-500': t.type === 'error',
+              'text-red-700': t.type === 'error',
               'text-sand-500': t.type === 'info',
             }"
           />
