@@ -11,6 +11,7 @@ import { uuidParamsSchema } from "../../../utils/schemas"
 import { normalizeTransportMode } from "../../../utils/transport"
 import { detectInjection, sanitizePromptInput } from "../../../utils/sanitize"
 import { createDiscussTools } from "../../../lib/ai-tools"
+import { scopeDiscussTools, type ScopedDiscussTools } from "../../../lib/discuss-tool-scope"
 import { getExchangeRate } from "../../../utils/exchange-rate"
 import {
   DISCUSS_SYSTEM_PROMPT,
@@ -140,7 +141,7 @@ export default defineEventHandler(async (event) => {
     return creditsUsed
   }
 
-  let tools: ReturnType<typeof createDiscussTools>
+  let tools: ScopedDiscussTools<ReturnType<typeof createDiscussTools>>
   let cleanMessages: { role: "user" | "assistant"; content: string }[]
   let dayId: string | null
   let transportMode: ReturnType<typeof normalizeTransportMode>
@@ -268,17 +269,22 @@ export default defineEventHandler(async (event) => {
 
     const usdRate = await getExchangeRate("USD", trip.currencyCode || "USD")
 
-    tools = createDiscussTools(
-      {
-        tripId: id,
-        activeDayId: dayId ?? "",
-        days,
-        transportMode,
-        currencyCode: trip.currencyCode || "USD",
-        usdRate,
-        userId: session.user.id,
-      },
-      proposalCollector,
+    // With no open day, readDay is withheld (B22): it has no day to read, and
+    // a call would fail on the "" id while still costing a metered step.
+    tools = scopeDiscussTools(
+      createDiscussTools(
+        {
+          tripId: id,
+          activeDayId: dayId ?? "",
+          days,
+          transportMode,
+          currencyCode: trip.currencyCode || "USD",
+          usdRate,
+          userId: session.user.id,
+        },
+        proposalCollector,
+      ),
+      dayId,
     )
   } catch (e) {
     // Anything that throws after the credit was consumed and before the agent
