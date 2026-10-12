@@ -72,8 +72,8 @@ The result is a **JSON-driven itinerary** you can drag, edit, split costs on, an
 
 - **Passport manager** — AES-256-GCM encrypted at rest, with expiry and recommended-renewal dates
 - **Visa checker** — requirement lookup by passport nationality and destination
-- **Flight tracking** — AeroDataBox integration with scheduled and actual times kept apart, layovers measured booked versus real, gate-to-gate block time and delays on flights that have flown, Flighty CSV import
-- **Reservations** — hotels, flights, and car rentals with encrypted confirmation numbers
+- **Flight tracking** — add a flight by number and date on the Flights page, or on a trip's Flights tab to link it to that trip; AeroDataBox integration with scheduled and actual times kept apart, layovers measured booked versus real, gate-to-gate block time and delays on flights that have flown, Flighty CSV import
+- **Reservations** — hotels, restaurants, car rentals, and other bookings with encrypted confirmation numbers. Flights are not a booking type: add them through Flight tracking (older flight bookings still show and stay editable)
 - **Packing checklists** — reusable templates with categories; delete your own templates from the Load template picker
 
 ### Money

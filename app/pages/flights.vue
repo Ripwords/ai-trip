@@ -29,35 +29,6 @@ interface Flight {
 
 const { data: flights, status, refresh } = useLazyFetch<Flight[]>("/api/flights")
 
-// Add flight form
-const newFlightNumber = ref("")
-const newFlightDate = ref("")
-const adding = ref(false)
-
-const toast = useToast()
-
-async function addFlight() {
-  if (!newFlightNumber.value || !newFlightDate.value) return
-  adding.value = true
-  try {
-    await $fetch("/api/flights", {
-      method: "POST",
-      body: {
-        flightNumber: newFlightNumber.value,
-        flightDate: newFlightDate.value,
-      },
-    })
-    newFlightNumber.value = ""
-    newFlightDate.value = ""
-    await refresh()
-  } catch (e: unknown) {
-    console.error("Failed to add flight:", e)
-    toast.error("Couldn't add flight. Please try again.")
-  } finally {
-    adding.value = false
-  }
-}
-
 async function linkTrip(flightId: string, tripId: string | null) {
   await $fetch(`/api/flights/${flightId}`, {
     method: "PATCH",
@@ -126,42 +97,7 @@ const paginatedPast = computed(() => {
   <div class="mx-auto max-w-2xl space-y-6">
     <h1 class="font-display text-2xl text-sand-900">My Flights</h1>
 
-    <!-- Add flight form -->
-    <form
-      class="flex flex-col gap-3 rounded-2xl border border-sand-200 bg-white p-5 sm:flex-row sm:items-end"
-      @submit.prevent="addFlight"
-    >
-      <div class="flex-1">
-        <label for="new-flight-number" class="mb-1 block text-xs font-medium text-sand-600">
-          Flight number
-        </label>
-        <input
-          id="new-flight-number"
-          v-model="newFlightNumber"
-          type="text"
-          placeholder="e.g. SQ638"
-          class="min-h-11 w-full rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 placeholder:text-sand-500 focus:border-terra-400 focus:outline-none"
-        />
-      </div>
-      <div class="min-w-0 flex-1 overflow-hidden">
-        <label for="new-flight-date" class="mb-1 block text-xs font-medium text-sand-600">
-          Date
-        </label>
-        <input
-          id="new-flight-date"
-          v-model="newFlightDate"
-          type="date"
-          class="min-h-11 w-full appearance-none rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-900 focus:border-terra-400 focus:outline-none"
-        />
-      </div>
-      <button
-        type="submit"
-        :disabled="adding || !newFlightNumber || !newFlightDate"
-        class="min-h-11 shrink-0 rounded-xl bg-cta px-5 text-sm font-medium text-white transition hover:bg-cta-hover disabled:opacity-50"
-      >
-        {{ adding ? "Adding..." : "Add Flight" }}
-      </button>
-    </form>
+    <AddFlightForm @added="refresh" />
 
     <div class="flex justify-end">
       <button

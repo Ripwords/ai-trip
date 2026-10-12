@@ -48,7 +48,7 @@ const confirmationId = `${uid}-confirmation`
 const providerId = `${uid}-provider`
 
 // Form fields
-const formType = ref("flight")
+const formType = ref("accommodation")
 const formStatus = ref("confirmed")
 const formName = ref("")
 const formConfirmation = ref("")
@@ -67,6 +67,11 @@ const types = [
   "transport",
   "other",
 ] as const
+
+// Flights are added by number on the Flights tab or page, where they get live
+// status. Existing flight bookings still render and stay editable as flights.
+const addTypes = ["accommodation", "restaurant", "car_rental", "activity", "transport", "other"]
+const typeOptions = computed(() => (editingRow.value?.type === "flight" ? types : addTypes))
 
 const statuses = ["confirmed", "pending", "cancelled"] as const
 
@@ -87,7 +92,7 @@ const statusClasses: Record<string, string> = {
 }
 
 function resetForm() {
-  formType.value = "flight"
+  formType.value = "accommodation"
   formStatus.value = "confirmed"
   formName.value = ""
   formConfirmation.value = ""
@@ -224,6 +229,15 @@ const dateGridClass = computed(() => {
         class="mt-4 space-y-3 border-b border-sand-100 pb-4"
         @submit.prevent="submitReservation"
       >
+        <p v-if="!editingId" class="flex items-start gap-1.5 text-xs text-sand-600">
+          <Icon name="lucide:plane" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-sand-400" />
+          <span>
+            Flights are added by flight number in this trip's Flights tab or on the
+            <NuxtLink to="/flights" class="font-medium text-terra-600 hover:text-terra-700"
+              >Flights page</NuxtLink
+            >, which track times, gates, and delays.
+          </span>
+        </p>
         <!--
           A derived row's hotel and nights come from the itinerary, so the form
           shows them as read-only context and sends the user back there to
@@ -272,7 +286,7 @@ const dateGridClass = computed(() => {
             v-model="formType"
             class="block w-full rounded-lg border border-sand-300 px-3 py-2 text-sm input-focus"
           >
-            <option v-for="t in types" :key="t" :value="t">
+            <option v-for="t in typeOptions" :key="t" :value="t">
               {{ formatType(t) }}
             </option>
           </select>
@@ -491,7 +505,7 @@ const dateGridClass = computed(() => {
       </div>
 
       <p v-else class="mt-4 text-center text-xs text-sand-700">
-        No reservations yet. Add flights, hotels, and other bookings.
+        No reservations yet. Add hotels, restaurants, and other bookings.
       </p>
     </div>
   </div>
