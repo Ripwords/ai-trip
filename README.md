@@ -39,7 +39,7 @@ AI Trip inverts that. The model is only allowed to **propose candidates**; every
 
 ```
 User prompt → sanitize → classify intent → generate candidates
-            → resolve via Google Places → enrich (lat/lng, hours, rating, photos)
+            → resolve via Google Places → enrich (lat/lng, hours, rating)
             → schedule against real travel times → persist as structured JSON
 ```
 
@@ -52,7 +52,7 @@ The result is a **JSON-driven itinerary** you can drag, edit, split costs on, an
 ### Trip planning
 
 - **Intent-based AI planning** — natural language commands are classified into structured operations (add, remove, modify, reschedule, optimize, fill gaps, accommodation) rather than free-form chat
-- **Google Maps enrichment** — every activity carries verified coordinates, ratings, photos, price level, and opening hours
+- **Google Maps enrichment** — every activity carries verified coordinates, ratings, price level, and opening hours. Place photos are switched off to avoid Google Places Photo billing; activities show a placeholder icon instead
 - **Streaming discuss mode** — talk through a plan with the AI and accept proposals individually, with live SSE streaming
 - **Trip-level generation** — generate a whole multi-day itinerary in one pass, then refine day by day
 - **Drag-and-drop reordering** — rearrange activities with automatic travel-time recalculation

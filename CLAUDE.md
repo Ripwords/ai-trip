@@ -23,7 +23,7 @@
 
 ### Google Maps APIs
 
-- **Places API**: Search locations, get name/coordinates/rating/price level/opening hours/photos
+- **Places API**: Search locations, get name/coordinates/rating/price level/opening hours (Place Photos are disabled for cost — the photo routes return 410)
 - **Distance Matrix API**: Travel time between locations (driving/walking/transit)
 - **Geocoding API**: Convert place names to/from coordinates
 
@@ -41,7 +41,7 @@ interface EnrichedLocation {
   price_level: number
   address: string
   opening_hours: string[]
-  photos: string[]
+  photos: string[] // always [] while Place Photos are disabled
   estimated_duration_minutes: number
   suggested_time: string
   cost_estimate: number
