@@ -27,12 +27,12 @@ function signInWithGoogle() {
 <template>
   <div class="flex min-h-dvh flex-col bg-sand-50">
     <header class="glass sticky top-0 z-50 border-b border-sand-200/50">
-      <nav class="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
+      <nav class="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
         <NuxtLink to="/" class="flex min-h-11 items-center gap-2">
           <NuxtImg src="/image.png" alt="AI Trip" class="h-8 w-8 rounded-lg" loading="eager" />
-          <span class="font-display text-lg text-sand-900">AI Trip</span>
+          <span class="font-display text-lg whitespace-nowrap text-sand-900">AI Trip</span>
         </NuxtLink>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 sm:gap-3">
           <ClientOnly>
             <button
               type="button"
@@ -56,7 +56,7 @@ function signInWithGoogle() {
               v-else
               type="button"
               :disabled="signInPending"
-              class="focus-ring flex min-h-11 items-center gap-2 rounded-xl bg-cta px-5 text-sm font-medium text-white shadow-sm transition-all hover:bg-cta-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
+              class="focus-ring flex min-h-11 items-center gap-2 rounded-xl bg-cta px-4 text-sm font-medium whitespace-nowrap text-white shadow-sm sm:px-5 transition-all hover:bg-cta-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
               @click="signInWithGoogle"
             >
               <Icon
@@ -86,7 +86,11 @@ function signInWithGoogle() {
                   fill="#fff"
                 />
               </svg>
-              {{ signInPending ? "Redirecting..." : "Sign in with Google" }}
+              <template v-if="signInPending">Redirecting...</template>
+              <template v-else>
+                <span class="sm:hidden">Sign in</span>
+                <span class="hidden sm:inline">Sign in with Google</span>
+              </template>
             </button>
             <template #fallback>
               <span

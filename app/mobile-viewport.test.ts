@@ -94,6 +94,14 @@ describe("mobile viewport", () => {
       "the anti-zoom rule must key off pointer coarseness, not viewport width",
     )
   })
+  it("keeps the signed-out header on one line at 375px", () => {
+    // A 375px phone wrapped both the "AI Trip" wordmark and the header's
+    // "Sign in with Google" button onto two lines. Clickable text must not wrap.
+    const layout = read("./layouts/default.vue")
+    assert.match(layout, /<span class="[^"]*whitespace-nowrap[^"]*">AI Trip<\/span>/)
+    assert.match(layout, /<span class="sm:hidden">Sign in<\/span>/)
+    assert.match(layout, /<span class="hidden sm:inline">Sign in with Google<\/span>/)
+  })
 })
 
 describe("AI dock (mobile full-screen layer)", () => {
