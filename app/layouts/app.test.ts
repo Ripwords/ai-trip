@@ -19,4 +19,11 @@ describe("app layout header", () => {
   it("links to no route that does not exist (D1)", () => {
     assert.doesNotMatch(layout, /to="\/admin"/)
   })
+
+  it("offers a Trips link to /dashboard alongside the other header pills (U3)", () => {
+    assert.match(
+      layout,
+      /<NuxtLink[^>]*to="\/dashboard"[^>]*active-class[\s\S]*?<span>Trips<\/span>/,
+    )
+  })
 })
