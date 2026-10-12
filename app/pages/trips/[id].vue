@@ -1626,10 +1626,28 @@ if (import.meta.client) {
 const shareLoading = ref(false)
 const shareCopied = ref(false)
 
+const dayjs = useDayjs()
+/** An expired link no longer opens, so the owner sees "not shared" and can mint a new one. */
+const shareActive = computed(() =>
+  isShareActive(trip.value?.shareToken, trip.value?.shareExpiresAt),
+)
+const shareExpiryLabel = computed(() => {
+  const expiresAt = trip.value?.shareExpiresAt
+  return shareActive.value && expiresAt
+    ? `Link expires ${dayjs(expiresAt).format("MMM D, YYYY")}`
+    : ""
+})
+
 async function handleToggleShare() {
   shareLoading.value = true
+  const wasActive = shareActive.value
   try {
-    const result = await $fetch(`/api/trips/${tripId}/share`, { method: "POST" })
+    let result = await $fetch(`/api/trips/${tripId}/share`, { method: "POST" })
+    // The endpoint toggles on the stored token. If that token had expired, the
+    // first call only cleared it; the owner asked for a working link, so ask again.
+    if (!wasActive && !result.shared) {
+      result = await $fetch(`/api/trips/${tripId}/share`, { method: "POST" })
+    }
     await refresh()
     if (result.shared && result.shareToken) {
       const url = `${window.location.origin}/shared/${result.shareToken}`
@@ -1648,7 +1666,7 @@ async function handleToggleShare() {
 }
 
 async function handleCopyShareLink() {
-  if (!trip.value?.shareToken) return
+  if (!shareActive.value || !trip.value?.shareToken) return
   const url = `${window.location.origin}/shared/${trip.value.shareToken}`
   await navigator.clipboard.writeText(url)
   shareCopied.value = true
@@ -1742,7 +1760,7 @@ async function recomputeSegments(dayId: string) {
 
           <template v-if="tripRole === 'owner'">
             <button
-              v-if="!trip.shareToken"
+              v-if="!shareActive"
               type="button"
               :disabled="shareLoading"
               class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-500 transition hover:bg-sand-100 hover:text-sand-800 disabled:opacity-50 focus-ring"
@@ -1778,8 +1796,14 @@ async function recomputeSegments(dayId: string) {
               >
                 <div
                   v-if="showShareMenu"
-                  class="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
+                  class="absolute right-0 top-full z-20 mt-1 w-52 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
                 >
+                  <p
+                    v-if="shareExpiryLabel"
+                    class="border-b border-sand-100 px-3 pb-2 pt-1.5 text-xs text-sand-500"
+                  >
+                    {{ shareExpiryLabel }}
+                  </p>
                   <button
                     type="button"
                     class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"

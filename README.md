@@ -66,7 +66,7 @@ The result is a **JSON-driven itinerary** you can drag, edit, split costs on, an
 - **Inline comments** — discuss individual activities
 - **Participant tracking** — mark who is attending what
 - **Audit trail** — every trip mutation logged with actor, action, and metadata
-- **Shareable links** — public read-only itinerary view via share token
+- **Shareable links** — public read-only itinerary view via share token. A link lasts 30 days; the share menu shows its expiry date, and once it lapses the trip shows as not shared so the owner can create a fresh link
 
 ### Travel documents
 
