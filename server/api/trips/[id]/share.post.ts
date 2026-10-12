@@ -4,6 +4,8 @@ import { trips } from "../../../db/schema"
 import { uuidParamsSchema } from "../../../utils/schemas"
 import crypto from "crypto"
 
+const SHARE_LINK_TTL_MS = 30 * 24 * 60 * 60 * 1000
+
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const { id } = await getValidatedRouterParams(event, uuidParamsSchema.parse)
@@ -17,11 +19,20 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Trip not found" })
   }
 
-  // Toggle: if already shared, unshare; if not, generate token
-  const newToken = trip.shareToken ? null : crypto.randomUUID()
-  const shareExpiresAt = newToken ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null
+  // Toggle: a live link is unshared; no link, or an expired one, gets a fresh
+  // token. An expired link already returns 410 to visitors (`/api/shared/:token`),
+  // so treating it as "shared" made the toggle unshare when the owner wanted
+  // a working link back.
+  const now = Date.now()
+  const isLive = !!trip.shareToken && (!trip.shareExpiresAt || trip.shareExpiresAt.getTime() > now)
+  const newToken = isLive ? null : crypto.randomUUID()
+  const shareExpiresAt = newToken ? new Date(now + SHARE_LINK_TTL_MS) : null
 
   await db.update(trips).set({ shareToken: newToken, shareExpiresAt }).where(eq(trips.id, id))
 
-  return { shareToken: newToken, shared: !!newToken }
+  return {
+    shareToken: newToken,
+    shared: !!newToken,
+    expiresAt: shareExpiresAt?.toISOString() ?? null,
+  }
 })
