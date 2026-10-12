@@ -10,7 +10,14 @@ import {
 
 describe("resolveAuthRedirect", () => {
   it("redirects unauthenticated users away from protected routes to /", () => {
-    for (const path of ["/dashboard", "/trips/abc", "/explore", "/settings"]) {
+    for (const path of [
+      "/dashboard",
+      "/trips/abc",
+      "/explore",
+      "/settings",
+      "/flights",
+      "/passport",
+    ]) {
       assert.equal(
         resolveAuthRedirect({ path, isAuthenticated: false, isServer: true }),
         "/",
@@ -66,7 +73,14 @@ describe("resolveAuthRedirect", () => {
   // "unauthenticated" bounced signed-in users to the marketing page.
   describe("when the session state cannot be determined", () => {
     it("never redirects away from a protected route", () => {
-      for (const path of ["/dashboard", "/trips/abc", "/explore", "/settings"]) {
+      for (const path of [
+        "/dashboard",
+        "/trips/abc",
+        "/explore",
+        "/settings",
+        "/flights",
+        "/passport",
+      ]) {
         for (const isServer of [true, false]) {
           assert.equal(
             resolveAuthRedirect({ path, isAuthenticated: "unknown", isServer }),
