@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { buildPassportHistory } from "../utils/passport-history"
+import { buildPassportHistory, splitYearChips } from "../utils/passport-history"
 import type { PassportFlight, PassportVisitedCountry } from "../utils/passport-history"
 import type { RenewalPassport } from "../utils/passport-renewal"
 
@@ -46,6 +46,17 @@ const hasAnyData = computed(
   () => passport.value.totalFlights > 0 || passport.value.countries.length > 0,
 )
 
+const yearChips = computed(() => splitYearChips(passport.value.availableYears))
+
+const olderYearSelected = computed(
+  () => selectedYear.value != null && yearChips.value.more.includes(selectedYear.value),
+)
+
+function selectOlderYear(event: Event) {
+  const value = (event.target as HTMLSelectElement).value
+  if (value) selectedYear.value = Number(value)
+}
+
 const periodLabel = computed(() =>
   selectedYear.value == null ? "All time" : String(selectedYear.value),
 )
@@ -74,7 +85,7 @@ const periodLabel = computed(() =>
           All time
         </button>
         <button
-          v-for="year in passport.availableYears"
+          v-for="year in yearChips.chips"
           :key="year"
           type="button"
           :aria-pressed="selectedYear === year"
@@ -88,6 +99,19 @@ const periodLabel = computed(() =>
         >
           {{ year }}
         </button>
+        <select
+          v-if="yearChips.more.length"
+          aria-label="More years"
+          :value="olderYearSelected ? String(selectedYear) : ''"
+          class="focus-ring inline-flex min-h-11 items-center rounded-full border border-sand-200 px-4 text-xs font-semibold transition"
+          :class="olderYearSelected ? 'bg-sand-900 text-sand-50' : 'bg-white/70 text-sand-700'"
+          @change="selectOlderYear"
+        >
+          <option value="" disabled>More years</option>
+          <option v-for="year in yearChips.more" :key="year" :value="String(year)">
+            {{ year }}
+          </option>
+        </select>
       </div>
     </header>
 

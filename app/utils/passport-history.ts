@@ -167,3 +167,18 @@ function unique<T>(items: T[]): T[] {
 function nonEmpty(value: string | null | undefined): value is string {
   return typeof value === "string" && value.length > 0
 }
+
+/** How many year chips the Travel history page shows before folding the rest. */
+export const RECENT_YEAR_CHIPS = 6
+
+/**
+ * Splits newest-first years into chips for the most recent ones and a folded
+ * list for the rest, so a long flying history does not grow an unbounded row
+ * of buttons.
+ */
+export function splitYearChips(
+  years: readonly number[],
+  limit: number = RECENT_YEAR_CHIPS,
+): { chips: number[]; more: number[] } {
+  return { chips: years.slice(0, limit), more: years.slice(limit) }
+}

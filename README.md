@@ -89,6 +89,7 @@ The result is a **JSON-driven itinerary** you can drag, edit, split costs on, an
 - **Interactive maps** — day-by-day route rendering
 - **3D globe** — visited countries and flight paths (Three.js via TresJS)
 - **Scratch map** — travel history with layover-aware country detection
+- **Travel history** — flights, distance, and countries, filterable by year: the six most recent years as chips, older years under More years
 - **Dashboard stats** — trip counts, upcoming flights, distance travelled
 
 ### Navigation and settings

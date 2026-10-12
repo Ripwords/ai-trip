@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 
-import { buildPassportHistory } from "./passport-history"
+import { buildPassportHistory, splitYearChips } from "./passport-history"
 
 describe("passport history", () => {
   it("counts flights and unique airports/airlines", () => {
@@ -290,3 +290,22 @@ function mkFlight(
     arrivalTime: null,
   }
 }
+
+describe("splitYearChips (U10)", () => {
+  const years = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2012]
+
+  it("shows the most recent six years as chips and folds the rest", () => {
+    assert.deepEqual(splitYearChips(years), {
+      chips: [2026, 2025, 2024, 2023, 2022, 2021],
+      more: [2020, 2019, 2012],
+    })
+  })
+
+  it("has nothing to fold when there are six years or fewer", () => {
+    assert.deepEqual(splitYearChips([2025, 2024]), { chips: [2025, 2024], more: [] })
+  })
+
+  it("honours a custom limit", () => {
+    assert.deepEqual(splitYearChips([2025, 2024, 2023], 2), { chips: [2025, 2024], more: [2023] })
+  })
+})
