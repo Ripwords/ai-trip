@@ -232,6 +232,24 @@ async function loadTemplate(templateId: string) {
   }
 }
 
+async function deleteTemplate(template: PackingTemplate) {
+  const ok = await confirm({
+    title: "Delete template",
+    message: `Delete the "${template.name}" template? Checklists already made from it are kept.`,
+    confirmText: "Delete",
+    destructive: true,
+  })
+  if (!ok) return
+  try {
+    await $fetch(`/api/packing-templates/${template.id}`, {
+      method: "DELETE",
+    })
+    templates.value = templates.value.filter((t) => t.id !== template.id)
+  } catch (e: unknown) {
+    console.error("Failed to delete template:", e)
+  }
+}
+
 async function saveAsTemplate(checklistId: string) {
   const name = saveTemplateName.value.trim()
   if (!name) return
@@ -566,28 +584,38 @@ function checkedCount(checklist: Checklist): number {
             </p>
 
             <div v-if="templates.length" class="mt-4 max-h-80 space-y-2 overflow-y-auto">
-              <button
-                v-for="tmpl in templates"
-                :key="tmpl.id"
-                class="w-full rounded-xl border border-sand-200 p-3 text-left transition hover:border-terra-300 hover:bg-terra-50/30"
-                @click="loadTemplate(tmpl.id)"
-              >
-                <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium text-sand-900">{{ tmpl.name }}</span>
-                  <span class="flex items-center gap-1 text-xs text-sand-700">
-                    <Icon
-                      v-if="tmpl.isGlobal"
-                      name="lucide:globe"
-                      class="h-3 w-3"
-                      title="Built-in template"
-                    />
-                    {{ tmpl.items.length }} items
-                  </span>
-                </div>
-                <p v-if="tmpl.description" class="mt-0.5 text-xs text-sand-500">
-                  {{ tmpl.description }}
-                </p>
-              </button>
+              <div v-for="tmpl in templates" :key="tmpl.id" class="flex items-stretch gap-1.5">
+                <button
+                  class="min-w-0 flex-1 rounded-xl border border-sand-200 p-3 text-left transition hover:border-terra-300 hover:bg-terra-50/30"
+                  @click="loadTemplate(tmpl.id)"
+                >
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium text-sand-900">{{ tmpl.name }}</span>
+                    <span class="flex items-center gap-1 text-xs text-sand-700">
+                      <Icon
+                        v-if="tmpl.isGlobal"
+                        name="lucide:globe"
+                        class="h-3 w-3"
+                        title="Built-in template"
+                      />
+                      {{ tmpl.items.length }} items
+                    </span>
+                  </div>
+                  <p v-if="tmpl.description" class="mt-0.5 text-xs text-sand-500">
+                    {{ tmpl.description }}
+                  </p>
+                </button>
+                <button
+                  v-if="!tmpl.isGlobal"
+                  type="button"
+                  class="focus-ring inline-flex min-w-11 items-center justify-center rounded-xl text-sand-400 transition hover:bg-red-50 hover:text-red-700"
+                  :aria-label="`Delete template ${tmpl.name}`"
+                  :title="`Delete template ${tmpl.name}`"
+                  @click="deleteTemplate(tmpl)"
+                >
+                  <Icon name="lucide:trash-2" class="h-4 w-4" />
+                </button>
+              </div>
             </div>
             <p v-else class="mt-4 text-center text-sm text-sand-700">No templates available yet.</p>
           </div>

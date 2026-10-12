@@ -74,7 +74,7 @@ The result is a **JSON-driven itinerary** you can drag, edit, split costs on, an
 - **Visa checker** — requirement lookup by passport nationality and destination
 - **Flight tracking** — AeroDataBox integration with scheduled and actual times kept apart, layovers measured booked versus real, gate-to-gate block time and delays on flights that have flown, Flighty CSV import
 - **Reservations** — hotels, flights, and car rentals with encrypted confirmation numbers
-- **Packing checklists** — reusable templates with categories
+- **Packing checklists** — reusable templates with categories; delete your own templates from the Load template picker
 
 ### Money
 
@@ -90,7 +90,7 @@ The result is a **JSON-driven itinerary** you can drag, edit, split costs on, an
 - **3D globe** — visited countries and flight paths (Three.js via TresJS)
 - **Scratch map** — travel history with layover-aware country detection
 - **Travel history** — flights, distance, and countries, filterable by year: the six most recent years as chips, older years under More years
-- **Dashboard stats** — trip counts, upcoming flights, distance travelled
+- **Dashboard summary** — next trip or flight countdown, with flights, countries, and distance travelled
 
 ### Navigation and settings
 
@@ -371,8 +371,6 @@ Each user gets **100 AI prompts per month**, metered atomically. Streaming turns
 | ---------- | ------------------------ | ------------------------- |
 | `GET`      | `/api/ai/usage`          | AI prompt quota remaining |
 | `POST`     | `/api/ai/layover-tips`   | Layover recommendations   |
-| `GET`      | `/api/stats`             | Dashboard statistics      |
-| `GET`      | `/api/exchange-rate`     | Currency conversion       |
 | `GET/POST` | `/api/visited-countries` | Travel history            |
 
 ## Security

@@ -260,7 +260,7 @@ export async function startOrResumeRun(input: StartOrResumeInput): Promise<Start
   }
 
   if (!input.skipOutline) {
-    // Consume BEFORE the model call, mirroring generate-outline.post.ts. Every
+    // Consume BEFORE the model call. Every
     // failure below refunds exactly once — `refunded` is the single guard,
     // because refundAiCredit is GREATEST(count - 1, 0) and calling it twice
     // for one consume mints the traveler a free credit.
