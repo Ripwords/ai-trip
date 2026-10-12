@@ -72,7 +72,7 @@ The result is a **JSON-driven itinerary** you can drag, edit, split costs on, an
 
 - **Passport manager** — AES-256-GCM encrypted at rest, with expiry and recommended-renewal dates
 - **Visa checker** — requirement lookup by passport nationality and destination
-- **Flight tracking** — AeroDataBox integration with scheduled and actual times kept apart, layovers measured booked versus real, gate-to-gate block time and delays on flights that have flown, Flighty CSV import
+- **Flight tracking** — AeroDataBox integration with scheduled and actual times kept apart, status, gate and actual times that refresh on their own from 48h before departure until the flight has landed, layovers measured booked versus real, gate-to-gate block time and delays on flights that have flown, Flighty CSV import
 - **Reservations** — hotels, flights, and car rentals with encrypted confirmation numbers
 - **Packing checklists** — reusable templates with categories
 
