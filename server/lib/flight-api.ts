@@ -9,6 +9,8 @@ import {
   type CacheStore,
 } from "./flight-api-cache"
 
+import { normalizeFlightStatus } from "../../shared/utils/flight-status"
+
 const AERODATABOX_HOST = "aerodatabox.p.rapidapi.com"
 
 /**
@@ -142,7 +144,7 @@ function parseFlightResponse(flight: AeroDataBoxFlight): FlightLookupResult {
     actualArrivalTime: actualInstant(flight.arrival),
     terminal: flight.departure?.terminal ?? null,
     gate: flight.departure?.gate ?? null,
-    status: flight.status ?? "scheduled",
+    status: normalizeFlightStatus(flight.status),
     rawApiResponse: flight as unknown as Record<string, unknown>,
   }
 }
