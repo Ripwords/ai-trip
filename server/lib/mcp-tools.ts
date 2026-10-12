@@ -155,7 +155,7 @@ export const MCP_TOOLS: readonly RegisteredMcpTool[] = [
     name: "add_activity",
     title: "Add an activity",
     description:
-      "Add an activity to one day of a trip the signed-in user owns or can edit, and recompute that day's travel segments.",
+      "Add an activity to one day of a trip the signed-in user owns or can edit, and recompute that day's travel segments. To attach a real place, pass its Google Maps placeId: it is verified with Google, which supplies the coordinates and address, and an id Google cannot resolve is refused. Omit placeId for a free-text note with no location.",
     scope: MCP_SCOPES.write,
     inputSchema: tripIdSchema.extend(addActivitySchema.shape),
     execute: async ({ tripId, ...activity }, ctx) => addActivity(ctx.userId, tripId, activity),

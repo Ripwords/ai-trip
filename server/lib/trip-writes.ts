@@ -10,7 +10,11 @@ import {
 } from "../utils/trip-access"
 import { deriveCostFromPlace as defaultDeriveCostFromPlace } from "./cost-from-place"
 import { enumerateDates } from "./dates"
-import { getPlaceDetails as defaultGetPlaceDetails } from "./google-maps"
+import { resolvePlace, type ResolvedPlace } from "./enrich"
+import {
+  getPlaceDetails as defaultGetPlaceDetails,
+  searchPlace as defaultSearchPlace,
+} from "./google-maps"
 import { computeAndSaveSegments as defaultComputeAndSaveSegments } from "./segments"
 import { getTripWithRelations } from "./trips"
 
@@ -91,6 +95,7 @@ export async function addActivity(
     requireTripAccess?: typeof defaultRequireTripAccess
     logTripAction?: typeof defaultLogTripAction
     getPlaceDetails?: typeof defaultGetPlaceDetails
+    searchPlace?: typeof defaultSearchPlace
     deriveCostFromPlace?: typeof defaultDeriveCostFromPlace
     computeAndSaveSegments?: typeof defaultComputeAndSaveSegments
   } = {},
@@ -99,6 +104,7 @@ export async function addActivity(
   const requireTripAccess = deps.requireTripAccess ?? defaultRequireTripAccess
   const logTripAction = deps.logTripAction ?? defaultLogTripAction
   const getPlaceDetails = deps.getPlaceDetails ?? defaultGetPlaceDetails
+  const searchPlace = deps.searchPlace ?? defaultSearchPlace
   const deriveCostFromPlace = deps.deriveCostFromPlace ?? defaultDeriveCostFromPlace
   const computeAndSaveSegments = deps.computeAndSaveSegments ?? defaultComputeAndSaveSegments
 
@@ -129,37 +135,47 @@ export async function addActivity(
   })
   const sortOrder = (lastActivity?.sortOrder ?? -1) + 1
 
-  const { itineraryDayId, rating, costEstimate: clientCostEstimate, ...rest } = input
+  const { itineraryDayId, rating, costEstimate: clientCostEstimate, placeId, ...rest } = input
+
+  const trip = await db.query.trips.findFirst({ where: eq(trips.id, tripId) })
+
+  // A placeId is only a lookup key. Google is the source of truth for where the
+  // place is: verify the id via Place Details, fall back to a name search near
+  // the day, and refuse the write if neither resolves. Without a placeId this
+  // is a free-text note ("Rest at hotel") and is saved with no location.
+  let place: ResolvedPlace | null = null
+  if (placeId) {
+    place = await resolvePlace(
+      { name: input.name, placeId },
+      {
+        destination: trip?.destination ?? "",
+        coords:
+          day.accommodationLat != null && day.accommodationLng != null
+            ? { lat: day.accommodationLat, lng: day.accommodationLng }
+            : undefined,
+      },
+      { getPlaceDetails, searchPlace },
+    )
+    if (!place) {
+      throw createError({ statusCode: 422, message: "Couldn't find this place on Google Maps" })
+    }
+  }
 
   // Auto-derive a default cost from Google's priceRange when the client
-  // didn't provide one and we have a placeId to look up. This is what
-  // surfaces in Google Maps as "Around $X" and gives manually-added
-  // activities a real starting estimate instead of a silent null.
+  // didn't provide one. This is what surfaces in Google Maps as "Around $X"
+  // and gives manually-added activities a real starting estimate instead of
+  // a silent null.
   let costEstimate: string | null = clientCostEstimate ?? null
-  if (!costEstimate && input.placeId) {
-    const trip = await db.query.trips.findFirst({ where: eq(trips.id, tripId) })
-    if (trip) {
-      costEstimate = await deriveCostFromPlace(input.placeId, trip.currencyCode || "USD")
-    }
+  if (!costEstimate && place && trip) {
+    costEstimate = await deriveCostFromPlace(place.placeId, trip.currencyCode || "USD")
   }
 
-  // Backfill rating / openingHours / priceLevel from Place Details
-  // when the client didn't pre-populate them. Text Search no longer
-  // returns rating (cost optimization), so this is the single place
-  // those fields get attached for manually-added activities.
-  let resolvedRating: string | undefined = rating != null ? String(rating) : undefined
-  let resolvedOpeningHours: string[] | undefined
-  let resolvedPriceLevel: number | undefined
-  if (input.placeId) {
-    const details = await getPlaceDetails(input.placeId).catch(() => null)
-    if (details) {
-      if (resolvedRating == null && details.rating != null) {
-        resolvedRating = String(details.rating)
-      }
-      if (details.openingHours) resolvedOpeningHours = details.openingHours
-      if (details.priceLevel != null) resolvedPriceLevel = details.priceLevel
-    }
-  }
+  // Rating / openingHours / priceLevel come from the same Place Details call
+  // that verified the place. Text Search no longer returns rating (cost
+  // optimization), so this is where those fields get attached for
+  // manually-added activities.
+  const resolvedRating =
+    rating != null ? String(rating) : place?.rating != null ? String(place.rating) : undefined
 
   const [activity] = await db
     .insert(activities)
@@ -167,9 +183,13 @@ export async function addActivity(
       ...rest,
       itineraryDayId,
       sortOrder,
+      placeId: place?.placeId ?? null,
+      lat: place?.lat ?? null,
+      lng: place?.lng ?? null,
+      address: place?.address ?? null,
       rating: resolvedRating,
-      openingHours: resolvedOpeningHours,
-      priceLevel: resolvedPriceLevel,
+      openingHours: place?.openingHours.length ? place.openingHours : undefined,
+      priceLevel: place?.priceLevel ?? undefined,
       costEstimate,
     })
     .returning()

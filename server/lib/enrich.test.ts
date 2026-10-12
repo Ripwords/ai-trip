@@ -69,27 +69,90 @@ describe("enrichActivity", () => {
     assert.equal(result.rating, 4.3)
   })
 
-  it("keeps the resolved place even when Place Details lookup fails", async () => {
-    const { calls } = makeDeps()
+  // B8: a placeId Google cannot resolve is not evidence the place exists. The
+  // payload's coordinates came from the same untrusted source as the id, so
+  // they must not survive a failed Place Details call.
+  it("leaves an activity unresolved when its placeId 404s and search finds nothing", async () => {
+    const searches: string[] = []
     const deps = {
-      searchPlace: async () => {
-        calls.search++
+      searchPlace: async (query: string) => {
+        searches.push(query)
         return []
       },
-      getPlaceDetails: async () => null,
+      getPlaceDetails: async () => {
+        throw new Error("404 NOT_FOUND")
+      },
     }
 
     const result = await enrichActivity(
-      { ...baseActivity, placeId: "resolved-place-id", lat: 16.1075, lng: 108.2967 },
-      "Four Seasons Resort The Nam Hai, Điện Bàn, Đà Nẵng, Vietnam",
+      { ...baseActivity, placeId: "invented-place-id", lat: 16.1075, lng: 108.2967 },
+      "Đà Nẵng, Vietnam",
       undefined,
       deps,
     )
 
-    assert.equal(calls.search, 0, "must not fall back to search when a placeId is present")
-    assert.equal(result.placeId, "resolved-place-id")
+    assert.deepEqual(searches, ["Coffee at Sơn Trà Marina Đà Nẵng, Vietnam"])
+    assert.equal(result.placeId, null)
+    assert.equal(result.lat, null)
+    assert.equal(result.lng, null)
+    assert.equal(result.address, null)
+  })
+
+  it("falls back to a text search near the area when the placeId does not resolve", async () => {
+    const biases: unknown[] = []
+    const deps = {
+      searchPlace: async (_query: string, bias?: { lat: number; lng: number }) => {
+        biases.push(bias)
+        return [
+          {
+            name: "Sơn Trà Marina",
+            placeId: "real-place-id",
+            lat: 16.1,
+            lng: 108.29,
+            formattedAddress: "Sơn Trà, Đà Nẵng",
+          },
+        ]
+      },
+      getPlaceDetails: async (placeId: string) =>
+        placeId === "real-place-id"
+          ? { name: "Sơn Trà Marina", placeId, lat: 16.1, lng: 108.29, rating: 4.4 }
+          : null,
+    }
+
+    const result = await enrichActivity(
+      { ...baseActivity, placeId: "invented-place-id", lat: 1, lng: 2, address: "Nowhere" },
+      "Đà Nẵng, Vietnam",
+      { lat: 16.05, lng: 108.2 },
+      deps,
+    )
+
+    assert.deepEqual(biases, [{ lat: 16.05, lng: 108.2 }])
+    assert.equal(result.placeId, "real-place-id")
+    assert.equal(result.lat, 16.1)
+    assert.equal(result.lng, 108.29)
+    assert.equal(result.address, "Sơn Trà, Đà Nẵng")
+    assert.equal(result.rating, 4.4)
+  })
+
+  it("takes coordinates and address from Google, never from the payload", async () => {
+    const { deps } = makeDeps()
+
+    const result = await enrichActivity(
+      {
+        ...baseActivity,
+        placeId: "resolved-place-id",
+        lat: 48.8584,
+        lng: 2.2945,
+        address: "Champ de Mars, Paris",
+      },
+      "Đà Nẵng, Vietnam",
+      undefined,
+      deps,
+    )
+
     assert.equal(result.lat, 16.1075)
     assert.equal(result.lng, 108.2967)
+    assert.equal(result.address, "Sơn Trà, Đà Nẵng, Vietnam")
   })
 
   it("falls back to a text search when no placeId was resolved", async () => {
@@ -115,6 +178,57 @@ describe("enrichActivity", () => {
     assert.equal(calls.search, 1)
     assert.equal(result.placeId, "searched-place-id")
     assert.equal(result.lat, 16.0)
+  })
+})
+
+describe("resolvePlace", () => {
+  it("returns null when neither the placeId nor a search resolves", async () => {
+    const { resolvePlace } = await import("./enrich")
+    const result = await resolvePlace(
+      { name: "Imaginary Hotel", placeId: "fake" },
+      { destination: "Tokyo" },
+      { searchPlace: async () => [], getPlaceDetails: async () => null },
+    )
+    assert.equal(result, null)
+  })
+
+  it("searches by name when no placeId is given", async () => {
+    const { resolvePlace } = await import("./enrich")
+    const result = await resolvePlace(
+      { name: "Park Hyatt" },
+      { destination: "Tokyo" },
+      {
+        searchPlace: async () => [
+          { name: "Park Hyatt Tokyo", placeId: "ph", lat: 35.68, lng: 139.69 },
+        ],
+        getPlaceDetails: async () => null,
+      },
+    )
+    assert.deepEqual(result, {
+      name: "Park Hyatt Tokyo",
+      placeId: "ph",
+      lat: 35.68,
+      lng: 139.69,
+      address: null,
+      rating: null,
+      openingHours: [],
+      priceLevel: null,
+    })
+  })
+
+  it("treats a search outage as unresolved rather than throwing", async () => {
+    const { resolvePlace } = await import("./enrich")
+    const result = await resolvePlace(
+      { name: "Park Hyatt" },
+      { destination: "Tokyo" },
+      {
+        searchPlace: async () => {
+          throw new Error("places down")
+        },
+        getPlaceDetails: async () => null,
+      },
+    )
+    assert.equal(result, null)
   })
 })
 

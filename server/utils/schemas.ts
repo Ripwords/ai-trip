@@ -183,16 +183,15 @@ export const promoteIdeaSchema = z.object({
   sortOrder: z.number().int().min(0).optional(),
 })
 
-// Add activity directly to a day
+// Add activity directly to a day. No lat/lng/address: those come from Google
+// via `placeId` (see `addActivity`), never from the caller. Unknown keys are
+// stripped, so older clients that still send them are not rejected.
 export const addActivitySchema = z.object({
   itineraryDayId: z.string().uuid(),
   name: z.string().min(1),
   placeId: z.string().optional(),
   type: z.string().optional(),
-  description: z.string().optional(),
-  lat: z.number().optional(),
-  lng: z.number().optional(),
-  address: z.string().optional(),
+  description: z.string().nullish(),
   rating: z.number().optional(),
   photos: z.array(z.string()).optional(),
   notes: z.string().optional(),
