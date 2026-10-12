@@ -347,6 +347,74 @@ describe("createDiscussTools", () => {
     assert.equal(result.ok, false)
     assert.equal(collector.length, 0)
   })
+
+  // B6: the model's name, coordinates and place id are a claim. The proposal
+  // the user sees must carry the place Google resolved, not what the model said.
+  it("proposeSetAccommodation proposes the place Google resolves, not the model's", async () => {
+    const collector: Proposal[] = []
+    const tools = createDiscussTools({ ...activeCtx(), destination: "Tokyo" }, collector, {
+      getPlaceDetails: async (placeId: string) => ({
+        name: "Park Hyatt Tokyo",
+        placeId,
+        lat: 35.6856,
+        lng: 139.6909,
+        formattedAddress: "3-7-1-2 Nishishinjuku, Tokyo",
+      }),
+      searchPlace: async () => [],
+    })
+    const result = await runToolRaw(tools.proposeSetAccommodation, {
+      summary: "Stay at Park Hyatt",
+      name: "Park Hyatt",
+      placeId: "ph",
+      address: "Invented address",
+      lat: 1,
+      lng: 2,
+    })
+
+    assert.equal((result as { ok: boolean }).ok, true)
+    assert.equal(collector.length, 1)
+    assert.deepEqual(collector[0]?.payload, {
+      name: "Park Hyatt Tokyo",
+      address: "3-7-1-2 Nishishinjuku, Tokyo",
+      lat: 35.6856,
+      lng: 139.6909,
+      placeId: "ph",
+    })
+    const parsed = modelMessageSchema.safeParse({
+      role: "tool",
+      content: [
+        {
+          type: "tool-result",
+          toolCallId: "call-1",
+          toolName: "proposeSetAccommodation",
+          output: { type: "json", value: result },
+        },
+      ],
+    })
+    assert.ok(parsed.success, JSON.stringify(parsed.error?.issues))
+  })
+
+  it("proposeSetAccommodation refuses a place Google cannot find and pushes nothing", async () => {
+    const collector: Proposal[] = []
+    const searches: string[] = []
+    const tools = createDiscussTools({ ...activeCtx(), destination: "Tokyo" }, collector, {
+      getPlaceDetails: async () => null,
+      searchPlace: async (query: string) => {
+        searches.push(query)
+        return []
+      },
+    })
+    const result = await runTool(tools.proposeSetAccommodation, {
+      summary: "Stay at the Imaginary Hotel",
+      name: "Imaginary Hotel",
+      placeId: "invented",
+    })
+
+    assert.equal(result.ok, false)
+    assert.match(result.error ?? "", /Google Maps/)
+    assert.deepEqual(searches, ["Imaginary Hotel Tokyo"])
+    assert.equal(collector.length, 0)
+  })
 })
 
 describe("summarizeTripForAgent", () => {

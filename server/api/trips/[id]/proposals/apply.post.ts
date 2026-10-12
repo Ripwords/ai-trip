@@ -46,6 +46,7 @@ export default defineEventHandler(async (event) => {
       transportMode,
       currencyCode: trip.currencyCode || "USD",
       dayLocation: day.accommodationAddress ?? trip.destination,
+      tripDestination: trip.destination,
       destinationCoords:
         day.accommodationLat != null && day.accommodationLng != null
           ? { lat: day.accommodationLat, lng: day.accommodationLng }

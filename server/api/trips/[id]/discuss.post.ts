@@ -277,6 +277,7 @@ export default defineEventHandler(async (event) => {
         currencyCode: trip.currencyCode || "USD",
         usdRate,
         userId: session.user.id,
+        destination: trip.destination,
       },
       proposalCollector,
     )
