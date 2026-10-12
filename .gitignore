@@ -31,3 +31,6 @@ logs
 
 # Playwright e2e artefacts
 tests/e2e/screenshots/
+
+# Hallmark design-skill cache and previews
+.hallmark/
