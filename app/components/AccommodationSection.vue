@@ -378,7 +378,7 @@ defineExpose({
           </button>
           <button
             type="button"
-            class="inline-flex min-h-11 items-center rounded px-2 py-1 text-xs text-sand-500 hover:bg-ocean-100 hover:text-red-600 focus-ring"
+            class="inline-flex min-h-11 items-center rounded px-2 py-1 text-xs text-sand-500 hover:bg-ocean-100 hover:text-red-700 focus-ring"
             :disabled="isSaving"
             @click.stop="handleClear"
           >

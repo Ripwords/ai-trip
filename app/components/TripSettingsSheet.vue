@@ -310,7 +310,7 @@ async function commitTripInfo() {
               </span>
             </label>
 
-            <p v-if="tripInfoError" class="text-sm text-red-600">{{ tripInfoError }}</p>
+            <p v-if="tripInfoError" class="text-sm text-red-700">{{ tripInfoError }}</p>
 
             <div class="flex justify-end">
               <button
@@ -455,7 +455,7 @@ async function commitTripInfo() {
             :key="d.id"
             class="rounded-lg border border-red-200 bg-red-50 p-3"
           >
-            <p class="text-sm font-medium text-red-900">
+            <p class="text-sm font-medium text-red-700">
               Day {{ d.dayNumber }} ({{ formatDate(d.date) }})
             </p>
             <p class="mt-1 text-xs text-red-700 break-words">
@@ -466,7 +466,7 @@ async function commitTripInfo() {
           </li>
         </ul>
 
-        <p v-if="tripInfoError" class="mt-3 text-sm text-red-600">{{ tripInfoError }}</p>
+        <p v-if="tripInfoError" class="mt-3 text-sm text-red-700">{{ tripInfoError }}</p>
 
         <div class="flex justify-end gap-3 pt-4">
           <button
@@ -479,7 +479,7 @@ async function commitTripInfo() {
           <button
             type="button"
             :disabled="savingTripInfo"
-            class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+            class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 disabled:opacity-50"
             @click="commitTripInfo"
           >
             Delete and save

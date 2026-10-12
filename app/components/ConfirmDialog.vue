@@ -49,8 +49,8 @@ useBodyScrollLock(isOpen)
               class="min-h-11 rounded-lg px-4 py-2 text-sm font-medium text-white transition focus-ring"
               :class="
                 options.destructive
-                  ? 'bg-red-600 hover:bg-red-700 active:bg-red-800'
-                  : 'bg-terra-500 hover:bg-terra-600 active:bg-terra-700'
+                  ? 'bg-red-600 hover:bg-red-800 active:bg-red-900'
+                  : 'bg-cta hover:bg-cta-hover active:bg-cta-hover'
               "
               @click="handleConfirm"
             >

@@ -150,7 +150,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
   },
   "visa-required": {
     label: "Visa Required",
-    color: "text-red-600 bg-red-50 border-red-200",
+    color: "text-red-700 bg-red-50 border-red-200",
     icon: "lucide:shield-alert",
   },
 }
@@ -208,7 +208,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
         <div
           v-if="error"
           role="alert"
-          class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600"
+          class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
         >
           {{ error }}
         </div>
@@ -321,7 +321,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
           <div
             v-else-if="aiError"
             role="alert"
-            class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600"
+            class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700"
           >
             {{ aiError }}
           </div>

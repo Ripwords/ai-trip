@@ -91,7 +91,7 @@ function handlePromote() {
       </div>
       <button
         type="button"
-        class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded text-sand-400 hover:bg-red-50 hover:text-red-600"
+        class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded text-sand-400 hover:bg-red-50 hover:text-red-700"
         title="Delete"
         aria-label="Delete idea"
         @click="emit('delete', idea.id)"

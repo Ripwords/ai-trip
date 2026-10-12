@@ -32,8 +32,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: string 
   },
   "visa-required": {
     label: "Visa Required",
-    color:
-      "text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800",
+    color: "text-red-700 bg-red-50 border-red-200",
     icon: "lucide:shield-alert",
   },
 }
