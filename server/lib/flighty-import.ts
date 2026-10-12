@@ -1,3 +1,5 @@
+import { airportLocalTime } from "./airport-timezones"
+
 export class FlightyImportError extends Error {
   constructor(message: string) {
     super(message)
@@ -113,12 +115,6 @@ function splitCsvRows(input: string): string[] {
   return rows
 }
 
-function parseDateOrNull(value: string): Date | null {
-  if (!value) return null
-  const d = new Date(value)
-  return Number.isNaN(d.getTime()) ? null : d
-}
-
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
@@ -126,9 +122,10 @@ function isoDate(d: Date): string {
 /**
  * Parses a Flighty CSV export into typed rows + per-line errors.
  *
- * Times in Flighty exports have no UTC offset, so the resulting `Date` objects
- * are constructed in the runtime's local timezone — they reflect the local
- * clock at the departure/arrival airport rather than absolute UTC instants.
+ * Times in Flighty exports have no UTC offset: each is the local wall clock at
+ * its airport (departure times at From, arrival times at To). They are turned
+ * into real instants with that airport's IANA zone; a time at an airport whose
+ * zone is unknown is left null rather than guessed.
  *
  * The `today` parameter is used to classify flights as past (`landed`) vs
  * future (`scheduled`); its UTC date (via `toISOString().slice(0, 10)`) is
@@ -208,10 +205,10 @@ export function parseFlightyCsv(input: string, today: Date): FlightyParseResult 
       airline,
       departureAirport: from.toUpperCase(),
       arrivalAirport: to.toUpperCase(),
-      scheduledDepartureTime: parseDateOrNull(depScheduled),
-      actualDepartureTime: parseDateOrNull(depActual),
-      scheduledArrivalTime: parseDateOrNull(arrScheduled),
-      actualArrivalTime: parseDateOrNull(arrActual),
+      scheduledDepartureTime: airportLocalTime(depScheduled, from),
+      actualDepartureTime: airportLocalTime(depActual, from),
+      scheduledArrivalTime: airportLocalTime(arrScheduled, to),
+      actualArrivalTime: airportLocalTime(arrActual, to),
       terminal: idx.depTerminal >= 0 ? cells[idx.depTerminal] || null : null,
       gate: idx.depGate >= 0 ? cells[idx.depGate] || null : null,
       status,
