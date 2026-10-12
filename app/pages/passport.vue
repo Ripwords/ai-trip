@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { buildPassportHistory } from "../utils/passport-history"
+import { buildPassportHistory, splitYearChips } from "../utils/passport-history"
 import type { PassportFlight, PassportVisitedCountry } from "../utils/passport-history"
 import type { RenewalPassport } from "../utils/passport-renewal"
 
 definePageMeta({ layout: "app" })
 useSeoMeta({
-  title: "Travel Passport",
-  description: "Your flights, distance, and country history in one passport view.",
+  title: "Travel history",
+  description: "Your flights, distance, and country history in one place.",
 })
 
 const {
@@ -46,6 +46,17 @@ const hasAnyData = computed(
   () => passport.value.totalFlights > 0 || passport.value.countries.length > 0,
 )
 
+const yearChips = computed(() => splitYearChips(passport.value.availableYears))
+
+const olderYearSelected = computed(
+  () => selectedYear.value != null && yearChips.value.more.includes(selectedYear.value),
+)
+
+function selectOlderYear(event: Event) {
+  const value = (event.target as HTMLSelectElement).value
+  if (value) selectedYear.value = Number(value)
+}
+
 const periodLabel = computed(() =>
   selectedYear.value == null ? "All time" : String(selectedYear.value),
 )
@@ -55,7 +66,7 @@ const periodLabel = computed(() =>
   <div class="space-y-6">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="font-display text-3xl text-sand-900 sm:text-4xl">Travel Passport</h1>
+        <h1 class="font-display text-3xl text-sand-900 sm:text-4xl">Travel history</h1>
         <p class="mt-1 text-sm text-sand-600">{{ periodLabel }}</p>
       </div>
 
@@ -74,7 +85,7 @@ const periodLabel = computed(() =>
           All time
         </button>
         <button
-          v-for="year in passport.availableYears"
+          v-for="year in yearChips.chips"
           :key="year"
           type="button"
           :aria-pressed="selectedYear === year"
@@ -88,6 +99,19 @@ const periodLabel = computed(() =>
         >
           {{ year }}
         </button>
+        <select
+          v-if="yearChips.more.length"
+          aria-label="More years"
+          :value="olderYearSelected ? String(selectedYear) : ''"
+          class="focus-ring inline-flex min-h-11 items-center rounded-full border border-sand-200 px-4 text-xs font-semibold transition"
+          :class="olderYearSelected ? 'bg-sand-900 text-sand-50' : 'bg-white/70 text-sand-700'"
+          @change="selectOlderYear"
+        >
+          <option value="" disabled>More years</option>
+          <option v-for="year in yearChips.more" :key="year" :value="String(year)">
+            {{ year }}
+          </option>
+        </select>
       </div>
     </header>
 
@@ -107,9 +131,9 @@ const periodLabel = computed(() =>
       class="passport-shell flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-3xl px-6 py-10 text-center"
     >
       <Icon name="lucide:stamp" class="passport-empty-icon h-8 w-8" />
-      <h2 class="font-display text-2xl text-sand-900">Your passport is empty</h2>
+      <h2 class="font-display text-2xl text-sand-900">No travel history yet</h2>
       <p class="max-w-md text-sm text-sand-600">
-        Add flights or mark countries to start building your passport.
+        Add flights or mark countries to start building your travel history.
       </p>
       <div class="mt-2 flex flex-wrap justify-center gap-2">
         <NuxtLink

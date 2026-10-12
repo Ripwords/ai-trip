@@ -1,7 +1,7 @@
 /**
  * Turns a trip-outline day entry into the prompt string sent to the day-AI
  * endpoint. Pure and client-side: the outline is never persisted, it only
- * travels from `/generate-outline` into each `days/[dayId]/ai` call.
+ * travels from the `/generation-run` response into each `days/[dayId]/ai` call.
  */
 
 export interface OutlineDayEntry {

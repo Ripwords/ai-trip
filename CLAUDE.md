@@ -4,8 +4,10 @@
 
 - **Frontend**: Nuxt (Vue)
 - **Auth**: BetterAuth
-- **Database**: Drizzle ORM (PostgreSQL / SQLite)
-- **AI**: Google Gemini via AI SDK
+- **Database**: Drizzle ORM on PostgreSQL only (Neon in production, Docker Compose locally)
+- **AI**: Vercel AI SDK, routed per task in `server/lib/ai-config.ts` — DeepSeek V4 Flash for
+  generation and discuss (falls back to Gemini 3.5 Flash when `DEEPSEEK_API_KEY` is unset),
+  Gemini 3.1 Flash Lite for research (Google Search grounding) and intent classification
 - **Maps & Places**: Google Maps Platform (Places API, Distance Matrix, Geocoding)
 
 ## Core Philosophy
@@ -23,7 +25,7 @@
 
 ### Google Maps APIs
 
-- **Places API**: Search locations, get name/coordinates/rating/price level/opening hours/photos
+- **Places API**: Search locations, get name/coordinates/rating/price level/opening hours (Place Photos are disabled for cost — the photo routes return 410)
 - **Distance Matrix API**: Travel time between locations (driving/walking/transit)
 - **Geocoding API**: Convert place names to/from coordinates
 
@@ -41,7 +43,7 @@ interface EnrichedLocation {
   price_level: number
   address: string
   opening_hours: string[]
-  photos: string[]
+  photos: string[] // always [] while Place Photos are disabled
   estimated_duration_minutes: number
   suggested_time: string
   cost_estimate: number

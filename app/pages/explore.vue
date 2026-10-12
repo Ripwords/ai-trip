@@ -123,7 +123,7 @@ function handleCheckVisa(country: CountryInfo) {
         </p>
       </div>
       <div class="w-full sm:w-48 sm:shrink-0">
-        <label class="mb-1 block text-xs font-medium text-sand-600">Your passport</label>
+        <label class="mb-1 block text-xs font-medium text-sand-600">Nationality</label>
         <NationalitySelector v-model="nationality" />
       </div>
     </div>

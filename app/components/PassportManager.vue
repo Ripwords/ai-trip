@@ -152,7 +152,6 @@ function isExpiringSoon(date: string): boolean {
                 <span class="font-medium text-sand-900">
                   {{ countryFlag(passport.countryCode) }} {{ countryName(passport.countryCode) }}
                 </span>
-                <span class="text-xs text-sand-600">{{ passport.countryCode }}</span>
               </div>
               <div class="mt-1.5 flex flex-wrap items-center gap-3 text-xs">
                 <span v-if="passport.passportNumber" class="flex items-center gap-1 text-sand-600">
@@ -245,9 +244,8 @@ function isExpiringSoon(date: string): boolean {
           <div class="space-y-3">
             <div class="flex items-center gap-2">
               <span class="font-medium text-sand-900">
-                {{ countryName(passport.countryCode) }}
+                {{ countryFlag(passport.countryCode) }} {{ countryName(passport.countryCode) }}
               </span>
-              <span class="text-xs text-sand-600">{{ passport.countryCode }}</span>
             </div>
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <input

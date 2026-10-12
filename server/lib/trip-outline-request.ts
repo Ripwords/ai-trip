@@ -1,9 +1,8 @@
 /**
  * Builds the trip-level outline for a whole trip.
  *
- * Extracted from `generate-outline.post.ts` so the generation-run endpoint
- * produces byte-identical outline input rather than a second, drifting copy of
- * the same context assembly.
+ * Kept apart from the generation-run endpoint so the outline input is assembled
+ * in exactly one place.
  */
 
 import { eq } from "drizzle-orm"
