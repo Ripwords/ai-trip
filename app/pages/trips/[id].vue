@@ -272,7 +272,7 @@ const validTabs: TabValue[] = [
   "team",
   "flights",
 ]
-const activeTab = ref<TabValue>("overview")
+const activeTab = ref<TabValue>("itinerary")
 
 // Restore tab from sessionStorage on client mount
 onMounted(() => {
