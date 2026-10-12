@@ -42,10 +42,38 @@ describe("isCacheFresh", () => {
     }
   }
 
-  it("treats past flights as fresh forever", () => {
+  // A past flight's data is only final once it was fetched after the leg
+  // landed. A response captured before that holds the pre-departure schedule.
+  const landed = {
+    arrival: {
+      scheduledTime: { utc: "2026-05-26T16:25Z" },
+      revisedTime: { utc: "2026-05-26T17:05Z" },
+    },
+  }
+
+  it("treats a past flight fetched after it landed as fresh forever", () => {
+    const fetched = new Date("2026-05-26T18:00:00Z")
+    const now = new Date("2027-05-28T01:00:00Z")
+    expect(isCacheFresh(entry(fetched, { response: landed }), flightDate, 1, now)).toBe(true)
+  })
+
+  it("treats a past flight fetched before it landed as stale", () => {
     const fetched = new Date("2025-01-01T00:00:00Z")
     const now = new Date("2026-05-28T01:00:00Z")
-    expect(isCacheFresh(entry(fetched), flightDate, 1, now)).toBe(true)
+    expect(isCacheFresh(entry(fetched, { response: landed }), flightDate, 1, now)).toBe(false)
+  })
+
+  it("judges landing on the revised arrival when the flight ran late", () => {
+    // After the scheduled arrival but before the delayed one: not yet final.
+    const fetched = new Date("2026-05-26T16:45:00Z")
+    const now = new Date("2026-05-28T01:00:00Z")
+    expect(isCacheFresh(entry(fetched, { response: landed }), flightDate, 1, now)).toBe(false)
+  })
+
+  it("without arrival times, treats a past flight as final only once fetched after the active window", () => {
+    const now = new Date("2026-06-10T00:00:00Z")
+    expect(isCacheFresh(entry(new Date("2026-05-26T08:00:00Z")), flightDate, 1, now)).toBe(false)
+    expect(isCacheFresh(entry(new Date("2026-05-28T00:00:01Z")), flightDate, 1, now)).toBe(true)
   })
 
   it("uses a 5-minute TTL during the active window", () => {

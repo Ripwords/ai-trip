@@ -133,6 +133,47 @@ describe("lookupFlight cache integration", () => {
     expect(calls).toHaveLength(1)
   })
 
+  it("refetches a past flight whose cached response predates its landing", async () => {
+    const store = makeMemoryStore()
+    await store.set("BR228", FUTURE_DATE, {
+      response: SAMPLE_RESPONSE[0] as Record<string, unknown>,
+      notFound: false,
+      fetchedAt: new Date("2099-05-20T00:00:00Z"),
+      lookupSchemaVersion: FLIGHT_LOOKUP_SCHEMA_VERSION,
+    })
+    const flown = [{ ...SAMPLE_RESPONSE[0]!, status: "Arrived" }]
+    const { impl, calls } = makeFetch([{ ok: true, body: flown }])
+    const now = () => new Date("2099-06-10T00:00:00Z")
+
+    const a = await lookupFlight("BR228", FUTURE_DATE, { store, fetchImpl: impl, now })
+    const b = await lookupFlight("BR228", FUTURE_DATE, { store, fetchImpl: impl, now })
+
+    // One refetch, then the post-landing answer is final.
+    expect(calls).toHaveLength(1)
+    expect(a?.status).toBe(b?.status)
+    expect((await store.get("BR228", FUTURE_DATE))?.response).toMatchObject({ status: "Arrived" })
+  })
+
+  it("keeps the last good answer for a past flight the API no longer knows", async () => {
+    const store = makeMemoryStore()
+    await store.set("BR228", FUTURE_DATE, {
+      response: SAMPLE_RESPONSE[0] as Record<string, unknown>,
+      notFound: false,
+      fetchedAt: new Date("2099-05-20T00:00:00Z"),
+      lookupSchemaVersion: FLIGHT_LOOKUP_SCHEMA_VERSION,
+    })
+    const { impl, calls } = makeFetch([{ ok: false, status: 404 }])
+    const now = () => new Date("2099-06-10T00:00:00Z")
+
+    const a = await lookupFlight("BR228", FUTURE_DATE, { store, fetchImpl: impl, now })
+    const b = await lookupFlight("BR228", FUTURE_DATE, { store, fetchImpl: impl, now })
+
+    expect(a?.airline).toBe("EVA Air")
+    expect(b?.airline).toBe("EVA Air")
+    // Asked once; the API cannot improve on what we have, so stop asking.
+    expect(calls).toHaveLength(1)
+  })
+
   it("bypassCache forces a refetch even when cache is fresh", async () => {
     const store = makeMemoryStore()
     await store.set("BR228", FUTURE_DATE, {
