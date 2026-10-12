@@ -1,6 +1,6 @@
 import { airportCoordinates } from "./airport-coordinates"
 import { countryByAlpha2, countryFlag } from "../data/countries"
-import { normalizeFlightStatus } from "../../shared/utils/flight-status"
+import { normalizeFlightStatus } from "#shared/utils/flight-status"
 
 export interface PassportFlight {
   id: string
