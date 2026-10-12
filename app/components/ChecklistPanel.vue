@@ -261,6 +261,7 @@ async function deleteTemplate(template: PackingTemplate) {
     templates.value = templates.value.filter((t) => t.id !== template.id)
   } catch (e: unknown) {
     console.error("Failed to delete template:", e)
+    toast.error("Couldn't delete the template. Please try again.")
   }
 }
 
