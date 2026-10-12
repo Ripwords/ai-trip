@@ -67,9 +67,25 @@ const emit = defineEmits<{
   clickActivity: [activity: Activity]
   addActivity: [dayId: string]
   reordered: []
-  updateNotes: [notes: string]
+  updateNotes: [dayId: string, notes: string | null]
   toggleParticipant: [activityId: string, userId: string]
 }>()
+
+// Day notes. The textarea edits a local draft; the prop is only the last saved
+// value. A blur that changed nothing must not save, or a stale draft could
+// write an old note back over a newer one.
+const notesDraft = ref(props.day.notes ?? "")
+watch(
+  () => props.day.notes,
+  (saved) => {
+    notesDraft.value = saved ?? ""
+  },
+)
+
+function saveNotes() {
+  if (!noteChanged(props.day.notes, notesDraft.value)) return
+  emit("updateNotes", props.day.id, normalizeNote(notesDraft.value))
+}
 
 // Drag and drop
 const localActivities = ref([...props.day.activities])
@@ -148,11 +164,12 @@ function timeToMinutes(time: string): number | null {
   <div>
     <div v-if="!readonly" class="mb-3">
       <textarea
-        :value="day.notes ?? ''"
+        v-model="notesDraft"
         placeholder="Day notes... (dietary needs, booking confirmations, reminders)"
+        aria-label="Day notes"
         rows="2"
         class="block w-full resize-none rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm text-sand-600 placeholder:text-sand-400 input-focus"
-        @blur="$emit('updateNotes', ($event.target as HTMLTextAreaElement).value)"
+        @blur="saveNotes"
       />
     </div>
     <p v-else-if="day.notes" class="mb-3 text-sm text-sand-600 italic">

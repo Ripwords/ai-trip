@@ -1469,13 +1469,18 @@ async function handleAiClear() {
   }
 }
 
-async function handleUpdateDayNotes(notes: string) {
-  if (!activeDayId.value) return
+// The day id travels with the event: by the time a blur fires, the open day
+// may already be a different one.
+async function handleUpdateDayNotes(dayId: string, notes: string | null) {
   try {
-    await $fetch(`/api/trips/${tripId}/days/${activeDayId.value}/notes`, {
+    await $fetch(`/api/trips/${tripId}/days/${dayId}/notes`, {
       method: "PUT",
-      body: { notes: notes || null },
+      body: { notes },
     })
+    // Keep the page's copy current, or reopening the day shows the old note
+    // and the next blur saves it back.
+    const day = trip.value?.days.find((d) => d.id === dayId)
+    if (day) day.notes = notes
   } catch (e: unknown) {
     console.error("Failed to update day notes:", e)
     toastError("Could not save the day notes. Please try again.")
@@ -2174,7 +2179,11 @@ async function recomputeSegments(dayId: string) {
 
       <!-- Notes tab -->
       <div v-else-if="activeTab === 'notes'" class="mt-8 space-y-6 max-w-3xl">
-        <TripNotesPanel :trip-id="tripId" :notes="trip.tripNotes ?? null" />
+        <TripNotesPanel
+          :trip-id="tripId"
+          :notes="trip.tripNotes ?? null"
+          @saved="trip.tripNotes = $event"
+        />
         <ChecklistPanel :trip-id="tripId" />
       </div>
 

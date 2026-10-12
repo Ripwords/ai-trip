@@ -4,8 +4,14 @@ const props = defineProps<{
   notes: string | null
 }>()
 
+const emit = defineEmits<{
+  /** The text now stored, so the page's copy of the trip stays current. */
+  saved: [notes: string | null]
+}>()
+
 const value = ref(props.notes ?? "")
 const saved = ref(false)
+const toast = useToast()
 
 const textareaId = useId()
 
@@ -17,17 +23,23 @@ watch(
 )
 
 async function handleBlur() {
+  // An unchanged blur must not save: it would write this panel's copy back over
+  // whatever is stored now.
+  if (!noteChanged(props.notes, value.value)) return
+  const tripNotes = normalizeNote(value.value)
   try {
     await $fetch(`/api/trips/${props.tripId}`, {
       method: "PUT",
-      body: { tripNotes: value.value },
+      body: { tripNotes },
     })
+    emit("saved", tripNotes)
     saved.value = true
     setTimeout(() => {
       saved.value = false
     }, 2000)
   } catch (e: unknown) {
     console.error("Failed to save notes:", e)
+    toast.error("Could not save the trip notes. Please try again.")
   }
 }
 </script>
