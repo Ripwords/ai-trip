@@ -5,7 +5,9 @@
 - **Frontend**: Nuxt (Vue)
 - **Auth**: BetterAuth
 - **Database**: Drizzle ORM (PostgreSQL / SQLite)
-- **AI**: Google Gemini via AI SDK
+- **AI**: Vercel AI SDK, routed per task in `server/lib/ai-config.ts` — DeepSeek V4 Flash for
+  generation and discuss (falls back to Gemini 3.5 Flash when `DEEPSEEK_API_KEY` is unset),
+  Gemini 3.1 Flash Lite for research (Google Search grounding) and intent classification
 - **Maps & Places**: Google Maps Platform (Places API, Distance Matrix, Geocoding)
 
 ## Core Philosophy
