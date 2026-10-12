@@ -87,6 +87,8 @@ function saveNotes() {
   emit("updateNotes", props.day.id, normalizeNote(notesDraft.value))
 }
 
+const toast = useToast()
+
 // Drag and drop
 const localActivities = ref([...props.day.activities])
 const isDragging = ref(false)
@@ -117,8 +119,10 @@ async function handleDragEnd() {
     emit("reordered")
   } catch (e) {
     console.error("Failed to reorder:", e)
-    // Revert on failure
+    // Revert on failure, and say so: a list that silently snaps back reads as
+    // a drag that never registered.
     localActivities.value = [...props.day.activities]
+    toast.error("Couldn't save the new order, so it was put back. Please try again.")
   }
 }
 
