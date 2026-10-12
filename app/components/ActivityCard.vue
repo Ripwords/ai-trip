@@ -78,6 +78,102 @@ const emit = defineEmits<{
 const showParticipantPicker = ref(false)
 const cardRef = ref<HTMLElement | null>(null)
 
+const tags = computed(() => visibleTags(props.activity.tags))
+const canAssign = computed(() => (props.members?.length ?? 0) > 1)
+
+// ── Overflow menu: edit / assign / delete ────────────────────────────
+// One trigger instead of three always-visible buttons. Keyboard: Enter/Space
+// opens it on the first item, arrows/Home/End move, Esc or Tab closes.
+const menuOpen = ref(false)
+const menuWrapRef = ref<HTMLElement | null>(null)
+const menuTriggerRef = ref<HTMLButtonElement | null>(null)
+const menuRef = ref<HTMLElement | null>(null)
+const menuId = useId()
+const pickerWrapRef = ref<HTMLElement | null>(null)
+
+function menuItems(): HTMLElement[] {
+  return Array.from(menuRef.value?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])
+}
+
+function focusMenuItem(index: number) {
+  const items = menuItems()
+  if (items.length === 0) return
+  items[(index + items.length) % items.length]?.focus()
+}
+
+function openMenu() {
+  showParticipantPicker.value = false
+  menuOpen.value = true
+  nextTick(() => focusMenuItem(0))
+}
+
+function closeMenu(returnFocus: boolean) {
+  menuOpen.value = false
+  if (returnFocus) menuTriggerRef.value?.focus()
+}
+
+function toggleMenu() {
+  if (menuOpen.value) closeMenu(true)
+  else openMenu()
+}
+
+function onMenuKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape") {
+    if (!menuOpen.value) return
+    e.preventDefault()
+    closeMenu(true)
+    return
+  }
+  if (!menuOpen.value) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      openMenu()
+    }
+    return
+  }
+  const current = menuItems().indexOf(document.activeElement as HTMLElement)
+  if (e.key === "ArrowDown") {
+    e.preventDefault()
+    focusMenuItem(current + 1)
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault()
+    focusMenuItem(current < 0 ? -1 : current - 1)
+  } else if (e.key === "Home") {
+    e.preventDefault()
+    focusMenuItem(0)
+  } else if (e.key === "End") {
+    e.preventDefault()
+    focusMenuItem(-1)
+  } else if (e.key === "Tab") {
+    closeMenu(false)
+  }
+}
+
+function menuAction(action: "edit" | "assign" | "delete") {
+  closeMenu(action !== "assign")
+  if (action === "edit") emit("edit", props.activity)
+  else if (action === "delete") emit("delete", props.activity)
+  else showParticipantPicker.value = true
+}
+
+function onPickerKeydown(e: KeyboardEvent) {
+  if (e.key !== "Escape") return
+  e.preventDefault()
+  showParticipantPicker.value = false
+  menuTriggerRef.value?.focus()
+}
+
+function onDocumentPointerDown(e: PointerEvent) {
+  const target = e.target as Node | null
+  if (menuOpen.value && target && !menuWrapRef.value?.contains(target)) closeMenu(false)
+  if (showParticipantPicker.value && target && !pickerWrapRef.value?.contains(target)) {
+    showParticipantPicker.value = false
+  }
+}
+
+onMounted(() => document.addEventListener("pointerdown", onDocumentPointerDown))
+onUnmounted(() => document.removeEventListener("pointerdown", onDocumentPointerDown))
+
 function isParticipant(userId: string): boolean {
   return props.participants?.some((p) => p.userId === userId) ?? false
 }
@@ -171,22 +267,63 @@ function formatDuration(minutes: number): string {
         </h4>
         <div
           v-if="!readonly"
-          class="-mr-1.5 -mt-1.5 flex shrink-0 gap-0.5 sm:opacity-0 sm:transition sm:group-hover:opacity-100"
+          ref="menuWrapRef"
+          class="relative -mr-1.5 -mt-1.5 shrink-0"
+          @click.stop
+          @keydown.stop="onMenuKeydown"
         >
           <button
-            class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-400 active:bg-terra-50 active:text-terra-600 sm:hover:bg-terra-50 sm:hover:text-terra-600"
-            title="Edit"
-            @click.stop="emit('edit', activity)"
+            ref="menuTriggerRef"
+            type="button"
+            class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-sand-700 focus-ring"
+            :aria-label="`Actions for ${activity.name}`"
+            aria-haspopup="menu"
+            :aria-expanded="menuOpen"
+            :aria-controls="menuOpen ? menuId : undefined"
+            @click="toggleMenu"
           >
-            <Icon name="lucide:edit" class="h-4 w-4" />
+            <Icon name="lucide:ellipsis" class="h-4 w-4" />
           </button>
-          <button
-            class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-400 active:bg-red-50 active:text-red-600 sm:hover:bg-red-50 sm:hover:text-red-600"
-            title="Delete"
-            @click.stop="emit('delete', activity)"
+          <div
+            v-if="menuOpen"
+            :id="menuId"
+            ref="menuRef"
+            role="menu"
+            :aria-label="`Actions for ${activity.name}`"
+            class="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
           >
-            <Icon name="lucide:trash-2" class="h-4 w-4" />
-          </button>
+            <button
+              type="button"
+              role="menuitem"
+              tabindex="-1"
+              class="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm text-sand-700 hover:bg-sand-50 focus:bg-sand-50 focus:outline-none"
+              @click="menuAction('edit')"
+            >
+              <Icon name="lucide:edit" class="h-4 w-4 text-sand-400" />
+              Edit
+            </button>
+            <button
+              v-if="canAssign"
+              type="button"
+              role="menuitem"
+              tabindex="-1"
+              class="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm text-sand-700 hover:bg-sand-50 focus:bg-sand-50 focus:outline-none"
+              @click="menuAction('assign')"
+            >
+              <Icon name="lucide:user-plus" class="h-4 w-4 text-sand-400" />
+              Assign people
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              tabindex="-1"
+              class="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none"
+              @click="menuAction('delete')"
+            >
+              <Icon name="lucide:trash-2" class="h-4 w-4" />
+              Delete
+            </button>
+          </div>
         </div>
       </div>
 
@@ -218,14 +355,20 @@ function formatDuration(minutes: number): string {
         {{ activity.description }}
       </p>
 
-      <div v-if="activity.tags?.length" class="mt-2 flex flex-wrap gap-1">
+      <div v-if="tags.shown.length" class="mt-2 flex flex-wrap gap-1">
         <span
-          v-for="tag in activity.tags.slice(0, 4)"
+          v-for="tag in tags.shown"
           :key="tag"
           class="rounded-full bg-sand-100 px-2 py-0.5 text-[10px] text-sand-500"
         >
           {{ tag }}
         </span>
+        <span
+          v-if="tags.hidden"
+          class="rounded-full px-1 py-0.5 text-[10px] text-sand-500"
+          :title="activity.tags.slice(2).join(', ')"
+          >+{{ tags.hidden }}</span
+        >
       </div>
 
       <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-sand-500">
@@ -250,15 +393,32 @@ function formatDuration(minutes: number): string {
           >
           <Icon name="lucide:external-link" class="h-3 w-3 shrink-0 opacity-50" />
         </a>
-        <span v-if="activity.costEstimate" class="flex items-center gap-1">
-          <Icon name="lucide:wallet" class="h-3.5 w-3.5" />
-          {{ formatCurrency(activity.costEstimate, { compact: true }) }}
-        </span>
+        <!-- Cost meta: estimate, Google's price level and a notes marker as
+             one group, not three separate items competing for the row. -->
         <span
-          v-if="activity.priceLevel != null && activity.priceLevel > 0"
-          class="text-xs font-medium text-forest-600"
+          v-if="
+            activity.costEstimate ||
+            (activity.priceLevel != null && activity.priceLevel > 0) ||
+            activity.notes
+          "
+          class="inline-flex items-center gap-1.5"
         >
-          {{ formatPriceLevel(activity.priceLevel) }}
+          <Icon v-if="activity.costEstimate" name="lucide:wallet" class="h-3.5 w-3.5" />
+          <span v-if="activity.costEstimate">{{
+            formatCurrency(activity.costEstimate, { compact: true })
+          }}</span>
+          <span
+            v-if="activity.priceLevel != null && activity.priceLevel > 0"
+            class="text-xs font-medium text-forest-600"
+            :title="`Price level ${activity.priceLevel} of 4`"
+            >{{ formatPriceLevel(activity.priceLevel) }}</span
+          >
+          <Icon
+            v-if="activity.notes"
+            name="lucide:sticky-note"
+            class="h-3.5 w-3.5"
+            aria-label="Has notes"
+          />
         </span>
         <!-- `activity.actualCost` is deliberately NOT rendered here (#39). The
              expense summary derives an activity's actual spend from the
@@ -267,13 +427,17 @@ function formatDuration(minutes: number): string {
              derived figure wins: it is the one backed by rows someone actually
              entered. The column stays until a backfill PR turns each
              `actualCost` into a real expense row. -->
-        <span v-if="activity.notes" class="flex items-center gap-1" title="Has notes">
-          <Icon name="lucide:sticky-note" class="h-3.5 w-3.5" />
-        </span>
       </div>
 
-      <!-- Participants -->
-      <div v-if="members && members.length > 1" class="mt-2 flex items-center gap-1.5">
+      <!-- Participants. Assigning starts from the card's menu; this row only
+           appears once someone is assigned or the picker is open. -->
+      <div
+        v-if="canAssign && ((participants?.length ?? 0) > 0 || showParticipantPicker)"
+        ref="pickerWrapRef"
+        class="mt-2 flex items-center gap-1.5"
+        @click.stop
+        @keydown.stop="onPickerKeydown"
+      >
         <div class="flex -space-x-1.5">
           <span
             v-for="p in (participants ?? []).slice(0, 5)"
@@ -284,25 +448,21 @@ function formatDuration(minutes: number): string {
             {{ getInitials(p.name) }}
           </span>
         </div>
-        <button
-          v-if="!readonly"
-          class="relative inline-flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-sand-300 text-sand-400 transition hover:border-terra-400 hover:text-terra-500"
-          title="Assign members"
-          @click.stop="showParticipantPicker = !showParticipantPicker"
-        >
-          <Icon name="lucide:user-plus" class="h-3 w-3" />
-        </button>
 
         <!-- Participant picker dropdown -->
         <div
-          v-if="showParticipantPicker"
+          v-if="showParticipantPicker && !readonly"
+          role="group"
+          aria-label="Assign people"
           class="absolute z-20 mt-1 w-48 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
           style="top: 100%"
         >
           <button
             v-for="m in members"
             :key="m.userId"
-            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition hover:bg-sand-50"
+            type="button"
+            :aria-pressed="isParticipant(m.userId)"
+            class="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm transition hover:bg-sand-50 focus:bg-sand-50 focus:outline-none"
             @click.stop="
               () => {
                 emit('toggleParticipant', activity.id, m.userId)
