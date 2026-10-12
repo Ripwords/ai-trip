@@ -351,6 +351,93 @@ describe("applyProposal", () => {
       /dayId mismatch/i,
     )
   })
+
+  // B6: a set-accommodation proposal is re-verified at apply time. The payload
+  // was built from model output and travels through the browser, so its place
+  // id and coordinates are only a claim until Google confirms them.
+  it("refuses a set-accommodation whose place Google cannot resolve, before any write", async () => {
+    const { db } = await import("../db")
+    const originalTransaction = db.transaction
+    let wrote = false
+    db.transaction = (async () => {
+      wrote = true
+    }) as unknown as typeof db.transaction
+    try {
+      await assert.rejects(
+        () =>
+          applyProposal(
+            {
+              id: "11111111-1111-4111-8111-111111111111",
+              kind: "set-accommodation",
+              dayId: "22222222-2222-4222-8222-222222222222",
+              summary: "Stay at the Imaginary Hotel",
+              payload: {
+                name: "Imaginary Hotel",
+                address: "1 Nowhere St",
+                lat: 35,
+                lng: 139,
+                placeId: "invented",
+              },
+            },
+            {
+              tripId: "55555555-5555-4555-8555-555555555555",
+              dayId: "22222222-2222-4222-8222-222222222222",
+              userId: "u1",
+              transportMode: "walking",
+              currencyCode: "USD",
+              dayLocation: "Tokyo",
+              placeDeps: {
+                getPlaceDetails: async () => {
+                  throw new Error("404")
+                },
+                searchPlace: async () => [],
+              },
+            },
+          ),
+        (e: unknown) => (e as { statusCode?: number }).statusCode === 422,
+      )
+      assert.equal(wrote, false)
+    } finally {
+      db.transaction = originalTransaction
+    }
+  })
+})
+
+describe("verifyAccommodation", () => {
+  it("replaces the payload's place with Google's answer for its place id", async () => {
+    const { verifyAccommodation } = await import("./proposals")
+    const verified = await verifyAccommodation(
+      { name: "Park Hyatt", address: "fake", lat: 1, lng: 2, placeId: "ph" },
+      { destination: "Tokyo" },
+      {
+        getPlaceDetails: async (placeId: string) => ({
+          name: "Park Hyatt Tokyo",
+          placeId,
+          lat: 35.6856,
+          lng: 139.6909,
+          formattedAddress: "3-7-1-2 Nishishinjuku, Tokyo",
+        }),
+        searchPlace: async () => [],
+      },
+    )
+    assert.deepEqual(verified, {
+      name: "Park Hyatt Tokyo",
+      address: "3-7-1-2 Nishishinjuku, Tokyo",
+      lat: 35.6856,
+      lng: 139.6909,
+      placeId: "ph",
+    })
+  })
+
+  it("returns null when Google cannot resolve the place", async () => {
+    const { verifyAccommodation } = await import("./proposals")
+    const verified = await verifyAccommodation(
+      { name: "Imaginary Hotel", address: null, lat: null, lng: null, placeId: null },
+      { destination: "Tokyo" },
+      { getPlaceDetails: async () => null, searchPlace: async () => [] },
+    )
+    assert.equal(verified, null)
+  })
 })
 
 describe("proposalSchema group metadata", () => {

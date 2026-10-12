@@ -3,6 +3,7 @@ import { tool } from "ai"
 import { z } from "zod"
 import type { TripPreferences } from "../db/schema/trips"
 import type { TransportMode } from "../utils/transport"
+import type { ResolvedPlace } from "./enrich"
 import { sanitizePromptInput, escapeCtx } from "../utils/sanitize"
 import { getModel, AI_PROVIDER_OPTIONS, aiProviderOptions } from "./ai-config"
 import { farFromAnchor } from "../utils/geo"
@@ -118,13 +119,16 @@ export interface AIProcessResult {
   removals: { name: string; reason: string }[]
   updates: { name: string; suggestedTime: string; estimatedDurationMinutes: number }[]
   orderedActivities?: { id: string; name: string; suggestedTime: string }[]
+  /** Only ever a place Google resolved — see accommodationOutcome. */
   accommodation?: {
     name: string
     address: string | null
-    lat: number | null
-    lng: number | null
-    placeId: string | null
+    lat: number
+    lng: number
+    placeId: string
   }
+  /** The AI's hotel pick when Google could not resolve it, so nothing was set. */
+  unresolvedAccommodation?: string
   shouldOptimize: boolean
 }
 
@@ -1013,13 +1017,7 @@ async function handleAccommodation(params: {
   nearbyActivities?: { name: string; address?: string | null }[]
   /** Traveler opted into deeper reasoning for this request. */
   thinking?: boolean
-}): Promise<{
-  name: string
-  address: string | null
-  lat: number | null
-  lng: number | null
-  placeId: string | null
-}> {
+}): Promise<{ pickName: string; place: ResolvedPlace | null }> {
   logger.info("[accommodation] Finding accommodation")
 
   // Step 1: Research via agent
@@ -1055,28 +1053,37 @@ async function handleAccommodation(params: {
     }),
   )
 
-  // Step 3: Validate via Google Maps
-  const { searchPlace } = await import("./google-maps")
-  const candidates = await searchPlace(`${object.name} ${params.destination}`)
-  const match = candidates[0]
+  // Step 3: Validate via Google Maps. An unresolved pick is returned as null,
+  // never as the AI's name with null coordinates.
+  const { resolvePlace } = await import("./enrich")
+  const place = await resolvePlace({ name: object.name }, { destination: params.destination })
+  return { pickName: object.name, place }
+}
 
-  if (match) {
+/**
+ * Turn the AI's hotel pick and Google's answer for it into the result fields.
+ * A pick Google cannot resolve sets nothing: saving it would put an invented
+ * hotel, with no location, on the day and into the Bookings tab.
+ */
+export function accommodationOutcome(
+  pickName: string,
+  place: ResolvedPlace | null,
+): Pick<AIProcessResult, "accommodation" | "unresolvedAccommodation" | "message"> {
+  if (!place) {
     return {
-      name: match.name,
-      address: match.formattedAddress ?? null,
-      lat: match.lat,
-      lng: match.lng,
-      placeId: match.placeId,
+      unresolvedAccommodation: pickName,
+      message: `Couldn't find "${pickName}" on Google Maps, so the accommodation was not changed. Try naming a specific hotel.`,
     }
   }
-
-  // Fallback: return AI suggestion without coordinates
   return {
-    name: object.name,
-    address: null,
-    lat: null,
-    lng: null,
-    placeId: null,
+    accommodation: {
+      name: place.name,
+      address: place.address,
+      lat: place.lat,
+      lng: place.lng,
+      placeId: place.placeId,
+    },
+    message: `Set accommodation: ${place.name}`,
   }
 }
 
@@ -1333,8 +1340,7 @@ export async function processUserRequest(params: {
           })),
           thinking: params.thinking,
         })
-        result.accommodation = accom
-        result.message = `Set accommodation: ${accom.name}`
+        Object.assign(result, accommodationOutcome(accom.pickName, accom.place))
         break
       }
 

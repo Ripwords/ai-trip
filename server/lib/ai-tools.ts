@@ -9,7 +9,8 @@ import { searchPlace, getPlaceDetails, getDistanceMatrix } from "./google-maps"
 import { reviewItinerary, type ReviewableFlight } from "./itinerary-review"
 import { getTripFlightsForUser } from "./trip-flights"
 import { getTripWithRelations } from "./trips"
-import { proposalSchema, type Proposal } from "./proposals"
+import type { EnrichDeps } from "./enrich"
+import { proposalSchema, verifyAccommodation, type Proposal } from "./proposals"
 import { resolveTargetDay, resolveTargetDays, type DayRef } from "./proposal-targeting"
 import type { TransportMode } from "../utils/transport"
 import { sanitizePromptInput } from "../utils/sanitize"
@@ -286,9 +287,15 @@ export function summarizeTripForAgent(trip: {
 interface DiscussToolsContext extends TripToolsContext {
   /** Live USD→trip-currency rate for cost anchors; null degrades to static hints. */
   usdRate: number | null
+  /** Trip destination, the area a place name is searched in when its id does not resolve. */
+  destination?: string
 }
 
-export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal[]) {
+export function createDiscussTools(
+  ctx: DiscussToolsContext,
+  collector: Proposal[],
+  placeDeps?: EnrichDeps,
+) {
   const trip = createTripTools(ctx)
 
   const webSearch = tool({
@@ -485,31 +492,35 @@ export function createDiscussTools(ctx: DiscussToolsContext, collector: Proposal
 
   const proposeSetAccommodation = tool({
     description:
-      "Set or change accommodation for a day. Use searchPlaces to verify the venue first. Defaults to the open day; pass `dayId` to target another.",
+      "Set or change accommodation for a day. Use searchPlaces to find the venue first and pass its placeId. The place is resolved through Google Maps — its name, address and coordinates come from Google — and a place Google cannot find is refused. Defaults to the open day; pass `dayId` to target another.",
     inputSchema: z.object({
       summary: z.string().min(1),
       name: z.string(),
-      address: z.string().nullable(),
-      lat: z.number().nullable(),
-      lng: z.number().nullable(),
-      placeId: z.string().nullable(),
+      placeId: z.string().nullable().optional(),
       dayId: z.string().uuid().optional(),
     }),
     execute: async (input) => {
       const target = resolveTargetDay(ctx.days, ctx.activeDayId, input.dayId)
       if (!target.ok) return { ok: false, error: target.error }
+      // Resolve now so the card shows the real place, not the model's claim.
+      // Apply re-verifies the place id again (see applyProposal).
+      const stay = await verifyAccommodation(
+        { name: input.name, placeId: input.placeId ?? null },
+        { destination: ctx.destination ?? "" },
+        placeDeps,
+      )
+      if (!stay) {
+        return {
+          ok: false,
+          error: `Couldn't find "${input.name}" on Google Maps. Use searchPlaces to find a real venue and pass its placeId.`,
+        }
+      }
       const proposal: Proposal = {
         id: randomUUID(),
         kind: "set-accommodation",
         dayId: target.dayId,
         summary: input.summary,
-        payload: {
-          name: input.name,
-          address: input.address,
-          lat: input.lat,
-          lng: input.lng,
-          placeId: input.placeId,
-        },
+        payload: stay,
       }
       const validated = proposalSchema.safeParse(proposal)
       if (!validated.success) return { ok: false, error: validated.error.message }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
   SCHEDULE_RULES,
+  accommodationOutcome,
   addResultSchema,
   buildFlightsCtx,
   buildNextStayCtx,
@@ -562,5 +563,39 @@ describe("resolveStayContext", () => {
     ]
     const { next } = resolveStayContext(sameHotel, 2)
     assert.equal(next, null)
+  })
+})
+
+// B5: an AI-picked hotel Google cannot resolve must never be saved with null
+// coordinates. The outcome carries no accommodation and names what was dropped.
+describe("accommodationOutcome", () => {
+  it("sets Google's place when the pick resolves", () => {
+    const outcome = accommodationOutcome("Park Hyatt", {
+      name: "Park Hyatt Tokyo",
+      placeId: "ph",
+      lat: 35.6856,
+      lng: 139.6909,
+      address: "3-7-1-2 Nishishinjuku, Tokyo",
+      rating: 4.6,
+      openingHours: [],
+      priceLevel: 4,
+    })
+    assert.deepEqual(outcome, {
+      accommodation: {
+        name: "Park Hyatt Tokyo",
+        address: "3-7-1-2 Nishishinjuku, Tokyo",
+        lat: 35.6856,
+        lng: 139.6909,
+        placeId: "ph",
+      },
+      message: "Set accommodation: Park Hyatt Tokyo",
+    })
+  })
+
+  it("sets no accommodation and reports the dropped pick when Google cannot resolve it", () => {
+    const outcome = accommodationOutcome("Imaginary Hotel", null)
+    assert.equal(outcome.accommodation, undefined)
+    assert.equal(outcome.unresolvedAccommodation, "Imaginary Hotel")
+    assert.match(outcome.message, /Couldn't find "Imaginary Hotel" on Google Maps/)
   })
 })

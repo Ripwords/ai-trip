@@ -396,6 +396,14 @@ export default defineEventHandler(async (event) => {
     await chargeExtraAiCredits(session.user.id, creditsCharged - 1, usageMonth)
     extraChargeApplied = true
 
+    // The AI picked a hotel Google could not resolve, so nothing is saved
+    // (see accommodationOutcome). Only the accommodation intent sets a hotel,
+    // and the hotel is all it does, so the request delivered nothing billable:
+    // refund it in full. Not an error — the note rides back in `message`.
+    if (result.unresolvedAccommodation) {
+      await refundOnce(usageMonth)
+    }
+
     console.log("[ai.post] AI result:", {
       intent: result.intent,
       newActivities: result.newActivities.length,
@@ -757,6 +765,7 @@ export default defineEventHandler(async (event) => {
       updated: updatedCount,
       optimized,
       enrichmentFailures,
+      unresolvedAccommodation: result.unresolvedAccommodation ?? null,
       intent: result.intent,
       // Name what was dropped. Silently returning a smaller number than the AI
       // suggested reads as the model under-delivering rather than Google failing.

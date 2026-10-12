@@ -2,9 +2,9 @@ import type { AIActivity } from "./ai"
 import { searchPlace, getPlaceDetails } from "./google-maps"
 
 /**
- * An activity heading into enrichment. May already carry a place the discuss
- * agent resolved via searchPlaces (placeId + coords on the proposal payload).
- * When present these MUST be reused rather than re-searched — see enrichActivity.
+ * An activity heading into enrichment. May carry a placeId the discuss agent
+ * resolved via searchPlaces. That id is only a lookup key: the payload's
+ * coordinates and address are never trusted — see resolvePlace.
  */
 type EnrichInputActivity = AIActivity & {
   placeId?: string | null
@@ -47,18 +47,89 @@ export interface EnrichedItinerary {
   enrichmentFailures: number
 }
 
+/** A place as Google describes it. Every field comes from Places, none from the caller. */
+export interface ResolvedPlace {
+  name: string
+  placeId: string
+  lat: number
+  lng: number
+  address: string | null
+  rating: number | null
+  openingHours: string[]
+  priceLevel: number | null
+}
+
+/** Where to look when a name has to be searched: the trip/day area. */
+export interface PlaceArea {
+  destination: string
+  coords?: { lat: number; lng: number }
+}
+
 /**
- * Enrich an AI activity with Google Places data.
+ * Resolve a place through Google, which is the only source of truth for where
+ * it is.
  *
- * Two-step:
- *   1. Text Search (Pro SKU) → resolve to a placeId + coordinates.
- *   2. Place Details (Enterprise SKU) → backfill rating, openingHours,
- *      priceLevel. Photos intentionally not fetched — the image feature
- *      is disabled to eliminate Place Photos API spend.
+ *   1. A placeId must resolve via Place Details. A 404 (an invented or stale
+ *      id) or an outage is not evidence the place exists.
+ *   2. Otherwise Text Search by name near the area, then Place Details on the
+ *      top hit to backfill rating / hours / price. Photos are intentionally
+ *      not fetched — the image feature is disabled to avoid Place Photos spend.
+ *   3. Otherwise null: the caller must treat the place as unresolved.
  *
- * Doing both at enrichment time means the trip view never re-hits Google:
- * subsequent reads come straight from the DB. With KV cache the Details
- * call is also free on repeat for popular places.
+ * Both Google calls are cached, so the trip view never re-hits Google.
+ */
+export async function resolvePlace(
+  query: { name: string; placeId?: string | null },
+  area: PlaceArea,
+  deps: EnrichDeps = defaultDeps,
+): Promise<ResolvedPlace | null> {
+  if (query.placeId) {
+    const details = await deps.getPlaceDetails(query.placeId).catch(() => null)
+    if (details?.placeId) {
+      return {
+        name: details.name,
+        placeId: details.placeId,
+        lat: details.lat,
+        lng: details.lng,
+        address: details.formattedAddress ?? null,
+        rating: details.rating ?? null,
+        openingHours: details.openingHours ?? [],
+        priceLevel: details.priceLevel ?? null,
+      }
+    }
+    console.warn(`[enrich] placeId did not resolve for "${query.name}", searching by name`)
+  }
+
+  try {
+    const candidates = await deps.searchPlace(`${query.name} ${area.destination}`, area.coords)
+    const top = candidates[0]
+    if (top?.placeId) {
+      const details = await deps.getPlaceDetails(top.placeId).catch(() => null)
+      return {
+        name: top.name,
+        placeId: top.placeId,
+        lat: top.lat,
+        lng: top.lng,
+        address: top.formattedAddress ?? null,
+        rating: details?.rating ?? null,
+        openingHours: details?.openingHours ?? [],
+        priceLevel: details?.priceLevel ?? null,
+      }
+    }
+    console.warn(`[enrich] No Google Places result for: "${query.name}" in ${area.destination}`)
+  } catch (e) {
+    console.error(
+      `[enrich] Google Places lookup failed for "${query.name}":`,
+      e instanceof Error ? e.message : e,
+    )
+  }
+  return null
+}
+
+/**
+ * Enrich an AI activity with Google Places data. Coordinates, placeId and
+ * address always come from Google; an activity Google cannot resolve comes
+ * back with nulls so `partitionGeocoded` drops it.
  */
 export async function enrichActivity(
   activity: EnrichInputActivity,
@@ -66,65 +137,21 @@ export async function enrichActivity(
   destinationCoords?: { lat: number; lng: number },
   deps: EnrichDeps = defaultDeps,
 ): Promise<EnrichedActivity> {
-  // Fast path: the discuss agent already resolved this venue via searchPlaces
-  // and put its placeId on the proposal payload. Reuse it and only backfill
-  // rating/hours/price by placeId. Re-searching would rebuild the query from
-  // the activity's *display* name (e.g. "Coffee at Sơn Trà Marina") biased to
-  // the accommodation — which can miss the real place entirely and drop the
-  // activity as "could not be geocoded".
-  if (activity.placeId) {
-    const details = await deps.getPlaceDetails(activity.placeId).catch(() => null)
-    return {
-      ...activity,
-      placeId: activity.placeId,
-      lat: activity.lat ?? details?.lat ?? null,
-      lng: activity.lng ?? details?.lng ?? null,
-      rating: details?.rating ?? null,
-      address: activity.address ?? details?.formattedAddress ?? null,
-      photos: [],
-      openingHours: details?.openingHours ?? [],
-      priceLevel: details?.priceLevel ?? null,
-    }
-  }
-
-  try {
-    const candidates = await deps.searchPlace(`${activity.name} ${destination}`, destinationCoords)
-    const topResult = candidates[0]
-
-    if (topResult) {
-      const details = await deps.getPlaceDetails(topResult.placeId).catch(() => null)
-
-      return {
-        ...activity,
-        placeId: topResult.placeId,
-        lat: topResult.lat,
-        lng: topResult.lng,
-        rating: details?.rating ?? null,
-        address: topResult.formattedAddress ?? null,
-        photos: [],
-        openingHours: details?.openingHours ?? [],
-        priceLevel: details?.priceLevel ?? null,
-      }
-    }
-
-    console.warn(`[enrich] No Google Places result for: "${activity.name}" in ${destination}`)
-  } catch (e) {
-    console.error(
-      `[enrich] Google Places lookup failed for "${activity.name}":`,
-      e instanceof Error ? e.message : e,
-    )
-  }
-
+  const place = await resolvePlace(
+    { name: activity.name, placeId: activity.placeId },
+    { destination, coords: destinationCoords },
+    deps,
+  )
   return {
     ...activity,
-    placeId: null,
-    lat: null,
-    lng: null,
-    rating: null,
-    address: null,
+    placeId: place?.placeId ?? null,
+    lat: place?.lat ?? null,
+    lng: place?.lng ?? null,
+    rating: place?.rating ?? null,
+    address: place?.address ?? null,
     photos: [],
-    openingHours: [],
-    priceLevel: null,
+    openingHours: place?.openingHours ?? [],
+    priceLevel: place?.priceLevel ?? null,
   }
 }
 

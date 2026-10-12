@@ -4,7 +4,13 @@ import { and, asc, eq, inArray } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../db"
 import { activities, itineraryDays } from "../db/schema"
-import { enrichItinerary, partitionGeocoded } from "./enrich"
+import {
+  enrichItinerary,
+  partitionGeocoded,
+  resolvePlace,
+  type EnrichDeps,
+  type PlaceArea,
+} from "./enrich"
 import { guardCostEstimate } from "./cost-guard"
 import { computeAndSaveSegments } from "./segments"
 import { lockTripForStayWrite, reconcileTripStays } from "./booking-sync"
@@ -121,6 +127,30 @@ export const proposalSchema = z.discriminatedUnion("kind", [
 
 export type Proposal = z.infer<typeof proposalSchema>
 export type ProposalKind = Proposal["kind"]
+
+export type AccommodationPayload = Extract<Proposal, { kind: "set-accommodation" }>["payload"]
+
+/**
+ * Resolve an accommodation through Google. The payload's name, place id and
+ * coordinates are a claim made by the model (and carried through the browser);
+ * only the place id and name are used, as lookup keys. Returns Google's place,
+ * or null when Google cannot resolve it.
+ */
+export async function verifyAccommodation(
+  payload: Pick<AccommodationPayload, "name" | "placeId">,
+  area: PlaceArea,
+  deps?: EnrichDeps,
+): Promise<AccommodationPayload | null> {
+  const place = await resolvePlace({ name: payload.name, placeId: payload.placeId }, area, deps)
+  if (!place) return null
+  return {
+    name: place.name,
+    address: place.address,
+    lat: place.lat,
+    lng: place.lng,
+    placeId: place.placeId,
+  }
+}
 
 export interface DayForProposals {
   id: string
@@ -249,6 +279,14 @@ export interface ApplyContext {
   destinationCoords?: { lat: number; lng: number }
   /** Optional previous-day accommodation used by optimize. */
   startLocation?: { lat: number | null; lng: number | null } | null
+  /**
+   * The trip's destination, for the name-search fallback when re-verifying an
+   * accommodation. `dayLocation` is the day's current hotel address, which is
+   * the wrong area to search a different hotel's name in.
+   */
+  tripDestination?: string
+  /** Google Places calls, injectable for tests. */
+  placeDeps?: EnrichDeps
 }
 
 export interface ApplyResult {
@@ -553,6 +591,24 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
     }
 
     case "set-accommodation": {
+      // Re-verify on apply: the proposal was resolved when the agent made it,
+      // but it has since travelled through the browser, and a stale or forged
+      // payload must not reach the day. Done before the transaction so a
+      // Google round-trip never holds the trip lock.
+      const stay = await verifyAccommodation(
+        proposal.payload,
+        {
+          destination: ctx.tripDestination ?? ctx.dayLocation ?? "",
+          coords: ctx.destinationCoords,
+        },
+        ctx.placeDeps,
+      )
+      if (!stay) {
+        throw createError({
+          statusCode: 422,
+          message: `Couldn't verify "${proposal.payload.name}" on Google Maps, so the accommodation was not changed.`,
+        })
+      }
       // The single apply point for AI-set accommodation, and so the cheapest
       // place to get generated itineraries into the Bookings tab.
       await db.transaction(async (tx) => {
@@ -562,17 +618,17 @@ export async function applyProposal(proposal: Proposal, ctx: ApplyContext): Prom
         await tx
           .update(itineraryDays)
           .set({
-            accommodationName: proposal.payload.name,
-            accommodationAddress: proposal.payload.address,
-            accommodationLat: proposal.payload.lat,
-            accommodationLng: proposal.payload.lng,
-            accommodationPlaceId: proposal.payload.placeId,
+            accommodationName: stay.name,
+            accommodationAddress: stay.address,
+            accommodationLat: stay.lat,
+            accommodationLng: stay.lng,
+            accommodationPlaceId: stay.placeId,
           })
           .where(eq(itineraryDays.id, ctx.dayId))
 
         await reconcileTripStays(tx, ctx.tripId, ctx.userId)
       })
-      message = `Set accommodation to ${proposal.payload.name}`
+      message = `Set accommodation to ${stay.name}`
       break
     }
   }

@@ -67,6 +67,9 @@ interface ActivityRow {
   itineraryDayId: string
   name: string
   placeId: string | null
+  lat: number | null
+  lng: number | null
+  address: string | null
   sortOrder: number
   rating: string | null
   openingHours: string[] | null
@@ -144,6 +147,9 @@ function makeActivity(overrides: Partial<ActivityRow> = {}): ActivityRow {
     itineraryDayId: DAY_ID,
     name: "Existing",
     placeId: null,
+    lat: null,
+    lng: null,
+    address: null,
     sortOrder: 0,
     rating: null,
     openingHours: null,
@@ -214,6 +220,9 @@ function insertActivity(values: Record<string, unknown>): ActivityRow {
     itineraryDayId: String(values.itineraryDayId),
     name: String(values.name),
     placeId: (values.placeId as string | undefined) ?? null,
+    lat: (values.lat as number | null | undefined) ?? null,
+    lng: (values.lng as number | null | undefined) ?? null,
+    address: (values.address as string | null | undefined) ?? null,
     sortOrder: Number(values.sortOrder),
     rating: (values.rating as string | undefined) ?? null,
     openingHours: (values.openingHours as string[] | undefined) ?? null,
@@ -386,6 +395,9 @@ function callAddActivity(
     },
     getPlaceDetails: async () => {
       throw new Error("unexpected Place Details lookup")
+    },
+    searchPlace: async () => {
+      throw new Error("unexpected Place search")
     },
     deriveCostFromPlace: async () => {
       throw new Error("unexpected cost derivation")
@@ -674,27 +686,130 @@ describe("addActivity", () => {
       { placeId: "place-1" },
       {
         deriveCostFromPlace: async () => null,
-        getPlaceDetails: async () => null,
+        getPlaceDetails: async () => ({
+          name: "Fushimi Inari",
+          placeId: "place-1",
+          lat: 34.96,
+          lng: 135.77,
+        }),
       },
     )
     assert.partialDeepStrictEqual(activity, { costEstimate: null, rating: null, priceLevel: null })
   })
 
-  // A Place Details outage must not fail the write — the activity is the point,
-  // the rating is a nicety.
-  it("still inserts when the Place Details lookup throws", async () => {
+  // B8: the client's coordinates and address are never stored. A placeId is
+  // only a lookup key; Google's answer for it is what gets saved.
+  it("stores Google's coordinates, place id and address, not the client's", async () => {
     seedTripWithDay()
     const { activity } = await callAddActivity(
       OWNER_ID,
       TRIP_ID,
-      { placeId: "place-1" },
+      { placeId: "place-1", lat: 1, lng: 2, address: "Client address" } as AddActivityInput,
       {
         deriveCostFromPlace: async () => null,
-        getPlaceDetails: async () => {
-          throw new Error("places api down")
+        getPlaceDetails: async () => ({
+          name: "Fushimi Inari",
+          placeId: "place-1-canonical",
+          lat: 34.96,
+          lng: 135.77,
+          formattedAddress: "Fukakusa, Kyoto",
+        }),
+      },
+    )
+    assert.partialDeepStrictEqual(activity, {
+      placeId: "place-1-canonical",
+      lat: 34.96,
+      lng: 135.77,
+      address: "Fukakusa, Kyoto",
+    })
+  })
+
+  it("falls back to a name search near the trip when the placeId does not resolve", async () => {
+    seedTripWithDay()
+    const queries: string[] = []
+    const { activity } = await callAddActivity(
+      OWNER_ID,
+      TRIP_ID,
+      { placeId: "stale-id" },
+      {
+        deriveCostFromPlace: async () => null,
+        getPlaceDetails: async (placeId: string) =>
+          placeId === "fresh-id"
+            ? { name: "Fushimi Inari Taisha", placeId, lat: 34.96, lng: 135.77 }
+            : null,
+        searchPlace: async (query: string) => {
+          queries.push(query)
+          return [{ name: "Fushimi Inari Taisha", placeId: "fresh-id", lat: 34.96, lng: 135.77 }]
         },
       },
     )
-    assert.equal(activity!.name, "Fushimi Inari")
+    assert.deepEqual(queries, ["Fushimi Inari Japan"])
+    assert.partialDeepStrictEqual(activity, { placeId: "fresh-id", lat: 34.96, lng: 135.77 })
+  })
+
+  it("refuses a placeId Google cannot resolve and inserts nothing", async () => {
+    seedTripWithDay()
+    await assertRejects(
+      callAddActivity(
+        OWNER_ID,
+        TRIP_ID,
+        { placeId: "invented", lat: 35, lng: 135 } as AddActivityInput,
+        {
+          getPlaceDetails: async () => {
+            throw new Error("404")
+          },
+          searchPlace: async () => [],
+        },
+      ),
+      422,
+      "Couldn't find this place on Google Maps",
+    )
+    assert.deepEqual(store.activities, [])
+  })
+
+  // A free-text note ("Rest at hotel") is a legitimate activity with no place:
+  // it is saved without coordinates and never touches Google.
+  it("saves a note with no placeId with null coordinates, ignoring client lat/lng", async () => {
+    seedTripWithDay()
+    const { activity } = await callAddActivity(OWNER_ID, TRIP_ID, {
+      name: "Rest at hotel",
+      lat: 35,
+      lng: 135,
+    } as AddActivityInput)
+    assert.partialDeepStrictEqual(activity, {
+      name: "Rest at hotel",
+      placeId: null,
+      lat: null,
+      lng: null,
+      address: null,
+    })
+  })
+})
+
+describe("addActivitySchema", () => {
+  it("accepts the manual-mode body the Add Activity modal sends", async () => {
+    const { addActivitySchema } = await import("../utils/schemas")
+    const parsed = addActivitySchema.safeParse({
+      itineraryDayId: DAY_ID,
+      name: "Rest at hotel",
+      type: "attraction",
+      description: null,
+    })
+    assert.ok(parsed.success, JSON.stringify(parsed.error?.issues))
+  })
+
+  it("drops client-supplied coordinates and address", async () => {
+    const { addActivitySchema } = await import("../utils/schemas")
+    const parsed = addActivitySchema.parse({
+      itineraryDayId: DAY_ID,
+      name: "Fushimi Inari",
+      placeId: "place-1",
+      lat: 1,
+      lng: 2,
+      address: null,
+    })
+    assert.equal("lat" in parsed, false)
+    assert.equal("lng" in parsed, false)
+    assert.equal("address" in parsed, false)
   })
 })
