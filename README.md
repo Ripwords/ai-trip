@@ -93,7 +93,7 @@ The result is a **JSON-driven itinerary** you can drag, edit, split costs on, an
 
 ### Navigation and settings
 
-- **Main navigation** — the desktop header and the mobile tab bar carry the same sections: Trips, Explore, Flights, and Passport
+- **Main navigation** — the desktop header and the mobile tab bar carry the same sections: Trips, Explore, Flights, and Travel history (your flights and countries over time). "Passport" refers only to identity documents, kept under Settings › Passports; the visa selector on Explore is labelled Nationality
 - **Theme** — set Light, Dark, or System under Settings › Theme; it is the only theme control once you are signed in (the public pages keep a quick toggle in their header)
 
 ### Progressive Web App

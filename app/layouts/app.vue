@@ -78,7 +78,7 @@ onUnmounted(() => {
             active-class="bg-sand-100 text-sand-900"
           >
             <Icon name="lucide:stamp" class="h-4 w-4" />
-            <span>Passport</span>
+            <span>Travel history</span>
           </NuxtLink>
           <!-- User pill with dropdown -->
           <div ref="menuRef" class="relative">

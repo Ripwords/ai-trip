@@ -5,8 +5,8 @@ import type { RenewalPassport } from "../utils/passport-renewal"
 
 definePageMeta({ layout: "app" })
 useSeoMeta({
-  title: "Travel Passport",
-  description: "Your flights, distance, and country history in one passport view.",
+  title: "Travel history",
+  description: "Your flights, distance, and country history in one place.",
 })
 
 const {
@@ -55,7 +55,7 @@ const periodLabel = computed(() =>
   <div class="space-y-6">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="font-display text-3xl text-sand-900 sm:text-4xl">Travel Passport</h1>
+        <h1 class="font-display text-3xl text-sand-900 sm:text-4xl">Travel history</h1>
         <p class="mt-1 text-sm text-sand-600">{{ periodLabel }}</p>
       </div>
 
@@ -107,9 +107,9 @@ const periodLabel = computed(() =>
       class="passport-shell flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-3xl px-6 py-10 text-center"
     >
       <Icon name="lucide:stamp" class="passport-empty-icon h-8 w-8" />
-      <h2 class="font-display text-2xl text-sand-900">Your passport is empty</h2>
+      <h2 class="font-display text-2xl text-sand-900">No travel history yet</h2>
       <p class="max-w-md text-sm text-sand-600">
-        Add flights or mark countries to start building your passport.
+        Add flights or mark countries to start building your travel history.
       </p>
       <div class="mt-2 flex flex-wrap justify-center gap-2">
         <NuxtLink
