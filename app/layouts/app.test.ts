@@ -26,4 +26,12 @@ describe("app layout header", () => {
       /<NuxtLink[^>]*to="\/dashboard"[^>]*active-class[\s\S]*?<span>Trips<\/span>/,
     )
   })
+
+  it("lets the theme mirror swapped ramps instead of overriding them with dark: (U4)", () => {
+    const swapped = swappedRamps()
+    const darkOnSwapped = [...layout.matchAll(/dark:(?:hover:)?(?:bg|text|border)-([a-z]+)-\d+/g)]
+      .filter((m) => swapped.has(m[1]!))
+      .map((m) => m[0])
+    assert.deepEqual(darkOnSwapped, [])
+  })
 })

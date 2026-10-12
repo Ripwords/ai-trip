@@ -51,32 +51,32 @@ onUnmounted(() => {
         <div class="flex items-center gap-2">
           <NuxtLink
             to="/dashboard"
-            class="hidden min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 focus-ring sm:inline-flex dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
-            active-class="bg-sand-100 text-sand-900 dark:bg-sand-800 dark:text-sand-100"
+            class="hidden min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 focus-ring sm:inline-flex"
+            active-class="bg-sand-100 text-sand-900"
           >
             <Icon name="lucide:map" class="h-4 w-4" />
             <span>Trips</span>
           </NuxtLink>
           <NuxtLink
             to="/explore"
-            class="hidden min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 focus-ring sm:inline-flex dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
-            active-class="bg-sand-100 text-sand-900 dark:bg-sand-800 dark:text-sand-100"
+            class="hidden min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 focus-ring sm:inline-flex"
+            active-class="bg-sand-100 text-sand-900"
           >
             <Icon name="lucide:globe" class="h-4 w-4" />
             <span>Explore</span>
           </NuxtLink>
           <NuxtLink
             to="/flights"
-            class="hidden min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 focus-ring sm:inline-flex dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
-            active-class="bg-sand-100 text-sand-900 dark:bg-sand-800 dark:text-sand-100"
+            class="hidden min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 focus-ring sm:inline-flex"
+            active-class="bg-sand-100 text-sand-900"
           >
             <Icon name="lucide:plane" class="h-4 w-4" />
             <span>Flights</span>
           </NuxtLink>
           <NuxtLink
             to="/passport"
-            class="hidden min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 focus-ring sm:inline-flex dark:text-sand-400 dark:hover:bg-sand-800 dark:hover:text-sand-200"
-            active-class="bg-sand-100 text-sand-900 dark:bg-sand-800 dark:text-sand-100"
+            class="hidden min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sand-500 transition hover:bg-sand-100 hover:text-sand-700 focus-ring sm:inline-flex"
+            active-class="bg-sand-100 text-sand-900"
           >
             <Icon name="lucide:stamp" class="h-4 w-4" />
             <span>Passport</span>
