@@ -79,8 +79,8 @@ onMounted(() => {
       </div>
 
       <div v-else-if="error" role="alert" class="space-y-4">
-        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-terra-50">
-          <Icon name="lucide:x" class="h-6 w-6 text-terra-600" />
+        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
+          <Icon name="lucide:x" class="h-6 w-6 text-red-600" />
         </div>
         <h2 class="font-display text-xl text-sand-900">Invite Error</h2>
         <p class="text-sm text-sand-600">{{ error }}</p>

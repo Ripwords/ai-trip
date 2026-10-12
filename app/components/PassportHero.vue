@@ -132,19 +132,6 @@ const uniqueMapPoints = computed(() => {
             role="img"
             aria-label="Route map"
           >
-            <defs>
-              <pattern
-                id="passport-grid"
-                x="0"
-                y="0"
-                width="50"
-                height="50"
-                patternUnits="userSpaceOnUse"
-              >
-                <path d="M50 0H0V50" class="passport-grid-line" stroke-width="0.5" />
-              </pattern>
-            </defs>
-            <rect width="1000" height="500" fill="url(#passport-grid)" />
             <g>
               <path
                 v-for="(d, i) in worldPaths"
@@ -191,11 +178,19 @@ const uniqueMapPoints = computed(() => {
 
         <div class="grid grid-cols-2 gap-3">
           <div class="passport-metric">
-            <p class="passport-metric-label">Flights</p>
+            <p class="passport-metric-label">
+              <span class="passport-metric-icon bg-terra-50 text-terra-700"
+                ><Icon name="lucide:plane" class="h-3.5 w-3.5" aria-hidden="true" /></span
+              >Flights
+            </p>
             <p class="passport-metric-value tabular-nums">{{ passport.totalFlights }}</p>
           </div>
           <div class="passport-metric">
-            <p class="passport-metric-label">Flight distance</p>
+            <p class="passport-metric-label">
+              <span class="passport-metric-icon bg-ocean-50 text-ocean-700"
+                ><Icon name="lucide:route" class="h-3.5 w-3.5" aria-hidden="true" /></span
+              >Flight distance
+            </p>
             <p class="passport-metric-value tabular-nums">
               {{ formattedDistance }}<span class="passport-metric-unit">km</span>
             </p>
@@ -206,7 +201,11 @@ const uniqueMapPoints = computed(() => {
       <div class="flex flex-col gap-3">
         <div class="passport-metric">
           <div class="flex items-baseline justify-between">
-            <p class="passport-metric-label">Countries</p>
+            <p class="passport-metric-label">
+              <span class="passport-metric-icon bg-forest-50 text-forest-700"
+                ><Icon name="lucide:globe" class="h-3.5 w-3.5" aria-hidden="true" /></span
+              >Countries
+            </p>
             <p class="passport-metric-value tabular-nums">{{ passport.countries.length }}</p>
           </div>
           <p
@@ -223,13 +222,21 @@ const uniqueMapPoints = computed(() => {
 
         <div class="grid grid-cols-2 gap-3">
           <div class="passport-metric">
-            <p class="passport-metric-label">Airports</p>
+            <p class="passport-metric-label">
+              <span class="passport-metric-icon bg-amber-50 text-amber-700"
+                ><Icon name="lucide:plane-landing" class="h-3.5 w-3.5" aria-hidden="true" /></span
+              >Airports
+            </p>
             <p class="passport-metric-value tabular-nums">
               {{ passport.uniqueAirports.length }}
             </p>
           </div>
           <div class="passport-metric">
-            <p class="passport-metric-label">Airlines</p>
+            <p class="passport-metric-label">
+              <span class="passport-metric-icon bg-purple-50 text-purple-700"
+                ><Icon name="lucide:ticket" class="h-3.5 w-3.5" aria-hidden="true" /></span
+              >Airlines
+            </p>
             <p class="passport-metric-value tabular-nums">
               {{ passport.uniqueAirlines.length }}
             </p>
@@ -238,7 +245,7 @@ const uniqueMapPoints = computed(() => {
 
         <p
           v-if="flightsError || visitedError"
-          class="rounded-xl bg-terra-500/15 px-3 py-2 text-xs text-terra-700"
+          class="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700"
         >
           <template v-if="flightsError">Couldn't load flights. </template>
           <template v-if="visitedError">Couldn't load visited countries.</template>
@@ -249,64 +256,58 @@ const uniqueMapPoints = computed(() => {
 </template>
 
 <style scoped>
+/* Google Maps card: a plain surface, a real-looking map, and colour only
+   where it means something (the route and the metric icons). */
 .passport-shell {
-  background:
-    radial-gradient(ellipse 70% 55% at 10% 0%, rgba(255, 255, 255, 0.22), transparent 62%),
-    linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.1) 50%, transparent 62%),
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--color-terra-500) 13%, var(--color-sand-50)),
-      color-mix(in srgb, var(--color-ocean-500) 13%, var(--color-sand-50)) 54%,
-      var(--color-sand-50)
-    );
+  background: var(--color-card);
+  border: 1px solid var(--color-sand-200);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-    0 16px 42px rgba(32, 33, 36, 0.08);
+    0 1px 2px rgba(32, 33, 36, 0.06),
+    0 2px 8px rgba(32, 33, 36, 0.05);
   color: var(--color-sand-900);
+  --passport-water: #aadaff;
+  --passport-land: #f8f9fa;
+  --passport-border: #c4c7c5;
+  --passport-route: #1a73e8;
+  --passport-halo: #ffffff;
 }
 
 .dark .passport-shell {
-  background:
-    radial-gradient(ellipse 70% 55% at 10% 0%, rgba(255, 255, 255, 0.06), transparent 62%),
-    linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.035) 50%, transparent 62%),
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--color-terra-500) 15%, var(--color-sand-50)),
-      color-mix(in srgb, var(--color-ocean-500) 16%, var(--color-sand-50)) 58%,
-      var(--color-sand-50)
-    );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
-    0 18px 46px rgba(0, 0, 0, 0.28);
+  box-shadow: none;
+  --passport-water: #1f3639;
+  --passport-land: #3c3d42;
+  --passport-border: #5f6368;
+  --passport-route: #8ab4f8;
+  --passport-halo: #1f2023;
 }
 
 .passport-map-frame {
-  background:
-    radial-gradient(
-      120% 80% at 0% 0%,
-      color-mix(in srgb, var(--color-terra-500) 8%, transparent),
-      transparent 60%
-    ),
-    color-mix(in srgb, var(--color-sand-50) 70%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-terra-600) 20%, transparent);
+  background: var(--passport-water);
 }
 
 .passport-metric {
-  background: color-mix(in srgb, var(--color-sand-50) 62%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-sand-400) 24%, transparent);
+  background: var(--color-sand-50);
   border-radius: 1rem;
   padding: 0.9rem 1rem;
-  backdrop-filter: blur(4px);
 }
 
 .passport-metric-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--color-terra-600);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-sand-600);
+}
+
+.passport-metric-icon {
+  display: inline-flex;
+  height: 1.75rem;
+  width: 1.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
 }
 
 .passport-metric-value {
@@ -321,31 +322,30 @@ const uniqueMapPoints = computed(() => {
 .passport-metric-unit {
   margin-left: 0.25rem;
   font-size: 0.8rem;
-  color: color-mix(in srgb, var(--color-sand-900) 55%, transparent);
-  font-family: ui-sans-serif, system-ui, sans-serif;
-}
-
-.passport-grid-line {
-  stroke: color-mix(in srgb, var(--color-sand-700) 12%, transparent);
-  fill: none;
+  color: var(--color-sand-600);
+  font-family: var(--font-sans);
 }
 
 .passport-world-path {
-  fill: color-mix(in srgb, var(--color-sand-300) 35%, transparent);
-  stroke: color-mix(in srgb, var(--color-terra-600) 30%, transparent);
+  fill: var(--passport-land);
+  stroke: var(--passport-border);
 }
 
 .passport-route {
   fill: none;
-  stroke: var(--color-terra-600);
+  stroke: var(--passport-route);
 }
 
 .passport-airport-dot {
-  fill: var(--color-terra-700);
-  stroke: color-mix(in srgb, var(--color-sand-50) 90%, transparent);
+  fill: var(--passport-halo);
+  stroke: var(--passport-route);
+  stroke-width: 1.6;
 }
 
 .passport-airport-label {
-  fill: color-mix(in srgb, var(--color-terra-700) 90%, transparent);
+  fill: var(--color-sand-800);
+  stroke: var(--passport-halo);
+  stroke-width: 3px;
+  paint-order: stroke;
 }
 </style>

@@ -225,7 +225,7 @@ const dashboardBriefing = computed(() =>
         class="flex items-center gap-3 rounded-2xl border border-sand-200/70 bg-white/40 p-3 transition hover:border-sand-300 hover:bg-white/60 dark:border-white/5 dark:bg-white/[0.02] dark:hover:border-white/10 dark:hover:bg-white/[0.04] sm:gap-4 sm:p-4"
       >
         <div
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sand-100/70 text-ocean-700 dark:bg-white/5 dark:text-ocean-600 sm:h-10 sm:w-10"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-terra-50 text-terra-700 sm:h-10 sm:w-10"
         >
           <Icon name="lucide:plane" class="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
@@ -272,7 +272,7 @@ const dashboardBriefing = computed(() =>
         class="flex items-center gap-3 rounded-2xl border border-sand-200/70 bg-white/40 p-3 transition hover:border-sand-300 hover:bg-white/60 dark:border-white/5 dark:bg-white/[0.02] dark:hover:border-white/10 dark:hover:bg-white/[0.04] sm:gap-4 sm:p-4"
       >
         <div
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sand-100/70 text-terra-600 dark:bg-white/5 sm:h-10 sm:w-10"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600 sm:h-10 sm:w-10"
         >
           <Icon name="lucide:map-pin" class="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
@@ -322,7 +322,7 @@ const dashboardBriefing = computed(() =>
         <h1 class="font-display text-2xl text-sand-900 sm:text-3xl">My Trips</h1>
         <NuxtLink
           to="/trips/new"
-          class="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-cta px-3.5 py-2 text-sm font-medium text-white shadow-md shadow-terra-500/15 transition hover:bg-cta-hover hover:shadow-lg hover:shadow-terra-500/20 sm:gap-2 sm:px-5 sm:py-2.5"
+          class="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-cta px-3.5 py-2 text-sm font-medium text-white shadow-md shadow-sand-900/10 transition hover:bg-cta-hover hover:shadow-lg sm:gap-2 sm:px-5 sm:py-2.5"
         >
           <Icon name="lucide:plus" class="h-4 w-4" />
           <span class="hidden sm:inline">New Trip</span>
@@ -336,8 +336,8 @@ const dashboardBriefing = computed(() =>
         v-else-if="!trips?.length"
         class="mt-12 flex flex-col items-center justify-center text-center"
       >
-        <div class="rounded-full bg-terra-50 p-4">
-          <Icon name="lucide:map-pin" class="h-8 w-8 text-terra-400" />
+        <div class="rounded-full bg-red-50 p-4">
+          <Icon name="lucide:map-pin" class="h-8 w-8 text-red-600" />
         </div>
         <h2 class="mt-4 font-display text-lg text-sand-900">No trips yet</h2>
         <p class="mt-2 max-w-sm text-sm text-sand-600">
@@ -345,7 +345,7 @@ const dashboardBriefing = computed(() =>
         </p>
         <NuxtLink
           to="/trips/new"
-          class="mt-6 inline-flex items-center gap-2 rounded-xl bg-cta px-6 py-3 text-sm font-medium text-white shadow-md shadow-terra-500/15 transition hover:bg-cta-hover hover:shadow-lg hover:shadow-terra-500/20"
+          class="mt-6 inline-flex items-center gap-2 rounded-xl bg-cta px-6 py-3 text-sm font-medium text-white shadow-md shadow-sand-900/10 transition hover:bg-cta-hover hover:shadow-lg"
         >
           <Icon name="lucide:plus" class="h-4 w-4" />
           Create your first trip

@@ -330,7 +330,7 @@ function formatDayRange(dayNumbers: number[]): string {
       >
         <div class="space-y-2.5">
           <!-- Hero stats card -->
-          <div class="ov-card ov-card-hero p-5">
+          <div class="ov-card p-5">
             <div class="grid grid-cols-3 gap-3 text-center">
               <div>
                 <p class="text-2xl font-display leading-none">{{ sortedDays.length }}</p>
@@ -379,7 +379,7 @@ function formatDayRange(dayNumbers: number[]): string {
               <div class="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-current/15">
                 <div
                   class="h-full rounded-full transition-all duration-500"
-                  :class="budgetPercent >= 90 ? 'bg-terra-500' : 'bg-current/60'"
+                  :class="budgetPercent >= 90 ? 'bg-red-600' : 'bg-forest-600'"
                   :style="{ width: `${budgetPercent}%` }"
                 />
               </div>
@@ -389,9 +389,9 @@ function formatDayRange(dayNumbers: number[]): string {
           <!-- What's Next -->
           <div v-if="upcomingActivities.length > 0" class="ov-card p-4">
             <h3
-              class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-terra-500"
+              class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-sand-600"
             >
-              <Icon name="lucide:zap" class="h-3 w-3" />
+              <Icon name="lucide:zap" class="h-3 w-3 text-amber-600" />
               Up Next
             </h3>
             <div class="mt-2.5 space-y-1">
@@ -404,7 +404,7 @@ function formatDayRange(dayNumbers: number[]): string {
               >
                 <span
                   v-if="item.activity.suggestedTime"
-                  class="shrink-0 text-xs font-semibold tabular-nums text-terra-500"
+                  class="shrink-0 text-xs font-semibold tabular-nums text-sand-700"
                 >
                   {{ formatTime12h(item.activity.suggestedTime) }}
                 </span>
@@ -694,12 +694,6 @@ function formatDayRange(dayNumbers: number[]): string {
   background: var(--color-card);
 }
 
-.ov-card-hero {
-  background: linear-gradient(135deg, var(--color-terra-50), var(--color-terra-100));
-  color: var(--color-sand-900);
-  border: 1px solid color-mix(in srgb, var(--color-terra-600) 18%, transparent);
-}
-
 .ov-toggle {
   width: 34px;
   height: 34px;
@@ -714,7 +708,7 @@ function formatDayRange(dayNumbers: number[]): string {
   }
 }
 .ov-toggle:hover {
-  color: var(--color-terra-600);
+  color: var(--color-sand-900);
 }
 
 /* Day rows */
@@ -739,29 +733,19 @@ function formatDayRange(dayNumbers: number[]): string {
   color: var(--color-sand-500);
 }
 .ov-day-row:hover {
-  background: color-mix(in srgb, var(--color-terra-600) 6%, transparent);
+  background: var(--color-sand-100);
 }
 .ov-day-row-active {
   background: color-mix(in srgb, var(--color-terra-600) 12%, transparent);
 }
 
-/* Desktop glass over the map */
+/* Opaque cards over the map, as Google Maps does: glass picked up the water's blue */
 @media (min-width: 1024px) {
   .ov-card,
   .ov-toggle {
-    background: color-mix(in srgb, var(--color-card) 85%, transparent);
-    backdrop-filter: blur(20px) saturate(1.2);
-    -webkit-backdrop-filter: blur(20px) saturate(1.2);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  }
-  .ov-card-hero {
-    background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--color-terra-50) 92%, transparent),
-      color-mix(in srgb, var(--color-terra-100) 88%, transparent)
-    );
-    backdrop-filter: blur(20px) saturate(1.2);
-    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    box-shadow:
+      0 1px 2px rgba(60, 64, 67, 0.3),
+      0 1px 3px 1px rgba(60, 64, 67, 0.15);
   }
   .dark .ov-card,
   .dark .ov-toggle {

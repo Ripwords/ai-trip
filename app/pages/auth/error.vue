@@ -60,7 +60,7 @@ const message = computed(
     </NuxtLink>
 
     <div class="w-full max-w-sm rounded-2xl border border-sand-200 bg-white p-6 text-center">
-      <Icon name="lucide:circle-alert" class="h-8 w-8 text-terra-500" aria-hidden="true" />
+      <Icon name="lucide:circle-alert" class="h-8 w-8 text-red-600" aria-hidden="true" />
       <h1 class="mt-3 font-display text-xl text-sand-900">We couldn't sign you in</h1>
       <p class="mt-2 text-sm leading-relaxed text-sand-600">{{ message }}</p>
 

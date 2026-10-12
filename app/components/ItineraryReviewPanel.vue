@@ -351,7 +351,7 @@ onMounted(() => {
             <div class="mt-3 flex justify-end">
               <button
                 type="button"
-                class="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-sand-200 bg-white px-3 py-1.5 text-xs font-medium text-sand-700 transition hover:border-terra-300 hover:bg-terra-50 hover:text-terra-700"
+                class="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-sand-200 bg-white px-3 py-1.5 text-xs font-medium text-sand-700 transition hover:border-sand-300 hover:bg-sand-50 hover:text-terra-700"
                 @click="emit('fix', finding)"
               >
                 <Icon name="lucide:wrench" class="h-3.5 w-3.5" />

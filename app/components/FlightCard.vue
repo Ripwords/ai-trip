@@ -232,7 +232,7 @@ function unlinkTrip() {
       <template v-if="flight.trip">
         <NuxtLink
           :to="`/trips/${flight.trip.id}`"
-          class="inline-flex items-center gap-1 rounded-full bg-terra-50 px-2.5 py-1 text-xs font-medium text-terra-700 transition hover:bg-terra-100"
+          class="inline-flex items-center gap-1 rounded-full border border-sand-200 bg-white px-2.5 py-1 text-xs font-medium text-sand-700 transition hover:bg-sand-50"
         >
           <Icon name="lucide:map-pin" class="h-3 w-3" />
           {{ flight.trip.destination }}

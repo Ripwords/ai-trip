@@ -81,11 +81,11 @@ function groupByCategory(items: ChecklistItem[]): { category: string; items: Che
 
 const categoryColors: Record<string, string> = {
   Clothes: "bg-ocean-50 text-ocean-700",
-  Toiletries: "bg-terra-50 text-terra-600",
+  Toiletries: "bg-pink-50 text-pink-700",
   Electronics: "bg-ocean-50 text-ocean-700",
   Documents: "bg-sand-200 text-sand-700",
   Gear: "bg-forest-50 text-forest-700",
-  Accessories: "bg-terra-50 text-terra-700",
+  Accessories: "bg-purple-50 text-purple-700",
 }
 
 function getCategoryClass(category: string): string {
@@ -607,7 +607,7 @@ function checkedCount(checklist: Checklist): number {
             <div v-if="templates.length" class="mt-4 max-h-80 space-y-2 overflow-y-auto">
               <div v-for="tmpl in templates" :key="tmpl.id" class="flex items-stretch gap-1.5">
                 <button
-                  class="min-w-0 flex-1 rounded-xl border border-sand-200 p-3 text-left transition hover:border-terra-300 hover:bg-terra-50/30"
+                  class="min-w-0 flex-1 rounded-xl border border-sand-200 p-3 text-left transition hover:border-sand-300 hover:bg-sand-50"
                   @click="loadTemplate(tmpl.id)"
                 >
                   <div class="flex items-center justify-between">

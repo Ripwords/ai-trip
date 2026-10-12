@@ -611,7 +611,7 @@ function getMemberName(userId: string | null): string {
         <button
           v-if="!readonly"
           type="button"
-          class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:bg-terra-50 hover:text-terra-600 focus-ring"
+          class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:bg-sand-100 hover:text-sand-900 focus-ring"
           aria-label="Edit budget"
           :aria-expanded="editingBudget"
           @click="editingBudget = !editingBudget"
@@ -709,7 +709,7 @@ function getMemberName(userId: string | null): string {
           <span class="text-sand-700">{{ person.name }}</span>
           <span
             class="font-medium tabular-nums"
-            :class="person.balance > 0 ? 'text-forest-600' : 'text-terra-600'"
+            :class="person.balance > 0 ? 'text-forest-600' : 'text-red-600'"
           >
             {{ person.balance > 0 ? "is owed" : "owes" }}
             {{ formatCurrency(Math.abs(person.balance)) }}
@@ -785,7 +785,7 @@ function getMemberName(userId: string | null): string {
                 </p>
                 <p
                   class="text-xs font-medium"
-                  :class="row.variance > 0 ? 'text-terra-600' : 'text-forest-600'"
+                  :class="row.variance > 0 ? 'text-red-600' : 'text-forest-600'"
                 >
                   {{ row.variance > 0 ? "+" : "" }}{{ formatCurrency(row.variance) }}
                 </p>

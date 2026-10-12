@@ -133,7 +133,7 @@ const activeDayLabel = computed(() => {
 
     <div v-if="ideas.length" class="space-y-2">
       <div class="flex items-center gap-1.5 px-1">
-        <Icon name="lucide:lightbulb" class="h-3.5 w-3.5 text-terra-400" />
+        <Icon name="lucide:lightbulb" class="h-3.5 w-3.5 text-amber-500" />
         <span class="text-xs font-medium text-sand-500">Saved ideas ({{ ideas.length }})</span>
       </div>
       <IdeaCard

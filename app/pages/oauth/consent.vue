@@ -168,8 +168,8 @@ async function decide(accept: boolean) {
       </div>
 
       <div v-else-if="status.kind === 'failed'" role="alert" class="space-y-4 text-center">
-        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-terra-50">
-          <Icon name="lucide:wifi-off" class="h-6 w-6 text-terra-600" aria-hidden="true" />
+        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-sand-100">
+          <Icon name="lucide:wifi-off" class="h-6 w-6 text-sand-600" aria-hidden="true" />
         </div>
         <h1 class="font-display text-xl text-sand-900">We couldn't save your decision</h1>
         <p class="text-sm leading-relaxed text-sand-600">{{ errorMessage }}</p>

@@ -228,7 +228,7 @@ function mapsLinkFor(activity: SharedActivity): string {
                 <div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-sand-500">
                   <span
                     v-if="activity.suggestedTime"
-                    class="inline-flex items-center gap-1 rounded-full bg-terra-50 px-2.5 py-0.5 text-xs font-semibold text-terra-700"
+                    class="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2.5 py-0.5 text-xs font-semibold text-sand-700"
                   >
                     <Icon name="lucide:clock" class="h-3 w-3" />
                     {{ formatTime12h(activity.suggestedTime) }}

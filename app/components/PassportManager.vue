@@ -214,7 +214,7 @@ function isExpiringSoon(date: string): boolean {
                 v-if="!passport.isDefault"
                 type="button"
                 aria-label="Set as default"
-                class="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-500 hover:bg-sand-50 hover:text-terra-500"
+                class="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-500 hover:bg-sand-50 hover:text-amber-600"
                 @click="setDefault(passport.id)"
               >
                 <Icon name="lucide:star" class="h-3.5 w-3.5" />
@@ -225,7 +225,7 @@ function isExpiringSoon(date: string): boolean {
                 aria-label="Default passport"
                 role="img"
               >
-                <Icon name="lucide:star" class="h-3.5 w-3.5 text-terra-500" />
+                <Icon name="lucide:star" class="h-3.5 w-3.5 fill-current text-amber-500" />
               </div>
               <button
                 type="button"

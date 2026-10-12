@@ -238,7 +238,7 @@ function timeToMinutes(time: string): number | null {
       {{ day.notes }}
     </p>
 
-    <div v-if="day.activities.length" class="pl-3 sm:pl-5 border-l-2 border-terra-200">
+    <div v-if="day.activities.length" class="pl-3 sm:pl-5 border-l-2 border-sand-200">
       <VueDraggable
         v-model="localActivities"
         handle=".drag-handle"
@@ -259,7 +259,7 @@ function timeToMinutes(time: string): number | null {
           <!-- Time conflict warning -->
           <div
             v-if="isOutOfOrder(index)"
-            class="mb-2 flex items-center gap-1.5 rounded-lg bg-terra-50 px-3 py-2 text-sm text-terra-700"
+            class="mb-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800"
           >
             <Icon name="lucide:alert-triangle" class="h-3.5 w-3.5 shrink-0" />
             <span>Schedule conflict: activities overlap in time</span>
@@ -309,7 +309,7 @@ function timeToMinutes(time: string): number | null {
 
       <button
         v-if="!readonly"
-        class="mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-terra-200 text-sm text-sand-600 transition hover:border-terra-400 hover:text-terra-500 focus-ring"
+        class="mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-sand-300 text-sm text-sand-600 transition hover:border-terra-400 hover:text-terra-500 focus-ring"
         @click="emit('addActivity', day.id)"
       >
         <Icon name="lucide:plus" class="h-3 w-3" />

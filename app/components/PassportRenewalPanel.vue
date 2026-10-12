@@ -52,7 +52,7 @@ const TONE_CLASS: Record<PassportRenewalTone, string> = {
             <p class="font-medium text-sand-900">{{ renewal.countryName }}</p>
             <span
               v-if="renewal.isDefault"
-              class="rounded-full bg-terra-50 px-1.5 py-0.5 text-[10px] font-medium text-terra-600"
+              class="rounded-full bg-sand-100 px-1.5 py-0.5 text-[10px] font-medium text-sand-700"
             >
               Default
             </span>

@@ -242,7 +242,12 @@
 
 /* Gradient text stays vibrant in dark mode */
 .dark .text-gradient {
-  background: linear-gradient(135deg, var(--color-terra-500), var(--color-terra-400));
+  background: linear-gradient(
+    100deg,
+    var(--color-terra-600),
+    var(--color-ocean-600) 55%,
+    var(--color-forest-600)
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -300,9 +305,14 @@
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
-/* Gradient text */
+/* Gradient text: sea to land, like the map itself */
 .text-gradient {
-  background: linear-gradient(135deg, var(--color-terra-600), var(--color-terra-400));
+  background: linear-gradient(
+    100deg,
+    var(--color-terra-600),
+    var(--color-ocean-500) 55%,
+    var(--color-forest-600)
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

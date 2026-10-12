@@ -1549,7 +1549,7 @@ const proposalKindMeta: Record<
   font-size: 13px;
   font-weight: 500;
   color: white;
-  background: linear-gradient(180deg, var(--color-terra-500) 0%, var(--color-terra-600) 100%);
+  background: var(--color-cta);
   touch-action: manipulation;
 }
 .dock-apply:disabled {
@@ -1628,14 +1628,14 @@ const proposalKindMeta: Record<
   font-family: var(--font-sans);
 }
 .dock-chip-quick {
-  background: var(--color-terra-50);
-  border-color: var(--color-terra-200);
-  color: var(--color-terra-700);
+  background: var(--color-card);
+  border-color: var(--color-sand-200);
+  color: var(--color-sand-800);
 }
 .dock-chip-quick:hover {
-  background: var(--color-terra-100);
-  border-color: var(--color-terra-300);
-  color: var(--color-terra-800);
+  background: var(--color-sand-50);
+  border-color: var(--color-sand-300);
+  color: var(--color-sand-900);
 }
 .dock-chip-quick :deep(.iconify) {
   color: var(--color-terra-600) !important;

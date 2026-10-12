@@ -120,6 +120,8 @@ const RETIRED_RGB = new Set([
   "95,168,173",
 ])
 
+const BLUE_BUDGET = 145
+
 function retiredColours(source: string): string[] {
   const found = new Set<string>()
   for (const m of source.matchAll(/#([0-9a-fA-F]{6})\b/g)) {
@@ -145,6 +147,33 @@ describe("theme palette", () => {
       .filter((f) => /:global\([^)]*\)\s*[^\s{,]/.test(scopedStyles(f.source)))
       .map((f) => f.name)
     assert.deepEqual(offenders, [])
+  })
+
+  it("keeps the blue accent off section labels: eyebrows are grey, as on Google Maps", () => {
+    const offenders = files.flatMap((f) =>
+      [...f.source.matchAll(/class="([^"]*)"/g)]
+        .map((m) => m[1]!)
+        .filter((cls) => /\buppercase\b/.test(cls) && /\btext-terra-\d/.test(cls))
+        .map((cls) => `${f.name}: ${cls}`),
+    )
+    assert.deepEqual(offenders, [])
+  })
+
+  it("never tints a gradient surface with the blue accent", () => {
+    const offenders = files.flatMap((f) =>
+      [...f.source.matchAll(/(?:linear|radial)-gradient\(([^;]*);/g)]
+        .filter((m) => /--color-terra-/.test(m[1]!))
+        .map(() => f.name)
+        .concat(/\b(?:from|via|to)-terra-\d/.test(f.source) ? [f.name] : []),
+    )
+    assert.deepEqual([...new Set(offenders)], [])
+  })
+
+  it("spends the blue accent sparingly: actions, links, focus and selection only", () => {
+    // 268 uses made the Maps theme read as a blue theme; 143 after the sweep. Raising this cap
+    // should mean a new interactive control, not a new decoration.
+    const uses = files.reduce((n, f) => n + (f.source.match(/terra-\d/g)?.length ?? 0), 0)
+    assert.ok(uses <= BLUE_BUDGET, `${uses} blue accent uses, budget ${BLUE_BUDGET}`)
   })
 
   it("leaves no retired warm or navy colours hard-coded outside the theme tokens", () => {

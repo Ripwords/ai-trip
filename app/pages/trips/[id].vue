@@ -1866,10 +1866,10 @@ async function recomputeSegments(dayId: string) {
       <button
         v-if="!trip.countryCode && !isViewer"
         type="button"
-        class="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-terra-50 px-2.5 text-xs font-medium text-terra-700 transition hover:bg-terra-100"
+        class="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-sand-200 bg-white px-2.5 text-xs font-medium text-sand-700 transition hover:bg-sand-50"
         @click="openSettings('country')"
       >
-        <Icon name="lucide:map-pin" class="h-3.5 w-3.5" />
+        <Icon name="lucide:map-pin" class="h-3.5 w-3.5 text-red-600" />
         Set a destination
       </button>
 
@@ -1917,7 +1917,7 @@ async function recomputeSegments(dayId: string) {
                     class="relative flex h-12 w-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terra-400"
                     :class="
                       day.id === activeDayId
-                        ? 'bg-cta text-white shadow-sm shadow-terra-500/30'
+                        ? 'bg-cta text-white shadow-sm'
                         : day.date === todayDate
                           ? 'text-terra-600 hover:bg-sand-100'
                           : 'text-sand-600 hover:bg-sand-100'

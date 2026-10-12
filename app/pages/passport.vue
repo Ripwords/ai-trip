@@ -138,7 +138,7 @@ const periodLabel = computed(() =>
       <div class="mt-2 flex flex-wrap justify-center gap-2">
         <NuxtLink
           to="/flights"
-          class="inline-flex min-h-11 items-center rounded-full bg-terra-500 px-4 text-xs font-semibold text-sand-50 transition hover:bg-terra-400"
+          class="inline-flex min-h-11 items-center rounded-full bg-cta px-4 text-xs font-semibold text-white transition hover:bg-cta-hover"
         >
           Add flights
         </NuxtLink>
@@ -218,48 +218,22 @@ const periodLabel = computed(() =>
 </template>
 
 <style scoped>
-/* Passport shell — mirrors PreTripBriefing's terra→ocean→sand gradient.
-   var(--color-sand-50) swaps between light/dark, so the same formula
-   reads as a pale sea-glass page in light mode and a deep travel cover in dark. */
-
+/* Passport shell: a plain card, matching PassportHero. */
 .passport-shell {
-  background:
-    /* top-left catchlight */
-    radial-gradient(ellipse 70% 55% at 10% 0%, rgba(255, 255, 255, 0.22), transparent 62%),
-    /* diagonal sheen band */
-    linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.1) 50%, transparent 62%),
-    /* base terra → ocean → sand */
-    linear-gradient(
-        135deg,
-        color-mix(in srgb, var(--color-terra-500) 13%, var(--color-sand-50)),
-        color-mix(in srgb, var(--color-ocean-500) 13%, var(--color-sand-50)) 54%,
-        var(--color-sand-50)
-      );
+  background: var(--color-card);
+  border: 1px solid var(--color-sand-200);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-    0 16px 42px rgba(32, 33, 36, 0.08);
+    0 1px 2px rgba(32, 33, 36, 0.06),
+    0 2px 8px rgba(32, 33, 36, 0.05);
   color: var(--color-sand-900);
 }
 
 .dark .passport-shell {
-  background:
-    radial-gradient(ellipse 70% 55% at 10% 0%, rgba(255, 255, 255, 0.06), transparent 62%),
-    linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.035) 50%, transparent 62%),
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--color-terra-500) 15%, var(--color-sand-50)),
-      color-mix(in srgb, var(--color-ocean-500) 16%, var(--color-sand-50)) 58%,
-      var(--color-sand-50)
-    );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
-    0 18px 46px rgba(0, 0, 0, 0.28);
+  box-shadow: none;
 }
 
 .passport-empty-icon {
-  color: var(--color-terra-500);
+  color: var(--color-sand-500);
 }
 
 .passport-empty-outline {

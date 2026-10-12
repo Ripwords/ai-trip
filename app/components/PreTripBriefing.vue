@@ -7,7 +7,7 @@ defineProps<{
 
 function chipClass(chip: BriefingChip): string {
   if (chip.tone === "warn") {
-    return "border-terra-100 bg-terra-50 text-terra-600"
+    return "border-amber-100 bg-amber-50 text-amber-700"
   }
   if (chip.tone === "good") {
     return "border-forest-100 bg-forest-50 text-forest-700"
@@ -17,18 +17,18 @@ function chipClass(chip: BriefingChip): string {
 
 function signalClass(signal: BriefingSignal): string {
   if (signal.tone === "warn") {
-    return "bg-terra-50 hover:bg-terra-100/70 dark:bg-terra-100/80 dark:hover:bg-terra-200/70"
+    return "bg-amber-50 hover:bg-amber-100/70 dark:bg-amber-100/80 dark:hover:bg-amber-200/70"
   }
   if (signal.tone === "good") {
     return "bg-forest-50 hover:bg-forest-100/70 dark:bg-forest-100/80 dark:hover:bg-forest-200/70"
   }
-  return "bg-ocean-50 hover:bg-ocean-100/70 dark:bg-ocean-100/80 dark:hover:bg-ocean-200/70"
+  return "bg-sand-50 hover:bg-sand-100 dark:bg-sand-100 dark:hover:bg-sand-200"
 }
 
 function iconClass(signal: BriefingSignal): string {
-  if (signal.tone === "warn") return "bg-terra-100 text-terra-600"
+  if (signal.tone === "warn") return "bg-amber-100 text-amber-700"
   if (signal.tone === "good") return "bg-forest-100 text-forest-700"
-  return "bg-ocean-100 text-ocean-700"
+  return "bg-terra-50 text-terra-700"
 }
 </script>
 
@@ -42,12 +42,12 @@ function iconClass(signal: BriefingSignal): string {
       <div class="relative z-10 flex h-full flex-col">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-terra-500">
+            <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-sand-600">
               {{ briefing.journeyLabel }}
             </p>
             <h2 class="mt-2 font-display text-3xl leading-none text-sand-900 sm:text-4xl">
               {{ briefing.destination }}
-              <span class="text-terra-500">
+              <span class="text-sand-500">
                 <template v-if="briefing.daysUntil === 0">today</template>
                 <template v-else-if="briefing.daysUntil === 1">tomorrow</template>
                 <template v-else>in {{ briefing.daysUntil }} days</template>
@@ -158,15 +158,11 @@ function iconClass(signal: BriefingSignal): string {
 
 <style scoped>
 .briefing-hero-surface {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-terra-500) 13%, var(--color-sand-50)),
-    color-mix(in srgb, var(--color-ocean-500) 13%, var(--color-sand-50)) 54%,
-    var(--color-sand-50)
-  );
+  background: var(--color-card);
+  border: 1px solid var(--color-sand-200);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.38),
-    0 16px 42px rgba(32, 33, 36, 0.08);
+    0 1px 2px rgba(32, 33, 36, 0.06),
+    0 2px 8px rgba(32, 33, 36, 0.05);
 }
 
 .briefing-orbit {
@@ -174,15 +170,7 @@ function iconClass(signal: BriefingSignal): string {
 }
 
 .dark .briefing-hero-surface {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-terra-500) 15%, var(--color-sand-50)),
-    color-mix(in srgb, var(--color-ocean-500) 16%, var(--color-sand-50)) 58%,
-    var(--color-sand-50)
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 18px 46px rgba(0, 0, 0, 0.24);
+  box-shadow: none;
 }
 
 .dark .briefing-orbit {

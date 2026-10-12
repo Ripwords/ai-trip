@@ -67,8 +67,8 @@ const totalCommitted = computed(() => props.summary?.total ?? 0)
 const budgetPercent = computed(() => props.summary?.budgetPercent ?? 0)
 
 const progressBarColor = computed(() => {
-  if (budgetPercent.value >= 100) return "bg-terra-600"
-  if (budgetPercent.value >= 80) return "bg-terra-400"
+  if (budgetPercent.value >= 100) return "bg-red-600"
+  if (budgetPercent.value >= 80) return "bg-amber-500"
   return "bg-forest-500"
 })
 

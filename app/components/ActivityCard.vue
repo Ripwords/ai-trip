@@ -324,7 +324,7 @@ function formatDuration(minutes: number): string {
       >
         <span
           v-if="activity.suggestedTime"
-          class="inline-flex items-center gap-1.5 rounded-full bg-terra-50 px-2.5 py-1 text-xs font-semibold text-terra-700"
+          class="inline-flex items-center gap-1.5 rounded-full bg-sand-100 px-2.5 py-1 text-xs font-semibold text-sand-700"
         >
           <Icon name="lucide:clock" class="h-3 w-3" />
           {{ formatTime12h(activity.suggestedTime) }}
@@ -496,8 +496,8 @@ function formatDuration(minutes: number): string {
         </button>
         <button
           type="button"
-          class="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-lg text-xs transition hover:text-terra-600 focus-ring"
-          :class="votes?.myVote === 'down' ? 'font-medium text-terra-600' : 'text-sand-500'"
+          class="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-lg text-xs transition hover:text-red-600 focus-ring"
+          :class="votes?.myVote === 'down' ? 'font-medium text-red-600' : 'text-sand-500'"
           :aria-pressed="votes?.myVote === 'down'"
           :aria-label="`Vote against ${activity.name}`"
           @click="emit('vote', activity.id, 'down')"

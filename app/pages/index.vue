@@ -66,14 +66,14 @@ onMounted(() => {
     <section class="relative flex min-h-[100dvh] flex-col overflow-hidden">
       <!-- Single ambient element -->
       <div
-        class="pointer-events-none absolute -right-40 -top-40 h-[520px] w-[520px] rounded-full bg-terra-200/25 blur-[130px]"
+        class="pointer-events-none absolute -right-40 -top-40 h-[520px] w-[520px] rounded-full bg-sand-200/40 blur-[130px]"
         aria-hidden="true"
       />
 
       <div
         class="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pt-24 pb-10 text-center"
       >
-        <p class="text-xs font-medium uppercase tracking-[0.2em] text-terra-600">
+        <p class="text-xs font-medium uppercase tracking-[0.2em] text-sand-600">
           AI travel planning
         </p>
 
@@ -93,7 +93,7 @@ onMounted(() => {
             type="button"
             :disabled="signInPending"
             aria-label="Sign in with Google to start planning"
-            class="focus-ring group relative flex items-center gap-2.5 overflow-hidden rounded-xl bg-cta px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-cta-hover hover:shadow-xl hover:shadow-terra-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+            class="focus-ring group relative flex items-center gap-2.5 overflow-hidden rounded-xl bg-cta px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-sand-900/10 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-cta-hover hover:shadow-xl active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
             @click="signInWithGoogle"
           >
             <Icon
@@ -162,21 +162,21 @@ onMounted(() => {
               <li
                 class="flex items-center gap-3 rounded-xl border border-sand-100 bg-sand-50/60 p-3"
               >
-                <span class="font-mono text-xs text-terra-600">9:00</span>
+                <span class="font-mono text-xs text-sand-600">9:00</span>
                 <span class="flex-1 text-sm font-medium text-sand-800">Fushimi Inari Taisha</span>
                 <Icon name="lucide:mountain" class="h-4 w-4 text-ocean-500" aria-hidden="true" />
               </li>
               <li
                 class="flex items-center gap-3 rounded-xl border border-sand-100 bg-sand-50/60 p-3"
               >
-                <span class="font-mono text-xs text-terra-600">12:30</span>
+                <span class="font-mono text-xs text-sand-600">12:30</span>
                 <span class="flex-1 text-sm font-medium text-sand-800">Nishiki Market</span>
                 <Icon name="lucide:utensils" class="h-4 w-4 text-amber-600" aria-hidden="true" />
               </li>
               <li
                 class="flex items-center gap-3 rounded-xl border border-sand-100 bg-sand-50/60 p-3"
               >
-                <span class="font-mono text-xs text-terra-600">15:00</span>
+                <span class="font-mono text-xs text-sand-600">15:00</span>
                 <span class="flex-1 text-sm font-medium text-sand-800">Kiyomizu-dera</span>
                 <Icon name="lucide:mountain" class="h-4 w-4 text-ocean-500" aria-hidden="true" />
               </li>
@@ -256,22 +256,22 @@ onMounted(() => {
 
               <div class="my-6 h-px bg-sand-100" />
 
-              <p class="text-xs font-medium uppercase tracking-[0.18em] text-terra-500">
+              <p class="text-xs font-medium uppercase tracking-[0.18em] text-sand-600">
                 AI returns
               </p>
               <ul class="mt-3 space-y-2.5">
                 <li class="flex items-center gap-3 text-sm text-sand-700">
-                  <Icon name="lucide:map-pin" class="h-4 w-4 shrink-0 text-terra-500" />
+                  <Icon name="lucide:map-pin" class="h-4 w-4 shrink-0 text-red-600" />
                   Fushimi Inari Taisha
                   <span class="ml-auto font-mono text-xs text-sand-700">Day 2, 9:00</span>
                 </li>
                 <li class="flex items-center gap-3 text-sm text-sand-700">
-                  <Icon name="lucide:map-pin" class="h-4 w-4 shrink-0 text-terra-500" />
+                  <Icon name="lucide:map-pin" class="h-4 w-4 shrink-0 text-red-600" />
                   Nishiki Market
                   <span class="ml-auto font-mono text-xs text-sand-700">Day 2, 12:30</span>
                 </li>
                 <li class="flex items-center gap-3 text-sm text-sand-700">
-                  <Icon name="lucide:map-pin" class="h-4 w-4 shrink-0 text-terra-500" />
+                  <Icon name="lucide:map-pin" class="h-4 w-4 shrink-0 text-red-600" />
                   Kiyomizu-dera
                   <span class="ml-auto font-mono text-xs text-sand-700">Day 2, 15:00</span>
                 </li>
@@ -327,7 +327,7 @@ onMounted(() => {
                   68 Fukakusa, Fushimi-ku
                 </span>
                 <span class="flex items-center gap-1">
-                  <Icon name="mdi:star" class="h-3 w-3 text-terra-400" />
+                  <Icon name="mdi:star" class="h-3 w-3 text-amber-500" />
                   Highly rated
                 </span>
                 <span>Free entry</span>
@@ -345,21 +345,21 @@ onMounted(() => {
         <!-- Three inline trust points -->
         <div class="mx-auto mt-10 grid max-w-2xl gap-6 text-left sm:grid-cols-3">
           <div>
-            <Icon name="lucide:star" class="h-5 w-5 text-terra-500" aria-hidden="true" />
+            <Icon name="lucide:star" class="h-5 w-5 text-amber-500" aria-hidden="true" />
             <p class="mt-2 text-sm font-semibold text-sand-900">Real ratings</p>
             <p class="mt-1 text-xs leading-5 text-sand-500">
               Pulled straight from Google, not guessed.
             </p>
           </div>
           <div>
-            <Icon name="lucide:clock" class="h-5 w-5 text-terra-500" aria-hidden="true" />
+            <Icon name="lucide:clock" class="h-5 w-5 text-forest-600" aria-hidden="true" />
             <p class="mt-2 text-sm font-semibold text-sand-900">Accurate hours</p>
             <p class="mt-1 text-xs leading-5 text-sand-500">
               Addresses and opening times you can trust.
             </p>
           </div>
           <div>
-            <Icon name="lucide:navigation" class="h-5 w-5 text-terra-500" aria-hidden="true" />
+            <Icon name="lucide:navigation" class="h-5 w-5 text-terra-600" aria-hidden="true" />
             <p class="mt-2 text-sm font-semibold text-sand-900">One-tap directions</p>
             <p class="mt-1 text-xs leading-5 text-sand-500">
               Open any stop in Google Maps instantly.
@@ -395,11 +395,11 @@ onMounted(() => {
                   <div class="relative z-10 flex h-full flex-col">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p class="text-xs font-semibold text-terra-500">Sample briefing</p>
+                        <p class="text-xs font-semibold text-sand-600">Sample briefing</p>
                         <h3
                           class="mt-2 font-display text-3xl leading-none text-sand-900 sm:text-4xl"
                         >
-                          Barcelona <span class="text-terra-500">in 3 days</span>
+                          Barcelona <span class="text-sand-500">in 3 days</span>
                         </h3>
                         <p class="mt-2 flex flex-wrap items-center gap-x-1 text-sm text-sand-600">
                           Fly Mon, Sep 14
@@ -436,7 +436,7 @@ onMounted(() => {
                         Stay saved
                       </span>
                       <span
-                        class="inline-flex items-center rounded-full border border-terra-100 bg-terra-50 px-3 py-1.5 text-xs font-semibold text-terra-600 backdrop-blur"
+                        class="inline-flex items-center rounded-full border border-sand-200 bg-white/75 px-3 py-1.5 text-xs font-semibold text-sand-700 backdrop-blur"
                       >
                         Layover: Lisbon
                       </span>
@@ -587,15 +587,15 @@ onMounted(() => {
             </div>
             <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div class="flex items-center gap-2">
-                <span class="h-2.5 w-2.5 rounded-full bg-ocean-500" />
+                <span class="h-2.5 w-2.5 rounded-full bg-pink-600" />
                 <span class="text-xs text-sand-600">Stays</span>
               </div>
               <div class="flex items-center gap-2">
-                <span class="h-2.5 w-2.5 rounded-full bg-terra-500" />
+                <span class="h-2.5 w-2.5 rounded-full bg-amber-600" />
                 <span class="text-xs text-sand-600">Food</span>
               </div>
               <div class="flex items-center gap-2">
-                <span class="h-2.5 w-2.5 rounded-full bg-forest-500" />
+                <span class="h-2.5 w-2.5 rounded-full bg-ocean-500" />
                 <span class="text-xs text-sand-600">Activities</span>
               </div>
               <div class="flex items-center gap-2">
@@ -607,26 +607,26 @@ onMounted(() => {
 
           <!-- Travel map (typographic, no fake SVG map) -->
           <div
-            class="flex flex-col rounded-2xl border border-terra-100 bg-gradient-to-br from-terra-50 to-sand-50 p-6 shadow-lg shadow-sand-900/5"
+            class="flex flex-col rounded-2xl border border-sand-200/80 bg-white p-6 shadow-lg shadow-sand-900/5"
           >
             <div class="flex items-center gap-2">
-              <Icon name="lucide:globe" class="h-4 w-4 text-terra-500" aria-hidden="true" />
+              <Icon name="lucide:globe" class="h-4 w-4 text-forest-600" aria-hidden="true" />
               <h3 class="font-display text-xl text-sand-900">Your map fills in</h3>
             </div>
             <p class="mt-2 text-sm text-sand-600">
               Every country lights up as you travel. A dozen or so on this example map.
             </p>
             <div class="mt-4 flex flex-wrap gap-1.5">
-              <span class="rounded-full bg-terra-100 px-2.5 py-1 text-xs font-medium text-terra-700"
+              <span class="rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-700"
                 >Japan</span
               >
-              <span class="rounded-full bg-terra-100 px-2.5 py-1 text-xs font-medium text-terra-700"
+              <span class="rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-700"
                 >France</span
               >
-              <span class="rounded-full bg-terra-100 px-2.5 py-1 text-xs font-medium text-terra-700"
+              <span class="rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-700"
                 >Thailand</span
               >
-              <span class="rounded-full bg-terra-100 px-2.5 py-1 text-xs font-medium text-terra-700"
+              <span class="rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-sand-700"
                 >Portugal</span
               >
               <span class="rounded-full bg-white/70 px-2.5 py-1 text-xs font-medium text-sand-500"
@@ -740,7 +740,7 @@ onMounted(() => {
     <section class="relative overflow-hidden py-24 sm:py-32">
       <div class="pointer-events-none absolute inset-0" aria-hidden="true">
         <div
-          class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[500px] rounded-full bg-terra-200/20 blur-[120px]"
+          class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[500px] rounded-full bg-sand-200/40 blur-[120px]"
         />
       </div>
       <div class="relative z-10 mx-auto max-w-2xl px-6 text-center">
@@ -755,7 +755,7 @@ onMounted(() => {
           type="button"
           :disabled="signInPending"
           aria-label="Sign in with Google to start planning"
-          class="focus-ring mt-8 inline-flex items-center gap-2.5 rounded-xl bg-cta px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-terra-500/25 transition-all hover:bg-cta-hover hover:shadow-xl hover:shadow-terra-500/30 disabled:cursor-not-allowed disabled:opacity-70"
+          class="focus-ring mt-8 inline-flex items-center gap-2.5 rounded-xl bg-cta px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-sand-900/10 transition-all hover:bg-cta-hover hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70"
           @click="signInWithGoogle"
         >
           <Icon
@@ -794,15 +794,11 @@ onMounted(() => {
 
 <style scoped>
 .landing-briefing-hero-surface {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-terra-500) 13%, var(--color-sand-50)),
-    color-mix(in srgb, var(--color-ocean-500) 13%, var(--color-sand-50)) 54%,
-    var(--color-sand-50)
-  );
+  background: var(--color-card);
+  border: 1px solid var(--color-sand-200);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.38),
-    0 16px 42px rgba(32, 33, 36, 0.08);
+    0 1px 2px rgba(32, 33, 36, 0.06),
+    0 2px 8px rgba(32, 33, 36, 0.05);
 }
 
 .landing-briefing-orbit {
@@ -810,15 +806,7 @@ onMounted(() => {
 }
 
 .dark .landing-briefing-hero-surface {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-terra-500) 15%, var(--color-sand-50)),
-    color-mix(in srgb, var(--color-ocean-500) 16%, var(--color-sand-50)) 58%,
-    var(--color-sand-50)
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 18px 46px rgba(0, 0, 0, 0.24);
+  box-shadow: none;
 }
 
 .dark .landing-briefing-orbit {
