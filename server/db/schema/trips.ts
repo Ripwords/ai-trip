@@ -43,7 +43,7 @@ export const trips = pgTable(
      */
     status: text("status").notNull().default("active").$type<TripLifecycle>(),
     preferences: jsonb("preferences").$type<TripPreferences>().default({}),
-    budget: numeric("budget", { precision: 10, scale: 2 }),
+    budget: numeric("budget", { precision: 16, scale: 2 }),
     currencyCode: text("currency_code").notNull().default("USD"),
     tripNotes: text("trip_notes"),
     shareToken: uuid("share_token"),

@@ -38,11 +38,11 @@ export const activities = pgTable(
     // Planning data
     suggestedTime: text("suggested_time"),
     estimatedDurationMinutes: integer("estimated_duration_minutes"),
-    costEstimate: numeric("cost_estimate", { precision: 10, scale: 2 }),
+    costEstimate: numeric("cost_estimate", { precision: 16, scale: 2 }),
     tags: jsonb("tags").$type<string[]>().default([]),
     sortOrder: integer("sort_order").notNull().default(0),
     notes: text("notes"),
-    actualCost: numeric("actual_cost", { precision: 10, scale: 2 }),
+    actualCost: numeric("actual_cost", { precision: 16, scale: 2 }),
 
     // Tracks last enrichment attempt to avoid retrying too frequently
     lastEnrichAttempt: timestamp("last_enrich_attempt", { withTimezone: true }),
