@@ -3,6 +3,7 @@ import { db as defaultDb } from "../db"
 import { flights } from "../db/schema"
 import { deriveFlightFields, lookupFlight, FLIGHT_LOOKUP_SCHEMA_VERSION } from "./flight-api"
 import { compareFlightsByDeparture } from "../../shared/utils/flight-order"
+import { refreshDueFlights, saveFlightLookup } from "./flight-refresh"
 
 type FlightRow = typeof flights.$inferSelect
 type DbHandle = typeof defaultDb
@@ -66,10 +67,13 @@ export async function getTripFlightsForUser(
     where: and(eq(flights.tripId, args.tripId), eq(flights.userId, args.userId)),
   })
 
-  const migrated: FlightRow[] = []
+  const upgraded: FlightRow[] = []
   for (const row of rows) {
-    migrated.push(await maybeMigrateRow(db, row))
+    upgraded.push(await maybeMigrateRow(db, row))
   }
+  const migrated = await refreshDueFlights(upgraded, {
+    save: (row, fresh, fetchedAt) => saveFlightLookup(row, fresh, fetchedAt, db),
+  })
 
   // Order after the migration pass, not in SQL: a row that was just enriched
   // arrives with a departureTime the query could not have seen. Ordering here

@@ -41,12 +41,10 @@ describe("parseFlightyCsv", () => {
     ].join("\n")
     const result = parseFlightyCsv(csv, new Date("2026-05-23"))
     const row = result.rows[0]!
-    expect(row.scheduledDepartureTime?.toISOString()).toBe(
-      new Date("2022-10-01T15:30").toISOString(),
-    )
-    expect(row.actualDepartureTime?.toISOString()).toBe(new Date("2022-10-01T16:00").toISOString())
-    expect(row.scheduledArrivalTime?.toISOString()).toBe(new Date("2022-10-01T20:25").toISOString())
-    expect(row.actualArrivalTime?.toISOString()).toBe(new Date("2022-10-01T20:47").toISOString())
+    expect(row.scheduledDepartureTime?.toISOString()).toBe("2022-10-01T07:30:00.000Z")
+    expect(row.actualDepartureTime?.toISOString()).toBe("2022-10-01T08:00:00.000Z")
+    expect(row.scheduledArrivalTime?.toISOString()).toBe("2022-10-01T12:25:00.000Z")
+    expect(row.actualArrivalTime?.toISOString()).toBe("2022-10-01T12:47:00.000Z")
   })
 
   it("leaves the actual fields null rather than filling them from the scheduled ones", () => {
@@ -56,10 +54,8 @@ describe("parseFlightyCsv", () => {
     ].join("\n")
     const result = parseFlightyCsv(csv, new Date("2026-05-23"))
     const row = result.rows[0]!
-    expect(row.scheduledDepartureTime?.toISOString()).toBe(
-      new Date("2030-10-01T15:30").toISOString(),
-    )
-    expect(row.scheduledArrivalTime?.toISOString()).toBe(new Date("2030-10-01T20:25").toISOString())
+    expect(row.scheduledDepartureTime?.toISOString()).toBe("2030-10-01T07:30:00.000Z")
+    expect(row.scheduledArrivalTime?.toISOString()).toBe("2030-10-01T12:25:00.000Z")
     expect(row.actualDepartureTime).toBeNull()
     expect(row.actualArrivalTime).toBeNull()
   })
@@ -77,6 +73,52 @@ describe("parseFlightyCsv", () => {
 
     expect(gapMinutes(inbound.scheduledArrivalTime!, outbound.scheduledDepartureTime!)).toBe(360)
     expect(gapMinutes(inbound.actualArrivalTime!, outbound.actualDepartureTime!)).toBe(493)
+  })
+
+  describe("times are each airport's local wall clock", () => {
+    const header =
+      "Date,Airline,Flight,From,To,Canceled,Gate Departure (Scheduled),Gate Departure (Actual),Gate Arrival (Scheduled),Gate Arrival (Actual)"
+    const minutes = (from: Date | null, to: Date | null) =>
+      (to!.getTime() - from!.getTime()) / 60_000
+
+    it("reads departure in the origin's zone and arrival in the destination's", () => {
+      const csv = [
+        header,
+        // SQ322 SIN 23:40 (+08) → LHR 06:05 (+01, BST): 13h25 at the gate.
+        "2025-06-01,SQ,322,SIN,LHR,false,2025-06-01T23:35,2025-06-01T23:40,2025-06-02T06:10,2025-06-02T06:05",
+        // AA100 LAX 22:00 (-07, PDT) → JFK 06:30 (-04, EDT): 5h30.
+        "2025-06-01,AA,100,LAX,JFK,false,2025-06-01T22:00,2025-06-01T22:00,2025-06-02T06:30,2025-06-02T06:30",
+      ].join("\n")
+      const [sq, aa] = parseFlightyCsv(csv, new Date("2026-10-12T00:00:00Z")).rows
+
+      expect(sq!.actualDepartureTime?.toISOString()).toBe("2025-06-01T15:40:00.000Z")
+      expect(sq!.actualArrivalTime?.toISOString()).toBe("2025-06-02T05:05:00.000Z")
+      expect(minutes(sq!.actualDepartureTime, sq!.actualArrivalTime)).toBe(13 * 60 + 25)
+      expect(minutes(aa!.scheduledDepartureTime, aa!.scheduledArrivalTime)).toBe(5 * 60 + 30)
+    })
+
+    it("follows the destination's daylight-saving offset on the day", () => {
+      // LHR is +00:00 in January.
+      const csv = [header, "2025-01-15,SQ,322,SIN,LHR,false,,,2025-01-16T05:10,"].join("\n")
+      const [row] = parseFlightyCsv(csv, new Date("2026-10-12T00:00:00Z")).rows
+      expect(row!.scheduledArrivalTime?.toISOString()).toBe("2025-01-16T05:10:00.000Z")
+    })
+
+    it("honours a time that already carries its own offset", () => {
+      const csv = [header, "2025-06-01,SQ,322,SIN,LHR,false,2025-06-01T23:35+08:00,,,"].join("\n")
+      const [row] = parseFlightyCsv(csv, new Date("2026-10-12T00:00:00Z")).rows
+      expect(row!.scheduledDepartureTime?.toISOString()).toBe("2025-06-01T15:35:00.000Z")
+    })
+
+    it("leaves a time unknown rather than guessing when the airport's zone is unknown", () => {
+      const csv = [
+        header,
+        "2025-06-01,XX,1,ZZZ,SIN,false,2025-06-01T10:00,,2025-06-01T14:00,",
+      ].join("\n")
+      const [row] = parseFlightyCsv(csv, new Date("2026-10-12T00:00:00Z")).rows
+      expect(row!.scheduledDepartureTime).toBeNull()
+      expect(row!.scheduledArrivalTime?.toISOString()).toBe("2025-06-01T06:00:00.000Z")
+    })
   })
 
   it("derives status: past flights are landed, future are scheduled, canceled wins", () => {

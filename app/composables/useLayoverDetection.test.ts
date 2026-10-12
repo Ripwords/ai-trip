@@ -208,3 +208,61 @@ describe("a booked 6h layover at CDG whose onward leg pushed back 2h13m", () => 
     assert.equal(layover?.recommendationLabel, "Stay in airport")
   })
 })
+
+/**
+ * A DOH connection that straddles UTC midnight. At 00:30Z the inbound has
+ * landed (22:00Z yesterday) and the onward leg leaves at 01:30Z, so the trip
+ * page files the legs in different sections: upcoming oldest-first on top,
+ * past newest-first below.
+ */
+function straddlingDisplayOrder(): FlightItem[] {
+  const leg = (id: string, date: string, from: string, to: string, dep: string, arr: string) =>
+    flight({
+      id,
+      flightNumber: id,
+      flightDate: date,
+      departureAirport: from,
+      arrivalAirport: to,
+      departureTime: dep,
+      arrivalTime: arr,
+      scheduledDepartureTime: dep,
+      scheduledArrivalTime: arr,
+    })
+  return [
+    leg("QR7", "2026-10-12", "DOH", "LHR", "2026-10-12T01:30:00.000Z", "2026-10-12T08:30:00.000Z"),
+    leg("QR8", "2026-10-20", "LHR", "DOH", "2026-10-20T10:00:00.000Z", "2026-10-20T17:00:00.000Z"),
+    leg(
+      "QR845",
+      "2026-10-11",
+      "KUL",
+      "DOH",
+      "2026-10-11T15:00:00.000Z",
+      "2026-10-11T22:00:00.000Z",
+    ),
+  ]
+}
+
+describe("a connection split across the upcoming and past sections", () => {
+  it("still detects the layover", () => {
+    const found = layovers(straddlingDisplayOrder(), "2026-10-12T00:30:00Z")
+    assert.equal(found.length, 1)
+    assert.equal(found[0]!.airport, "DOH")
+    assert.equal(found[0]!.arrivalFlight.id, "QR845")
+    assert.equal(found[0]!.departureFlight.id, "QR7")
+    assert.equal(found[0]!.durationMinutes, 210)
+    assert.equal(found[0]!.retrospective, false)
+  })
+
+  it("places the card directly above the onward leg", () => {
+    const { flightListItems } = useLayoverDetection(
+      ref(straddlingDisplayOrder()),
+      Date.parse("2026-10-12T00:30:00Z"),
+    )
+    assert.deepEqual(
+      flightListItems.value.map((i) =>
+        i.type === "flight" ? i.flight.id : `layover:${i.airport}`,
+      ),
+      ["layover:DOH", "QR7", "QR8", "QR845"],
+    )
+  })
+})

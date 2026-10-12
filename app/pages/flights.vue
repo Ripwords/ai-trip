@@ -51,17 +51,17 @@ async function deleteFlight(flightId: string) {
   await refresh()
 }
 
-const today = new Date().toISOString().split("T")[0]!
+const today = useCalendarToday()
 
 const upcomingFlights = computed(() =>
   (flights.value ?? [])
-    .filter((f) => isUpcomingFlight(f, today))
+    .filter((f) => isUpcomingFlight(f, today.value))
     .toSorted(compareFlightsByDeparture),
 )
 
 const pastFlights = computed(() =>
   (flights.value ?? [])
-    .filter((f) => !isUpcomingFlight(f, today))
+    .filter((f) => !isUpcomingFlight(f, today.value))
     .toSorted((a, b) => -compareFlightsByDeparture(a, b)),
 )
 

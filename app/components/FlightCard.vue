@@ -2,6 +2,7 @@
 import { iataToCountry } from "../utils/iata-to-country"
 import { delayNotes, formatDuration } from "../utils/flight-facts"
 import { blockMinutes, hasFlown } from "#shared/utils/flight-times"
+import { normalizeFlightStatus, type FlightStatus } from "#shared/utils/flight-status"
 
 interface Flight {
   id: string
@@ -34,10 +35,18 @@ const emit = defineEmits<{
   delete: [flightId: string]
 }>()
 
-const statusConfig: Record<string, { label: string; color: string }> = {
+const statusConfig: Record<FlightStatus, { label: string; color: string }> = {
   scheduled: {
     label: "Scheduled",
     color: "bg-sand-100 text-sand-700",
+  },
+  departed: {
+    label: "In the air",
+    color: "bg-sand-100 text-sand-700",
+  },
+  diverted: {
+    label: "Diverted",
+    color: "bg-amber-100 text-amber-700",
   },
   delayed: {
     label: "Delayed",
@@ -53,13 +62,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   },
 }
 
-const statusBadge = computed(
-  () =>
-    statusConfig[props.flight.status ?? "scheduled"] ?? {
-      label: "Scheduled",
-      color: "bg-sand-100 text-sand-700",
-    },
-)
+const statusBadge = computed(() => statusConfig[normalizeFlightStatus(props.flight.status)])
 
 // Extract the airline designator from the flight number. Match either a
 // 3-letter ICAO prefix (e.g. "UAE" in "UAE342" — common for Flighty imports

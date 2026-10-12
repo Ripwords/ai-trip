@@ -19,7 +19,9 @@ import { flightApiCache } from "../db/schema"
  *      RATE_LIMIT_COOLDOWN_MS and serve stale cache instead.
  *
  * TTL is tiered by how close `now` is to the flight date:
- *   - past  (>24h after): cached effectively forever (data is final)
+ *   - past  (>24h after): final once fetched after the leg landed; a response
+ *     fetched before landing (or before the active window closed, when it has
+ *     no arrival time) is refetched once
  *   - active (within ±24h): 5 min — gate/terminal/status churn fast
  *   - future (>24h before): 2h — matches the per-row shouldRefresh() baseline
  *   - negative (notFound): 24h
@@ -62,6 +64,30 @@ export function classifyFlight(flightDate: string, now: Date): FlightWindow {
   return "active"
 }
 
+function utcMs(value: unknown): number | null {
+  if (typeof value !== "object" || value === null || !("utc" in value)) return null
+  const ms = typeof value.utc === "string" ? Date.parse(value.utc) : NaN
+  return Number.isNaN(ms) ? null : ms
+}
+
+/**
+ * The instant after which a fetched response is the leg's final record: its
+ * latest reported arrival (revised over scheduled, so a delay counts). With no
+ * arrival time in the response, the end of the active window stands in.
+ */
+function finalAfter(response: Record<string, unknown> | null, flightDate: string): number {
+  const arrival = response?.arrival
+  if (typeof arrival === "object" && arrival !== null) {
+    const times = [
+      "scheduledTime" in arrival ? utcMs(arrival.scheduledTime) : null,
+      "revisedTime" in arrival ? utcMs(arrival.revisedTime) : null,
+      "runwayTime" in arrival ? utcMs(arrival.runwayTime) : null,
+    ].filter((t): t is number => t !== null)
+    if (times.length > 0) return Math.max(...times)
+  }
+  return new Date(flightDate + "T00:00:00Z").getTime() + 2 * ONE_DAY_MS
+}
+
 export function isCacheFresh(
   entry: CacheEntry,
   flightDate: string,
@@ -73,7 +99,9 @@ export function isCacheFresh(
     return now.getTime() - entry.fetchedAt.getTime() < NEGATIVE_TTL_MS
   }
   const window = classifyFlight(flightDate, now)
-  if (window === "past") return true
+  if (window === "past") {
+    return entry.fetchedAt.getTime() >= finalAfter(entry.response, flightDate)
+  }
   const ttl = window === "active" ? ACTIVE_TTL_MS : FUTURE_TTL_MS
   return now.getTime() - entry.fetchedAt.getTime() < ttl
 }

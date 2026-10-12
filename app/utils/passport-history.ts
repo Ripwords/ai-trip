@@ -1,5 +1,6 @@
 import { airportCoordinates } from "./airport-coordinates"
 import { countryByAlpha2, countryFlag } from "../data/countries"
+import { normalizeFlightStatus } from "#shared/utils/flight-status"
 
 export interface PassportFlight {
   id: string
@@ -72,7 +73,9 @@ export function buildPassportHistory(input: BuildPassportHistoryInput): Passport
   // Cancelled rows never count, and future rows are always excluded — year
   // scoping narrows the window but does not surface flights that haven't
   // happened yet.
-  const flown = allFlights.filter((f) => f.status !== "cancelled" && f.flightDate <= todayIso)
+  const flown = allFlights.filter(
+    (f) => normalizeFlightStatus(f.status) !== "cancelled" && f.flightDate <= todayIso,
+  )
   const flights = year == null ? flown : flown.filter((f) => yearOf(f.flightDate) === year)
 
   const uniqueAirports = unique(

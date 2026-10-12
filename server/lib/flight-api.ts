@@ -1,4 +1,5 @@
 import {
+  classifyFlight,
   dedupInFlight,
   getCachedFlight,
   isCacheFresh,
@@ -7,6 +8,8 @@ import {
   setCachedFlight,
   type CacheStore,
 } from "./flight-api-cache"
+
+import { normalizeFlightStatus } from "../../shared/utils/flight-status"
 
 const AERODATABOX_HOST = "aerodatabox.p.rapidapi.com"
 
@@ -141,7 +144,7 @@ function parseFlightResponse(flight: AeroDataBoxFlight): FlightLookupResult {
     actualArrivalTime: actualInstant(flight.arrival),
     terminal: flight.departure?.terminal ?? null,
     gate: flight.departure?.gate ?? null,
-    status: flight.status ?? "scheduled",
+    status: normalizeFlightStatus(flight.status),
     rawApiResponse: flight as unknown as Record<string, unknown>,
   }
 }
@@ -189,6 +192,26 @@ export async function lookupFlight(
     }
   }
 
+  // The API saying "no such flight". For a past leg we already hold an answer
+  // for, that is the API ageing the flight out, not a correction: keep the last
+  // good response and restamp it so it reads as final and is never asked again.
+  const recordNotFound = async (): Promise<FlightLookupResult | null> => {
+    if (classifyFlight(flightDate, now()) === "past") {
+      const previous = await safeGetCache()
+      if (previous?.response) {
+        await safeSetCache({ ...previous, fetchedAt: now() })
+        return parseFlightResponse(previous.response as AeroDataBoxFlight)
+      }
+    }
+    await safeSetCache({
+      response: null,
+      notFound: true,
+      fetchedAt: now(),
+      lookupSchemaVersion: FLIGHT_LOOKUP_SCHEMA_VERSION,
+    })
+    return null
+  }
+
   return dedupInFlight(cacheKey, async () => {
     // 1. Cache hit (positive or negative) within TTL — serve and skip API.
     if (!opts.bypassCache) {
@@ -230,15 +253,7 @@ export async function lookupFlight(
       })
     } catch (error: unknown) {
       const status = (error as { statusCode?: number }).statusCode
-      if (status === 404) {
-        await safeSetCache({
-          response: null,
-          notFound: true,
-          fetchedAt: now(),
-          lookupSchemaVersion: FLIGHT_LOOKUP_SCHEMA_VERSION,
-        })
-        return null
-      }
+      if (status === 404) return recordNotFound()
       if (status === 429) {
         markRateLimited(now())
         console.warn(`AeroDataBox 429 for ${flightNumber} ${flightDate}; cooling down 60s`)
@@ -255,13 +270,7 @@ export async function lookupFlight(
     if (!flight) {
       // Empty array is the API saying "no occurrence for this date" — treat
       // identically to a 404 so we don't ask again until the negative TTL.
-      await safeSetCache({
-        response: null,
-        notFound: true,
-        fetchedAt: now(),
-        lookupSchemaVersion: FLIGHT_LOOKUP_SCHEMA_VERSION,
-      })
-      return null
+      return recordNotFound()
     }
 
     await safeSetCache({
