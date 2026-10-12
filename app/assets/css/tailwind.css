@@ -1,52 +1,52 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..800;1,300..800&display=swap");
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-display: "DM Serif Display", serif;
-  --font-sans: "DM Sans", system-ui, sans-serif;
+  --font-display: "Figtree", system-ui, sans-serif;
+  --font-sans: "Figtree", system-ui, sans-serif;
 
-  --color-sand-50: #faf8f5;
-  --color-sand-100: #f3efe8;
-  --color-sand-200: #e8e0d4;
-  --color-sand-300: #d4c8b8;
-  --color-sand-400: #b8a78f;
-  --color-sand-500: #9f8b6f;
-  --color-sand-600: #8a7458;
-  --color-sand-700: #6e5c46;
-  --color-sand-800: #5a4b3a;
-  --color-sand-900: #3d3328;
+  --color-sand-50: #f4f7f7;
+  --color-sand-100: #e9eff0;
+  --color-sand-200: #dbe4e5;
+  --color-sand-300: #c3d0d2;
+  --color-sand-400: #93a4a8;
+  --color-sand-500: #6f8489;
+  --color-sand-600: #56707a;
+  --color-sand-700: #3f565d;
+  --color-sand-800: #263b41;
+  --color-sand-900: #13262b;
 
-  --color-terra-50: #fef4f0;
-  --color-terra-100: #fde6dc;
-  --color-terra-200: #fbc9b8;
-  --color-terra-300: #f7a48a;
-  --color-terra-400: #f07b5a;
-  --color-terra-500: #e85d3a;
-  --color-terra-600: #d44425;
-  --color-terra-700: #b0341b;
-  --color-terra-800: #8e2c1a;
-  --color-terra-900: #6b2416;
+  --color-terra-50: #eaf6f7;
+  --color-terra-100: #d3eef0;
+  --color-terra-200: #a9dde1;
+  --color-terra-300: #72c4cb;
+  --color-terra-400: #2a98a2;
+  --color-terra-500: #138892;
+  --color-terra-600: #0e7c86;
+  --color-terra-700: #0a636b;
+  --color-terra-800: #0b4f55;
+  --color-terra-900: #0c3f44;
 
   /* Solid fill for primary CTAs that carry white label text.
      Deliberately NOT part of the terra ramp: the dark theme mirrors terra
      (400 <-> 600), so any ramp step would flip to a light tint in dark mode and
      drop white text to ~2.7:1. This token keeps the same value in both themes.
-     white on #d44425 = 4.51:1, white on #b0341b = 6.26:1 (WCAG AA). */
-  --color-cta: #d44425;
-  --color-cta-hover: #b0341b;
+     white on #0e7c86 = 4.9:1, white on #0a636b = 6.7:1 (WCAG AA). */
+  --color-cta: #0e7c86;
+  --color-cta-hover: #0a636b;
 
-  --color-ocean-50: #f0f7f9;
-  --color-ocean-100: #d9eef3;
-  --color-ocean-200: #b3dde7;
-  --color-ocean-300: #7dc3d4;
-  --color-ocean-400: #4aa5b9;
-  --color-ocean-500: #2e8a9e;
-  --color-ocean-600: #276f82;
-  --color-ocean-700: #245a6a;
-  --color-ocean-800: #234b58;
-  --color-ocean-900: #1e3d48;
+  --color-ocean-50: #eef4fb;
+  --color-ocean-100: #dbe7f7;
+  --color-ocean-200: #b8cfef;
+  --color-ocean-300: #8bb0e3;
+  --color-ocean-400: #5b8bd3;
+  --color-ocean-500: #3b6fc0;
+  --color-ocean-600: #2f5aa3;
+  --color-ocean-700: #284a84;
+  --color-ocean-800: #233e6b;
+  --color-ocean-900: #1e3356;
 
   --color-forest-50: #f2f7f2;
   --color-forest-100: #e0ede0;
@@ -65,7 +65,7 @@
   --color-red-700: #b91c1c;
 
   /* Amber: semantic warning / pending. Warm gold, distinct from terra's
-     red-orange so "needs attention" never reads as a primary action. */
+     sea-teal so "needs attention" never reads as a primary action. */
   --color-amber-50: #fdf6e9;
   --color-amber-100: #f9e8c2;
   --color-amber-200: #f2d089;
@@ -80,6 +80,12 @@
 
 * {
   font-family: var(--font-sans);
+}
+
+/* Figtree carries headings by weight, not a separate display face. */
+.font-display {
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 /* Shared focus-visible ring for custom controls. Ring offset uses sand-50 so
@@ -113,40 +119,40 @@
 
 .dark {
   /* Sand: invert the scale — light becomes dark, dark becomes light */
-  --color-sand-50: #1a1714;
-  --color-sand-100: #23201b;
-  --color-sand-200: #302b24;
-  --color-sand-300: #433b30;
-  --color-sand-400: #6e5c46;
-  --color-sand-500: #9f8b6f;
-  --color-sand-600: #b8a78f;
-  --color-sand-700: #d4c8b8;
-  --color-sand-800: #e8e0d4;
-  --color-sand-900: #f3efe8;
+  --color-sand-50: #172023;
+  --color-sand-100: #1d2629;
+  --color-sand-200: #2c3a3e;
+  --color-sand-300: #3a4a4e;
+  --color-sand-400: #5d6f73;
+  --color-sand-500: #7e9094;
+  --color-sand-600: #93a4a8;
+  --color-sand-700: #b6c3c6;
+  --color-sand-800: #cdd8da;
+  --color-sand-900: #dce5e6;
 
   /* Terra: darken the tints, brighten the shades */
-  --color-terra-50: #2a1a14;
-  --color-terra-100: #3d2218;
-  --color-terra-200: #5c2f1c;
-  --color-terra-300: #8e3d1e;
-  --color-terra-400: #d44425;
-  --color-terra-500: #e85d3a;
-  --color-terra-600: #f07b5a;
-  --color-terra-700: #f7a48a;
-  --color-terra-800: #fbc9b8;
-  --color-terra-900: #fde6dc;
+  --color-terra-50: #1c2e31;
+  --color-terra-100: #213639;
+  --color-terra-200: #284448;
+  --color-terra-300: #33575b;
+  --color-terra-400: #4a8e93;
+  --color-terra-500: #5fa8ad;
+  --color-terra-600: #74b6ba;
+  --color-terra-700: #95c9cc;
+  --color-terra-800: #b8dcde;
+  --color-terra-900: #d6ecee;
 
   /* Ocean */
-  --color-ocean-50: #121e22;
-  --color-ocean-100: #1a2e35;
-  --color-ocean-200: #234b58;
-  --color-ocean-300: #245a6a;
-  --color-ocean-400: #2e8a9e;
-  --color-ocean-500: #4aa5b9;
-  --color-ocean-600: #7dc3d4;
-  --color-ocean-700: #b3dde7;
-  --color-ocean-800: #d9eef3;
-  --color-ocean-900: #f0f7f9;
+  --color-ocean-50: #161f2b;
+  --color-ocean-100: #1b2738;
+  --color-ocean-200: #233550;
+  --color-ocean-300: #2c4566;
+  --color-ocean-400: #4a6fa6;
+  --color-ocean-500: #6b8fc4;
+  --color-ocean-600: #8eaad3;
+  --color-ocean-700: #b3c7e4;
+  --color-ocean-800: #d2deef;
+  --color-ocean-900: #e8eef7;
 
   /* Forest */
   --color-forest-50: #141e14;
@@ -183,21 +189,21 @@
 
 /* White elements need to become dark in dark mode */
 .dark .bg-white {
-  background-color: #1e1b18 !important;
+  background-color: #1d2629 !important;
 }
 .dark .bg-white\/60 {
-  background-color: rgba(30, 27, 24, 0.6) !important;
+  background-color: rgba(29, 38, 41, 0.6) !important;
 }
 .dark .bg-white\/70 {
-  background-color: rgba(30, 27, 24, 0.7) !important;
+  background-color: rgba(29, 38, 41, 0.7) !important;
 }
 .dark .bg-white\/80 {
-  background-color: rgba(30, 27, 24, 0.8) !important;
+  background-color: rgba(29, 38, 41, 0.8) !important;
 }
 
 /* Glass effect in dark mode */
 .dark .glass {
-  background: rgba(26, 23, 20, 0.8);
+  background: rgba(23, 32, 35, 0.8);
 }
 
 /* Card hover shadow in dark mode */
@@ -207,7 +213,7 @@
 
 /* Input focus ring in dark mode */
 .dark .input-focus:focus {
-  box-shadow: 0 0 0 3px rgba(240, 123, 90, 0.2);
+  box-shadow: 0 0 0 3px rgba(95, 168, 173, 0.25);
 }
 
 /* Gradient text stays vibrant in dark mode */
@@ -254,7 +260,7 @@
 }
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(61, 51, 40, 0.08);
+  box-shadow: 0 8px 30px rgba(19, 38, 43, 0.08);
 }
 
 /* Shimmer animation */
@@ -296,7 +302,7 @@
 }
 .input-focus:focus {
   border-color: var(--color-terra-400);
-  box-shadow: 0 0 0 3px rgba(240, 123, 90, 0.1);
+  box-shadow: 0 0 0 3px rgba(14, 124, 134, 0.15);
   outline: none;
 }
 
