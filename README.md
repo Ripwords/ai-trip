@@ -54,7 +54,7 @@ The result is a **JSON-driven itinerary** you can drag, edit, split costs on, an
 - **Intent-based AI planning** — natural language commands are classified into structured operations (add, remove, modify, reschedule, optimize, fill gaps, accommodation) rather than free-form chat
 - **Google Maps enrichment** — every activity carries verified coordinates, ratings, photos, price level, and opening hours
 - **Streaming discuss mode** — talk through a plan with the AI and accept proposals individually, with live SSE streaming
-- **Trip-level generation** — generate a whole multi-day itinerary in one pass, then refine day by day
+- **Trip-level generation** — **Generate whole trip** (the main button on an empty itinerary, or the AI dock chip) plans every day in one pass; then refine day by day
 - **Drag-and-drop reordering** — rearrange activities with automatic travel-time recalculation
 - **Route optimization** — reorder a day to minimize travel using the Distance Matrix API
 - **Ideas bucket** — park places you're considering, promote them into the itinerary when ready

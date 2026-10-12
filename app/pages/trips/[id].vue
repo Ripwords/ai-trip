@@ -2094,6 +2094,32 @@ async function recomputeSegments(dayId: string) {
             <div
               class="flex-1 space-y-4 pb-24 lg:max-h-[calc(100dvh-320px)] lg:overflow-y-auto lg:pr-4 lg:pb-6 scrollbar-thin"
             >
+              <!-- Empty itinerary -->
+              <section
+                v-if="!hasActivities && !isViewer"
+                class="flex flex-col items-start gap-3 rounded-2xl border border-sand-200 bg-white p-5"
+              >
+                <div>
+                  <h2 class="text-sm font-semibold text-sand-900">Nothing planned yet</h2>
+                  <p class="mt-1 text-sm text-sand-600">
+                    Let the AI plan every day of this trip, then refine it day by day.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  :disabled="generatingItinerary || aiMutating"
+                  class="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-cta px-4 text-sm font-medium text-white transition hover:bg-cta-hover disabled:opacity-50 focus-ring"
+                  @click="handleGenerateFullItinerary"
+                >
+                  <Icon
+                    :name="generatingItinerary ? 'lucide:loader-2' : 'lucide:wand-2'"
+                    class="h-4 w-4"
+                    :class="{ 'animate-spin': generatingItinerary }"
+                  />
+                  Generate whole trip
+                </button>
+              </section>
+
               <!-- Ideas bucket (hidden for viewers) -->
               <IdeasBucket
                 v-if="!isViewer"

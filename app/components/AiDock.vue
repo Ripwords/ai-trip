@@ -606,9 +606,9 @@ const quickActions = computed(() =>
     ? [
         { label: "Fill the gaps", icon: "lucide:sparkles", emit: "fillGaps" as const },
         { label: "Optimize route", icon: "lucide:route", emit: "optimizeRoute" as const },
-        { label: "Generate full day", icon: "lucide:wand-2", emit: "generateFull" as const },
+        { label: "Generate whole trip", icon: "lucide:wand-2", emit: "generateFull" as const },
       ]
-    : [{ label: "Generate full day", icon: "lucide:wand-2", emit: "generateFull" as const }],
+    : [{ label: "Generate whole trip", icon: "lucide:wand-2", emit: "generateFull" as const }],
 )
 
 function fireQuickAction(name: "fillGaps" | "optimizeRoute" | "generateFull") {
