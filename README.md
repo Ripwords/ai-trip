@@ -78,7 +78,7 @@ The result is a **JSON-driven itinerary** you can drag, edit, split costs on, an
 
 ### Money
 
-- **Expense tracking** — per activity or per day
+- **Expense tracking** — per activity or per day. Filters (category, payer, sort, dates) sit behind a **Filter** button until a trip has more than 10 expenses; a folded **Breakdown** section holds the per-currency totals and planned-vs-actual by activity
 - **Custom splits** — who paid, who owes
 - **Receipt attachments** — bounded uploads behind a pluggable storage interface
 - **Currency conversion** — live exchange rates

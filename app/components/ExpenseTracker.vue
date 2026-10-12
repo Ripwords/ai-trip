@@ -158,6 +158,17 @@ const filtersActive = computed(
     Boolean(props.filters.to),
 )
 
+/** A short list does not need six filter controls above it; they wait behind a button. */
+const filtersOpen = ref(false)
+const filterVisibility = computed(() =>
+  expenseFilterVisibility({
+    expenseCount: props.summary?.expenseCount ?? 0,
+    filtersActive: filtersActive.value,
+    opened: filtersOpen.value,
+  }),
+)
+const filterGridId = useId()
+
 function clearFilters() {
   emit("update:filters", { ...EMPTY_FILTERS, sort: props.filters.sort, order: props.filters.order })
 }
@@ -716,63 +727,91 @@ function getMemberName(userId: string | null): string {
       </p>
     </div>
 
-    <!-- Currencies actually paid in. Only shown once there is more than one,
-         which is when the trip-currency total stops being self-explanatory. -->
-    <div v-if="byCurrency.length > 0" class="rounded-2xl border border-sand-200 bg-white p-6">
-      <h3 class="text-sm font-semibold text-sand-900">Currencies</h3>
-      <div class="mt-3 space-y-2">
-        <div
-          v-for="row in byCurrency"
-          :key="row.currencyCode"
-          class="flex items-center justify-between text-sm"
-        >
-          <span class="text-sand-700">{{ row.currencyCode }}</span>
-          <span class="tabular-nums text-sand-600">
-            {{ row.amount }} {{ row.currencyCode }}
-            <span class="text-sand-700">=</span>
-            <span class="font-medium text-sand-900">
-              {{ formatCurrency(row.amountInTripCurrency) }}
-            </span>
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Planned vs actual. `expenses.activityId` had a column, an index and a
-         relation, and nothing in the UI ever set or read it. -->
-    <div v-if="plannedVsActual.length > 0" class="rounded-2xl border border-sand-200 bg-white p-6">
-      <h3 class="text-sm font-semibold text-sand-900">Planned vs actual</h3>
-      <div class="mt-3 space-y-2">
-        <div
-          v-for="row in plannedVsActual"
-          :key="row.activityId"
-          class="flex items-center justify-between gap-3 text-sm"
-        >
-          <div class="min-w-0">
-            <p class="truncate text-sand-800">{{ row.name }}</p>
-            <p class="text-xs text-sand-500">Day {{ row.dayNumber }}</p>
-          </div>
-          <div class="shrink-0 text-right tabular-nums">
-            <p class="text-sand-600 text-xs">
-              est. {{ formatCurrency(row.planned) }} · actual
-              {{ formatCurrency(row.actual) }}
-            </p>
-            <p
-              class="text-xs font-medium"
-              :class="row.variance > 0 ? 'text-terra-600' : 'text-forest-600'"
+    <!-- Breakdown: the currencies actually paid in (only once there is more
+         than one) and planned estimate vs actual per activity. Reference
+         detail, so it starts folded. -->
+    <details
+      v-if="byCurrency.length > 0 || plannedVsActual.length > 0"
+      class="group rounded-2xl border border-sand-200 bg-white"
+    >
+      <summary
+        class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-2xl px-6 py-3 text-sm font-semibold text-sand-900 focus-ring [&::-webkit-details-marker]:hidden"
+      >
+        Breakdown
+        <Icon
+          name="lucide:chevron-down"
+          class="h-4 w-4 shrink-0 text-sand-500 transition-transform group-open:rotate-180"
+        />
+      </summary>
+      <div class="space-y-5 px-6 pb-6">
+        <div v-if="byCurrency.length > 0">
+          <h4 class="text-xs font-medium uppercase tracking-wide text-sand-700">Currencies</h4>
+          <div class="mt-2 space-y-2">
+            <div
+              v-for="row in byCurrency"
+              :key="row.currencyCode"
+              class="flex items-center justify-between text-sm"
             >
-              {{ row.variance > 0 ? "+" : "" }}{{ formatCurrency(row.variance) }}
-            </p>
+              <span class="text-sand-700">{{ row.currencyCode }}</span>
+              <span class="tabular-nums text-sand-600">
+                {{ row.amount }} {{ row.currencyCode }}
+                <span class="text-sand-700">=</span>
+                <span class="font-medium text-sand-900">
+                  {{ formatCurrency(row.amountInTripCurrency) }}
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="plannedVsActual.length > 0">
+          <h4 class="text-xs font-medium uppercase tracking-wide text-sand-700">
+            Planned vs actual
+          </h4>
+          <div class="mt-2 space-y-2">
+            <div
+              v-for="row in plannedVsActual"
+              :key="row.activityId"
+              class="flex items-center justify-between gap-3 text-sm"
+            >
+              <div class="min-w-0">
+                <p class="truncate text-sand-800">{{ row.name }}</p>
+                <p class="text-xs text-sand-500">Day {{ row.dayNumber }}</p>
+              </div>
+              <div class="shrink-0 text-right tabular-nums">
+                <p class="text-sand-600 text-xs">
+                  est. {{ formatCurrency(row.planned) }} · actual
+                  {{ formatCurrency(row.actual) }}
+                </p>
+                <p
+                  class="text-xs font-medium"
+                  :class="row.variance > 0 ? 'text-terra-600' : 'text-forest-600'"
+                >
+                  {{ row.variance > 0 ? "+" : "" }}{{ formatCurrency(row.variance) }}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </details>
 
     <!-- Expenses section -->
     <div class="rounded-2xl border border-sand-200 bg-white p-6">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-semibold text-sand-900">Expenses</h3>
         <div class="flex items-center gap-2">
+          <button
+            v-if="filterVisibility.showToggle"
+            type="button"
+            class="inline-flex min-h-11 items-center gap-1 rounded-lg border border-sand-200 px-2.5 text-xs font-medium text-sand-600 hover:bg-sand-50 focus-ring"
+            :aria-expanded="filtersOpen"
+            :aria-controls="filterGridId"
+            @click="filtersOpen = !filtersOpen"
+          >
+            <Icon name="lucide:list-filter" class="h-3 w-3" />
+            Filter
+          </button>
           <button
             v-if="filteredCount > 0"
             class="inline-flex min-h-11 items-center gap-1 rounded-lg border border-sand-200 px-2.5 text-xs font-medium text-sand-600 hover:bg-sand-50"
@@ -800,7 +839,11 @@ function getMemberName(userId: string | null): string {
 
       <!-- Filter / sort bar (#49). Every control below is a query parameter on
            the list endpoint; nothing here filters an array in the browser. -->
-      <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div
+        v-if="filterVisibility.showGrid"
+        :id="filterGridId"
+        class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"
+      >
         <div>
           <label :for="filterCategoryId" class="mb-1 block text-xs font-medium text-sand-600">
             Category
