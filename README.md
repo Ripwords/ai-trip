@@ -91,6 +91,11 @@ The result is a **JSON-driven itinerary** you can drag, edit, split costs on, an
 - **Scratch map** — travel history with layover-aware country detection
 - **Dashboard stats** — trip counts, upcoming flights, distance travelled
 
+### Navigation and settings
+
+- **Main navigation** — the desktop header and the mobile tab bar carry the same sections: Trips, Explore, Flights, and Passport
+- **Theme** — set Light, Dark, or System under Settings › Theme; it is the only theme control once you are signed in (the public pages keep a quick toggle in their header)
+
 ### Progressive Web App
 
 Installable on iOS and Android, offline-capable via service worker, with periodic background sync.

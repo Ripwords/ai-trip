@@ -2,7 +2,6 @@
 import { authClient } from "../lib/auth-client"
 
 const { data: session } = await authClient.useSession(useFetch)
-const { cycle, modeIcon, modeLabel } = useDarkMode()
 
 const showUserMenu = ref(false)
 const menuRef = ref<HTMLElement | null>(null)
@@ -81,18 +80,6 @@ onUnmounted(() => {
             <Icon name="lucide:stamp" class="h-4 w-4" />
             <span>Passport</span>
           </NuxtLink>
-          <ClientOnly>
-            <button
-              type="button"
-              class="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-sand-400 transition hover:bg-sand-100 hover:text-sand-700 focus-ring"
-              :aria-label="`Theme: ${modeLabel}`"
-              :title="`Theme: ${modeLabel}`"
-              @click="cycle"
-            >
-              <Icon :name="modeIcon" class="h-4 w-4" />
-            </button>
-          </ClientOnly>
-
           <!-- User pill with dropdown -->
           <div ref="menuRef" class="relative">
             <button

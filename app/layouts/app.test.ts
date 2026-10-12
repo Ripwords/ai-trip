@@ -34,4 +34,9 @@ describe("app layout header", () => {
       .map((m) => m[0])
     assert.deepEqual(darkOnSwapped, [])
   })
+
+  it("leaves theme selection to Settings rather than a header cycle button (U13)", () => {
+    assert.doesNotMatch(layout, /useDarkMode/)
+    assert.doesNotMatch(layout, /@click="cycle"/)
+  })
 })
