@@ -61,7 +61,7 @@ The result is a **JSON-driven itinerary** you can drag, edit, split costs on, an
 
 ### Collaboration
 
-- **Team trips** — invite members as owner, editor, or viewer, enforced on every request. Viewers see notes, checklists, expenses, and bookings read-only
+- **Team trips** — invite members as owner, editor, or viewer, enforced on every request; if an invite email cannot be sent, the invite link is shown to copy and share by hand. Viewers see notes, checklists, expenses, and bookings read-only
 - **Activity voting** — +1 / −1 on proposed activities
 - **Inline comments** — discuss individual activities
 - **Participant tracking** — mark who is attending what

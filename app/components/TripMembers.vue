@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { InviteResult } from "~/utils/invite-result"
+
 interface Member {
   id: string
   userId: string | null
@@ -29,19 +31,28 @@ const inviteRole = ref<"editor" | "viewer">("editor")
 const showInvite = ref(false)
 const inviteError = ref("")
 const inviteLoading = ref(false)
+/** Set when the invite was saved but its email did not go out. */
+const pendingInviteLink = ref<string | null>(null)
+const inviteLinkCopied = ref(false)
 
 const { confirm } = useConfirm()
 const dayjs = useDayjs()
+const toast = useToast()
 
 async function handleInvite() {
   if (!inviteEmail.value.trim()) return
   inviteError.value = ""
   inviteLoading.value = true
+  pendingInviteLink.value = null
+  inviteLinkCopied.value = false
   try {
-    await $fetch(`/api/trips/${props.tripId}/members/invite`, {
+    const result = await $fetch<InviteResult>(`/api/trips/${props.tripId}/members/invite`, {
       method: "POST",
       body: { email: inviteEmail.value, role: inviteRole.value },
     })
+    // The invite exists either way; when its email failed, the inviter needs
+    // the link to send it themselves.
+    pendingInviteLink.value = inviteLinkToShare(result)
     inviteEmail.value = ""
     showInvite.value = false
     await refresh()
@@ -51,6 +62,17 @@ async function handleInvite() {
     inviteError.value = humanMessage(err.data?.message, "Failed to invite")
   } finally {
     inviteLoading.value = false
+  }
+}
+
+async function copyInviteLink() {
+  if (!pendingInviteLink.value) return
+  try {
+    await navigator.clipboard.writeText(pendingInviteLink.value)
+    inviteLinkCopied.value = true
+  } catch (e: unknown) {
+    console.error("Failed to copy invite link:", e)
+    toast.error("Couldn't copy the link. Select it and copy it by hand.")
   }
 }
 
@@ -75,6 +97,11 @@ async function handleRemove(member: Member) {
     emit("changed")
   } catch (e: unknown) {
     console.error("Failed to remove member:", e)
+    toast.error(
+      member.status === "pending"
+        ? "Couldn't revoke the invite. Please try again."
+        : "Couldn't remove the member. Please try again.",
+    )
   }
 }
 
@@ -93,6 +120,7 @@ async function handleLeave() {
   } catch (e: unknown) {
     const err = e as { data?: { message?: string } }
     console.error("Failed to leave:", err.data?.message)
+    toast.error(humanMessage(err.data?.message, "Couldn't leave the trip. Please try again."))
   }
 }
 
@@ -106,6 +134,9 @@ async function handleChangeRole(memberId: string, newRole: string) {
     emit("changed")
   } catch (e: unknown) {
     console.error("Failed to change role:", e)
+    toast.error("Couldn't change the role. Please try again.")
+    // The select already shows the new value; reload so it matches the server.
+    await refresh()
   }
 }
 
@@ -168,6 +199,34 @@ const roleBadgeClass: Record<string, string> = {
         {{ inviteLoading ? "Sending..." : "Send invite" }}
       </button>
     </form>
+
+    <!-- Invite saved but not emailed: hand the link over instead -->
+    <div
+      v-if="pendingInviteLink"
+      role="status"
+      class="mt-4 rounded-lg border border-sand-200 bg-sand-50 p-3"
+    >
+      <p class="text-xs text-sand-700">
+        The invite is saved, but its email could not be sent. Share this link with them yourself.
+      </p>
+      <div class="mt-2 flex min-w-0 items-center gap-2">
+        <input
+          :value="pendingInviteLink"
+          readonly
+          aria-label="Invite link"
+          class="block min-w-0 flex-1 truncate rounded-lg border border-sand-200 bg-white px-2 py-1.5 text-xs text-sand-700 input-focus"
+          @focus="($event.target as HTMLInputElement).select()"
+        />
+        <button
+          type="button"
+          class="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg border border-sand-200 px-3 text-xs font-medium text-sand-700 transition hover:bg-sand-100 focus-ring"
+          @click="copyInviteLink"
+        >
+          <Icon :name="inviteLinkCopied ? 'lucide:check' : 'lucide:copy'" class="h-3.5 w-3.5" />
+          {{ inviteLinkCopied ? "Copied" : "Copy invite link" }}
+        </button>
+      </div>
+    </div>
 
     <!-- Active members -->
     <div class="mt-4 space-y-1">
