@@ -120,65 +120,80 @@ function computeLayoverMinutes(
   return diff
 }
 
+function detectLayover(inbound: FlightItem, outbound: FlightItem, now: number): LayoverInfo | null {
+  if (
+    !inbound.arrivalAirport ||
+    inbound.arrivalAirport !== outbound.departureAirport ||
+    !areDatesClose(inbound.flightDate, outbound.flightDate)
+  ) {
+    return null
+  }
+
+  const scheduledMinutes = computeLayoverMinutes(inbound, outbound, "scheduled")
+  const actualMinutes = computeLayoverMinutes(inbound, outbound, "actual")
+  const retrospective = layoverIsOver(inbound, outbound, now)
+
+  const minutesByBasis = { actual: actualMinutes, scheduled: scheduledMinutes }
+  const preference: ("actual" | "scheduled")[] = retrospective
+    ? ["actual", "scheduled"]
+    : ["scheduled", "actual"]
+  const basis = preference.find((clock) => minutesByBasis[clock] !== null) ?? "scheduled"
+  const durationMinutes = minutesByBasis[basis]
+
+  const base = {
+    type: "layover",
+    airport: inbound.arrivalAirport,
+    country: iataToCountry[inbound.arrivalAirport] ?? undefined,
+    durationMinutes,
+    scheduledMinutes,
+    actualMinutes,
+    basis,
+    arrivalFlight: inbound,
+    departureFlight: outbound,
+    arrivalTime: inbound.arrivalTime,
+    arrivalTimeLocal: inbound.arrivalTimeLocal ?? null,
+    departureTime: outbound.departureTime,
+  } satisfies LayoverBase
+
+  return retrospective
+    ? { ...base, retrospective: true, recommendation: null, recommendationLabel: null }
+    : { ...base, retrospective: false, ...getRecommendation(durationMinutes) }
+}
+
+/**
+ * `flights` arrives in display order, which need not be chronological: the
+ * trip page lists upcoming legs oldest-first above past legs newest-first, so
+ * a connection whose inbound has landed and whose onward leg has not sits at
+ * opposite ends of the list. Connections are therefore found by departure
+ * instant over the whole list, and only then placed: between the two legs
+ * when they are neighbours, otherwise directly above the onward leg.
+ */
 export function useLayoverDetection(flights: Ref<FlightItem[] | null>, now: number = Date.now()) {
   const flightListItems = computed<FlightListItem[]>(() => {
-    const sorted = flights.value
-    if (!sorted || sorted.length === 0) return []
+    const display = flights.value
+    if (!display || display.length === 0) return []
+
+    const chronological = display.toSorted((a, b) => departureInstant(a) - departureInstant(b))
+    const layoverByOutbound = new Map<FlightItem, LayoverInfo>()
+    for (let i = 0; i + 1 < chronological.length; i++) {
+      const layover = detectLayover(chronological[i]!, chronological[i + 1]!, now)
+      if (layover) layoverByOutbound.set(layover.departureFlight, layover)
+    }
 
     const items: FlightListItem[] = []
-
-    for (let i = 0; i < sorted.length; i++) {
-      const current = sorted[i]!
+    for (let i = 0; i < display.length; i++) {
+      const current = display[i]!
+      const prev = display[i - 1]
+      const next = display[i + 1]
+      const own = layoverByOutbound.get(current)
+      // Its inbound is not a neighbour: the card goes directly above the onward leg.
+      if (own && own.arrivalFlight !== prev && own.arrivalFlight !== next) items.push(own)
       items.push({ type: "flight", flight: current })
-
-      if (i === sorted.length - 1) continue
-      const next = sorted[i + 1]!
-
-      // Upcoming lists run oldest-first, past lists newest-first, so the
-      // neighbour below a card is the leg that follows it in one direction and
-      // the leg that fed it in the other. Read the pair chronologically.
-      const [inbound, outbound] =
-        departureInstant(current) <= departureInstant(next) ? [current, next] : [next, current]
-
-      if (
-        !inbound.arrivalAirport ||
-        inbound.arrivalAirport !== outbound.departureAirport ||
-        !areDatesClose(inbound.flightDate, outbound.flightDate)
-      ) {
-        continue
-      }
-
-      const scheduledMinutes = computeLayoverMinutes(inbound, outbound, "scheduled")
-      const actualMinutes = computeLayoverMinutes(inbound, outbound, "actual")
-      const retrospective = layoverIsOver(inbound, outbound, now)
-
-      const minutesByBasis = { actual: actualMinutes, scheduled: scheduledMinutes }
-      const preference: ("actual" | "scheduled")[] = retrospective
-        ? ["actual", "scheduled"]
-        : ["scheduled", "actual"]
-      const basis = preference.find((clock) => minutesByBasis[clock] !== null) ?? "scheduled"
-      const durationMinutes = minutesByBasis[basis]
-
-      const base = {
-        type: "layover",
-        airport: inbound.arrivalAirport,
-        country: iataToCountry[inbound.arrivalAirport] ?? undefined,
-        durationMinutes,
-        scheduledMinutes,
-        actualMinutes,
-        basis,
-        arrivalFlight: inbound,
-        departureFlight: outbound,
-        arrivalTime: inbound.arrivalTime,
-        arrivalTimeLocal: inbound.arrivalTimeLocal ?? null,
-        departureTime: outbound.departureTime,
-      } satisfies LayoverBase
-
-      items.push(
-        retrospective
-          ? { ...base, retrospective: true, recommendation: null, recommendationLabel: null }
-          : { ...base, retrospective: false, ...getRecommendation(durationMinutes) },
-      )
+      if (!next) continue
+      // Neighbouring legs: the card goes between them, whichever way the list runs.
+      const between = layoverByOutbound.get(next)
+      if (between?.arrivalFlight === current) items.push(between)
+      else if (own?.arrivalFlight === next) items.push(own)
     }
 
     return items
