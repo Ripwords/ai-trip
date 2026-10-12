@@ -16,6 +16,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Flight not found" })
   }
 
+  // Owning the flight is not enough to file it under a trip: attaching makes
+  // it part of that trip's plan, so the caller has to be able to see the trip
+  // (audit B19). Detaching needs no trip check.
+  if (body.tripId) {
+    await requireTripAccess(body.tripId, session.user.id)
+  }
+
   const [updated] = await db
     .update(flights)
     .set({ tripId: body.tripId ?? null })

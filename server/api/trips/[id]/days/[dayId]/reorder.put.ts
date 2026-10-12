@@ -19,6 +19,16 @@ export default defineEventHandler(async (event) => {
 
   await requireTripAccess(id, session.user.id, ["owner", "editor"])
 
+  // The day must belong to this trip BEFORE anything is written: access was
+  // proven for trip `id`, not for whichever trip owns `dayId` (audit B10).
+  const day = await db.query.itineraryDays.findFirst({
+    where: and(eq(itineraryDays.id, dayId), eq(itineraryDays.tripId, id)),
+    columns: { date: true },
+  })
+  if (!day) {
+    throw createError({ statusCode: 404, message: "Day not found" })
+  }
+
   // Validate all activityIds belong to this day
   const dayActivities = await db.query.activities.findMany({
     where: eq(activities.itineraryDayId, dayId),
@@ -44,16 +54,12 @@ export default defineEventHandler(async (event) => {
   })
 
   // Recompute schedule times based on new order
-  const day = await db.query.itineraryDays.findFirst({
-    where: and(eq(itineraryDays.id, dayId), eq(itineraryDays.tripId, id)),
-    columns: { date: true },
-  })
   const allDayActivities = await db.query.activities.findMany({
     where: eq(activities.itineraryDayId, dayId),
     orderBy: [asc(activities.sortOrder)],
   })
 
-  if (day && allDayActivities.length >= 2) {
+  if (allDayActivities.length >= 2) {
     // Get travel times for new order
     // Per-pair travel times — bills N-1 Distance Matrix elements instead of the
     // (N-1)² a full matrix would, and caches per pair. See consecutiveTravelTimes.

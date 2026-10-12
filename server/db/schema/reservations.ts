@@ -33,7 +33,7 @@ export const reservations = pgTable(
     notes: text("notes"),
     startDate: timestamp("start_date", { withTimezone: true }),
     endDate: timestamp("end_date", { withTimezone: true }),
-    amount: numeric("amount", { precision: 10, scale: 2 }),
+    amount: numeric("amount", { precision: 16, scale: 2 }),
     createdById: text("created_by_id").references(() => user.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })

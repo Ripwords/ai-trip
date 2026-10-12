@@ -337,6 +337,13 @@
       "when": 1789316195811,
       "tag": "0047_fancy_quicksilver",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1791769579877,
+      "tag": "0048_widen_money_columns",
+      "breakpoints": true
     }
   ]
 }

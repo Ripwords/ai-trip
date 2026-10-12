@@ -3,7 +3,7 @@ import { countryByAlpha2 } from "~/data/countries"
 import { db } from "../../db"
 import { trips, itineraryDays } from "../../db/schema"
 import { uuidParamsSchema, updateTripSchema } from "../../utils/schemas"
-import { enumerateDates } from "../../lib/dates"
+import { enumerateDates, resolveTripDateRange } from "../../lib/dates"
 import { getTripWithRelations } from "../../lib/trips"
 import { lockTripForStayWrite, reconcileTripStays } from "../../lib/booking-sync"
 
@@ -41,6 +41,10 @@ export default defineEventHandler(async (event) => {
     patch.exploreSuppressedAt = null
   }
 
+  // Validate the merged range before anything is written: the schema can only
+  // compare the two dates when both are in the body.
+  const { startDate: newStart, endDate: newEnd } = resolveTripDateRange(existing, body)
+
   const datesChanging =
     (body.startDate !== undefined && body.startDate !== existing.startDate) ||
     (body.endDate !== undefined && body.endDate !== existing.endDate)
@@ -49,9 +53,6 @@ export default defineEventHandler(async (event) => {
     // Simple path: trip fields only, no day reconciliation.
     await db.update(trips).set(patch).where(eq(trips.id, id))
   } else {
-    const newStart = body.startDate ?? existing.startDate
-    const newEnd = body.endDate ?? existing.endDate
-
     // Snapshot the current days so we can diff against the target range.
     const existingDays = await db.query.itineraryDays.findMany({
       where: eq(itineraryDays.tripId, id),
