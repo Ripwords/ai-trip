@@ -39,51 +39,51 @@ const prefersReducedMotion = useReducedMotion()
 const theme = computed(() =>
   isDark.value
     ? {
-        clearColor: "#172023",
+        clearColor: "#1f2023",
         oceanColor: "#1f3639",
         landColor: "#212b2e",
-        visitedColor: "#e0907f",
+        visitedColor: "#f28b82",
         layoverColor: "#6b8fc4",
-        wantColor: "#7cc49a",
-        borderColor: "#3a4a4e",
+        wantColor: "#81c995",
+        borderColor: "#4a4c52",
         borderOpacity: 0.7,
-        atmosphere: "#5fa8ad",
+        atmosphere: "#8ab4f8",
         atmosphereOpacity: 0.04,
-        overlayBg: "rgba(29, 38, 41, 0.92)",
+        overlayBg: "rgba(42, 43, 47, 0.92)",
         overlayBorder: "rgba(220, 229, 230, 0.1)",
-        overlayText: "#dce5e6",
-        overlayAccent: "#e0907f",
-        layoverAccent: "#8eaad3",
-        wantAccent: "#7cc49a",
-        btnBg: "rgba(29, 38, 41, 0.9)",
-        btnText: "#dce5e6",
+        overlayText: "#e8eaed",
+        overlayAccent: "#f28b82",
+        layoverAccent: "#8ab4f8",
+        wantAccent: "#81c995",
+        btnBg: "rgba(42, 43, 47, 0.9)",
+        btnText: "#e8eaed",
         btnHover: "rgba(44, 58, 62, 0.96)",
-        tooltipBg: "#1d2629",
-        tooltipText: "#dce5e6",
+        tooltipBg: "#2a2b2f",
+        tooltipText: "#e8eaed",
         tooltipBadgeBg: "rgba(220, 229, 230, 0.12)",
       }
     : {
-        clearColor: "#f4f7f7",
-        oceanColor: "#c4e1e4",
-        landColor: "#f4f7f7",
-        visitedColor: "#e2533b",
+        clearColor: "#f8f9fa",
+        oceanColor: "#aadaff",
+        landColor: "#f8f9fa",
+        visitedColor: "#ea4335",
         layoverColor: "#5b8bd3",
         wantColor: "#4f9a6e",
-        borderColor: "#93a4a8",
+        borderColor: "#9aa0a6",
         borderOpacity: 0.4,
-        atmosphere: "#72c4cb",
+        atmosphere: "#8ab4f8",
         atmosphereOpacity: 0.06,
         overlayBg: "rgba(255, 255, 255, 0.92)",
-        overlayBorder: "rgba(19, 38, 43, 0.1)",
-        overlayText: "#13262b",
-        overlayAccent: "#c4432d",
-        layoverAccent: "#2f5aa3",
-        wantAccent: "#3a6a3f",
+        overlayBorder: "rgba(32, 33, 36, 0.1)",
+        overlayText: "#202124",
+        overlayAccent: "#d93025",
+        layoverAccent: "#1a73e8",
+        wantAccent: "#188038",
         btnBg: "rgba(255, 255, 255, 0.85)",
-        btnText: "#13262b",
+        btnText: "#202124",
         btnHover: "rgba(255, 255, 255, 1)",
-        tooltipBg: "#13262b",
-        tooltipText: "#f4f7f7",
+        tooltipBg: "#202124",
+        tooltipText: "#f8f9fa",
         tooltipBadgeBg: "rgba(255, 255, 255, 0.15)",
       },
 )
@@ -697,20 +697,20 @@ function animateToCentroid(info: CountryInfo) {
 <style scoped>
 /* ── Container ────────────────────────────────────── */
 .globe-container {
-  border: 1px solid var(--map-overlay-border, rgba(19, 38, 43, 0.08));
-  background: var(--map-ocean, #e3f3f4);
+  border: 1px solid var(--map-overlay-border, rgba(32, 33, 36, 0.08));
+  background: var(--map-ocean, #aadaff);
 }
 /* Plain `.dark` ancestor, not :global(.dark): Vue compiles `:global(.dark) .x`
    to a bare `.dark`, which drops the descendant and styles <html> instead. */
 .dark .globe-container {
-  border-color: #2c3a3e;
-  background: #172023;
+  border-color: #3c3d42;
+  background: #1f2023;
 }
 
 /* ── Tooltip ──────────────────────────────────────── */
 .globe-tooltip {
-  background: var(--map-tooltip-bg, #13262b);
-  color: var(--map-tooltip-text, #f4f7f7);
+  background: var(--map-tooltip-bg, #202124);
+  color: var(--map-tooltip-text, #f8f9fa);
   border-radius: 10px;
   padding: 8px 12px;
   font-size: 12px;
@@ -721,8 +721,8 @@ function animateToCentroid(info: CountryInfo) {
   backdrop-filter: blur(8px);
 }
 .dark .globe-tooltip {
-  background: #1d2629;
-  color: #dce5e6;
+  background: #2a2b2f;
+  color: #e8eaed;
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.5),
     0 1px 4px rgba(0, 0, 0, 0.3);
@@ -752,19 +752,19 @@ function animateToCentroid(info: CountryInfo) {
 /* The tooltip is a dark surface in both themes, so one light set reads on it. */
 .globe-visa-free {
   background: rgba(124, 196, 154, 0.2);
-  color: #7cc49a;
+  color: #81c995;
 }
 .globe-visa-arrival {
   background: rgba(142, 170, 211, 0.2);
-  color: #8eaad3;
+  color: #8ab4f8;
 }
 .globe-visa-evisa {
   background: rgba(217, 178, 106, 0.2);
-  color: #d9b26a;
+  color: #fdd663;
 }
 .globe-visa-required {
   background: rgba(224, 144, 127, 0.2);
-  color: #e0907f;
+  color: #f28b82;
 }
 
 /* Tooltip transition */
@@ -783,55 +783,55 @@ function animateToCentroid(info: CountryInfo) {
 /* ── Overlay (stats) ──────────────────────────────── */
 .globe-overlay {
   background: var(--map-overlay-bg, rgba(255, 255, 255, 0.92));
-  border: 1px solid var(--map-overlay-border, rgba(19, 38, 43, 0.08));
+  border: 1px solid var(--map-overlay-border, rgba(32, 33, 36, 0.08));
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(12px);
 }
 .dark .globe-overlay {
-  background: rgba(29, 38, 41, 0.92);
+  background: rgba(42, 43, 47, 0.92);
   border-color: rgba(220, 229, 230, 0.1);
 }
 
 .globe-overlay-text {
-  color: var(--map-overlay-text, #13262b);
+  color: var(--map-overlay-text, #202124);
 }
 .dark .globe-overlay-text {
-  color: #dce5e6;
+  color: #e8eaed;
 }
 
 .globe-overlay-accent {
-  color: var(--map-overlay-accent, #c4432d);
+  color: var(--map-overlay-accent, #d93025);
 }
 .dark .globe-overlay-accent {
-  color: #e0907f;
+  color: #f28b82;
 }
 
 .globe-layover-accent {
-  color: var(--map-layover-accent-color, #2f5aa3);
+  color: var(--map-layover-accent-color, #1a73e8);
 }
 .dark .globe-layover-accent {
-  color: #8eaad3;
+  color: #8ab4f8;
 }
 
 .globe-want-accent {
-  color: var(--map-want-accent-color, #3a6a3f);
+  color: var(--map-want-accent-color, #188038);
 }
 .dark .globe-want-accent {
-  color: #7cc49a;
+  color: #81c995;
 }
 
 /* ── Button ───────────────────────────────────────── */
 .globe-btn {
   background: var(--map-btn-bg, rgba(255, 255, 255, 0.82));
-  color: var(--map-btn-text, #3f565d);
+  color: var(--map-btn-text, #3c4043);
   backdrop-filter: blur(8px);
 }
 .globe-btn:hover {
   background: var(--map-btn-hover, rgba(255, 255, 255, 1));
 }
 .dark .globe-btn {
-  background: rgba(29, 38, 41, 0.9);
-  color: #dce5e6;
+  background: rgba(42, 43, 47, 0.9);
+  color: #e8eaed;
 }
 .dark .globe-btn:hover {
   background: rgba(44, 58, 62, 0.96);

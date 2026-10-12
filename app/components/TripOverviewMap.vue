@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { placeStyle } from "~/utils/place-colors"
 /// <reference types="google.maps" />
 import { countryByAlpha2 } from "../data/countries"
 
@@ -33,16 +34,16 @@ const props = defineProps<{
 }>()
 
 const DAY_COLORS = [
-  "#0E7C86",
-  "#3B82F6",
-  "#22C55E",
-  "#F59E0B",
-  "#A855F7",
-  "#EC4899",
-  "#E2533B",
-  "#56707A",
-  "#6366F1",
-  "#84CC16",
+  "#1a73e8",
+  "#e8710a",
+  "#188038",
+  "#d01884",
+  "#9334e6",
+  "#129eaf",
+  "#d93025",
+  "#f29900",
+  "#3949ab",
+  "#5f6368",
 ]
 
 function getDayColor(dayIndex: number): string {
@@ -90,15 +91,6 @@ const uniqueTypes = computed(() => {
   return Array.from(types).toSorted()
 })
 
-const markerColors: Record<string, string> = {
-  attraction: "#3B6FC0",
-  restaurant: "#E2533B",
-  hotel: "#22C55E",
-  transport: "#56707A",
-  shopping: "#A855F7",
-  entertainment: "#EC4899",
-}
-
 function toggleTypeFilter(type: string) {
   if (hiddenTypes.value.has(type)) {
     hiddenTypes.value.delete(type)
@@ -111,7 +103,7 @@ function toggleTypeFilter(type: string) {
 function createAirportMarkerContent(airport: AirportMarker): HTMLElement {
   const wrap = document.createElement("div")
   const isArrival = airport.variant === "arrival"
-  const color = isArrival ? "#0EA5E9" : "#F59E0B"
+  const color = isArrival ? "#129eaf" : "#f29900"
   const rotation = isArrival ? "rotate(-45deg)" : "rotate(45deg)"
   wrap.style.cssText = `
     display: flex;
@@ -366,7 +358,7 @@ function updateMarkers() {
             width: 34px;
             height: 34px;
             border-radius: 50%;
-            background: #0E7C86;
+            background: #1a73e8;
             color: white;
             display: flex;
             align-items: center;
@@ -479,7 +471,7 @@ onMounted(() => {
             <span
               class="inline-block h-1.5 w-1.5 rounded-full"
               :style="{
-                background: hiddenTypes.has(type) ? '#93A4A8' : markerColors[type] || '#3B6FC0',
+                background: hiddenTypes.has(type) ? '#bdc1c6' : placeStyle(type).hex,
               }"
             />
             {{ formatType(type) }}
@@ -499,7 +491,7 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #13262b;
+  color: #202124;
 }
 .map-btn:hover {
   background: #ffffff;
@@ -508,8 +500,8 @@ onMounted(() => {
 /* Plain `.dark` ancestor, not :global(.dark): Vue compiles `:global(.dark) .x`
    to a bare `.dark`, which drops the descendant and styles <html> instead. */
 .dark .map-btn {
-  background: rgba(29, 38, 41, 0.92);
-  color: #dce5e6;
+  background: rgba(42, 43, 47, 0.92);
+  color: #e8eaed;
 }
 .dark .map-btn:hover {
   background: rgba(44, 58, 62, 0.96);
@@ -521,36 +513,36 @@ onMounted(() => {
   -webkit-backdrop-filter: blur(12px);
 }
 .map-overlay-text {
-  color: #13262b;
+  color: #202124;
 }
 
 .map-filter-pill {
   background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(19, 38, 43, 0.12);
+  border: 1px solid rgba(32, 33, 36, 0.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #13262b;
+  color: #202124;
 }
 .map-filter-pill.is-hidden {
   background: rgba(255, 255, 255, 0.5);
-  color: #6f8489;
+  color: #80868b;
   text-decoration: line-through;
 }
 
 .dark .map-overlay {
-  background: rgba(29, 38, 41, 0.9);
+  background: rgba(42, 43, 47, 0.9);
 }
 .dark .map-overlay-text {
-  color: #dce5e6;
+  color: #e8eaed;
 }
 
 .dark .map-filter-pill {
-  background: rgba(29, 38, 41, 0.9);
+  background: rgba(42, 43, 47, 0.9);
   border-color: rgba(220, 229, 230, 0.12);
-  color: #dce5e6;
+  color: #e8eaed;
 }
 .dark .map-filter-pill.is-hidden {
-  background: rgba(29, 38, 41, 0.5);
+  background: rgba(42, 43, 47, 0.5);
   color: rgba(220, 229, 230, 0.4);
 }
 </style>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { placeStyle } from "~/utils/place-colors"
 import type { VoteState } from "~/utils/activity-votes"
 
 interface Activity {
@@ -191,21 +192,6 @@ function getInitials(name: string): string {
     .toUpperCase()
 }
 
-const typeBadgeClasses: Record<string, string> = {
-  attraction: "bg-ocean-50 text-ocean-700",
-  restaurant: "bg-terra-50 text-terra-700",
-  hotel: "bg-ocean-50 text-ocean-700",
-  transport: "bg-sand-100 text-sand-700",
-  shopping: "bg-terra-50 text-terra-600",
-  entertainment: "bg-forest-50 text-forest-700",
-  park: "bg-forest-50 text-forest-700",
-  nature: "bg-forest-50 text-forest-700",
-}
-
-function getBadgeClass(type: string): string {
-  return typeBadgeClasses[type] || "bg-sand-100 text-sand-700"
-}
-
 function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes} min`
   const h = Math.floor(minutes / 60)
@@ -258,7 +244,7 @@ function formatDuration(minutes: number): string {
         </div>
         <span
           class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider"
-          :class="getBadgeClass(activity.type)"
+          :class="placeStyle(activity.type).badge"
         >
           {{ formatType(activity.type) }}
         </span>

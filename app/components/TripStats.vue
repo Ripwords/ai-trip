@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { placeStyle } from "~/utils/place-colors"
 import type { TripExpenseSummary } from "#shared/utils/expense-summary"
 
 interface Activity {
@@ -70,15 +71,6 @@ const progressBarColor = computed(() => {
   if (budgetPercent.value >= 80) return "bg-terra-400"
   return "bg-forest-500"
 })
-
-const typeBadgeClasses: Record<string, string> = {
-  attraction: "bg-ocean-50 text-ocean-700",
-  restaurant: "bg-terra-50 text-terra-700",
-  hotel: "bg-ocean-50 text-ocean-700",
-  transport: "bg-sand-100 text-sand-700",
-  shopping: "bg-terra-50 text-terra-600",
-  entertainment: "bg-forest-50 text-forest-700",
-}
 
 const { format: formatCurrencyRaw } = useCurrencyFormat(() => props.currencyCode)
 
@@ -203,7 +195,7 @@ async function refreshFromGoogle() {
         v-for="(count, type) in typeBreakdown"
         :key="type"
         class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
-        :class="typeBadgeClasses[type as string] || 'bg-sand-100 text-sand-700'"
+        :class="placeStyle(type as string).badge"
       >
         {{ formatType(type as string) }}
         <span class="font-bold">{{ count }}</span>

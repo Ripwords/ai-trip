@@ -1,92 +1,103 @@
-@import url("https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..800;1,300..800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..800;1,9..40,300..800&display=swap");
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Google Maps palette: neutral grey surfaces, one blue for actions, and colour
+   reserved for meaning (place types, status). Ramp names are historical:
+   sand = neutral grey, terra = primary blue, ocean = teal (sights),
+   forest = green (parks, success), amber = orange (food, warnings). */
 @theme {
-  --font-display: "Figtree", system-ui, sans-serif;
-  --font-sans: "Figtree", system-ui, sans-serif;
+  --font-display: "DM Sans", system-ui, sans-serif;
+  --font-sans: "DM Sans", system-ui, sans-serif;
 
-  --color-sand-50: #f4f7f7;
-  --color-sand-100: #e9eff0;
-  --color-sand-200: #dbe4e5;
-  --color-sand-300: #c3d0d2;
-  --color-sand-400: #93a4a8;
-  --color-sand-500: #6f8489;
-  --color-sand-600: #56707a;
-  --color-sand-700: #3f565d;
-  --color-sand-800: #263b41;
-  --color-sand-900: #13262b;
+  --color-sand-50: #f8f9fa;
+  --color-sand-100: #f1f3f4;
+  --color-sand-200: #e3e5e8;
+  --color-sand-300: #dadce0;
+  --color-sand-400: #9aa0a6;
+  --color-sand-500: #80868b;
+  --color-sand-600: #5f6368;
+  --color-sand-700: #3c4043;
+  --color-sand-800: #2d2e31;
+  --color-sand-900: #202124;
 
-  --color-terra-50: #eaf6f7;
-  --color-terra-100: #d3eef0;
-  --color-terra-200: #a9dde1;
-  --color-terra-300: #72c4cb;
-  --color-terra-400: #2a98a2;
-  --color-terra-500: #138892;
-  --color-terra-600: #0e7c86;
-  --color-terra-700: #0a636b;
-  --color-terra-800: #0b4f55;
-  --color-terra-900: #0c3f44;
+  --color-terra-50: #e8f0fe;
+  --color-terra-100: #d2e3fc;
+  --color-terra-200: #aecbfa;
+  --color-terra-300: #8ab4f8;
+  --color-terra-400: #669df6;
+  --color-terra-500: #4285f4;
+  --color-terra-600: #1a73e8;
+  --color-terra-700: #1967d2;
+  --color-terra-800: #185abc;
+  --color-terra-900: #174ea6;
 
   /* Solid fill for primary CTAs that carry white label text.
-     Deliberately NOT part of the terra ramp: the dark theme mirrors terra
-     (400 <-> 600), so any ramp step would flip to a light tint in dark mode and
-     drop white text to ~2.7:1. This token keeps the same value in both themes.
-     white on #0e7c86 = 4.9:1, white on #0a636b = 6.7:1 (WCAG AA). */
-  --color-cta: #0e7c86;
-  --color-cta-hover: #0a636b;
+     Deliberately NOT part of the terra ramp: the dark theme mirrors terra,
+     so any ramp step would flip to a light tint in dark mode and drop white
+     text below AA. This token keeps the same value in both themes.
+     white on #1a73e8 = 4.5:1, white on #1765cc = 5.7:1 (WCAG AA). */
+  --color-cta: #1a73e8;
+  --color-cta-hover: #1765cc;
 
-  /* Card surface. Unlike the ramps this swaps to a lifted dark slate rather
+  /* Card surface. Unlike the ramps this swaps to a lifted charcoal rather
      than mirroring, matching the .dark .bg-white override below. */
   --color-card: #ffffff;
 
-  --color-ocean-50: #eef4fb;
-  --color-ocean-100: #dbe7f7;
-  --color-ocean-200: #b8cfef;
-  --color-ocean-300: #8bb0e3;
-  --color-ocean-400: #5b8bd3;
-  --color-ocean-500: #3b6fc0;
-  --color-ocean-600: #2f5aa3;
-  --color-ocean-700: #284a84;
-  --color-ocean-800: #233e6b;
-  --color-ocean-900: #1e3356;
+  --color-ocean-50: #e4f7fb;
+  --color-ocean-100: #c3eef4;
+  --color-ocean-200: #8fdde9;
+  --color-ocean-300: #5bc9da;
+  --color-ocean-400: #24b1c4;
+  --color-ocean-500: #129eaf;
+  --color-ocean-600: #0e8494;
+  --color-ocean-700: #0b6b78;
+  --color-ocean-800: #09545e;
+  --color-ocean-900: #073f47;
 
-  --color-forest-50: #f2f7f2;
-  --color-forest-100: #e0ede0;
-  --color-forest-200: #c2dbc3;
-  --color-forest-300: #96c098;
-  --color-forest-400: #6aa06d;
-  --color-forest-500: #4a8450;
-  --color-forest-600: #3a6a3f;
-  --color-forest-700: #305534;
-  --color-forest-800: #29442c;
-  --color-forest-900: #233825;
+  --color-forest-50: #e6f4ea;
+  --color-forest-100: #ceead6;
+  --color-forest-200: #a8dab5;
+  --color-forest-300: #81c995;
+  --color-forest-400: #5bb974;
+  --color-forest-500: #34a853;
+  --color-forest-600: #1e8e3e;
+  --color-forest-700: #188038;
+  --color-forest-800: #137333;
+  --color-forest-900: #0d652d;
 
   /* Red: semantic danger / destructive (e.g. remove-activity proposals). */
-  --color-red-50: #fef2f2;
-  --color-red-200: #fecaca;
-  --color-red-700: #b91c1c;
+  --color-red-50: #fce8e6;
+  --color-red-200: #f6aea9;
+  --color-red-700: #c5221f;
 
-  /* Amber: semantic warning / pending. Warm gold, distinct from terra's
-     sea-teal so "needs attention" never reads as a primary action. */
-  --color-amber-50: #fdf6e9;
-  --color-amber-100: #f9e8c2;
-  --color-amber-200: #f2d089;
-  --color-amber-300: #e8b04a;
-  --color-amber-400: #d9901a;
-  --color-amber-500: #c07610;
-  --color-amber-600: #a25e0f;
-  --color-amber-700: #814913;
-  --color-amber-800: #653a14;
-  --color-amber-900: #472a10;
+  /* Amber: food pins and semantic warning / pending. */
+  --color-amber-50: #fef7e0;
+  --color-amber-100: #feefc3;
+  --color-amber-200: #fde293;
+  --color-amber-300: #fdd663;
+  --color-amber-400: #fbbc04;
+  --color-amber-500: #f29900;
+  --color-amber-600: #e8710a;
+  --color-amber-700: #a35400;
+  --color-amber-800: #8a4a00;
+  --color-amber-900: #5c3200;
+
+  /* Place-type accents with no ramp of their own (stay, shopping). */
+  --color-pink-50: #fde7f3;
+  --color-pink-600: #d01884;
+  --color-pink-700: #b80672;
+  --color-purple-50: #f3e8fd;
+  --color-purple-600: #9334e6;
+  --color-purple-700: #8430ce;
 }
 
 * {
   font-family: var(--font-sans);
 }
 
-/* Figtree carries headings by weight, not a separate display face. */
+/* DM Sans carries headings by weight, not a separate display face. */
 .font-display {
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -122,72 +133,79 @@
 /* so existing classes like bg-sand-50, text-sand-900 just work.     */
 
 .dark {
-  /* Sand: invert the scale — light becomes dark, dark becomes light */
-  --color-sand-50: #172023;
-  --color-sand-100: #1d2629;
-  --color-sand-200: #2c3a3e;
-  --color-sand-300: #3a4a4e;
-  --color-sand-400: #5d6f73;
-  --color-sand-500: #7e9094;
-  --color-sand-600: #93a4a8;
-  --color-sand-700: #b6c3c6;
-  --color-sand-800: #cdd8da;
-  --color-sand-900: #dce5e6;
+  /* Sand: invert the scale — Google Maps' soft charcoal, not black */
+  --color-sand-50: #1f2023;
+  --color-sand-100: #2a2b2f;
+  --color-sand-200: #3c3d42;
+  --color-sand-300: #4a4c52;
+  --color-sand-400: #6b6f76;
+  --color-sand-500: #8b9097;
+  --color-sand-600: #9aa0a6;
+  --color-sand-700: #bdc1c6;
+  --color-sand-800: #dadce0;
+  --color-sand-900: #e8eaed;
 
-  /* Terra: darken the tints, brighten the shades */
-  --color-terra-50: #1c2e31;
-  --color-terra-100: #213639;
-  --color-terra-200: #284448;
-  --color-terra-300: #33575b;
-  --color-terra-400: #4a8e93;
-  --color-terra-500: #5fa8ad;
-  --color-terra-600: #74b6ba;
-  --color-terra-700: #95c9cc;
-  --color-terra-800: #b8dcde;
-  --color-terra-900: #d6ecee;
+  /* Terra (blue): darken the tints, soften the shades to Maps' #8ab4f8 */
+  --color-terra-50: #1e2a3a;
+  --color-terra-100: #233247;
+  --color-terra-200: #2b3d57;
+  --color-terra-300: #36507a;
+  --color-terra-400: #5b8fd9;
+  --color-terra-500: #7aa7ef;
+  --color-terra-600: #8ab4f8;
+  --color-terra-700: #a8c7fa;
+  --color-terra-800: #c6dafc;
+  --color-terra-900: #e1ebfd;
 
-  /* Ocean */
-  --color-ocean-50: #161f2b;
-  --color-ocean-100: #1b2738;
-  --color-ocean-200: #233550;
-  --color-ocean-300: #2c4566;
-  --color-ocean-400: #4a6fa6;
-  --color-ocean-500: #6b8fc4;
-  --color-ocean-600: #8eaad3;
-  --color-ocean-700: #b3c7e4;
-  --color-ocean-800: #d2deef;
-  --color-ocean-900: #e8eef7;
+  /* Ocean (teal) */
+  --color-ocean-50: #162a2e;
+  --color-ocean-100: #1a3338;
+  --color-ocean-200: #1f4148;
+  --color-ocean-300: #275560;
+  --color-ocean-400: #3c8e9a;
+  --color-ocean-500: #5fb8c4;
+  --color-ocean-600: #78c7d1;
+  --color-ocean-700: #9ad6de;
+  --color-ocean-800: #bfe6eb;
+  --color-ocean-900: #def3f6;
 
-  /* Forest */
-  --color-forest-50: #141e14;
-  --color-forest-100: #1c2e1d;
-  --color-forest-200: #29442c;
-  --color-forest-300: #305534;
-  --color-forest-400: #4a8450;
-  --color-forest-500: #6aa06d;
-  --color-forest-600: #96c098;
-  --color-forest-700: #c2dbc3;
-  --color-forest-800: #e0ede0;
-  --color-forest-900: #f2f7f2;
+  /* Forest (green) */
+  --color-forest-50: #1c2a21;
+  --color-forest-100: #213326;
+  --color-forest-200: #284030;
+  --color-forest-300: #30513a;
+  --color-forest-400: #4a8d5c;
+  --color-forest-500: #6bb07e;
+  --color-forest-600: #81c995;
+  --color-forest-700: #a8dab5;
+  --color-forest-800: #ceead6;
+  --color-forest-900: #e6f4ea;
 
-  /* Red: dark surface, mid border, light text (mirrors terra's inversion) */
-  --color-red-50: #2a1414;
-  --color-red-200: #5c2020;
-  --color-red-700: #f7a1a1;
+  /* Red: dark surface, mid border, light text */
+  --color-red-50: #3a2322;
+  --color-red-200: #6b2f2c;
+  --color-red-700: #f28b82;
 
-  /* Amber */
-  --color-amber-50: #2a1e0a;
-  --color-amber-100: #3d2c0e;
-  --color-amber-200: #653a14;
-  --color-amber-300: #814913;
-  --color-amber-400: #a25e0f;
-  --color-amber-500: #c07610;
-  --color-amber-600: #d9901a;
-  --color-amber-700: #e8b04a;
-  --color-amber-800: #f2d089;
-  --color-amber-900: #f9e8c2;
+  /* Amber (orange) */
+  --color-amber-50: #2e2717;
+  --color-amber-100: #3a301a;
+  --color-amber-200: #4d3e1d;
+  --color-amber-300: #6b5220;
+  --color-amber-400: #a87a1c;
+  --color-amber-500: #e0a630;
+  --color-amber-600: #f1a35c;
+  --color-amber-700: #fdd663;
+  --color-amber-800: #fde293;
+  --color-amber-900: #feefc3;
 
-  --color-card: #1d2629;
+  --color-pink-50: #3a2230;
+  --color-pink-600: #f08bc0;
+  --color-pink-700: #f8bbd9;
+  --color-purple-50: #2e2440;
+  --color-purple-600: #c58af9;
+  --color-purple-700: #e9d2fd;
+
+  --color-card: #2a2b2f;
 
   /* Override white backgrounds used in cards/modals */
   color-scheme: dark;
@@ -198,18 +216,18 @@
   background-color: var(--color-card) !important;
 }
 .dark .bg-white\/60 {
-  background-color: rgba(29, 38, 41, 0.6) !important;
+  background-color: rgba(42, 43, 47, 0.6) !important;
 }
 .dark .bg-white\/70 {
-  background-color: rgba(29, 38, 41, 0.7) !important;
+  background-color: rgba(42, 43, 47, 0.7) !important;
 }
 .dark .bg-white\/80 {
-  background-color: rgba(29, 38, 41, 0.8) !important;
+  background-color: rgba(42, 43, 47, 0.8) !important;
 }
 
 /* Glass effect in dark mode */
 .dark .glass {
-  background: rgba(23, 32, 35, 0.8);
+  background: rgba(31, 32, 35, 0.8);
 }
 
 /* Card hover shadow in dark mode */
@@ -219,7 +237,7 @@
 
 /* Input focus ring in dark mode */
 .dark .input-focus:focus {
-  box-shadow: 0 0 0 3px rgba(95, 168, 173, 0.25);
+  box-shadow: 0 0 0 3px rgba(138, 180, 248, 0.25);
 }
 
 /* Gradient text stays vibrant in dark mode */
@@ -266,7 +284,7 @@
 }
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(19, 38, 43, 0.08);
+  box-shadow: 0 8px 30px rgba(32, 33, 36, 0.08);
 }
 
 /* Shimmer animation */
@@ -308,7 +326,7 @@
 }
 .input-focus:focus {
   border-color: var(--color-terra-400);
-  box-shadow: 0 0 0 3px rgba(14, 124, 134, 0.15);
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.15);
   outline: none;
 }
 

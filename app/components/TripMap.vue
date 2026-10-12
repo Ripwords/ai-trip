@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { placeStyle } from "~/utils/place-colors"
 /// <reference types="google.maps" />
 import { countryByAlpha2 } from "../data/countries"
 
@@ -57,15 +58,6 @@ let polylines: google.maps.Polyline[] = []
 let MapClass: typeof google.maps.Map
 let MarkerClass: typeof google.maps.marker.AdvancedMarkerElement
 
-const markerColors: Record<string, string> = {
-  attraction: "#3B6FC0",
-  restaurant: "#E2533B",
-  hotel: "#22C55E",
-  transport: "#56707A",
-  shopping: "#A855F7",
-  entertainment: "#EC4899",
-}
-
 // Category filter
 const hiddenTypes = ref<Set<string>>(new Set())
 const filterSheetOpen = ref(false)
@@ -87,7 +79,7 @@ function toggleTypeFilter(type: string) {
 }
 
 function getMarkerColor(type: string): string {
-  return markerColors[type] || "#3B6FC0"
+  return placeStyle(type).hex
 }
 
 function createMarkerContent(index: number, type: string): HTMLElement {
@@ -190,7 +182,7 @@ function createAccommodationMarkerContent(variant: "previous" | "current"): HTML
     width: 30px;
     height: 30px;
     border-radius: 8px;
-    background: ${isPrevious ? "#A78BFA" : "#22C55E"};
+    background: ${isPrevious ? "#9aa0a6" : "#d01884"};
     color: white;
     display: flex;
     align-items: center;
@@ -208,7 +200,7 @@ function createAirportMarkerContent(airport: AirportMarker): HTMLElement {
   const wrap = document.createElement("div")
   const isArrival = airport.variant === "arrival"
   // Arrival = teal (lands here), Departure = amber (leaves here)
-  const color = isArrival ? "#0EA5E9" : "#F59E0B"
+  const color = isArrival ? "#129eaf" : "#f29900"
   // Rotate landing icon downward, takeoff icon upward
   const rotation = isArrival ? "rotate(-45deg)" : "rotate(45deg)"
   wrap.style.cssText = `
@@ -425,7 +417,7 @@ function updatePolylines() {
 
   const polyline = new google.maps.Polyline({
     path,
-    strokeColor: mapMode.value === "light" ? "#13262B" : "#95C9CC",
+    strokeColor: mapMode.value === "light" ? "#202124" : "#a8c7fa",
     strokeWeight: 3,
     strokeOpacity: 0.6,
     geodesic: true,
@@ -530,7 +522,7 @@ defineExpose({ centerOnActivity, centerOnPoint })
             <span
               class="inline-block h-1.5 w-1.5 rounded-full"
               :style="{
-                background: hiddenTypes.has(type) ? '#93A4A8' : markerColors[type] || '#3B6FC0',
+                background: hiddenTypes.has(type) ? '#bdc1c6' : placeStyle(type).hex,
               }"
             />
             {{ formatType(type) }}
@@ -546,7 +538,7 @@ defineExpose({ centerOnActivity, centerOnPoint })
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #13262b;
+  color: #202124;
 }
 .map-btn:hover {
   background: #ffffff;
@@ -554,34 +546,34 @@ defineExpose({ centerOnActivity, centerOnPoint })
 
 .map-filter-pill {
   background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(19, 38, 43, 0.12);
+  border: 1px solid rgba(32, 33, 36, 0.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #13262b;
+  color: #202124;
 }
 .map-filter-pill.is-hidden {
   background: rgba(255, 255, 255, 0.5);
-  color: #6f8489;
+  color: #80868b;
   text-decoration: line-through;
 }
 
 /* Plain `.dark` ancestor, not :global(.dark): Vue compiles `:global(.dark) .x`
    to a bare `.dark`, which drops the descendant and styles <html> instead. */
 .dark .map-btn {
-  background: rgba(29, 38, 41, 0.92);
-  color: #dce5e6;
+  background: rgba(42, 43, 47, 0.92);
+  color: #e8eaed;
 }
 .dark .map-btn:hover {
   background: rgba(44, 58, 62, 0.96);
 }
 
 .dark .map-filter-pill {
-  background: rgba(29, 38, 41, 0.9);
+  background: rgba(42, 43, 47, 0.9);
   border-color: rgba(220, 229, 230, 0.12);
-  color: #dce5e6;
+  color: #e8eaed;
 }
 .dark .map-filter-pill.is-hidden {
-  background: rgba(29, 38, 41, 0.5);
+  background: rgba(42, 43, 47, 0.5);
   color: rgba(220, 229, 230, 0.4);
 }
 </style>

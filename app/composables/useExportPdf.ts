@@ -329,7 +329,7 @@ export function useExportPdf() {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", "Noto Sans JP", "Noto Sans KR", "Noto Sans SC", "Noto Sans TC", sans-serif;
-      color: #13262b;
+      color: #202124;
       font-size: 11px;
       line-height: 1.5;
       padding: 0;
@@ -345,26 +345,26 @@ export function useExportPdf() {
     }
     .cover h1 {
       font-size: 36px;
-      color: #0e7c86;
+      color: #1a73e8;
       margin-bottom: 12px;
     }
     .cover .dates {
       font-size: 16px;
-      color: #56707a;
+      color: #5f6368;
       margin-bottom: 6px;
     }
     .cover .meta {
       font-size: 14px;
-      color: #56707a;
+      color: #5f6368;
     }
     .cover .footer {
       margin-top: 60px;
       font-size: 9px;
-      color: #93a4a8;
+      color: #9aa0a6;
     }
     .section-title {
       font-size: 18px;
-      color: #0e7c86;
+      color: #1a73e8;
       margin-bottom: 12px;
       padding-top: 8px;
     }
@@ -377,26 +377,26 @@ export function useExportPdf() {
       align-items: baseline;
       gap: 12px;
       margin-bottom: 6px;
-      border-bottom: 2px solid #0e7c86;
+      border-bottom: 2px solid #1a73e8;
       padding-bottom: 4px;
     }
     .day-num {
       font-size: 16px;
       font-weight: 700;
-      color: #0e7c86;
+      color: #1a73e8;
     }
     .day-date {
       font-size: 11px;
-      color: #56707a;
+      color: #5f6368;
     }
     .accommodation {
       font-size: 10px;
-      color: #56707a;
+      color: #5f6368;
       margin-bottom: 4px;
     }
     .day-notes {
       font-size: 10px;
-      color: #3f565d;
+      color: #3c4043;
       margin-bottom: 6px;
       font-style: italic;
     }
@@ -407,7 +407,7 @@ export function useExportPdf() {
       font-size: 10px;
     }
     th {
-      background: #0e7c86;
+      background: #1a73e8;
       color: #fff;
       padding: 5px 8px;
       text-align: left;
@@ -419,19 +419,19 @@ export function useExportPdf() {
       border-bottom: 1px solid #e1e9ea;
       vertical-align: top;
     }
-    tbody tr:nth-child(even) { background: #f4f7f7; }
+    tbody tr:nth-child(even) { background: #f8f9fa; }
     .total-row td {
-      border-top: 2px solid #13262b;
+      border-top: 2px solid #202124;
       font-weight: 700;
     }
     .note {
       font-size: 9px;
-      color: #56707a;
+      color: #5f6368;
       margin-top: 2px;
     }
     .empty {
       font-size: 10px;
-      color: #93a4a8;
+      color: #9aa0a6;
       font-style: italic;
     }
     .mono { font-family: "SF Mono", "Fira Code", monospace; font-size: 9px; }
@@ -441,7 +441,7 @@ export function useExportPdf() {
     .budget-summary {
       margin-top: 12px;
       padding: 12px;
-      background: #f4f7f7;
+      background: #f8f9fa;
       border-radius: 8px;
       font-size: 12px;
     }
@@ -459,7 +459,7 @@ export function useExportPdf() {
       .print-bar {
         position: sticky;
         top: 0;
-        background: #13262b;
+        background: #202124;
         color: #fff;
         padding: 10px 20px;
         margin: -40px -24px 24px;
@@ -470,7 +470,7 @@ export function useExportPdf() {
         z-index: 10;
       }
       .print-bar button {
-        background: #0e7c86;
+        background: #1a73e8;
         color: #fff;
         border: none;
         padding: 8px 20px;
@@ -479,7 +479,7 @@ export function useExportPdf() {
         font-weight: 600;
         cursor: pointer;
       }
-      .print-bar button:hover { background: #0a636b; }
+      .print-bar button:hover { background: #1765cc; }
     }
   </style>
 </head>

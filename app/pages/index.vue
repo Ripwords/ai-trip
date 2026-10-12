@@ -171,7 +171,7 @@ onMounted(() => {
               >
                 <span class="font-mono text-xs text-terra-600">12:30</span>
                 <span class="flex-1 text-sm font-medium text-sand-800">Nishiki Market</span>
-                <Icon name="lucide:utensils" class="h-4 w-4 text-terra-500" aria-hidden="true" />
+                <Icon name="lucide:utensils" class="h-4 w-4 text-amber-600" aria-hidden="true" />
               </li>
               <li
                 class="flex items-center gap-3 rounded-xl border border-sand-100 bg-sand-50/60 p-3"
@@ -656,11 +656,11 @@ onMounted(() => {
                       >PN</span
                     >
                     <span
-                      class="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-ocean-500 text-[10px] font-bold text-white"
+                      class="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-ocean-700 text-[10px] font-bold text-sand-50"
                       >ML</span
                     >
                     <span
-                      class="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-forest-500 text-[10px] font-bold text-white"
+                      class="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-forest-700 text-[10px] font-bold text-sand-50"
                       >JW</span
                     >
                   </div>
@@ -672,7 +672,7 @@ onMounted(() => {
               <div class="space-y-3 rounded-xl border border-sand-200/60 bg-sand-50 p-4 sm:w-80">
                 <div class="flex items-start gap-2.5">
                   <span
-                    class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ocean-500 text-[10px] font-bold text-white"
+                    class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ocean-700 text-[10px] font-bold text-sand-50"
                     >PN</span
                   >
                   <div>
@@ -687,7 +687,7 @@ onMounted(() => {
                 </div>
                 <div class="flex items-start gap-2.5">
                   <span
-                    class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest-500 text-[10px] font-bold text-white"
+                    class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest-700 text-[10px] font-bold text-sand-50"
                     >ML</span
                   >
                   <div>
@@ -802,7 +802,7 @@ onMounted(() => {
   );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.38),
-    0 16px 42px rgba(19, 38, 43, 0.08);
+    0 16px 42px rgba(32, 33, 36, 0.08);
 }
 
 .landing-briefing-orbit {

@@ -68,6 +68,33 @@ const RETIRED_HEX = new Set([
   "162840",
   "1a3a5c",
   "c8d6e5",
+  // Lagoon (sea-teal + slate), replaced by the Google Maps palette
+  "0e7c86",
+  "0a636b",
+  "138892",
+  "2a98a2",
+  "72c4cb",
+  "a9dde1",
+  "d3eef0",
+  "eaf6f7",
+  "5fa8ad",
+  "74b6ba",
+  "13262b",
+  "263b41",
+  "3f565d",
+  "56707a",
+  "6f8489",
+  "93a4a8",
+  "c3d0d2",
+  "dbe4e5",
+  "e9eff0",
+  "f4f7f7",
+  "172023",
+  "1d2629",
+  "2c3a3e",
+  "e2533b",
+  "c4432d",
+  "c4e1e4",
 ])
 const RETIRED_RGB = new Set([
   "26,23,20",
@@ -85,6 +112,12 @@ const RETIRED_RGB = new Set([
   "20,40,60",
   "30,48,68",
   "42,68,96",
+  // Lagoon
+  "14,124,134",
+  "19,38,43",
+  "29,38,41",
+  "23,32,35",
+  "95,168,173",
 ])
 
 function retiredColours(source: string): string[] {
@@ -104,7 +137,7 @@ function retiredColours(source: string): string[] {
   return [...found]
 }
 
-describe("Lagoon theme", () => {
+describe("theme palette", () => {
   it("keeps the descendant in scoped `.dark` selectors instead of letting :global() drop it", () => {
     // Vue compiles `:global(.dark) .x {}` to a bare `.dark {}`: the rule lands
     // on <html> and the component it was written for never sees it.

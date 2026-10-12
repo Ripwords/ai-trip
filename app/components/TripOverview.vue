@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { placeStyle } from "~/utils/place-colors"
 import type { TripExpenseSummary } from "#shared/utils/expense-summary"
 
 interface TripActivity {
@@ -168,20 +169,6 @@ const activitiesByType = computed(() => {
   }
   return groups
 })
-
-const typeColors: Record<string, string> = {
-  attraction: "bg-ocean-500",
-  restaurant: "bg-terra-500",
-  hotel: "bg-forest-500",
-  transport: "bg-sand-500",
-  shopping: "bg-terra-400",
-  entertainment: "bg-ocean-400",
-  museum: "bg-ocean-600",
-  park: "bg-forest-400",
-  cafe: "bg-terra-300",
-  bar: "bg-terra-600",
-  spa: "bg-ocean-300",
-}
 
 // Expenses by category — computed server-side now, in one place, from the
 // trip-currency projection rather than whatever currency each row was paid in.
@@ -526,7 +513,7 @@ function formatDayRange(dayNumbers: number[]): string {
                 >
                   <span
                     class="h-2 w-2 shrink-0 rounded-full"
-                    :class="typeColors[type as string] || 'bg-sand-400'"
+                    :class="placeStyle(type as string).dot"
                   />
                   <span class="flex-1 text-sm text-sand-700">{{ formatType(type as string) }}</span>
                   <span class="text-xs tabular-nums text-sand-500">{{ activities.length }}</span>

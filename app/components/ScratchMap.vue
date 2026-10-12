@@ -569,29 +569,29 @@ function resetZoom() {
 
 /* ── Light Mode ────────────────────────────────────────── */
 .scratch-map {
-  --map-ocean: #c4e1e4;
-  --map-country: #f4f7f7;
+  --map-ocean: #aadaff;
+  --map-country: #f8f9fa;
   --map-country-hover: #ffffff;
-  --map-visited: #e2533b;
-  --map-visited-hover: #c94530;
+  --map-visited: #ea4335;
+  --map-visited-hover: #c5221f;
   --map-layover: #3b6fc0;
-  --map-layover-hover: #2f5aa3;
+  --map-layover-hover: #1a73e8;
   --map-want: #4f9a6e;
   --map-want-hover: #3f845c;
-  --map-border: #93a4a8;
+  --map-border: #9aa0a6;
   --map-texture: soft-light;
   --map-texture-opacity: 0.32;
   --map-overlay-bg: rgba(255, 255, 255, 0.92);
-  --map-overlay-border: rgba(19, 38, 43, 0.08);
-  --map-overlay-text: #13262b;
-  --map-overlay-accent: #c4432d;
-  --map-layover-accent-color: #2f5aa3;
-  --map-want-accent-color: #3a6a3f;
+  --map-overlay-border: rgba(32, 33, 36, 0.08);
+  --map-overlay-text: #202124;
+  --map-overlay-accent: #d93025;
+  --map-layover-accent-color: #1a73e8;
+  --map-want-accent-color: #188038;
   --map-btn-bg: rgba(255, 255, 255, 0.82);
-  --map-btn-text: #3f565d;
+  --map-btn-text: #3c4043;
   --map-btn-hover: rgba(255, 255, 255, 1);
-  --map-tooltip-bg: #13262b;
-  --map-tooltip-text: #f4f7f7;
+  --map-tooltip-bg: #202124;
+  --map-tooltip-text: #f8f9fa;
   --map-tooltip-badge-bg: rgba(255, 255, 255, 0.18);
   background: var(--map-ocean);
 }
@@ -602,29 +602,29 @@ function resetZoom() {
 .dark .scratch-map {
   --map-ocean: #1f3639;
   --map-country: #212b2e;
-  --map-country-hover: #2c3a3e;
-  --map-visited: #e0907f;
-  --map-visited-hover: #e9a898;
+  --map-country-hover: #3c3d42;
+  --map-visited: #f28b82;
+  --map-visited-hover: #f6aea9;
   --map-layover: #6b8fc4;
-  --map-layover-hover: #8eaad3;
-  --map-want: #7cc49a;
+  --map-layover-hover: #8ab4f8;
+  --map-want: #81c995;
   --map-want-hover: #98d2b0;
-  --map-border: #3a4a4e;
+  --map-border: #4a4c52;
   --map-texture: soft-light;
   --map-texture-opacity: 0.22;
-  --map-overlay-bg: rgba(29, 38, 41, 0.92);
+  --map-overlay-bg: rgba(42, 43, 47, 0.92);
   --map-overlay-border: rgba(220, 229, 230, 0.1);
-  --map-overlay-text: #dce5e6;
-  --map-overlay-accent: #e0907f;
-  --map-layover-accent-color: #8eaad3;
-  --map-want-accent-color: #7cc49a;
-  --map-btn-bg: rgba(29, 38, 41, 0.9);
-  --map-btn-text: #dce5e6;
+  --map-overlay-text: #e8eaed;
+  --map-overlay-accent: #f28b82;
+  --map-layover-accent-color: #8ab4f8;
+  --map-want-accent-color: #81c995;
+  --map-btn-bg: rgba(42, 43, 47, 0.9);
+  --map-btn-text: #e8eaed;
   --map-btn-hover: rgba(44, 58, 62, 0.96);
-  --map-tooltip-bg: #1d2629;
-  --map-tooltip-text: #dce5e6;
+  --map-tooltip-bg: #2a2b2f;
+  --map-tooltip-text: #e8eaed;
   --map-tooltip-badge-bg: rgba(220, 229, 230, 0.12);
-  border-color: #2c3a3e;
+  border-color: #3c3d42;
   background: var(--map-ocean);
 }
 
@@ -677,19 +677,19 @@ function resetZoom() {
 }
 .map-tooltip-visa-free {
   background: rgba(124, 196, 154, 0.2);
-  color: #7cc49a;
+  color: #81c995;
 }
 .map-tooltip-visa-arrival {
   background: rgba(142, 170, 211, 0.2);
-  color: #8eaad3;
+  color: #8ab4f8;
 }
 .map-tooltip-visa-evisa {
   background: rgba(217, 178, 106, 0.2);
-  color: #d9b26a;
+  color: #fdd663;
 }
 .map-tooltip-visa-required {
   background: rgba(224, 144, 127, 0.2);
-  color: #e0907f;
+  color: #f28b82;
 }
 
 /* ── Overlay elements ──────────────────────────────────── */
