@@ -23,7 +23,11 @@ interface PackingTemplate {
 
 const props = defineProps<{
   tripId: string
+  /** Viewers can read but not tick or edit; every write here is editor-only. */
+  readonly?: boolean
 }>()
+
+const toast = useToast()
 
 const { data: checklists, refresh } = await useFetch<Checklist[]>(
   `/api/trips/${props.tripId}/checklists`,
@@ -100,6 +104,7 @@ async function createChecklist() {
     await refresh()
   } catch (e: unknown) {
     console.error("Failed to create checklist:", e)
+    toast.error("Couldn't create the checklist. Please try again.")
   }
 }
 
@@ -120,6 +125,7 @@ async function deleteChecklist(checklistId: string) {
     await refresh()
   } catch (e: unknown) {
     console.error("Failed to delete checklist:", e)
+    toast.error("Couldn't delete the checklist. Please try again.")
   }
 }
 
@@ -140,6 +146,7 @@ async function saveListName(checklistId: string) {
     await refresh()
   } catch (e: unknown) {
     console.error("Failed to update checklist:", e)
+    toast.error("Couldn't rename the checklist. Please try again.")
   }
 }
 
@@ -152,6 +159,7 @@ async function toggleItem(checklistId: string, item: ChecklistItem) {
     await refresh()
   } catch (e: unknown) {
     console.error("Failed to toggle item:", e)
+    toast.error("Couldn't update that item. Please try again.")
   }
 }
 
@@ -168,10 +176,12 @@ async function addItem(checklistId: string) {
     await refresh()
   } catch (e: unknown) {
     console.error("Failed to add item:", e)
+    toast.error("Couldn't add the item. Please try again.")
   }
 }
 
 function startEditItem(item: ChecklistItem) {
+  if (props.readonly) return
   editingItemId.value = item.id
   editingItemText.value = item.text
 }
@@ -188,6 +198,7 @@ async function saveItemText(checklistId: string, itemId: string) {
     await refresh()
   } catch (e: unknown) {
     console.error("Failed to update item:", e)
+    toast.error("Couldn't save the item. Please try again.")
   }
 }
 
@@ -199,6 +210,7 @@ async function deleteItem(checklistId: string, itemId: string) {
     await refresh()
   } catch (e: unknown) {
     console.error("Failed to delete item:", e)
+    toast.error("Couldn't delete the item. Please try again.")
   }
 }
 
@@ -209,6 +221,7 @@ async function openTemplateModal(checklistId: string) {
     templates.value = await $fetch<PackingTemplate[]>("/api/packing-templates")
   } catch (e: unknown) {
     console.error("Failed to load templates:", e)
+    toast.error("Couldn't load templates. Please try again.")
     templates.value = []
   }
   showTemplateModal.value = true
@@ -229,6 +242,7 @@ async function loadTemplate(templateId: string) {
     await refresh()
   } catch (e: unknown) {
     console.error("Failed to load template:", e)
+    toast.error("Couldn't load that template. Please try again.")
   }
 }
 
@@ -244,6 +258,7 @@ async function saveAsTemplate(checklistId: string) {
     saveTemplateName.value = ""
   } catch (e: unknown) {
     console.error("Failed to save template:", e)
+    toast.error("Couldn't save the template. Please try again.")
   }
 }
 
@@ -257,7 +272,7 @@ function checkedCount(checklist: Checklist): number {
     <h3 class="text-sm font-semibold text-sand-900">Checklists</h3>
 
     <!-- Create new -->
-    <div class="mt-4 flex gap-2">
+    <div v-if="!readonly" class="mt-4 flex gap-2">
       <input
         v-model="newListName"
         type="text"
@@ -308,7 +323,7 @@ function checkedCount(checklist: Checklist): number {
               </span>
             </template>
           </button>
-          <div class="flex">
+          <div v-if="!readonly" class="flex">
             <button
               type="button"
               class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:bg-ocean-50 hover:text-ocean-600 focus-ring"
@@ -407,6 +422,7 @@ function checkedCount(checklist: Checklist): number {
                   <input
                     type="checkbox"
                     :checked="item.checked"
+                    :disabled="readonly"
                     class="shrink-0 rounded border-sand-300 text-terra-500 focus:ring-terra-500"
                     @change="toggleItem(checklist.id, item)"
                   />
@@ -428,7 +444,7 @@ function checkedCount(checklist: Checklist): number {
                     {{ item.text }}
                   </span>
                 </label>
-                <div class="flex shrink-0 items-center">
+                <div v-if="!readonly" class="flex shrink-0 items-center">
                   <button
                     v-if="editingItemId !== item.id"
                     type="button"
@@ -464,6 +480,7 @@ function checkedCount(checklist: Checklist): number {
                 <input
                   type="checkbox"
                   :checked="item.checked"
+                  :disabled="readonly"
                   class="shrink-0 rounded border-sand-300 text-terra-500 focus:ring-terra-500"
                   @change="toggleItem(checklist.id, item)"
                 />
@@ -485,7 +502,7 @@ function checkedCount(checklist: Checklist): number {
                   {{ item.text }}
                 </span>
               </label>
-              <div class="flex shrink-0 items-center">
+              <div v-if="!readonly" class="flex shrink-0 items-center">
                 <button
                   v-if="editingItemId !== item.id"
                   type="button"
@@ -510,7 +527,7 @@ function checkedCount(checklist: Checklist): number {
           </template>
 
           <!-- Add item -->
-          <div class="mt-1 flex gap-1.5">
+          <div v-if="!readonly" class="mt-1 flex gap-1.5">
             <input
               v-model="newItemTexts[checklist.id]"
               type="text"
@@ -531,7 +548,7 @@ function checkedCount(checklist: Checklist): number {
     </div>
 
     <p v-else class="mt-4 text-center text-xs text-sand-700">
-      No checklists yet. Create one above.
+      {{ readonly ? "No checklists yet." : "No checklists yet. Create one above." }}
     </p>
 
     <!-- Category datalist -->

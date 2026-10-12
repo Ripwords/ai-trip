@@ -80,6 +80,8 @@ const props = defineProps<{
   /** Whether another page exists. */
   hasMore: boolean
   loadingMore?: boolean
+  /** Viewers see the money but cannot change it; every write is editor-only. */
+  readonly?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -526,6 +528,7 @@ async function deleteExpense(expenseId: string) {
     refresh()
   } catch (e: unknown) {
     console.error("Failed to delete expense:", e)
+    toast.error("Couldn't delete the expense. Please try again.")
   }
 }
 
@@ -595,6 +598,7 @@ function getMemberName(userId: string | null): string {
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-semibold text-sand-900">Budget</h3>
         <button
+          v-if="!readonly"
           type="button"
           class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:bg-terra-50 hover:text-terra-600 focus-ring"
           aria-label="Edit budget"
@@ -605,7 +609,7 @@ function getMemberName(userId: string | null): string {
         </button>
       </div>
 
-      <div v-if="editingBudget" class="mt-3 flex gap-2">
+      <div v-if="editingBudget && !readonly" class="mt-3 flex gap-2">
         <label :for="`${uid}-budget`" class="sr-only">Budget amount</label>
         <input
           :id="`${uid}-budget`"
@@ -779,6 +783,7 @@ function getMemberName(userId: string | null): string {
             <span class="hidden sm:inline">CSV</span>
           </button>
           <button
+            v-if="!readonly"
             class="inline-flex min-h-11 items-center gap-1 rounded-lg bg-cta px-3 text-xs font-medium text-white hover:bg-cta-hover"
             @click="
               () => {
@@ -892,7 +897,7 @@ function getMemberName(userId: string | null): string {
 
       <!-- Add/Edit form -->
       <form
-        v-if="showAddForm"
+        v-if="showAddForm && !readonly"
         class="mt-4 space-y-3 border-b border-sand-100 pb-4"
         @submit.prevent="submitExpense"
       >
@@ -1128,6 +1133,7 @@ function getMemberName(userId: string | null): string {
                 </span>
               </span>
               <button
+                v-if="!readonly"
                 type="button"
                 class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-terra-500 active:scale-95 focus-ring"
                 title="Edit"
@@ -1137,6 +1143,7 @@ function getMemberName(userId: string | null): string {
                 <Icon name="lucide:edit" class="h-3.5 w-3.5" />
               </button>
               <button
+                v-if="!readonly"
                 type="button"
                 class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-red-500 active:scale-95 focus-ring"
                 title="Delete"
@@ -1150,7 +1157,10 @@ function getMemberName(userId: string | null): string {
 
           <!-- Receipts (#48). Served from our own origin and gated on trip
                membership — never from the public share link. -->
-          <div class="mt-2 flex flex-wrap items-center gap-2">
+          <div
+            v-if="expense.attachments.length > 0 || !readonly"
+            class="mt-2 flex flex-wrap items-center gap-2"
+          >
             <button
               v-for="receipt in expense.attachments"
               :key="receipt.id"
@@ -1177,6 +1187,7 @@ function getMemberName(userId: string | null): string {
             </button>
 
             <button
+              v-if="!readonly"
               type="button"
               :disabled="uploadingFor === expense.id"
               class="inline-flex min-h-9 items-center gap-1 rounded-lg border border-dashed border-sand-300 px-2 py-1.5 text-xs font-medium text-sand-500 hover:bg-sand-50 disabled:opacity-50"
@@ -1246,7 +1257,7 @@ function getMemberName(userId: string | null): string {
             Download {{ openReceipt.fileName }}
           </a>
 
-          <div class="mt-4 flex justify-end">
+          <div v-if="!readonly" class="mt-4 flex justify-end">
             <button
               type="button"
               class="min-h-9 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"

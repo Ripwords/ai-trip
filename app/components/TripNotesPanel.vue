@@ -2,6 +2,8 @@
 const props = defineProps<{
   tripId: string
   notes: string | null
+  /** Viewers read the notes; the server refuses their writes anyway. */
+  readonly?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -47,12 +49,24 @@ async function handleBlur() {
 <template>
   <div class="rounded-2xl border border-sand-200 bg-white p-6">
     <div class="flex items-center justify-between">
-      <label :for="textareaId" class="text-sm font-semibold text-sand-700">Trip Notes</label>
+      <label v-if="!readonly" :for="textareaId" class="text-sm font-semibold text-sand-700"
+        >Trip Notes</label
+      >
+      <h3 v-else class="text-sm font-semibold text-sand-700">Trip Notes</h3>
       <span role="status" aria-live="polite" class="text-xs text-forest-600 transition">
         <template v-if="saved">Saved</template>
       </span>
     </div>
+    <template v-if="readonly">
+      <!-- Text sits flush against the tags: pre-wrap would render template
+           indentation as leading whitespace. -->
+      <p v-if="notes" class="mt-2 whitespace-pre-wrap break-words text-sm text-sand-700">
+        {{ notes }}
+      </p>
+      <p v-else class="mt-2 text-sm text-sand-500">No trip notes yet.</p>
+    </template>
     <textarea
+      v-else
       :id="textareaId"
       v-model="value"
       rows="6"

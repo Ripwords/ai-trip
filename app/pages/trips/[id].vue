@@ -2182,9 +2182,10 @@ async function recomputeSegments(dayId: string) {
         <TripNotesPanel
           :trip-id="tripId"
           :notes="trip.tripNotes ?? null"
+          :readonly="isViewer"
           @saved="trip.tripNotes = $event"
         />
-        <ChecklistPanel :trip-id="tripId" />
+        <ChecklistPanel :trip-id="tripId" :readonly="isViewer" />
       </div>
 
       <!-- Expenses tab -->
@@ -2203,6 +2204,7 @@ async function recomputeSegments(dayId: string) {
           :filtered-total="expensePage?.filteredTotal ?? 0"
           :has-more="expenseCursor !== null"
           :loading-more="loadingMoreExpenses"
+          :readonly="isViewer"
           @budget-updated="refresh"
           @expenses-changed="refreshExpenses"
           @update:filters="expenseQuery = $event"
@@ -2216,6 +2218,7 @@ async function recomputeSegments(dayId: string) {
         <ReservationTracker
           :trip-id="tripId"
           :currency-code="trip.currencyCode ?? 'USD'"
+          :readonly="isViewer"
           @edit-in-itinerary="handleEditBookingInItinerary"
           @changed="refreshExpenseSummary"
         />
