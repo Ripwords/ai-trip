@@ -125,7 +125,7 @@ function mapsLinkFor(activity: SharedActivity): string {
         <div class="h-4 w-40 rounded bg-sand-200" />
         <div class="h-5 w-24 rounded-full bg-sand-200" />
       </div>
-      <div class="mt-8 flex gap-2">
+      <div class="mt-8 flex gap-2 overflow-hidden">
         <div v-for="n in 4" :key="n" class="h-11 w-28 shrink-0 rounded-full bg-sand-200" />
       </div>
       <div class="mt-6 flex flex-col gap-6 lg:flex-row">

@@ -268,7 +268,7 @@ function checkedCount(checklist: Checklist): number {
 </script>
 
 <template>
-  <div class="rounded-2xl border border-sand-200 bg-white p-6">
+  <div class="rounded-2xl border border-sand-200 bg-white p-4 sm:p-6">
     <h3 class="text-sm font-semibold text-sand-900">Checklists</h3>
 
     <!-- Create new -->
@@ -296,34 +296,37 @@ function checkedCount(checklist: Checklist): number {
         class="rounded-lg border border-sand-200"
       >
         <!-- List header -->
-        <div class="flex items-center justify-between px-3 py-2">
+        <div class="flex items-center justify-between gap-1 py-1 pl-3 pr-1">
           <button
-            class="flex items-center gap-2 text-sm font-medium text-sand-900"
+            class="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-medium text-sand-900"
             @click="toggleList(checklist.id)"
           >
             <Icon
               name="lucide:chevron-right"
-              class="h-3.5 w-3.5 text-sand-400 transition-transform"
+              class="h-3.5 w-3.5 shrink-0 text-sand-400 transition-transform"
               :class="{ 'rotate-90': expandedLists.has(checklist.id) }"
             />
             <template v-if="editingListId === checklist.id">
               <input
                 v-model="editingListName"
                 type="text"
-                class="rounded border border-sand-300 px-2 py-0.5 text-sm input-focus"
+                class="min-w-0 flex-1 rounded border border-sand-300 px-2 py-0.5 text-sm input-focus"
                 @keydown.enter="saveListName(checklist.id)"
                 @blur="saveListName(checklist.id)"
                 @click.stop
               />
             </template>
             <template v-else>
-              {{ checklist.name }}
-              <span v-if="checklist.items.length" class="text-xs font-normal text-sand-700">
+              <span class="truncate">{{ checklist.name }}</span>
+              <span
+                v-if="checklist.items.length"
+                class="shrink-0 text-xs font-normal text-sand-700"
+              >
                 ({{ checkedCount(checklist) }}/{{ checklist.items.length }})
               </span>
             </template>
           </button>
-          <div v-if="!readonly" class="flex">
+          <div v-if="!readonly" class="flex shrink-0">
             <button
               type="button"
               class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:bg-ocean-50 hover:text-ocean-600 focus-ring"

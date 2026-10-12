@@ -233,30 +233,36 @@ const roleBadgeClass: Record<string, string> = {
       <div
         v-for="member in activeMembers"
         :key="member.id"
-        class="flex items-center justify-between rounded-lg px-2 py-2"
+        class="flex items-center justify-between gap-2 rounded-lg px-2 py-2"
       >
-        <div class="flex items-center gap-2.5">
+        <div class="flex min-w-0 items-center gap-2.5">
           <img
             v-if="member.user?.image"
             :src="member.user.image"
             :alt="member.user?.name || ''"
-            class="h-7 w-7 rounded-full object-cover"
+            class="h-7 w-7 shrink-0 rounded-full object-cover"
             referrerpolicy="no-referrer"
           />
           <div
             v-else
-            class="flex h-7 w-7 items-center justify-center rounded-full bg-terra-100 text-xs font-semibold text-terra-700"
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-terra-100 text-xs font-semibold text-terra-700"
           >
             {{ member.user?.name?.charAt(0)?.toUpperCase() || "?" }}
           </div>
-          <div>
-            <p class="text-sm font-medium text-sand-900">
+          <div class="min-w-0">
+            <p class="truncate text-sm font-medium text-sand-900">
               {{ member.user?.name || member.invitedEmail }}
             </p>
-            <p class="text-xs text-sand-500">{{ member.user?.email || "" }}</p>
+            <p
+              v-if="member.user?.email"
+              class="truncate text-xs text-sand-500"
+              :title="member.user.email"
+            >
+              {{ member.user.email }}
+            </p>
           </div>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex shrink-0 items-center gap-2">
           <select
             v-if="currentRole === 'owner' && member.role !== 'owner' && member.status === 'active'"
             :value="member.role"
@@ -295,23 +301,25 @@ const roleBadgeClass: Record<string, string> = {
         <div
           v-for="invite in pendingInvites"
           :key="invite.id"
-          class="flex items-center justify-between rounded-lg bg-sand-50 px-3 py-2"
+          class="flex items-center justify-between gap-2 rounded-lg bg-sand-50 px-3 py-2"
         >
-          <div class="flex items-center gap-2.5">
+          <div class="flex min-w-0 items-center gap-2.5">
             <div
-              class="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-sand-300"
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dashed border-sand-300"
             >
               <Icon name="lucide:mail" class="h-3.5 w-3.5 text-sand-400" />
             </div>
-            <div>
-              <p class="text-sm text-sand-700">{{ invite.invitedEmail }}</p>
+            <div class="min-w-0">
+              <p class="truncate text-sm text-sand-700" :title="invite.invitedEmail ?? undefined">
+                {{ invite.invitedEmail }}
+              </p>
               <p class="text-xs text-sand-700">
                 {{ formatType(invite.role) }} · {{ formatExpiry(invite.expiresAt) }}
               </p>
             </div>
           </div>
           <button
-            class="inline-flex min-h-11 items-center rounded-lg border border-sand-200 px-2.5 text-xs font-medium text-sand-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+            class="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-sand-200 px-2.5 text-xs font-medium text-sand-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
             @click="handleRemove(invite)"
           >
             Revoke
