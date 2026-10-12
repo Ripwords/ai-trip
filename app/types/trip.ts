@@ -55,6 +55,8 @@ export interface TripResponse {
   currencyCode: string
   tripNotes: string | null
   shareToken: string | null
+  /** When the public link stops working (ISO); past it, the trip is not shared. */
+  shareExpiresAt?: string | null
   preferences: {
     budget?: string
     pace?: string

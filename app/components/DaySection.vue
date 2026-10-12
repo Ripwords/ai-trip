@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { VueDraggable } from "vue-draggable-plus"
+import type { Vote, VoteState } from "~/utils/activity-votes"
 
 interface Activity {
   id: string
@@ -67,9 +68,84 @@ const emit = defineEmits<{
   clickActivity: [activity: Activity]
   addActivity: [dayId: string]
   reordered: []
-  updateNotes: [notes: string]
+  updateNotes: [dayId: string, notes: string | null]
   toggleParticipant: [activityId: string, userId: string]
 }>()
+
+// Day notes. The textarea edits a local draft; the prop is only the last saved
+// value. A blur that changed nothing must not save, or a stale draft could
+// write an old note back over a newer one.
+const notesDraft = ref(props.day.notes ?? "")
+watch(
+  () => props.day.notes,
+  (saved) => {
+    notesDraft.value = saved ?? ""
+  },
+)
+
+function saveNotes() {
+  if (!noteChanged(props.day.notes, notesDraft.value)) return
+  emit("updateNotes", props.day.id, normalizeNote(notesDraft.value))
+}
+
+const toast = useToast()
+
+// ── Group feedback: votes and comments (group trips only) ────────────
+const isCollaborative = computed(() => isCollaborativeTrip(props.members))
+
+const activityIdsKey = computed(() => props.day.activities.map((a) => a.id).join(","))
+
+// One request per activity on this day; the endpoint has no batch form. Not
+// run during SSR, and not at all on a solo trip.
+const { data: voteMap } = useLazyAsyncData(
+  `activity-votes-${props.day.id}`,
+  async () => {
+    if (!isCollaborative.value) return {}
+    const entries = await Promise.all(
+      props.day.activities.map(async (a) => {
+        try {
+          const state = await $fetch<VoteState>(
+            `/api/trips/${props.tripId}/activities/${a.id}/votes`,
+          )
+          return [a.id, state] as const
+        } catch {
+          return [a.id, NO_VOTES] as const
+        }
+      }),
+    )
+    return Object.fromEntries(entries) as Record<string, VoteState>
+  },
+  {
+    server: false,
+    default: () => ({}) as Record<string, VoteState>,
+    watch: [activityIdsKey, isCollaborative],
+  },
+)
+
+async function handleVote(activityId: string, vote: Vote) {
+  const before = voteMap.value[activityId] ?? NO_VOTES
+  try {
+    const result = await $fetch<{ vote: Vote | null }>(
+      `/api/trips/${props.tripId}/activities/${activityId}/vote`,
+      { method: "POST", body: { vote } },
+    )
+    voteMap.value = { ...voteMap.value, [activityId]: applyVoteResult(before, result.vote) }
+  } catch (e: unknown) {
+    console.error("Failed to vote:", e)
+    toast.error("Couldn't record your vote. Please try again.")
+  }
+}
+
+const openCommentsId = ref<string | null>(null)
+const commentCounts = ref<Record<string, number>>({})
+
+function toggleComments(activityId: string) {
+  openCommentsId.value = openCommentsId.value === activityId ? null : activityId
+}
+
+function setCommentCount(activityId: string, count: number) {
+  commentCounts.value = { ...commentCounts.value, [activityId]: count }
+}
 
 // Drag and drop
 const localActivities = ref([...props.day.activities])
@@ -101,8 +177,10 @@ async function handleDragEnd() {
     emit("reordered")
   } catch (e) {
     console.error("Failed to reorder:", e)
-    // Revert on failure
+    // Revert on failure, and say so: a list that silently snaps back reads as
+    // a drag that never registered.
     localActivities.value = [...props.day.activities]
+    toast.error("Couldn't save the new order, so it was put back. Please try again.")
   }
 }
 
@@ -148,11 +226,12 @@ function timeToMinutes(time: string): number | null {
   <div>
     <div v-if="!readonly" class="mb-3">
       <textarea
-        :value="day.notes ?? ''"
+        v-model="notesDraft"
         placeholder="Day notes... (dietary needs, booking confirmations, reminders)"
+        aria-label="Day notes"
         rows="2"
         class="block w-full resize-none rounded-lg border border-sand-200 bg-sand-50/50 px-3 py-2 text-sm text-sand-600 placeholder:text-sand-400 input-focus"
-        @blur="$emit('updateNotes', ($event.target as HTMLTextAreaElement).value)"
+        @blur="saveNotes"
       />
     </div>
     <p v-else-if="day.notes" class="mb-3 text-sm text-sand-600 italic">
@@ -195,6 +274,12 @@ function timeToMinutes(time: string): number | null {
               :readonly="readonly"
               :participants="participantsMap?.[activity.id]"
               :members="members"
+              :is-collaborative="isCollaborative"
+              :votes="voteMap[activity.id]"
+              :comment-count="commentCounts[activity.id]"
+              :comments-open="openCommentsId === activity.id"
+              @vote="handleVote"
+              @show-comments="toggleComments"
               @edit="emit('editActivity', $event)"
               @delete="emit('deleteActivity', $event)"
               @click="emit('clickActivity', $event)"
@@ -202,6 +287,13 @@ function timeToMinutes(time: string): number | null {
                 (activityId: string, userId: string) =>
                   emit('toggleParticipant', activityId, userId)
               "
+            />
+            <ActivityComments
+              v-if="isCollaborative && openCommentsId === activity.id"
+              :id="`activity-comments-${activity.id}`"
+              :trip-id="tripId"
+              :activity-id="activity.id"
+              @count="setCommentCount"
             />
           </div>
           <TravelSegmentDivider

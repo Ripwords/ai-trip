@@ -13,7 +13,11 @@ import {
 const props = defineProps<{
   tripId: string
   currencyCode: string
+  /** Viewers see the bookings but cannot change them; writes are editor-only. */
+  readonly?: boolean
 }>()
+
+const toast = useToast()
 
 const emit = defineEmits<{
   "edit-in-itinerary": [dayId: string | null]
@@ -156,6 +160,7 @@ async function submitReservation() {
     emit("changed")
   } catch (e: unknown) {
     console.error("Failed to save reservation:", e)
+    toast.error("Couldn't save the booking. Please try again.")
   }
 }
 
@@ -177,6 +182,7 @@ async function deleteReservation(id: string) {
     emit("changed")
   } catch (e: unknown) {
     console.error("Failed to delete reservation:", e)
+    toast.error("Couldn't delete the booking. Please try again.")
   }
 }
 
@@ -210,6 +216,7 @@ const dateGridClass = computed(() => {
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-semibold text-sand-900">Reservations</h3>
         <button
+          v-if="!readonly"
           class="inline-flex min-h-11 items-center gap-1 rounded-lg bg-cta px-3 text-xs font-medium text-white hover:bg-cta-hover"
           @click="
             () => {
@@ -225,7 +232,7 @@ const dateGridClass = computed(() => {
 
       <!-- Add/Edit form -->
       <form
-        v-if="showAddForm"
+        v-if="showAddForm && !readonly"
         class="mt-4 space-y-3 border-b border-sand-100 pb-4"
         @submit.prevent="submitReservation"
       >
@@ -481,6 +488,7 @@ const dateGridClass = computed(() => {
                 {{ formatCurrency(r.amount) }}
               </span>
               <button
+                v-if="!readonly"
                 type="button"
                 class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-terra-500 active:scale-95 focus-ring"
                 title="Edit"
@@ -490,6 +498,7 @@ const dateGridClass = computed(() => {
                 <Icon name="lucide:edit" class="h-3.5 w-3.5" />
               </button>
               <button
+                v-if="!readonly"
                 type="button"
                 class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-red-500 active:scale-95 focus-ring"
                 title="Delete"
@@ -505,7 +514,11 @@ const dateGridClass = computed(() => {
       </div>
 
       <p v-else class="mt-4 text-center text-xs text-sand-700">
-        No reservations yet. Add hotels, restaurants, and other bookings.
+        {{
+          readonly
+            ? "No reservations yet."
+            : "No reservations yet. Add hotels, restaurants, and other bookings."
+        }}
       </p>
     </div>
   </div>

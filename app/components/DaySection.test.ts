@@ -25,6 +25,14 @@ const source = readFileSync(fileURLToPath(new URL("./DaySection.vue", import.met
 //
 // The drag component must therefore be Composition API for as long as the app
 // runs on compatibility version 5.
+describe("DaySection reorder failure (B25)", () => {
+  it("tells the user when a failed reorder is rolled back", () => {
+    const handler = source.slice(source.indexOf("async function handleDragEnd"))
+    const catchBlock = handler.slice(handler.indexOf("catch"), handler.indexOf("\n}\n"))
+    assert.ok(/toast\.error\(/.test(catchBlock), "rollback is silent")
+  })
+})
+
 describe("DaySection drag list", () => {
   it("uses a drag component that survives the Options API being compiled out", () => {
     const optionsApiOnly = [

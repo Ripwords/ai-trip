@@ -275,7 +275,7 @@ const validTabs: TabValue[] = [
   "team",
   "flights",
 ]
-const activeTab = ref<TabValue>("overview")
+const activeTab = ref<TabValue>("itinerary")
 
 // Restore tab from sessionStorage on client mount
 onMounted(() => {
@@ -892,8 +892,6 @@ const {
   currentDayLabel: generatingDayLabel,
   errorMessage: generateErrorMessage,
   noticeMessage: generateNoticeMessage,
-  creditsSpent: generateCreditsSpent,
-  creditsRemaining: generateCreditsRemaining,
 } = useGenerateFullItinerary(tripId)
 
 async function refreshAiUsage() {
@@ -1443,13 +1441,18 @@ async function handleAiClear() {
   }
 }
 
-async function handleUpdateDayNotes(notes: string) {
-  if (!activeDayId.value) return
+// The day id travels with the event: by the time a blur fires, the open day
+// may already be a different one.
+async function handleUpdateDayNotes(dayId: string, notes: string | null) {
   try {
-    await $fetch(`/api/trips/${tripId}/days/${activeDayId.value}/notes`, {
+    await $fetch(`/api/trips/${tripId}/days/${dayId}/notes`, {
       method: "PUT",
-      body: { notes: notes || null },
+      body: { notes },
     })
+    // Keep the page's copy current, or reopening the day shows the old note
+    // and the next blur saves it back.
+    const day = trip.value?.days.find((d) => d.id === dayId)
+    if (day) day.notes = notes
   } catch (e: unknown) {
     console.error("Failed to update day notes:", e)
     toastError("Could not save the day notes. Please try again.")
@@ -1595,10 +1598,28 @@ if (import.meta.client) {
 const shareLoading = ref(false)
 const shareCopied = ref(false)
 
+const dayjs = useDayjs()
+/** An expired link no longer opens, so the owner sees "not shared" and can mint a new one. */
+const shareActive = computed(() =>
+  isShareActive(trip.value?.shareToken, trip.value?.shareExpiresAt),
+)
+const shareExpiryLabel = computed(() => {
+  const expiresAt = trip.value?.shareExpiresAt
+  return shareActive.value && expiresAt
+    ? `Link expires ${dayjs(expiresAt).format("MMM D, YYYY")}`
+    : ""
+})
+
 async function handleToggleShare() {
   shareLoading.value = true
+  const wasActive = shareActive.value
   try {
-    const result = await $fetch(`/api/trips/${tripId}/share`, { method: "POST" })
+    let result = await $fetch(`/api/trips/${tripId}/share`, { method: "POST" })
+    // The endpoint toggles on the stored token. If that token had expired, the
+    // first call only cleared it; the owner asked for a working link, so ask again.
+    if (!wasActive && !result.shared) {
+      result = await $fetch(`/api/trips/${tripId}/share`, { method: "POST" })
+    }
     await refresh()
     if (result.shared && result.shareToken) {
       const url = `${window.location.origin}/shared/${result.shareToken}`
@@ -1617,7 +1638,7 @@ async function handleToggleShare() {
 }
 
 async function handleCopyShareLink() {
-  if (!trip.value?.shareToken) return
+  if (!shareActive.value || !trip.value?.shareToken) return
   const url = `${window.location.origin}/shared/${trip.value.shareToken}`
   await navigator.clipboard.writeText(url)
   shareCopied.value = true
@@ -1711,7 +1732,7 @@ async function recomputeSegments(dayId: string) {
 
           <template v-if="tripRole === 'owner'">
             <button
-              v-if="!trip.shareToken"
+              v-if="!shareActive"
               type="button"
               :disabled="shareLoading"
               class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sand-500 transition hover:bg-sand-100 hover:text-sand-800 disabled:opacity-50 focus-ring"
@@ -1747,8 +1768,14 @@ async function recomputeSegments(dayId: string) {
               >
                 <div
                   v-if="showShareMenu"
-                  class="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
+                  class="absolute right-0 top-full z-20 mt-1 w-52 rounded-xl border border-sand-200 bg-white py-1 shadow-lg"
                 >
+                  <p
+                    v-if="shareExpiryLabel"
+                    class="border-b border-sand-100 px-3 pb-2 pt-1.5 text-xs text-sand-500"
+                  >
+                    {{ shareExpiryLabel }}
+                  </p>
                   <button
                     type="button"
                     class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sand-700 hover:bg-sand-50"
@@ -2039,6 +2066,32 @@ async function recomputeSegments(dayId: string) {
             <div
               class="flex-1 space-y-4 pb-24 lg:max-h-[calc(100dvh-320px)] lg:overflow-y-auto lg:pr-4 lg:pb-6 scrollbar-thin"
             >
+              <!-- Empty itinerary -->
+              <section
+                v-if="!hasActivities && !isViewer"
+                class="flex flex-col items-start gap-3 rounded-2xl border border-sand-200 bg-white p-5"
+              >
+                <div>
+                  <h2 class="text-sm font-semibold text-sand-900">Nothing planned yet</h2>
+                  <p class="mt-1 text-sm text-sand-600">
+                    Let the AI plan every day of this trip, then refine it day by day.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  :disabled="generatingItinerary || aiMutating"
+                  class="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-cta px-4 text-sm font-medium text-white transition hover:bg-cta-hover disabled:opacity-50 focus-ring"
+                  @click="handleGenerateFullItinerary"
+                >
+                  <Icon
+                    :name="generatingItinerary ? 'lucide:loader-2' : 'lucide:wand-2'"
+                    class="h-4 w-4"
+                    :class="{ 'animate-spin': generatingItinerary }"
+                  />
+                  Generate whole trip
+                </button>
+              </section>
+
               <!-- Ideas bucket (hidden for viewers) -->
               <IdeasBucket
                 v-if="!isViewer"
@@ -2148,8 +2201,13 @@ async function recomputeSegments(dayId: string) {
 
       <!-- Notes tab -->
       <div v-else-if="activeTab === 'notes'" class="mt-8 space-y-6 max-w-3xl">
-        <TripNotesPanel :trip-id="tripId" :notes="trip.tripNotes ?? null" />
-        <ChecklistPanel :trip-id="tripId" />
+        <TripNotesPanel
+          :trip-id="tripId"
+          :notes="trip.tripNotes ?? null"
+          :readonly="isViewer"
+          @saved="trip.tripNotes = $event"
+        />
+        <ChecklistPanel :trip-id="tripId" :readonly="isViewer" />
       </div>
 
       <!-- Expenses tab -->
@@ -2168,6 +2226,7 @@ async function recomputeSegments(dayId: string) {
           :filtered-total="expensePage?.filteredTotal ?? 0"
           :has-more="expenseCursor !== null"
           :loading-more="loadingMoreExpenses"
+          :readonly="isViewer"
           @budget-updated="refresh"
           @expenses-changed="refreshExpenses"
           @update:filters="expenseQuery = $event"
@@ -2181,6 +2240,7 @@ async function recomputeSegments(dayId: string) {
         <ReservationTracker
           :trip-id="tripId"
           :currency-code="trip.currencyCode ?? 'USD'"
+          :readonly="isViewer"
           @edit-in-itinerary="handleEditBookingInItinerary"
           @changed="refreshExpenseSummary"
         />
@@ -2260,12 +2320,6 @@ async function recomputeSegments(dayId: string) {
             <span class="opacity-60"
               >({{ generatingDayIndex + 1 }} of {{ generatingDayTotal }})</span
             >
-            <!-- Running cost, so the price of a long run is never a surprise. -->
-            <span v-if="generateCreditsSpent > 0" class="opacity-60">
-              · {{ generateCreditsSpent }} used<template v-if="generateCreditsRemaining != null"
-                >, {{ generateCreditsRemaining }} left</template
-              >
-            </span>
           </span>
         </div>
       </div>
@@ -2277,8 +2331,6 @@ async function recomputeSegments(dayId: string) {
       v-model:input="aiInput"
       :messages="aiMessages"
       :loading="aiLoading"
-      :usage-used="aiUsage?.used ?? null"
-      :usage-limit="aiUsage?.limit ?? null"
       :usage-remaining="aiUsage?.remaining ?? null"
       :has-activities="activeDayHasActivities"
       :destination="trip.destination"

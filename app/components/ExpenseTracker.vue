@@ -80,6 +80,8 @@ const props = defineProps<{
   /** Whether another page exists. */
   hasMore: boolean
   loadingMore?: boolean
+  /** Viewers see the money but cannot change it; every write is editor-only. */
+  readonly?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -155,6 +157,17 @@ const filtersActive = computed(
     Boolean(props.filters.from) ||
     Boolean(props.filters.to),
 )
+
+/** A short list does not need six filter controls above it; they wait behind a button. */
+const filtersOpen = ref(false)
+const filterVisibility = computed(() =>
+  expenseFilterVisibility({
+    expenseCount: props.summary?.expenseCount ?? 0,
+    filtersActive: filtersActive.value,
+    opened: filtersOpen.value,
+  }),
+)
+const filterGridId = useId()
 
 function clearFilters() {
   emit("update:filters", { ...EMPTY_FILTERS, sort: props.filters.sort, order: props.filters.order })
@@ -526,6 +539,7 @@ async function deleteExpense(expenseId: string) {
     refresh()
   } catch (e: unknown) {
     console.error("Failed to delete expense:", e)
+    toast.error("Couldn't delete the expense. Please try again.")
   }
 }
 
@@ -595,6 +609,7 @@ function getMemberName(userId: string | null): string {
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-semibold text-sand-900">Budget</h3>
         <button
+          v-if="!readonly"
           type="button"
           class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 hover:bg-terra-50 hover:text-terra-600 focus-ring"
           aria-label="Edit budget"
@@ -605,7 +620,7 @@ function getMemberName(userId: string | null): string {
         </button>
       </div>
 
-      <div v-if="editingBudget" class="mt-3 flex gap-2">
+      <div v-if="editingBudget && !readonly" class="mt-3 flex gap-2">
         <label :for="`${uid}-budget`" class="sr-only">Budget amount</label>
         <input
           :id="`${uid}-budget`"
@@ -712,63 +727,91 @@ function getMemberName(userId: string | null): string {
       </p>
     </div>
 
-    <!-- Currencies actually paid in. Only shown once there is more than one,
-         which is when the trip-currency total stops being self-explanatory. -->
-    <div v-if="byCurrency.length > 0" class="rounded-2xl border border-sand-200 bg-white p-6">
-      <h3 class="text-sm font-semibold text-sand-900">Currencies</h3>
-      <div class="mt-3 space-y-2">
-        <div
-          v-for="row in byCurrency"
-          :key="row.currencyCode"
-          class="flex items-center justify-between text-sm"
-        >
-          <span class="text-sand-700">{{ row.currencyCode }}</span>
-          <span class="tabular-nums text-sand-600">
-            {{ row.amount }} {{ row.currencyCode }}
-            <span class="text-sand-700">=</span>
-            <span class="font-medium text-sand-900">
-              {{ formatCurrency(row.amountInTripCurrency) }}
-            </span>
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Planned vs actual. `expenses.activityId` had a column, an index and a
-         relation, and nothing in the UI ever set or read it. -->
-    <div v-if="plannedVsActual.length > 0" class="rounded-2xl border border-sand-200 bg-white p-6">
-      <h3 class="text-sm font-semibold text-sand-900">Planned vs actual</h3>
-      <div class="mt-3 space-y-2">
-        <div
-          v-for="row in plannedVsActual"
-          :key="row.activityId"
-          class="flex items-center justify-between gap-3 text-sm"
-        >
-          <div class="min-w-0">
-            <p class="truncate text-sand-800">{{ row.name }}</p>
-            <p class="text-xs text-sand-500">Day {{ row.dayNumber }}</p>
-          </div>
-          <div class="shrink-0 text-right tabular-nums">
-            <p class="text-sand-600 text-xs">
-              est. {{ formatCurrency(row.planned) }} · actual
-              {{ formatCurrency(row.actual) }}
-            </p>
-            <p
-              class="text-xs font-medium"
-              :class="row.variance > 0 ? 'text-terra-600' : 'text-forest-600'"
+    <!-- Breakdown: the currencies actually paid in (only once there is more
+         than one) and planned estimate vs actual per activity. Reference
+         detail, so it starts folded. -->
+    <details
+      v-if="byCurrency.length > 0 || plannedVsActual.length > 0"
+      class="group rounded-2xl border border-sand-200 bg-white"
+    >
+      <summary
+        class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-2xl px-6 py-3 text-sm font-semibold text-sand-900 focus-ring [&::-webkit-details-marker]:hidden"
+      >
+        Breakdown
+        <Icon
+          name="lucide:chevron-down"
+          class="h-4 w-4 shrink-0 text-sand-500 transition-transform group-open:rotate-180"
+        />
+      </summary>
+      <div class="space-y-5 px-6 pb-6">
+        <div v-if="byCurrency.length > 0">
+          <h4 class="text-xs font-medium uppercase tracking-wide text-sand-700">Currencies</h4>
+          <div class="mt-2 space-y-2">
+            <div
+              v-for="row in byCurrency"
+              :key="row.currencyCode"
+              class="flex items-center justify-between text-sm"
             >
-              {{ row.variance > 0 ? "+" : "" }}{{ formatCurrency(row.variance) }}
-            </p>
+              <span class="text-sand-700">{{ row.currencyCode }}</span>
+              <span class="tabular-nums text-sand-600">
+                {{ row.amount }} {{ row.currencyCode }}
+                <span class="text-sand-700">=</span>
+                <span class="font-medium text-sand-900">
+                  {{ formatCurrency(row.amountInTripCurrency) }}
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="plannedVsActual.length > 0">
+          <h4 class="text-xs font-medium uppercase tracking-wide text-sand-700">
+            Planned vs actual
+          </h4>
+          <div class="mt-2 space-y-2">
+            <div
+              v-for="row in plannedVsActual"
+              :key="row.activityId"
+              class="flex items-center justify-between gap-3 text-sm"
+            >
+              <div class="min-w-0">
+                <p class="truncate text-sand-800">{{ row.name }}</p>
+                <p class="text-xs text-sand-500">Day {{ row.dayNumber }}</p>
+              </div>
+              <div class="shrink-0 text-right tabular-nums">
+                <p class="text-sand-600 text-xs">
+                  est. {{ formatCurrency(row.planned) }} · actual
+                  {{ formatCurrency(row.actual) }}
+                </p>
+                <p
+                  class="text-xs font-medium"
+                  :class="row.variance > 0 ? 'text-terra-600' : 'text-forest-600'"
+                >
+                  {{ row.variance > 0 ? "+" : "" }}{{ formatCurrency(row.variance) }}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </details>
 
     <!-- Expenses section -->
     <div class="rounded-2xl border border-sand-200 bg-white p-6">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-semibold text-sand-900">Expenses</h3>
         <div class="flex items-center gap-2">
+          <button
+            v-if="filterVisibility.showToggle"
+            type="button"
+            class="inline-flex min-h-11 items-center gap-1 rounded-lg border border-sand-200 px-2.5 text-xs font-medium text-sand-600 hover:bg-sand-50 focus-ring"
+            :aria-expanded="filtersOpen"
+            :aria-controls="filterGridId"
+            @click="filtersOpen = !filtersOpen"
+          >
+            <Icon name="lucide:list-filter" class="h-3 w-3" />
+            Filter
+          </button>
           <button
             v-if="filteredCount > 0"
             class="inline-flex min-h-11 items-center gap-1 rounded-lg border border-sand-200 px-2.5 text-xs font-medium text-sand-600 hover:bg-sand-50"
@@ -779,6 +822,7 @@ function getMemberName(userId: string | null): string {
             <span class="hidden sm:inline">CSV</span>
           </button>
           <button
+            v-if="!readonly"
             class="inline-flex min-h-11 items-center gap-1 rounded-lg bg-cta px-3 text-xs font-medium text-white hover:bg-cta-hover"
             @click="
               () => {
@@ -795,7 +839,11 @@ function getMemberName(userId: string | null): string {
 
       <!-- Filter / sort bar (#49). Every control below is a query parameter on
            the list endpoint; nothing here filters an array in the browser. -->
-      <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div
+        v-if="filterVisibility.showGrid"
+        :id="filterGridId"
+        class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"
+      >
         <div>
           <label :for="filterCategoryId" class="mb-1 block text-xs font-medium text-sand-600">
             Category
@@ -892,7 +940,7 @@ function getMemberName(userId: string | null): string {
 
       <!-- Add/Edit form -->
       <form
-        v-if="showAddForm"
+        v-if="showAddForm && !readonly"
         class="mt-4 space-y-3 border-b border-sand-100 pb-4"
         @submit.prevent="submitExpense"
       >
@@ -1128,6 +1176,7 @@ function getMemberName(userId: string | null): string {
                 </span>
               </span>
               <button
+                v-if="!readonly"
                 type="button"
                 class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-terra-500 active:scale-95 focus-ring"
                 title="Edit"
@@ -1137,6 +1186,7 @@ function getMemberName(userId: string | null): string {
                 <Icon name="lucide:edit" class="h-3.5 w-3.5" />
               </button>
               <button
+                v-if="!readonly"
                 type="button"
                 class="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-sand-500 transition hover:text-red-500 active:scale-95 focus-ring"
                 title="Delete"
@@ -1150,7 +1200,10 @@ function getMemberName(userId: string | null): string {
 
           <!-- Receipts (#48). Served from our own origin and gated on trip
                membership — never from the public share link. -->
-          <div class="mt-2 flex flex-wrap items-center gap-2">
+          <div
+            v-if="expense.attachments.length > 0 || !readonly"
+            class="mt-2 flex flex-wrap items-center gap-2"
+          >
             <button
               v-for="receipt in expense.attachments"
               :key="receipt.id"
@@ -1177,6 +1230,7 @@ function getMemberName(userId: string | null): string {
             </button>
 
             <button
+              v-if="!readonly"
               type="button"
               :disabled="uploadingFor === expense.id"
               class="inline-flex min-h-9 items-center gap-1 rounded-lg border border-dashed border-sand-300 px-2 py-1.5 text-xs font-medium text-sand-500 hover:bg-sand-50 disabled:opacity-50"
@@ -1246,7 +1300,7 @@ function getMemberName(userId: string | null): string {
             Download {{ openReceipt.fileName }}
           </a>
 
-          <div class="mt-4 flex justify-end">
+          <div v-if="!readonly" class="mt-4 flex justify-end">
             <button
               type="button"
               class="min-h-9 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"

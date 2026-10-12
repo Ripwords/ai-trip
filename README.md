@@ -54,19 +54,19 @@ The result is a **JSON-driven itinerary** you can drag, edit, split costs on, an
 - **Intent-based AI planning** — natural language commands are classified into structured operations (add, remove, modify, reschedule, optimize, fill gaps, accommodation) rather than free-form chat
 - **Google Maps enrichment** — every activity carries verified coordinates, ratings, price level, and opening hours. Place photos are switched off to avoid Google Places Photo billing; activities show a placeholder icon instead
 - **Streaming discuss mode** — talk through a plan with the AI and accept proposals individually, with live SSE streaming
-- **Trip-level generation** — generate a whole multi-day itinerary in one pass, then refine day by day
+- **Trip-level generation** — **Generate whole trip** (the main button on an empty itinerary, or the AI dock chip) plans every day in one pass; then refine day by day
 - **Drag-and-drop reordering** — rearrange activities with automatic travel-time recalculation
 - **Route optimization** — reorder a day to minimize travel using the Distance Matrix API
 - **Ideas bucket** — park places you're considering, promote them into the itinerary when ready
 
 ### Collaboration
 
-- **Team trips** — invite members as owner, editor, or viewer, enforced on every request
-- **Activity voting** — +1 / −1 on proposed activities
-- **Inline comments** — discuss individual activities
-- **Participant tracking** — mark who is attending what
+- **Team trips** — invite members as owner, editor, or viewer, enforced on every request; if an invite email cannot be sent, the invite link is shown to copy and share by hand. Viewers see notes, checklists, expenses, and bookings read-only
+- **Activity voting** — +1 / −1 on each activity, shown on group trips (more than one member); viewers can vote too
+- **Inline comments** — a **Comments** button under each activity on group trips opens its thread; viewers can comment too
+- **Participant tracking** — mark who is attending what, from **Assign people** in an activity card's actions menu (the ⋯ button, which also holds Edit and Delete)
 - **Audit trail** — every trip mutation logged with actor, action, and metadata
-- **Shareable links** — public read-only itinerary view via share token
+- **Shareable links** — public read-only itinerary view via share token. A link lasts 30 days; the share menu shows its expiry date, and once it lapses the trip shows as not shared so the owner can create a fresh link
 
 ### Travel documents
 
@@ -78,7 +78,7 @@ The result is a **JSON-driven itinerary** you can drag, edit, split costs on, an
 
 ### Money
 
-- **Expense tracking** — trip-wide, optionally linked to an activity
+- **Expense tracking** — trip-wide, optionally linked to an activity. Filters (category, payer, sort, dates) sit behind a **Filter** button until a trip has more than 10 expenses; a folded **Breakdown** section holds the per-currency totals and planned-vs-actual by activity
 - **Custom splits** — who paid, who owes
 - **Receipt attachments** — bounded uploads behind a pluggable storage interface
 - **Currency conversion** — live exchange rates
@@ -304,7 +304,7 @@ The planner enforces schedules a human could actually walk:
 
 ### Rate limits
 
-Each user gets **100 AI prompts per month**, metered atomically. Streaming turns are billed per step and settled non-idempotently at the end of the stream.
+Each user gets **100 AI credits per month**, metered atomically. The trip page stays quiet about usage until 10 or fewer credits remain, then shows a short notice in the AI dock; the full count is under **Settings → AI credits**. Streaming turns are billed per step and settled non-idempotently at the end of the stream.
 
 ## API Reference
 
@@ -367,11 +367,11 @@ Each user gets **100 AI prompts per month**, metered atomically. Streaming turns
 
 ### Other
 
-| Method     | Endpoint                 | Description               |
-| ---------- | ------------------------ | ------------------------- |
-| `GET`      | `/api/ai/usage`          | AI prompt quota remaining |
-| `POST`     | `/api/ai/layover-tips`   | Layover recommendations   |
-| `GET/POST` | `/api/visited-countries` | Travel history            |
+| Method     | Endpoint                 | Description             |
+| ---------- | ------------------------ | ----------------------- |
+| `GET`      | `/api/ai/usage`          | AI credits remaining    |
+| `POST`     | `/api/ai/layover-tips`   | Layover recommendations |
+| `GET/POST` | `/api/visited-countries` | Travel history          |
 
 ## Security
 

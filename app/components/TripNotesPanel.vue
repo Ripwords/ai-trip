@@ -2,10 +2,18 @@
 const props = defineProps<{
   tripId: string
   notes: string | null
+  /** Viewers read the notes; the server refuses their writes anyway. */
+  readonly?: boolean
+}>()
+
+const emit = defineEmits<{
+  /** The text now stored, so the page's copy of the trip stays current. */
+  saved: [notes: string | null]
 }>()
 
 const value = ref(props.notes ?? "")
 const saved = ref(false)
+const toast = useToast()
 
 const textareaId = useId()
 
@@ -17,17 +25,23 @@ watch(
 )
 
 async function handleBlur() {
+  // An unchanged blur must not save: it would write this panel's copy back over
+  // whatever is stored now.
+  if (!noteChanged(props.notes, value.value)) return
+  const tripNotes = normalizeNote(value.value)
   try {
     await $fetch(`/api/trips/${props.tripId}`, {
       method: "PUT",
-      body: { tripNotes: value.value },
+      body: { tripNotes },
     })
+    emit("saved", tripNotes)
     saved.value = true
     setTimeout(() => {
       saved.value = false
     }, 2000)
   } catch (e: unknown) {
     console.error("Failed to save notes:", e)
+    toast.error("Could not save the trip notes. Please try again.")
   }
 }
 </script>
@@ -35,12 +49,24 @@ async function handleBlur() {
 <template>
   <div class="rounded-2xl border border-sand-200 bg-white p-6">
     <div class="flex items-center justify-between">
-      <label :for="textareaId" class="text-sm font-semibold text-sand-700">Trip Notes</label>
+      <label v-if="!readonly" :for="textareaId" class="text-sm font-semibold text-sand-700"
+        >Trip Notes</label
+      >
+      <h3 v-else class="text-sm font-semibold text-sand-700">Trip Notes</h3>
       <span role="status" aria-live="polite" class="text-xs text-forest-600 transition">
         <template v-if="saved">Saved</template>
       </span>
     </div>
+    <template v-if="readonly">
+      <!-- Text sits flush against the tags: pre-wrap would render template
+           indentation as leading whitespace. -->
+      <p v-if="notes" class="mt-2 whitespace-pre-wrap break-words text-sm text-sand-700">
+        {{ notes }}
+      </p>
+      <p v-else class="mt-2 text-sm text-sand-500">No trip notes yet.</p>
+    </template>
     <textarea
+      v-else
       :id="textareaId"
       v-model="value"
       rows="6"
