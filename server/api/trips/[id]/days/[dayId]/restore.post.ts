@@ -1,13 +1,16 @@
 import "zod/compile"
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../../../../../db"
 import { activities, itineraryDays } from "../../../../../db/schema"
 import { dayIdParamsSchema } from "../../../../../utils/schemas"
 import { computeAndSaveSegments } from "../../../../../lib/segments"
+import { planDayRestore } from "../../../../../lib/day-restore"
 import { lockTripForStayWrite, reconcileTripStays } from "../../../../../lib/booking-sync"
 
 const activitySnapshotSchema = z.object({
+  // Optional so an older client still restores (as a full replace).
+  id: z.string().uuid().optional(),
   name: z.string(),
   placeId: z.string().nullable(),
   type: z.string(),
@@ -63,7 +66,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Day not found" })
   }
 
-  const insertValues = body.activities.map((a) => ({
+  const snapshot = body.activities.map((a) => ({
+    id: a.id,
     itineraryDayId: dayId,
     name: a.name,
     placeId: a.placeId,
@@ -85,7 +89,8 @@ export default defineEventHandler(async (event) => {
     actualCost: a.actualCost,
   }))
 
-  // Atomic delete + re-insert, plus the accommodation restore and the stay
+  // Atomic restore (see `planDayRestore`: survivors keep their id, so their
+  // comments, votes, participants and expense links survive the undo), plus the accommodation restore and the stay
   // reconciliation it implies. `db` is the neon-serverless driver (websocket
   // Pool) in every environment, which supports real transactions — the previous
   // `import.meta.dev` split called `db.batch`, which only exists on the
@@ -99,9 +104,29 @@ export default defineEventHandler(async (event) => {
     // Before the day write, never after — see `lockTripForStayWrite`.
     if (body.accommodation) await lockTripForStayWrite(tx, id)
 
-    await tx.delete(activities).where(eq(activities.itineraryDayId, dayId))
-    if (insertValues.length > 0) {
-      await tx.insert(activities).values(insertValues)
+    // Read inside the transaction so the plan matches the rows it rewrites.
+    const existing = await tx
+      .select({ id: activities.id })
+      .from(activities)
+      .where(eq(activities.itineraryDayId, dayId))
+    const plan = planDayRestore(
+      existing.map((a) => a.id),
+      snapshot,
+    )
+
+    if (plan.deleteIds.length > 0) {
+      await tx
+        .delete(activities)
+        .where(and(eq(activities.itineraryDayId, dayId), inArray(activities.id, plan.deleteIds)))
+    }
+    for (const { id: activityId, values } of plan.updates) {
+      await tx
+        .update(activities)
+        .set(values)
+        .where(and(eq(activities.id, activityId), eq(activities.itineraryDayId, dayId)))
+    }
+    if (plan.inserts.length > 0) {
+      await tx.insert(activities).values(plan.inserts)
     }
     if (body.accommodation) {
       await tx.update(itineraryDays).set(body.accommodation).where(eq(itineraryDays.id, dayId))

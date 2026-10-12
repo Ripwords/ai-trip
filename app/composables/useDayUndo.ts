@@ -1,4 +1,10 @@
 export interface ActivitySnapshot {
+  /**
+   * The activity's row id. Lets the restore update a surviving activity in
+   * place: re-creating it would cascade away its comments, votes and
+   * participants and unlink its expenses.
+   */
+  id?: string
   name: string
   placeId: string | null
   type: string
@@ -48,6 +54,7 @@ export function buildAccommodationSnapshot(
 /** Project loaded activity rows onto exactly the restore endpoint's schema. */
 export function buildDaySnapshot(activities: ActivityLike[]): ActivitySnapshot[] {
   return activities.map((a) => ({
+    id: typeof a.id === "string" ? a.id : undefined,
     name: String(a.name ?? ""),
     placeId: (a.placeId as string | null) ?? null,
     type: String(a.type ?? "attraction"),
