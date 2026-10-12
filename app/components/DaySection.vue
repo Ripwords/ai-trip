@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { VueDraggable } from "vue-draggable-plus"
+import type { Vote, VoteState } from "~/utils/activity-votes"
 
 interface Activity {
   id: string
@@ -88,6 +89,63 @@ function saveNotes() {
 }
 
 const toast = useToast()
+
+// ── Group feedback: votes and comments (group trips only) ────────────
+const isCollaborative = computed(() => isCollaborativeTrip(props.members))
+
+const activityIdsKey = computed(() => props.day.activities.map((a) => a.id).join(","))
+
+// One request per activity on this day; the endpoint has no batch form. Not
+// run during SSR, and not at all on a solo trip.
+const { data: voteMap } = useLazyAsyncData(
+  `activity-votes-${props.day.id}`,
+  async () => {
+    if (!isCollaborative.value) return {}
+    const entries = await Promise.all(
+      props.day.activities.map(async (a) => {
+        try {
+          const state = await $fetch<VoteState>(
+            `/api/trips/${props.tripId}/activities/${a.id}/votes`,
+          )
+          return [a.id, state] as const
+        } catch {
+          return [a.id, NO_VOTES] as const
+        }
+      }),
+    )
+    return Object.fromEntries(entries) as Record<string, VoteState>
+  },
+  {
+    server: false,
+    default: () => ({}) as Record<string, VoteState>,
+    watch: [activityIdsKey, isCollaborative],
+  },
+)
+
+async function handleVote(activityId: string, vote: Vote) {
+  const before = voteMap.value[activityId] ?? NO_VOTES
+  try {
+    const result = await $fetch<{ vote: Vote | null }>(
+      `/api/trips/${props.tripId}/activities/${activityId}/vote`,
+      { method: "POST", body: { vote } },
+    )
+    voteMap.value = { ...voteMap.value, [activityId]: applyVoteResult(before, result.vote) }
+  } catch (e: unknown) {
+    console.error("Failed to vote:", e)
+    toast.error("Couldn't record your vote. Please try again.")
+  }
+}
+
+const openCommentsId = ref<string | null>(null)
+const commentCounts = ref<Record<string, number>>({})
+
+function toggleComments(activityId: string) {
+  openCommentsId.value = openCommentsId.value === activityId ? null : activityId
+}
+
+function setCommentCount(activityId: string, count: number) {
+  commentCounts.value = { ...commentCounts.value, [activityId]: count }
+}
 
 // Drag and drop
 const localActivities = ref([...props.day.activities])
@@ -216,6 +274,12 @@ function timeToMinutes(time: string): number | null {
               :readonly="readonly"
               :participants="participantsMap?.[activity.id]"
               :members="members"
+              :is-collaborative="isCollaborative"
+              :votes="voteMap[activity.id]"
+              :comment-count="commentCounts[activity.id]"
+              :comments-open="openCommentsId === activity.id"
+              @vote="handleVote"
+              @show-comments="toggleComments"
               @edit="emit('editActivity', $event)"
               @delete="emit('deleteActivity', $event)"
               @click="emit('clickActivity', $event)"
@@ -223,6 +287,13 @@ function timeToMinutes(time: string): number | null {
                 (activityId: string, userId: string) =>
                   emit('toggleParticipant', activityId, userId)
               "
+            />
+            <ActivityComments
+              v-if="isCollaborative && openCommentsId === activity.id"
+              :id="`activity-comments-${activity.id}`"
+              :trip-id="tripId"
+              :activity-id="activity.id"
+              @count="setCommentCount"
             />
           </div>
           <TravelSegmentDivider

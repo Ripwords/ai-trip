@@ -62,8 +62,8 @@ The result is a **JSON-driven itinerary** you can drag, edit, split costs on, an
 ### Collaboration
 
 - **Team trips** — invite members as owner, editor, or viewer, enforced on every request; if an invite email cannot be sent, the invite link is shown to copy and share by hand. Viewers see notes, checklists, expenses, and bookings read-only
-- **Activity voting** — +1 / −1 on proposed activities
-- **Inline comments** — discuss individual activities
+- **Activity voting** — +1 / −1 on each activity, shown on group trips (more than one member); viewers can vote too
+- **Inline comments** — a **Comments** button under each activity on group trips opens its thread; viewers can comment too
 - **Participant tracking** — mark who is attending what, from **Assign people** in an activity card's actions menu (the ⋯ button, which also holds Edit and Delete)
 - **Audit trail** — every trip mutation logged with actor, action, and metadata
 - **Shareable links** — public read-only itinerary view via share token. A link lasts 30 days; the share menu shows its expiry date, and once it lapses the trip shows as not shared so the owner can create a fresh link

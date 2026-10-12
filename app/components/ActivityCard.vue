@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { VoteState } from "~/utils/activity-votes"
+
 interface Activity {
   id: string
   name: string
@@ -58,8 +60,10 @@ const props = defineProps<{
   highlighted?: boolean
   readonly?: boolean
   isCollaborative?: boolean
-  voteCount?: number
+  votes?: VoteState
+  /** Undefined until the thread has been opened once; the list has no count. */
   commentCount?: number
+  commentsOpen?: boolean
   participants?: Participant[]
   members?: Member[]
 }>()
@@ -489,30 +493,43 @@ function formatDuration(minutes: number): string {
       <!-- Collaboration: vote + comment (only for group trips) -->
       <div
         v-if="isCollaborative"
-        class="mt-3 flex items-center gap-3 border-t border-sand-100 pt-2"
+        class="-mb-2 mt-2 flex items-center gap-1 border-t border-sand-100 pt-0.5"
+        @click.stop
+        @keydown.stop
       >
         <button
-          class="inline-flex items-center gap-1 text-xs text-sand-400 transition hover:text-forest-600"
-          title="Upvote"
-          @click.stop="emit('vote', activity.id, 'up')"
+          type="button"
+          class="-ml-2 inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-lg text-xs transition hover:text-forest-600 focus-ring"
+          :class="votes?.myVote === 'up' ? 'font-medium text-forest-600' : 'text-sand-500'"
+          :aria-pressed="votes?.myVote === 'up'"
+          :aria-label="`Vote for ${activity.name}`"
+          @click="emit('vote', activity.id, 'up')"
         >
           <Icon name="lucide:thumbs-up" class="h-3.5 w-3.5" />
-          <span v-if="voteCount">{{ voteCount }}</span>
+          <span v-if="votes?.upVotes" class="tabular-nums">{{ votes.upVotes }}</span>
         </button>
         <button
-          class="inline-flex items-center gap-1 text-xs text-sand-400 transition hover:text-terra-600"
-          title="Downvote"
-          @click.stop="emit('vote', activity.id, 'down')"
+          type="button"
+          class="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-lg text-xs transition hover:text-terra-600 focus-ring"
+          :class="votes?.myVote === 'down' ? 'font-medium text-terra-600' : 'text-sand-500'"
+          :aria-pressed="votes?.myVote === 'down'"
+          :aria-label="`Vote against ${activity.name}`"
+          @click="emit('vote', activity.id, 'down')"
         >
           <Icon name="lucide:thumbs-down" class="h-3.5 w-3.5" />
+          <span v-if="votes?.downVotes" class="tabular-nums">{{ votes.downVotes }}</span>
         </button>
         <button
-          class="ml-auto inline-flex items-center gap-1 text-xs text-sand-400 transition hover:text-ocean-600"
-          @click.stop="emit('showComments', activity.id)"
+          type="button"
+          class="-mr-2 ml-auto inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs transition hover:text-ocean-600 focus-ring"
+          :class="commentsOpen ? 'text-ocean-600' : 'text-sand-500'"
+          :aria-expanded="commentsOpen"
+          :aria-controls="commentsOpen ? `activity-comments-${activity.id}` : undefined"
+          @click="emit('showComments', activity.id)"
         >
           <Icon name="lucide:message-circle" class="h-3.5 w-3.5" />
           <span v-if="commentCount">{{ commentCount }}</span>
-          <span v-else>Comment</span>
+          <span v-else>Comments</span>
         </button>
       </div>
     </div>
