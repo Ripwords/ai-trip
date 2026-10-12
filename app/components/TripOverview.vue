@@ -699,25 +699,26 @@ function formatDayRange(dayNumbers: number[]): string {
   display: none !important;
 }
 
-/* ── Light mode (base) ──────────────────────── */
+/* Colours come from the theme ramps, which the .dark block in tailwind.css
+   swaps, so most rules need no dark twin. */
 .ov-card {
   border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: #ffffff;
+  border: 1px solid var(--color-sand-200);
+  background: var(--color-card);
 }
 
 .ov-card-hero {
-  background: linear-gradient(135deg, #fef4f0, #fde6dc);
-  color: #3d3328;
-  border: 1px solid rgba(232, 93, 58, 0.18);
+  background: linear-gradient(135deg, var(--color-terra-50), var(--color-terra-100));
+  color: var(--color-sand-900);
+  border: 1px solid color-mix(in srgb, var(--color-terra-600) 18%, transparent);
 }
 
 .ov-toggle {
   width: 34px;
   height: 34px;
-  background: #ffffff;
-  color: #6e5c46;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--color-card);
+  color: var(--color-sand-700);
+  border: 1px solid var(--color-sand-200);
 }
 @media (pointer: coarse) {
   .ov-toggle {
@@ -726,143 +727,58 @@ function formatDayRange(dayNumbers: number[]): string {
   }
 }
 .ov-toggle:hover {
-  color: #e85d3a;
+  color: var(--color-terra-600);
 }
 
-/* Day rows — light */
+/* Day rows */
 .ov-day-num {
-  background: #f3efe8;
-  color: #6e5c46;
+  background: var(--color-sand-100);
+  color: var(--color-sand-700);
 }
-.ov-day-row:hover .ov-day-num {
-  background: #e85d3a;
-  color: #fff;
-}
-.ov-day-date {
-  color: #3d3328;
-}
-.ov-day-meta {
-  color: #9f8b6f;
-}
-.ov-day-sub {
-  color: #b8a78f;
-}
-.ov-day-weather {
-  color: #9f8b6f;
-}
-.ov-day-row:hover {
-  background: rgba(232, 93, 58, 0.06);
-}
-.ov-day-row-active {
-  background: rgba(232, 93, 58, 0.1);
-}
+.ov-day-row:hover .ov-day-num,
 .ov-day-num-active {
-  background: #e85d3a !important;
+  background: var(--color-cta) !important;
   color: #fff !important;
 }
+.ov-day-date {
+  color: var(--color-sand-900);
+}
+.ov-day-meta,
+.ov-day-weather,
 .ov-section-title {
-  color: #9f8b6f;
+  color: var(--color-sand-600);
+}
+.ov-day-sub {
+  color: var(--color-sand-500);
+}
+.ov-day-row:hover {
+  background: color-mix(in srgb, var(--color-terra-600) 6%, transparent);
+}
+.ov-day-row-active {
+  background: color-mix(in srgb, var(--color-terra-600) 12%, transparent);
 }
 
-/* ── Light mode — desktop glass ─────────────── */
+/* Desktop glass over the map */
 @media (min-width: 1024px) {
-  .ov-card {
-    background: rgba(255, 255, 255, 0.85);
+  .ov-card,
+  .ov-toggle {
+    background: color-mix(in srgb, var(--color-card) 85%, transparent);
     backdrop-filter: blur(20px) saturate(1.2);
     -webkit-backdrop-filter: blur(20px) saturate(1.2);
-    border-color: rgba(255, 255, 255, 0.5);
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   }
   .ov-card-hero {
-    background: linear-gradient(135deg, rgba(254, 244, 240, 0.92), rgba(253, 230, 220, 0.88));
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-terra-50) 92%, transparent),
+      color-mix(in srgb, var(--color-terra-100) 88%, transparent)
+    );
     backdrop-filter: blur(20px) saturate(1.2);
     -webkit-backdrop-filter: blur(20px) saturate(1.2);
-    border: 1px solid rgba(232, 93, 58, 0.18);
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
   }
-  .ov-toggle {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-  }
-}
-
-/* ── Dark mode ──────────────────────────────── */
-.dark .ov-card {
-  background: #1e1b18;
-  border-color: rgba(255, 255, 255, 0.06);
-}
-.dark .ov-card-hero,
-.dark .ov-card.ov-card-hero {
-  background: linear-gradient(135deg, #1a1714, #23201b) !important;
-  color: #f3efe8;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-.dark .ov-toggle {
-  background: #1e1b18;
-  border-color: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.6);
-}
-.dark .ov-toggle:hover {
-  color: #e85d3a;
-}
-
-/* Day rows — dark */
-.dark .ov-day-num {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.7);
-}
-.dark .ov-day-row:hover .ov-day-num {
-  background: #e85d3a;
-  color: #fff;
-}
-.dark .ov-day-date {
-  color: rgba(255, 255, 255, 0.85);
-}
-.dark .ov-day-meta {
-  color: rgba(255, 255, 255, 0.4);
-}
-.dark .ov-day-sub {
-  color: rgba(255, 255, 255, 0.3);
-}
-.dark .ov-day-weather {
-  color: rgba(255, 255, 255, 0.4);
-}
-.dark .ov-day-row:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-.dark .ov-day-row-active {
-  background: rgba(232, 93, 58, 0.12);
-}
-.dark .ov-day-num-active {
-  background: #e85d3a !important;
-  color: #fff !important;
-}
-.dark .ov-section-title {
-  color: rgba(255, 255, 255, 0.35);
-}
-
-/* ── Dark mode — desktop glass ──────────────── */
-@media (min-width: 1024px) {
-  .dark .ov-card {
-    background: rgba(26, 23, 20, 0.82);
-    backdrop-filter: blur(20px) saturate(1.2);
-    -webkit-backdrop-filter: blur(20px) saturate(1.2);
-    border-color: rgba(255, 255, 255, 0.05);
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.25);
-  }
-  .dark .ov-card-hero,
-  .dark .ov-card.ov-card-hero {
-    background: linear-gradient(135deg, rgba(26, 23, 20, 0.92), rgba(35, 32, 27, 0.88)) !important;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.25);
-  }
+  .dark .ov-card,
   .dark .ov-toggle {
-    background: rgba(26, 23, 20, 0.82);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.25);
   }
 }
 </style>

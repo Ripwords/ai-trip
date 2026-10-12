@@ -37,6 +37,10 @@
   --color-cta: #0e7c86;
   --color-cta-hover: #0a636b;
 
+  /* Card surface. Unlike the ramps this swaps to a lifted dark slate rather
+     than mirroring, matching the .dark .bg-white override below. */
+  --color-card: #ffffff;
+
   --color-ocean-50: #eef4fb;
   --color-ocean-100: #dbe7f7;
   --color-ocean-200: #b8cfef;
@@ -183,13 +187,15 @@
   --color-amber-800: #f2d089;
   --color-amber-900: #f9e8c2;
 
+  --color-card: #1d2629;
+
   /* Override white backgrounds used in cards/modals */
   color-scheme: dark;
 }
 
 /* White elements need to become dark in dark mode */
 .dark .bg-white {
-  background-color: #1d2629 !important;
+  background-color: var(--color-card) !important;
 }
 .dark .bg-white\/60 {
   background-color: rgba(29, 38, 41, 0.6) !important;

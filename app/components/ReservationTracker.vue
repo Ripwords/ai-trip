@@ -91,7 +91,7 @@ const typeIcons: Record<string, string> = {
 
 const statusClasses: Record<string, string> = {
   confirmed: "bg-forest-50 text-forest-700",
-  pending: "bg-yellow-50 text-yellow-700",
+  pending: "bg-amber-50 text-amber-700",
   cancelled: "bg-red-50 text-red-600",
 }
 
@@ -441,7 +441,7 @@ const dateGridClass = computed(() => {
                   </span>
                   <span
                     v-if="needsDetails(r)"
-                    class="inline-block rounded-full bg-yellow-50 px-2 py-0.5 text-xs font-medium text-yellow-700"
+                    class="inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700"
                   >
                     Needs details
                   </span>

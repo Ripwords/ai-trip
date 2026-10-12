@@ -1132,16 +1132,16 @@ const proposalKindMeta: Record<
 .dock-sheet {
   background: var(--color-sand-50);
   box-shadow:
-    0 0 0 1px rgba(61, 51, 40, 0.08),
-    0 -24px 56px -20px rgba(61, 51, 40, 0.3);
+    0 0 0 1px rgba(19, 38, 43, 0.08),
+    0 -24px 56px -20px rgba(19, 38, 43, 0.3);
 }
 
 @media (min-width: 768px) {
   .dock-sheet {
     box-shadow:
-      0 0 0 1px rgba(61, 51, 40, 0.08),
-      0 24px 48px -16px rgba(61, 51, 40, 0.22),
-      0 -8px 32px -16px rgba(61, 51, 40, 0.1);
+      0 0 0 1px rgba(19, 38, 43, 0.08),
+      0 24px 48px -16px rgba(19, 38, 43, 0.22),
+      0 -8px 32px -16px rgba(19, 38, 43, 0.1);
   }
 }
 .dock-sheet::before {
@@ -1223,7 +1223,7 @@ const proposalKindMeta: Record<
        background under the composer. `box-shadow` never contributes scrollable
        overflow, so keeping it cannot reintroduce the room this fix removes. */
     box-shadow:
-      0 -24px 56px -20px rgba(61, 51, 40, 0.3),
+      0 -24px 56px -20px rgba(19, 38, 43, 0.3),
       0 100dvh 0 0 var(--color-sand-50);
   }
 }
@@ -1474,8 +1474,8 @@ const proposalKindMeta: Record<
   border-radius: 14px;
   overflow: hidden;
   box-shadow:
-    0 1px 0 0 rgba(61, 51, 40, 0.04),
-    0 6px 18px -10px rgba(61, 51, 40, 0.18);
+    0 1px 0 0 rgba(19, 38, 43, 0.04),
+    0 6px 18px -10px rgba(19, 38, 43, 0.18);
 }
 
 .dock-stamp {
@@ -1677,7 +1677,7 @@ const proposalKindMeta: Record<
   background: var(--color-sand-900);
   color: var(--color-sand-50);
   font-size: 12px;
-  box-shadow: 0 6px 18px -6px rgba(61, 51, 40, 0.4);
+  box-shadow: 0 6px 18px -6px rgba(19, 38, 43, 0.4);
 }
 
 .dock-dot {
