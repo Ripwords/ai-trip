@@ -166,9 +166,12 @@ async function refreshExpenses() {
 
 const { data: tripFlights, refresh: refreshFlights } = useLazyFetch(`/api/trips/${tripId}/flights`)
 
+/** The viewer's calendar day; hydration-safe (`useCalendarToday`). */
+const todayDate = useCalendarToday()
+
 const sortedTripFlights = computed(() => {
   if (!tripFlights.value) return []
-  const today = new Date().toISOString().split("T")[0]!
+  const today = todayDate.value
   return [...tripFlights.value].toSorted((a, b) => {
     const aUpcoming = isUpcomingFlight(a as OrderableFlight, today)
     const bUpcoming = isUpcomingFlight(b as OrderableFlight, today)
@@ -514,8 +517,6 @@ const allActivities = computed(() => {
 
 const hasActivities = computed(() => sortedDays.value.some((d) => d.activities.length > 0))
 
-const todayDate = new Date().toISOString().slice(0, 10)
-
 const sortedDays = computed(() => {
   if (!trip.value?.days) return []
   return [...trip.value.days].toSorted((a, b) => a.dayNumber - b.dayNumber)
@@ -797,7 +798,7 @@ watch(
       sessionRestored = true
 
       // Priority 1: If one of the days matches today, jump to it
-      const today = new Date().toISOString().slice(0, 10)
+      const today = todayCalendarDate()
       const todayDay = days.find((d) => d.date === today)
       if (todayDay) {
         activeDayId.value = todayDay.id

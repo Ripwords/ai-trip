@@ -214,7 +214,8 @@ interface UpcomingActivity {
 const upcomingActivities = computed<UpcomingActivity[]>(() => {
   if (!isOngoing.value) return []
   const now = new Date()
-  const todayStr = now.toISOString().slice(0, 10)
+  // Local day, the same clock `currentTime` and `isOngoing` read.
+  const todayStr = todayCalendarDate(now)
   const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
   const results: UpcomingActivity[] = []
   for (const day of props.sortedDays) {

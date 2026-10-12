@@ -54,7 +54,6 @@ const searchQuery = ref("")
 
 const sortedTrips = computed(() => {
   if (!trips.value) return []
-  const today = new Date().toISOString().split("T")[0]!
   return [...trips.value].toSorted((a, b) => {
     // Ongoing first, then upcoming, then completed
     const statusRank = { ongoing: 0, upcoming: 1, completed: 2, cancelled: 3 } as const
@@ -85,7 +84,7 @@ watch(searchQuery, () => {
 })
 
 // Next upcoming flight
-const today = new Date().toISOString().split("T")[0]!
+const today = useCalendarToday()
 interface FlightData {
   flightNumber: string
   flightDate: string
@@ -96,7 +95,7 @@ interface FlightData {
 
 const nextFlight = computed<FlightData | null>(() => {
   if (!upcomingFlights.value) return null
-  const found = (upcomingFlights.value as FlightData[]).find((f) => f.flightDate >= today)
+  const found = (upcomingFlights.value as FlightData[]).find((f) => f.flightDate >= today.value)
   return found ?? null
 })
 
@@ -106,7 +105,7 @@ const MIN_ACTIVITIES_FOR_COUNTDOWN = 3
 const nextTrip = computed(() => {
   if (!trips.value) return null
   const upcoming = trips.value
-    .filter((t) => t.status !== "cancelled" && t.startDate > today)
+    .filter((t) => t.status !== "cancelled" && t.startDate > today.value)
     .toSorted((a, b) => a.startDate.localeCompare(b.startDate))
 
   for (const trip of upcoming) {
