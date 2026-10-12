@@ -206,6 +206,22 @@ describe("passport history", () => {
     assert.equal(result.recentFlights[0]?.id, "ok")
   })
 
+  it("excludes a cancelled flight stored with the provider's own spelling", () => {
+    // Rows written before ingest normalised the status carry AeroDataBox's
+    // "Canceled" verbatim.
+    for (const status of ["Canceled", "CanceledUncertain", "Cancelled"]) {
+      const result = buildPassportHistory({
+        flights: [
+          mkFlight("ok", "2025-01-01", "JFK", "NRT"),
+          { ...mkFlight("cxl", "2025-06-01", "JFK", "LHR"), status },
+        ],
+        visitedCountries: [],
+        now: new Date("2026-05-24T00:00:00Z"),
+      })
+      assert.equal(result.totalFlights, 1, `${status} counted as flown`)
+    }
+  })
+
   it("omits future-only years from availableYears since scoping there would be empty", () => {
     const result = buildPassportHistory({
       flights: [

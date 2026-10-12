@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
 
+import { FLIGHT_STATUSES } from "../../shared/utils/flight-status"
+
 const card = readFileSync(fileURLToPath(new URL("./FlightCard.vue", import.meta.url)), "utf8")
 const theme = readFileSync(
   fileURLToPath(new URL("../assets/css/tailwind.css", import.meta.url)),
@@ -64,6 +66,21 @@ describe("FlightCard delay lines", () => {
 
 describe("FlightCard status badges", () => {
   const badgeColors = [...card.matchAll(/\bcolor: "([^"]+)"/g)].map((m) => m[1]!)
+
+  it("has a badge for every canonical flight status", () => {
+    const configBlock = card.slice(
+      card.indexOf("const statusConfig"),
+      card.indexOf("const statusBadge"),
+    )
+    for (const status of FLIGHT_STATUSES) {
+      assert.match(configBlock, new RegExp(`\\b${status}: \\{`), `no badge for "${status}"`)
+    }
+  })
+
+  it("normalises the stored status before looking up its badge", () => {
+    // Older rows hold the provider's spelling ("Canceled", "Arrived").
+    assert.match(card, /statusConfig\[normalizeFlightStatus\(props\.flight\.status\)\]/)
+  })
 
   it("reads a colour for every status the card can show", () => {
     // scheduled, delayed, landed, cancelled, and the fallback `statusBadge` uses

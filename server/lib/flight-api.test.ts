@@ -200,6 +200,21 @@ describe("lookupFlight cache integration", () => {
   })
 })
 
+describe("status normalisation at ingest", () => {
+  it("stores the app's canonical status, not the provider's spelling", async () => {
+    for (const [raw, canonical] of [
+      ["Canceled", "cancelled"],
+      ["Arrived", "landed"],
+    ] as const) {
+      const store = makeMemoryStore()
+      const { impl } = makeFetch([{ ok: true, body: [{ ...SAMPLE_RESPONSE[0]!, status: raw }] }])
+      const now = () => new Date("2099-05-26T11:00:00Z")
+      const result = await lookupFlight(`X${raw}`, FUTURE_DATE, { store, fetchImpl: impl, now })
+      expect(result?.status).toBe(canonical)
+    }
+  })
+})
+
 describe("deriveFlightFields", () => {
   it("exposes full local departure/arrival times alongside local dates", () => {
     const derived = deriveFlightFields(SAMPLE_RESPONSE[0])
