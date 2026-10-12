@@ -308,26 +308,32 @@ export type BeginDayResult =
   | "already-done"
   /** Another attempt holds a fresh claim; the caller must not charge either. */
   | "in-flight"
-  /** No such run/day for this user, or the run is finished. */
+  /** No such run/day on this trip, or the run is finished. */
   | "not-found"
 
 /**
  * Take ownership of one day of a run. MUST be called before consuming the
  * day's AI credit — that ordering is what makes resume idempotent.
+ *
+ * Scoped to the trip, not to the run's creator. A trip has a single active run
+ * and any editor who presses Generate resumes it (`startOrResumeRun`), so
+ * requiring the creator here made a co-editor's resume 404 on every day. The
+ * caller has already proven owner/editor access to `tripId`; the credit for a
+ * day is charged to whoever generates it.
  */
 export async function beginRunDay(
   store: GenerationRunStore,
   input: {
     runId: string
     dayId: string
-    userId: string
+    tripId: string
     now: Date
     staleAfterMs?: number
   },
 ): Promise<BeginDayResult> {
   const staleAfterMs = input.staleAfterMs ?? STALE_CLAIM_MS
   const run = await store.findRun(input.runId)
-  if (!run || run.userId !== input.userId || run.status !== "running") return "not-found"
+  if (!run || run.tripId !== input.tripId || run.status !== "running") return "not-found"
 
   const day = run.days.find((d) => d.dayId === input.dayId)
   if (!day) return "not-found"

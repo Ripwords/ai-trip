@@ -626,7 +626,7 @@ describe("beginRunDay", () => {
     const store = new FakeStore()
     const run = await freshRun(store)
     assert.equal(
-      await beginRunDay(store, { runId: run.id, dayId: "d1", userId: "u1", now: NOW }),
+      await beginRunDay(store, { runId: run.id, dayId: "d1", tripId: "t1", now: NOW }),
       "claimed",
     )
   })
@@ -636,7 +636,7 @@ describe("beginRunDay", () => {
     const run = await freshRun(store)
     await store.markDay(run.id, "d1", "succeeded", null)
     assert.equal(
-      await beginRunDay(store, { runId: run.id, dayId: "d1", userId: "u1", now: NOW }),
+      await beginRunDay(store, { runId: run.id, dayId: "d1", tripId: "t1", now: NOW }),
       "already-done",
     )
   })
@@ -645,18 +645,33 @@ describe("beginRunDay", () => {
     const store = new FakeStore()
     const run = await freshRun(store)
     const both = await Promise.all([
-      beginRunDay(store, { runId: run.id, dayId: "d1", userId: "u1", now: NOW }),
-      beginRunDay(store, { runId: run.id, dayId: "d1", userId: "u1", now: NOW }),
+      beginRunDay(store, { runId: run.id, dayId: "d1", tripId: "t1", now: NOW }),
+      beginRunDay(store, { runId: run.id, dayId: "d1", tripId: "t1", now: NOW }),
     ])
     assert.deepEqual(both.toSorted(), ["claimed", "in-flight"])
   })
 
-  it("refuses a run belonging to another user", async () => {
+  it("refuses a run belonging to another trip", async () => {
     const store = new FakeStore()
     const run = await freshRun(store)
     assert.equal(
-      await beginRunDay(store, { runId: run.id, dayId: "d1", userId: "intruder", now: NOW }),
+      await beginRunDay(store, { runId: run.id, dayId: "d1", tripId: "t-other", now: NOW }),
       "not-found",
+    )
+  })
+
+  // B13: the trip's single active run is resumed by whichever editor presses
+  // Generate, but each day's claim used to require the run's *creator*, so a
+  // co-editor's resume 404'd on every day with no way forward but discarding.
+  // Trip access (owner/editor) is checked by the endpoint; the run only has to
+  // belong to the trip.
+  it("lets a co-editor claim a day of another member's run on the same trip", async () => {
+    const store = new FakeStore()
+    const run = await freshRun(store)
+    assert.equal(run.userId, "u1")
+    assert.equal(
+      await beginRunDay(store, { runId: run.id, dayId: "d1", tripId: "t1", now: NOW }),
+      "claimed",
     )
   })
 
@@ -664,7 +679,7 @@ describe("beginRunDay", () => {
     const store = new FakeStore()
     const run = await freshRun(store)
     assert.equal(
-      await beginRunDay(store, { runId: run.id, dayId: "d9", userId: "u1", now: NOW }),
+      await beginRunDay(store, { runId: run.id, dayId: "d9", tripId: "t1", now: NOW }),
       "not-found",
     )
   })
@@ -674,7 +689,7 @@ describe("beginRunDay", () => {
     const run = await freshRun(store)
     await store.finishRun(run.id, "cancelled")
     assert.equal(
-      await beginRunDay(store, { runId: run.id, dayId: "d1", userId: "u1", now: NOW }),
+      await beginRunDay(store, { runId: run.id, dayId: "d1", tripId: "t1", now: NOW }),
       "not-found",
     )
   })
@@ -691,7 +706,7 @@ describe("endRunDay", () => {
       creditsCharged: 0,
       days: [{ dayId: "d1", dayNumber: 1 }],
     })
-    await beginRunDay(store, { runId: run.id, dayId: "d1", userId: "u1", now: NOW })
+    await beginRunDay(store, { runId: run.id, dayId: "d1", tripId: "t1", now: NOW })
     await endRunDay(store, { runId: run.id, dayId: "d1", ok: false, error: "AI unavailable" })
     const after = await store.findRun(run.id)
     assert.equal(after?.days[0]?.status, "failed")
@@ -712,7 +727,7 @@ describe("endRunDay", () => {
       creditsCharged: 0,
       days: [{ dayId: "d1", dayNumber: 1 }],
     })
-    await beginRunDay(store, { runId: run.id, dayId: "d1", userId: "u1", now: NOW })
+    await beginRunDay(store, { runId: run.id, dayId: "d1", tripId: "t1", now: NOW })
     assert.equal((await store.findRun(run.id))?.creditsCharged, 1)
     await endRunDay(store, { runId: run.id, dayId: "d1", ok: false, error: "x", refunded: true })
     const after = await store.findRun(run.id)
@@ -749,7 +764,7 @@ describe("resuming an interrupted full-trip generation", () => {
 
     /** Stands in for POST /days/:id/ai with a runId. */
     async function generateDay(runId: string, dayId: string, now: Date): Promise<boolean> {
-      const state = await beginRunDay(store, { runId, dayId, userId: "u1", now })
+      const state = await beginRunDay(store, { runId, dayId, tripId: "t1", now })
       if (state !== "claimed") return false
       await ledger.consume() // tryConsumeAiCredit, after the claim
       generated.push(dayId)
@@ -783,7 +798,7 @@ describe("resuming an interrupted full-trip generation", () => {
     }
     // Day 4 is claimed and charged, then the process disappears.
     assert.equal(
-      await beginRunDay(store, { runId: first.run.id, dayId: "d4", userId: "u1", now: NOW }),
+      await beginRunDay(store, { runId: first.run.id, dayId: "d4", tripId: "t1", now: NOW }),
       "claimed",
     )
     await ledger.consume()
@@ -862,7 +877,7 @@ describe("resuming an interrupted full-trip generation", () => {
       }))
 
     async function generateDay(runId: string, dayId: string, now: Date): Promise<void> {
-      const state = await beginRunDay(store, { runId, dayId, userId: "u1", now })
+      const state = await beginRunDay(store, { runId, dayId, tripId: "t1", now })
       if (state !== "claimed") return
       await ledger.consume()
       attempts.push(dayId)

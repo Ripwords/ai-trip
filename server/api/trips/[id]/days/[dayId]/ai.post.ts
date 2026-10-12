@@ -145,11 +145,15 @@ export default defineEventHandler(async (event) => {
     const state = await beginRunDay(generationRunStore, {
       runId,
       dayId,
-      userId: session.user.id,
+      tripId: id,
       now: new Date(),
     })
     if (state === "not-found") {
-      throw createError({ statusCode: 404, message: "Generation run not found." })
+      throw createError({
+        statusCode: 404,
+        message:
+          "This generation run has finished or was discarded. Discard it and start generating again.",
+      })
     }
     if (state === "already-done") {
       // Not an error: the resumed loop asked for a day that is already done.
