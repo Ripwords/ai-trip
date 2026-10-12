@@ -31,6 +31,8 @@ export const PROTECTED_PREFIXES: Readonly<Record<string, SignedOutDestination>> 
   "/trips": "landing",
   "/explore": "landing",
   "/settings": "landing",
+  "/flights": "landing",
+  "/passport": "landing",
   "/oauth/consent": "sign-in-and-return",
 }
 
