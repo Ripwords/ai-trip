@@ -39,7 +39,10 @@ describe("planDayRestore", () => {
 
   // An old client sends no ids: fall back to replacing the day, as before.
   it("replaces the day when the snapshot carries no ids", () => {
-    const plan = planDayRestore([KEPT, EDITED], [{ name: "Senso-ji", sortOrder: 0 }])
+    const noIds: { id?: string; name: string; sortOrder: number }[] = [
+      { name: "Senso-ji", sortOrder: 0 },
+    ]
+    const plan = planDayRestore([KEPT, EDITED], noIds)
     assert.deepEqual(plan.updates, [])
     assert.deepEqual(plan.inserts, [{ name: "Senso-ji", sortOrder: 0 }])
     assert.deepEqual(plan.deleteIds, [KEPT, EDITED])
