@@ -176,6 +176,14 @@ describe("theme palette", () => {
     assert.ok(uses <= BLUE_BUDGET, `${uses} blue accent uses, budget ${BLUE_BUDGET}`)
   })
 
+  it("draws every map flat, like Google Maps: no photographic relief or terrain noise", () => {
+    const offenders = files
+      .filter((f) => /(Map|Globe|PassportHero)\.vue$/.test(f.name))
+      .filter((f) => /earth-natural|earth-topology|feTurbulence|displacementMap/.test(f.source))
+      .map((f) => f.name)
+    assert.deepEqual(offenders, [])
+  })
+
   it("leaves no retired warm or navy colours hard-coded outside the theme tokens", () => {
     const offenders = files
       .filter((f) => !f.name.startsWith("assets/"))

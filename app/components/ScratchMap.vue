@@ -379,32 +379,6 @@ function resetZoom() {
         @touchend.passive="handleTouchEnd"
         @touchcancel.passive="handleTouchEnd"
       >
-        <defs>
-          <!-- Land silhouette, so terrain grain only touches land (ocean stays smooth) -->
-          <clipPath id="scratch-land-clip">
-            <path v-for="country in staticPaths" :key="country.id" :d="country.d" />
-          </clipPath>
-          <!-- Fractal noise → grayscale relief, blended over land like the globe's bump map -->
-          <filter id="scratch-terrain" x="0" y="0" width="100%" height="100%">
-            <feTurbulence
-              type="fractalNoise"
-              base-frequency="0.011"
-              num-octaves="3"
-              seed="7"
-              stitch-tiles="stitch"
-              result="noise"
-            />
-            <feColorMatrix
-              in="noise"
-              type="matrix"
-              values="0.33 0.33 0.33 0 0
-                      0.33 0.33 0.33 0 0
-                      0.33 0.33 0.33 0 0
-                      0    0    0    0 1"
-            />
-          </filter>
-        </defs>
-
         <!-- Ocean background -->
         <rect width="960" height="600" class="map-ocean" />
 
@@ -437,14 +411,6 @@ function resetZoom() {
             @click="handleClick(country.info)"
             @mouseenter="handleMouseEnter(country.id, country.info)"
             @mouseleave="handleMouseLeave"
-          />
-          <!-- Terrain relief: soft-light noise over land, non-interactive -->
-          <rect
-            width="960"
-            height="600"
-            class="terrain-grain"
-            clip-path="url(#scratch-land-clip)"
-            filter="url(#scratch-terrain)"
           />
         </g>
       </svg>
@@ -574,13 +540,11 @@ function resetZoom() {
   --map-country-hover: #ffffff;
   --map-visited: #ea4335;
   --map-visited-hover: #c5221f;
-  --map-layover: #3b6fc0;
+  --map-layover: #4285f4;
   --map-layover-hover: #1a73e8;
-  --map-want: #4f9a6e;
-  --map-want-hover: #3f845c;
-  --map-border: #9aa0a6;
-  --map-texture: soft-light;
-  --map-texture-opacity: 0.32;
+  --map-want: #34a853;
+  --map-want-hover: #188038;
+  --map-border: #c4c7c5;
   --map-overlay-bg: rgba(255, 255, 255, 0.92);
   --map-overlay-border: rgba(32, 33, 36, 0.08);
   --map-overlay-text: #202124;
@@ -601,17 +565,15 @@ function resetZoom() {
    to a bare `.dark`, which drops the descendant and styles <html> instead. */
 .dark .scratch-map {
   --map-ocean: #1f3639;
-  --map-country: #212b2e;
-  --map-country-hover: #3c3d42;
+  --map-country: #3c3d42;
+  --map-country-hover: #4a4c52;
   --map-visited: #f28b82;
   --map-visited-hover: #f6aea9;
-  --map-layover: #6b8fc4;
-  --map-layover-hover: #8ab4f8;
+  --map-layover: #8ab4f8;
+  --map-layover-hover: #aecbfa;
   --map-want: #81c995;
   --map-want-hover: #98d2b0;
-  --map-border: #4a4c52;
-  --map-texture: soft-light;
-  --map-texture-opacity: 0.22;
+  --map-border: #5f6368;
   --map-overlay-bg: rgba(42, 43, 47, 0.92);
   --map-overlay-border: rgba(220, 229, 230, 0.1);
   --map-overlay-text: #e8eaed;
@@ -661,11 +623,6 @@ function resetZoom() {
 }
 
 /* ── Terrain texture ───────────────────────────────────── */
-.terrain-grain {
-  pointer-events: none;
-  mix-blend-mode: var(--map-texture);
-  opacity: var(--map-texture-opacity);
-}
 
 /* ── Tooltip ─────────────────────────────────────────── */
 .map-tooltip {

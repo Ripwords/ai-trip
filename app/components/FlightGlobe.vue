@@ -4,15 +4,12 @@ import {
   Vector3,
   Group,
   MeshBasicMaterial,
-  LineBasicMaterial,
-  Line,
-  BufferGeometry,
   SphereGeometry,
   Mesh,
-  QuadraticBezierCurve3,
+  CatmullRomCurve3,
+  TubeGeometry,
   Color,
-  MeshStandardMaterial,
-  TextureLoader,
+  CanvasTexture,
   SRGBColorSpace,
   RepeatWrapping,
   ClampToEdgeWrapping,
@@ -20,6 +17,10 @@ import {
 import type { Mesh as ThreeMesh } from "three"
 import { getAirportCoordinates } from "../utils/airport-coordinates"
 import { iataToCountry } from "../utils/iata-to-country"
+import { drawFlatWorld } from "../utils/flat-world"
+import { mapPalette } from "../utils/map-palette"
+import { greatCircleArc } from "../utils/globe-arc"
+import { getCountryFeatures, latLngToVector3 } from "../utils/globe-countries"
 
 interface Flight {
   departureAirport: string | null
@@ -33,59 +34,32 @@ const props = defineProps<{
 
 // Globe radius (kept at the previous FBX globe's scale so flight-arc math is unchanged)
 const GLOBE_RADIUS = 6.414
-// Relief displacement (scaled to this globe's radius) and the radius at which
-// arcs/dots ride so they sit above the tallest displaced terrain.
-const DISP_SCALE = 0.34
-const SURFACE_RADIUS = GLOBE_RADIUS + DISP_SCALE + 0.02
+// Arcs and dots ride just above the surface.
+const SURFACE_RADIUS = GLOBE_RADIUS + 0.02
 
 const { isDark } = useDarkMode()
 const prefersReducedMotion = useReducedMotion()
 
-const theme = computed(() =>
-  isDark.value
-    ? {
-        clearColor: "#1f2023",
-        // Gentle cool tint — keeps the globe clearly visible while the bright
-        // arcs still stand out (a heavy tint made it read as near-black).
-        globeTint: "#c6ccd4",
-        arcColor: "#f28b82",
-        dotColor: "#f6aea9",
-      }
-    : {
-        clearColor: "#f8f9fa",
-        globeTint: "#dde1e6",
-        arcColor: "#ea4335",
-        dotColor: "#ec7a66",
-      },
-)
+const clearColor = computed(() => (isDark.value ? "#1f2023" : "#f8f9fa"))
+const palette = computed(() => mapPalette(isDark.value))
 
-// --- Convert lat/lng to 3D position on the globe ---
-function latLngToVector3(lat: number, lng: number, radius: number): Vector3 {
-  const phi = (90 - lat) * (Math.PI / 180)
-  const theta = (lng + 180) * (Math.PI / 180)
-  return new Vector3(
-    -(radius * Math.sin(phi) * Math.cos(theta)),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  )
-}
+const countries = getCountryFeatures()
+const TEX_WIDTH = 4096
+const TEX_HEIGHT = 2048
 
 // --- Build flight arcs and airport dots ---
 function buildFlightOverlays(): Group {
   const group = new Group()
-  const t = theme.value
-
-  const arcMaterial = new LineBasicMaterial({
-    color: new Color(t.arcColor),
-    transparent: true,
-    opacity: 0.9,
+  const arcMaterial = new MeshBasicMaterial({
+    color: new Color(palette.value.route),
+    toneMapped: false,
   })
-
   const dotMaterial = new MeshBasicMaterial({
-    color: new Color(t.dotColor),
+    color: new Color(palette.value.route),
+    toneMapped: false,
   })
 
-  const dotGeo = new SphereGeometry(0.08, 12, 12)
+  const dotGeo = new SphereGeometry(0.12, 16, 16)
   const seen = new Set<string>()
 
   for (const flight of props.flights) {
@@ -95,19 +69,9 @@ function buildFlightOverlays(): Group {
     const arrCoords = getAirportCoordinates(flight.arrivalAirport)
     if (!depCoords || !arrCoords) continue
 
-    const start = latLngToVector3(depCoords.lat, depCoords.lng, SURFACE_RADIUS)
-    const end = latLngToVector3(arrCoords.lat, arrCoords.lng, SURFACE_RADIUS)
-
-    // Arc: quadratic bezier elevated above the globe
-    const mid = new Vector3().addVectors(start, end).multiplyScalar(0.5)
-    const distance = start.distanceTo(end)
-    const arcHeight = GLOBE_RADIUS + 0.5 + distance * 0.15
-    const midElevated = mid.normalize().multiplyScalar(arcHeight)
-
-    const curve = new QuadraticBezierCurve3(start, midElevated, end)
-    const points = curve.getPoints(64)
-    const arcGeo = new BufferGeometry().setFromPoints(points)
-    group.add(new Line(arcGeo, arcMaterial))
+    // A tube, not a Line: WebGL lines are always 1px, too faint for a route.
+    const curve = new CatmullRomCurve3(greatCircleArc(depCoords, arrCoords, SURFACE_RADIUS, 64))
+    group.add(new Mesh(new TubeGeometry(curve, 96, 0.035, 8, false), arcMaterial))
 
     // Airport dots
     for (const code of [flight.departureAirport, flight.arrivalAirport]) {
@@ -128,36 +92,28 @@ function buildFlightOverlays(): Group {
 // --- Scene group (globe + flight overlays) ---
 const sceneGroup = shallowRef<Group | null>(null)
 let flightOverlays: Group | null = null
-let globeMaterial: MeshStandardMaterial | null = null
+let mapCanvas: HTMLCanvasElement | null = null
+let mapTexture: CanvasTexture | null = null
+
+function paintGlobe() {
+  if (!mapCanvas) return
+  drawFlatWorld(mapCanvas.getContext("2d")!, TEX_WIDTH, TEX_HEIGHT, countries, palette.value)
+  if (mapTexture) mapTexture.needsUpdate = true
+}
 
 onMounted(() => {
-  // Realistic Natural Earth globe with 3D relief displacement. A darkening tint
-  // (globeTint) keeps the bright flight arcs legible over land and ocean.
-  const globeGeo = new SphereGeometry(GLOBE_RADIUS, 256, 256)
-  const globeMat = new MeshStandardMaterial({
-    color: new Color(theme.value.globeTint),
-    metalness: 0,
-    roughness: 1,
-  })
-  globeMaterial = globeMat
-  const loader = new TextureLoader()
-  loader.load("/textures/earth-natural.jpg", (tex) => {
-    tex.colorSpace = SRGBColorSpace
-    tex.wrapS = RepeatWrapping
-    tex.wrapT = ClampToEdgeWrapping
-    globeMat.map = tex
-    globeMat.needsUpdate = true
-  })
-  loader.load("/textures/earth-topology.png", (tex) => {
-    tex.wrapS = RepeatWrapping
-    tex.wrapT = ClampToEdgeWrapping
-    globeMat.displacementMap = tex
-    globeMat.displacementScale = DISP_SCALE
-    globeMat.bumpMap = tex
-    globeMat.bumpScale = 0.05
-    globeMat.needsUpdate = true
-  })
-  const globe = new Mesh(globeGeo, globeMat)
+  // A flat Google-style map, unlit and not tone-mapped so its colours match the 2D maps.
+  mapCanvas = document.createElement("canvas")
+  mapCanvas.width = TEX_WIDTH
+  mapCanvas.height = TEX_HEIGHT
+  paintGlobe()
+  mapTexture = new CanvasTexture(mapCanvas)
+  mapTexture.colorSpace = SRGBColorSpace
+  mapTexture.wrapS = RepeatWrapping
+  mapTexture.wrapT = ClampToEdgeWrapping
+  mapTexture.anisotropy = 4
+  const globeMat = new MeshBasicMaterial({ map: mapTexture, toneMapped: false })
+  const globe = new Mesh(new SphereGeometry(GLOBE_RADIUS, 128, 128), globeMat)
 
   const group = new Group()
   group.add(globe)
@@ -180,16 +136,12 @@ watch(
   },
 )
 
-// Update globe tint + arc/dot colors on theme change
-watch(theme, (t) => {
-  if (globeMaterial) globeMaterial.color.set(t.globeTint)
-  if (!flightOverlays) return
-  flightOverlays.traverse((child) => {
-    if ((child as Line).isLine) {
-      ;((child as Line).material as LineBasicMaterial).color.set(t.arcColor)
-    }
-    if ((child as ThreeMesh).isMesh && (child as ThreeMesh).geometry.type === "SphereGeometry") {
-      ;((child as ThreeMesh).material as MeshBasicMaterial).color.set(t.dotColor)
+// Repaint the map and recolour routes on theme change
+watch(palette, (p) => {
+  paintGlobe()
+  flightOverlays?.traverse((child) => {
+    if ((child as ThreeMesh).isMesh) {
+      ;((child as ThreeMesh).material as MeshBasicMaterial).color.set(p.route)
     }
   })
 })
@@ -240,12 +192,8 @@ const summaryText = computed(() => {
     class="relative h-[300px] w-full overflow-hidden rounded-2xl border border-sand-200 sm:h-[450px]"
   >
     <ClientOnly>
-      <TresCanvas :alpha="true" :clear-color="theme.clearColor" :antialias="true">
-        <TresPerspectiveCamera :position="cameraPosition" :fov="45">
-          <!-- Light parented to the camera so the visible side is always lit
-               (no permanent night side); offset keeps a grazing relief angle. -->
-          <TresDirectionalLight :intensity="0.8" :position="[-6, 5, 4]" />
-        </TresPerspectiveCamera>
+      <TresCanvas :alpha="true" :clear-color="clearColor" :antialias="true">
+        <TresPerspectiveCamera :position="cameraPosition" :fov="45" />
 
         <OrbitControls
           :enable-zoom="true"
@@ -261,9 +209,6 @@ const summaryText = computed(() => {
           :enable-damping="true"
         />
 
-        <!-- Ambient fill; the camera-parented directional light does the relief. -->
-        <TresAmbientLight :intensity="0.85" />
-
         <primitive v-if="sceneGroup" :object="sceneGroup" />
       </TresCanvas>
     </ClientOnly>
@@ -272,7 +217,7 @@ const summaryText = computed(() => {
     <div class="absolute bottom-3 left-0 right-0 flex justify-center">
       <span
         role="status"
-        class="rounded-full bg-white/70 px-3 py-1 font-display text-xs tracking-wide text-sand-800 backdrop-blur-sm"
+        class="rounded-full bg-white px-3 py-1 text-xs font-medium text-sand-800 shadow-sm"
         >{{ summaryText }}</span
       >
     </div>
