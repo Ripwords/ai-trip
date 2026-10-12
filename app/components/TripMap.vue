@@ -58,10 +58,10 @@ let MapClass: typeof google.maps.Map
 let MarkerClass: typeof google.maps.marker.AdvancedMarkerElement
 
 const markerColors: Record<string, string> = {
-  attraction: "#3B82F6",
-  restaurant: "#F97316",
+  attraction: "#3B6FC0",
+  restaurant: "#E2533B",
   hotel: "#22C55E",
-  transport: "#6B7280",
+  transport: "#56707A",
   shopping: "#A855F7",
   entertainment: "#EC4899",
 }
@@ -87,7 +87,7 @@ function toggleTypeFilter(type: string) {
 }
 
 function getMarkerColor(type: string): string {
-  return markerColors[type] || "#3B82F6"
+  return markerColors[type] || "#3B6FC0"
 }
 
 function createMarkerContent(index: number, type: string): HTMLElement {
@@ -425,7 +425,7 @@ function updatePolylines() {
 
   const polyline = new google.maps.Polyline({
     path,
-    strokeColor: mapMode.value === "light" ? "#1F2937" : "#f7a48a",
+    strokeColor: mapMode.value === "light" ? "#13262B" : "#95C9CC",
     strokeWeight: 3,
     strokeOpacity: 0.6,
     geodesic: true,
@@ -530,7 +530,7 @@ defineExpose({ centerOnActivity, centerOnPoint })
             <span
               class="inline-block h-1.5 w-1.5 rounded-full"
               :style="{
-                background: hiddenTypes.has(type) ? '#78716c' : markerColors[type] || '#3B82F6',
+                background: hiddenTypes.has(type) ? '#93A4A8' : markerColors[type] || '#3B6FC0',
               }"
             />
             {{ formatType(type) }}
@@ -546,7 +546,7 @@ defineExpose({ centerOnActivity, centerOnPoint })
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #3d3328;
+  color: #13262b;
 }
 .map-btn:hover {
   background: #ffffff;
@@ -554,32 +554,34 @@ defineExpose({ centerOnActivity, centerOnPoint })
 
 .map-filter-pill {
   background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(61, 51, 40, 0.12);
+  border: 1px solid rgba(19, 38, 43, 0.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #3d3328;
+  color: #13262b;
 }
 .map-filter-pill.is-hidden {
   background: rgba(255, 255, 255, 0.5);
-  color: #9f8b6f;
+  color: #6f8489;
   text-decoration: line-through;
 }
 
-:global(.dark) .map-btn {
-  background: rgba(26, 23, 20, 0.85);
-  color: rgba(255, 255, 255, 0.8);
+/* Plain `.dark` ancestor, not :global(.dark): Vue compiles `:global(.dark) .x`
+   to a bare `.dark`, which drops the descendant and styles <html> instead. */
+.dark .map-btn {
+  background: rgba(29, 38, 41, 0.92);
+  color: #dce5e6;
 }
-:global(.dark) .map-btn:hover {
-  background: rgba(26, 23, 20, 0.95);
+.dark .map-btn:hover {
+  background: rgba(44, 58, 62, 0.96);
 }
 
-:global(.dark) .map-filter-pill {
-  background: rgba(26, 23, 20, 0.85);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.8);
+.dark .map-filter-pill {
+  background: rgba(29, 38, 41, 0.9);
+  border-color: rgba(220, 229, 230, 0.12);
+  color: #dce5e6;
 }
-:global(.dark) .map-filter-pill.is-hidden {
-  background: rgba(26, 23, 20, 0.5);
-  color: rgba(255, 255, 255, 0.35);
+.dark .map-filter-pill.is-hidden {
+  background: rgba(29, 38, 41, 0.5);
+  color: rgba(220, 229, 230, 0.4);
 }
 </style>

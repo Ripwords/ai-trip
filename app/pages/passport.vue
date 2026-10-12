@@ -220,7 +220,7 @@ const periodLabel = computed(() =>
 <style scoped>
 /* Passport shell — mirrors PreTripBriefing's terra→ocean→sand gradient.
    var(--color-sand-50) swaps between light/dark, so the same formula
-   reads as warm parchment in light mode and a deep travel cover in dark. */
+   reads as a pale sea-glass page in light mode and a deep travel cover in dark. */
 
 .passport-shell {
   background:
@@ -238,7 +238,7 @@ const periodLabel = computed(() =>
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.55),
     inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-    0 16px 42px rgba(61, 51, 40, 0.08);
+    0 16px 42px rgba(19, 38, 43, 0.08);
   color: var(--color-sand-900);
 }
 

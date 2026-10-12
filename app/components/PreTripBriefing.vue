@@ -166,7 +166,7 @@ function iconClass(signal: BriefingSignal): string {
   );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.38),
-    0 16px 42px rgba(61, 51, 40, 0.08);
+    0 16px 42px rgba(19, 38, 43, 0.08);
 }
 
 .briefing-orbit {

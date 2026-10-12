@@ -44,18 +44,18 @@ const prefersReducedMotion = useReducedMotion()
 const theme = computed(() =>
   isDark.value
     ? {
-        clearColor: "#1a1714",
+        clearColor: "#172023",
         // Gentle cool tint — keeps the globe clearly visible while the bright
         // arcs still stand out (a heavy tint made it read as near-black).
         globeTint: "#c6ccd4",
-        arcColor: "#ff8a5c",
-        dotColor: "#ffa683",
+        arcColor: "#e0907f",
+        dotColor: "#eaa99b",
       }
     : {
-        clearColor: "#faf8f5",
+        clearColor: "#f4f7f7",
         globeTint: "#dde1e6",
-        arcColor: "#ff6a3c",
-        dotColor: "#ff8a5f",
+        arcColor: "#e2533b",
+        dotColor: "#ec7a66",
       },
 )
 
