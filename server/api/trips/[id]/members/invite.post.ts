@@ -70,10 +70,13 @@ export default defineEventHandler(async (event) => {
       description: `Invited ${body.email} as ${body.role} (email delivery failed)`,
       metadata: { email: body.email, role: body.role, emailError: String(e) },
     })
+    // The raw token lives only in this response (the database keeps its hash),
+    // so the link must be returned here or the inviter can never share it.
     return {
       success: true,
       expiresAt: expiresAt.toISOString(),
       emailSent: false,
+      inviteUrl: acceptUrl,
       error: "Invite created but email failed to send. Share the link manually.",
     }
   }
@@ -86,5 +89,5 @@ export default defineEventHandler(async (event) => {
     metadata: { email: body.email, role: body.role, expiresAt: expiresAt.toISOString() },
   })
 
-  return { success: true, expiresAt: expiresAt.toISOString() }
+  return { success: true, expiresAt: expiresAt.toISOString(), emailSent: true }
 })
