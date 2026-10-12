@@ -482,8 +482,17 @@ describe("primary CTA contrast", () => {
   const css = read("./assets/css/tailwind.css")
 
   it("defines a CTA fill token that does not mirror in dark mode", () => {
-    assert.match(css, /--color-cta:\s*#d44425/, "CTA token must be defined in @theme")
-    assert.match(css, /--color-cta-hover:\s*#b0341b/)
+    // White label text on both fills must clear WCAG AA (4.5:1).
+    for (const token of ["--color-cta", "--color-cta-hover"]) {
+      const hex = css.match(new RegExp(`${token}:\\s*#([0-9a-f]{6})`, "i"))?.[1]
+      assert.ok(hex, `${token} must be defined in @theme as a hex colour`)
+      const channel = (i: number) => {
+        const c = Number.parseInt(hex.slice(i, i + 2), 16) / 255
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+      }
+      const luminance = 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4)
+      assert.ok(1.05 / (luminance + 0.05) >= 4.5, `white on ${token} must be at least 4.5:1`)
+    }
     // The .dark block mirrors the terra ramp (400 <-> 600). If --color-cta were
     // redefined there it would flip to a light tint and drop white label text to
     // ~2.7:1, which is exactly the bug this token exists to prevent.
@@ -493,7 +502,7 @@ describe("primary CTA contrast", () => {
     assert.ok(start > -1, "expected a .dark { } theme block")
     const darkBlock = css.slice(start, start + css.slice(start).indexOf("\n}"))
     assert.doesNotMatch(darkBlock, /--color-cta\b/, "--color-cta must not be re-declared for dark")
-    assert.match(darkBlock, /--color-terra-600:\s*#f07b5a/, "sanity: terra does mirror in dark")
+    assert.match(darkBlock, /--color-terra-600:/, "sanity: terra does mirror in dark")
   })
 
   it("never paints white label text on a terra ramp step", () => {
