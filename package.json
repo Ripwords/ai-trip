@@ -34,8 +34,8 @@
   "dependencies": {
     "@ai-sdk/deepseek": "^3.0.44",
     "@ai-sdk/google": "^4.0.69",
-    "@better-auth/infra": "^0.4.9",
-    "@better-auth/mcp": "^1.7.4",
+    "@better-auth/infra": "^0.4.28",
+    "@better-auth/mcp": "^1.7.19",
     "@googlemaps/js-api-loader": "^2.1.1",
     "@googlemaps/markerclusterer": "^2.6.2",
     "@modelcontextprotocol/server": "^2.0.0",
@@ -51,7 +51,7 @@
     "@vercel/analytics": "^2.0.1",
     "@vite-pwa/nuxt": "^1.1.1",
     "ai": "^7.0.99",
-    "better-auth": "^1.7.4",
+    "better-auth": "^1.7.19",
     "d3-geo": "^3.1.1",
     "dayjs-nuxt": "^2.1.11",
     "dompurify": "^3.4.15",
@@ -89,7 +89,7 @@
     "vue-tsc": "^3.3.11"
   },
   "overrides": {
-    "@better-auth/utils": "0.4.2",
+    "@better-auth/utils": "0.5.1",
     "samlify>camelcase": "6.3.0",
     "sharp": "0.34.5"
   }
