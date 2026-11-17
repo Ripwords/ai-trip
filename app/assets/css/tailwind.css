@@ -371,3 +371,10 @@ html.transitioning * {
     color 0.3s ease,
     border-color 0.3s ease !important;
 }
+
+/* Google's dark basemap is navy, and the placeholder mapId cannot be restyled.
+   Tint the raster tiles warm to match the espresso dark theme. Pins live in a
+   separate pane, so they keep their own colours. */
+.gmap-warm-dark img[src*="/maps/vt"] {
+  filter: grayscale(1) sepia(0.3) brightness(1.25) contrast(0.9);
+}

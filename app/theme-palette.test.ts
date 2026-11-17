@@ -221,3 +221,24 @@ describe("theme palette", () => {
     assert.deepEqual(offenders, [])
   })
 })
+
+describe("Google basemap in dark mode", () => {
+  // Google's own dark basemap is navy and a placeholder mapId cannot restyle
+  // it, so the raster tiles are tinted warm instead. Pins sit in a separate
+  // pane and keep their colours.
+  const css = readFileSync(join(appDir, "assets/css/tailwind.css"), "utf8")
+
+  it("tints only the basemap tiles, never the whole map", () => {
+    const rule = css.match(/\.gmap-warm-dark img\[src\*="\/maps\/vt"\]\s*\{([^}]*)\}/)
+    assert.ok(rule, "tailwind.css must define the .gmap-warm-dark tile rule")
+    assert.match(rule[1]!, /filter:[^;]*grayscale\(1\)[^;]*sepia\(/)
+    assert.doesNotMatch(css, /\.gmap-warm-dark\s*\{[^}]*filter/)
+  })
+
+  for (const name of ["components/TripMap.vue", "components/TripOverviewMap.vue"]) {
+    it(`${name} applies the warm tint in dark map mode only`, () => {
+      const source = files.find((f) => f.name === name)!.source
+      assert.match(source, /'gmap-warm-dark': mapMode === 'dark'/)
+    })
+  }
+})

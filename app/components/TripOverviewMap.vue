@@ -411,7 +411,11 @@ onMounted(() => {
 
 <template>
   <div v-if="hasGeocodedActivities || countryCode" class="relative h-full">
-    <div ref="mapContainer" class="h-full w-full" />
+    <div
+      ref="mapContainer"
+      class="h-full w-full"
+      :class="{ 'gmap-warm-dark': mapMode === 'dark' }"
+    />
 
     <!-- Day legend (top-left) -->
     <div

@@ -481,7 +481,11 @@ defineExpose({ centerOnActivity, centerOnPoint })
 
 <template>
   <div class="relative flex h-full w-full flex-col">
-    <div ref="mapContainer" class="flex-1 rounded-lg" />
+    <div
+      ref="mapContainer"
+      class="flex-1 rounded-lg"
+      :class="{ 'gmap-warm-dark': mapMode === 'dark' }"
+    />
     <!-- Top-right controls: map style + category filter (panel drops down) -->
     <div class="absolute right-2 top-2 z-10 flex flex-col items-end gap-1.5">
       <button
