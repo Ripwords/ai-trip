@@ -56,8 +56,8 @@ onMounted(() => {
   padding: max(32px, env(safe-area-inset-top)) 24px max(32px, env(safe-area-inset-bottom));
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(244, 247, 247, 0.96), rgba(233, 239, 240, 0.98)), #f8f9fa;
-  color: #202124;
+    linear-gradient(180deg, rgba(248, 244, 236, 0.96), rgba(244, 239, 230, 0.98)), #f8f4ec;
+  color: #1c1810;
   opacity: 1;
   visibility: visible;
   animation: app-splash-fallback 260ms ease 3s forwards;
@@ -77,10 +77,10 @@ onMounted(() => {
   height: 76px;
   width: 76px;
   place-items: center;
-  border: 1px solid rgba(26, 115, 232, 0.18);
+  border: 1px solid rgba(195, 72, 0, 0.18);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.64);
-  box-shadow: 0 18px 44px rgba(32, 33, 36, 0.12);
+  box-shadow: 0 18px 44px rgba(28, 24, 16, 0.12);
 }
 
 .app-splash-screen__logo {
@@ -102,7 +102,7 @@ onMounted(() => {
   font-family: var(--font-display), serif;
   font-size: 1.75rem;
   line-height: 1;
-  color: #202124;
+  color: #1c1810;
 }
 
 .app-splash-screen__bar {
@@ -111,7 +111,7 @@ onMounted(() => {
   width: 128px;
   overflow: hidden;
   border-radius: 9999px;
-  background: rgba(195, 208, 210, 0.8);
+  background: rgba(214, 208, 197, 0.8);
 }
 
 .app-splash-screen__bar span {
@@ -119,31 +119,31 @@ onMounted(() => {
   inset: 0;
   width: 42%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #1a73e8, #8ab4f8);
+  background: linear-gradient(90deg, #c34800, #fc9065);
   animation: app-splash-progress 900ms ease-in-out infinite;
 }
 
 .dark .app-splash-screen {
-  background: linear-gradient(180deg, rgba(31, 32, 35, 0.97), rgba(42, 43, 47, 0.98)), #1f2023;
-  color: #e8eaed;
+  background: linear-gradient(180deg, rgba(21, 20, 16, 0.97), rgba(34, 32, 28, 0.98)), #151410;
+  color: #e5e4e2;
 }
 
 .dark .app-splash-screen__mark {
-  border-color: rgba(138, 180, 248, 0.22);
-  background: rgba(42, 43, 47, 0.72);
+  border-color: rgba(252, 144, 101, 0.22);
+  background: rgba(34, 32, 28, 0.72);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.32);
 }
 
 .dark .app-splash-screen__title {
-  color: #e8eaed;
+  color: #e5e4e2;
 }
 
 .dark .app-splash-screen__bar {
-  background: rgba(58, 74, 78, 0.75);
+  background: rgba(78, 75, 70, 0.75);
 }
 
 .dark .app-splash-screen__bar span {
-  background: linear-gradient(90deg, #8ab4f8, #a8c7fa);
+  background: linear-gradient(90deg, #fc9065, #f4a98b);
 }
 
 @keyframes app-splash-progress {

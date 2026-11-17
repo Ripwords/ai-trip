@@ -95,6 +95,29 @@ const RETIRED_HEX = new Set([
   "e2533b",
   "c4432d",
   "c4e1e4",
+  // Google Maps (neutral grey + one blue), replaced by Boarding Pass
+  "1a73e8",
+  "1765cc",
+  "8ab4f8",
+  "a8c7fa",
+  "4285f4",
+  "1f2023",
+  "2a2b2f",
+  "3c3d42",
+  "4a4c52",
+  "5f6368",
+  "e8eaed",
+  "202124",
+  "f8f9fa",
+  "3c4043",
+  "aadaff",
+  "1f3639",
+  "ea4335",
+  "34a853",
+  "129eaf",
+  "e8710a",
+  "d01884",
+  "9334e6",
 ])
 const RETIRED_RGB = new Set([
   "26,23,20",
@@ -118,9 +141,15 @@ const RETIRED_RGB = new Set([
   "29,38,41",
   "23,32,35",
   "95,168,173",
+  // Google Maps
+  "42,43,47",
+  "31,32,35",
+  "32,33,36",
+  "26,115,232",
+  "138,180,248",
 ])
 
-const BLUE_BUDGET = 145
+const ACCENT_BUDGET = 145
 
 function retiredColours(source: string): string[] {
   const found = new Set<string>()
@@ -149,7 +178,7 @@ describe("theme palette", () => {
     assert.deepEqual(offenders, [])
   })
 
-  it("keeps the blue accent off section labels: eyebrows are grey, as on Google Maps", () => {
+  it("keeps the accent off section labels: eyebrows are neutral", () => {
     const offenders = files.flatMap((f) =>
       [...f.source.matchAll(/class="([^"]*)"/g)]
         .map((m) => m[1]!)
@@ -159,7 +188,7 @@ describe("theme palette", () => {
     assert.deepEqual(offenders, [])
   })
 
-  it("never tints a gradient surface with the blue accent", () => {
+  it("never tints a gradient surface with the accent", () => {
     const offenders = files.flatMap((f) =>
       [...f.source.matchAll(/(?:linear|radial)-gradient\(([^;]*);/g)]
         .filter((m) => /--color-terra-/.test(m[1]!))
@@ -169,14 +198,14 @@ describe("theme palette", () => {
     assert.deepEqual([...new Set(offenders)], [])
   })
 
-  it("spends the blue accent sparingly: actions, links, focus and selection only", () => {
-    // 268 uses made the Maps theme read as a blue theme; 143 after the sweep. Raising this cap
+  it("spends the accent sparingly: actions, links, focus and selection only", () => {
+    // 268 uses made the previous theme read as a one-colour theme; 143 after the sweep. Raising this cap
     // should mean a new interactive control, not a new decoration.
     const uses = files.reduce((n, f) => n + (f.source.match(/terra-\d/g)?.length ?? 0), 0)
-    assert.ok(uses <= BLUE_BUDGET, `${uses} blue accent uses, budget ${BLUE_BUDGET}`)
+    assert.ok(uses <= ACCENT_BUDGET, `${uses} accent uses, budget ${ACCENT_BUDGET}`)
   })
 
-  it("draws every map flat, like Google Maps: no photographic relief or terrain noise", () => {
+  it("draws every map flat: no photographic relief or terrain noise", () => {
     const offenders = files
       .filter((f) => /(Map|Globe|PassportHero)\.vue$/.test(f.name))
       .filter((f) => /earth-natural|earth-topology|feTurbulence|displacementMap/.test(f.source))

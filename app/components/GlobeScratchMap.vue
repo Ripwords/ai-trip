@@ -39,33 +39,33 @@ const palette = computed(() => mapPalette(isDark.value))
 const theme = computed(() =>
   isDark.value
     ? {
-        clearColor: "#1f2023",
-        overlayBg: "rgba(42, 43, 47, 0.92)",
-        overlayBorder: "rgba(220, 229, 230, 0.1)",
-        overlayText: "#e8eaed",
-        overlayAccent: "#f28b82",
-        layoverAccent: "#8ab4f8",
-        wantAccent: "#81c995",
-        btnBg: "rgba(42, 43, 47, 0.9)",
-        btnText: "#e8eaed",
-        btnHover: "rgba(44, 58, 62, 0.96)",
-        tooltipBg: "#2a2b2f",
-        tooltipText: "#e8eaed",
-        tooltipBadgeBg: "rgba(220, 229, 230, 0.12)",
+        clearColor: "#151410",
+        overlayBg: "rgba(34, 32, 28, 0.92)",
+        overlayBorder: "rgba(229, 228, 226, 0.1)",
+        overlayText: "#e5e4e2",
+        overlayAccent: "#e89270",
+        layoverAccent: "#c4b07c",
+        wantAccent: "#8db4d1",
+        btnBg: "rgba(34, 32, 28, 0.9)",
+        btnText: "#e5e4e2",
+        btnHover: "rgba(52, 49, 45, 0.96)",
+        tooltipBg: "#22201c",
+        tooltipText: "#e5e4e2",
+        tooltipBadgeBg: "rgba(229, 228, 226, 0.12)",
       }
     : {
-        clearColor: "#f8f9fa",
+        clearColor: "#f8f4ec",
         overlayBg: "rgba(255, 255, 255, 0.92)",
-        overlayBorder: "rgba(32, 33, 36, 0.1)",
-        overlayText: "#202124",
-        overlayAccent: "#d93025",
-        layoverAccent: "#1a73e8",
-        wantAccent: "#188038",
+        overlayBorder: "rgba(28, 24, 16, 0.1)",
+        overlayText: "#1c1810",
+        overlayAccent: "#b8502a",
+        layoverAccent: "#7a6526",
+        wantAccent: "#2d6f9e",
         btnBg: "rgba(255, 255, 255, 0.85)",
-        btnText: "#202124",
+        btnText: "#1c1810",
         btnHover: "rgba(255, 255, 255, 1)",
-        tooltipBg: "#202124",
-        tooltipText: "#f8f9fa",
+        tooltipBg: "#1c1810",
+        tooltipText: "#f8f4ec",
         tooltipBadgeBg: "rgba(255, 255, 255, 0.15)",
       },
 )
@@ -612,20 +612,20 @@ function animateToCentroid(info: CountryInfo) {
 <style scoped>
 /* ── Container ────────────────────────────────────── */
 .globe-container {
-  border: 1px solid var(--map-overlay-border, rgba(32, 33, 36, 0.08));
-  background: var(--map-ocean, #aadaff);
+  border: 1px solid var(--map-overlay-border, rgba(28, 24, 16, 0.08));
+  background: var(--map-ocean, #c7dfed);
 }
 /* Plain `.dark` ancestor, not :global(.dark): Vue compiles `:global(.dark) .x`
    to a bare `.dark`, which drops the descendant and styles <html> instead. */
 .dark .globe-container {
-  border-color: #3c3d42;
-  background: #1f2023;
+  border-color: #34312d;
+  background: #151410;
 }
 
 /* ── Tooltip ──────────────────────────────────────── */
 .globe-tooltip {
-  background: var(--map-tooltip-bg, #202124);
-  color: var(--map-tooltip-text, #f8f9fa);
+  background: var(--map-tooltip-bg, #1c1810);
+  color: var(--map-tooltip-text, #f8f4ec);
   border-radius: 10px;
   padding: 8px 12px;
   font-size: 12px;
@@ -636,8 +636,8 @@ function animateToCentroid(info: CountryInfo) {
   backdrop-filter: blur(8px);
 }
 .dark .globe-tooltip {
-  background: #2a2b2f;
-  color: #e8eaed;
+  background: #22201c;
+  color: #e5e4e2;
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.5),
     0 1px 4px rgba(0, 0, 0, 0.3);
@@ -666,20 +666,20 @@ function animateToCentroid(info: CountryInfo) {
 
 /* The tooltip is a dark surface in both themes, so one light set reads on it. */
 .globe-visa-free {
-  background: rgba(124, 196, 154, 0.2);
-  color: #81c995;
+  background: rgba(131, 195, 144, 0.2);
+  color: #83c390;
 }
 .globe-visa-arrival {
-  background: rgba(142, 170, 211, 0.2);
-  color: #8ab4f8;
+  background: rgba(129, 182, 237, 0.2);
+  color: #81b6ed;
 }
 .globe-visa-evisa {
-  background: rgba(217, 178, 106, 0.2);
-  color: #fdd663;
+  background: rgba(221, 164, 105, 0.2);
+  color: #dda469;
 }
 .globe-visa-required {
-  background: rgba(224, 144, 127, 0.2);
-  color: #f28b82;
+  background: rgba(240, 148, 145, 0.2);
+  color: #f09491;
 }
 
 /* Tooltip transition */
@@ -698,57 +698,57 @@ function animateToCentroid(info: CountryInfo) {
 /* ── Overlay (stats) ──────────────────────────────── */
 .globe-overlay {
   background: var(--map-overlay-bg, rgba(255, 255, 255, 0.92));
-  border: 1px solid var(--map-overlay-border, rgba(32, 33, 36, 0.08));
+  border: 1px solid var(--map-overlay-border, rgba(28, 24, 16, 0.08));
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(12px);
 }
 .dark .globe-overlay {
-  background: rgba(42, 43, 47, 0.92);
-  border-color: rgba(220, 229, 230, 0.1);
+  background: rgba(34, 32, 28, 0.92);
+  border-color: rgba(229, 228, 226, 0.1);
 }
 
 .globe-overlay-text {
-  color: var(--map-overlay-text, #202124);
+  color: var(--map-overlay-text, #1c1810);
 }
 .dark .globe-overlay-text {
-  color: #e8eaed;
+  color: #e5e4e2;
 }
 
 .globe-overlay-accent {
-  color: var(--map-overlay-accent, #d93025);
+  color: var(--map-overlay-accent, #b8502a);
 }
 .dark .globe-overlay-accent {
-  color: #f28b82;
+  color: #e89270;
 }
 
 .globe-layover-accent {
-  color: var(--map-layover-accent-color, #1a73e8);
+  color: var(--map-layover-accent-color, #7a6526);
 }
 .dark .globe-layover-accent {
-  color: #8ab4f8;
+  color: #c4b07c;
 }
 
 .globe-want-accent {
-  color: var(--map-want-accent-color, #188038);
+  color: var(--map-want-accent-color, #2d6f9e);
 }
 .dark .globe-want-accent {
-  color: #81c995;
+  color: #8db4d1;
 }
 
 /* ── Button ───────────────────────────────────────── */
 .globe-btn {
   background: var(--map-btn-bg, rgba(255, 255, 255, 0.82));
-  color: var(--map-btn-text, #3c4043);
+  color: var(--map-btn-text, #3d3a33);
   backdrop-filter: blur(8px);
 }
 .globe-btn:hover {
   background: var(--map-btn-hover, rgba(255, 255, 255, 1));
 }
 .dark .globe-btn {
-  background: rgba(42, 43, 47, 0.9);
-  color: #e8eaed;
+  background: rgba(34, 32, 28, 0.9);
+  color: #e5e4e2;
 }
 .dark .globe-btn:hover {
-  background: rgba(44, 58, 62, 0.96);
+  background: rgba(52, 49, 45, 0.96);
 }
 </style>

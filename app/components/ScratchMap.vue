@@ -535,27 +535,27 @@ function resetZoom() {
 
 /* ── Light Mode ────────────────────────────────────────── */
 .scratch-map {
-  --map-ocean: #aadaff;
-  --map-country: #f8f9fa;
+  --map-ocean: #c7dfed;
+  --map-country: #f9f6f2;
   --map-country-hover: #ffffff;
-  --map-visited: #ea4335;
-  --map-visited-hover: #c5221f;
-  --map-layover: #4285f4;
-  --map-layover-hover: #1a73e8;
-  --map-want: #34a853;
-  --map-want-hover: #188038;
-  --map-border: #c4c7c5;
+  --map-visited: #df784e;
+  --map-visited-hover: #c9603a;
+  --map-layover: #c7ae72;
+  --map-layover-hover: #b0965a;
+  --map-want: #7fb9e1;
+  --map-want-hover: #62a3cf;
+  --map-border: #c1bdb5;
   --map-overlay-bg: rgba(255, 255, 255, 0.92);
-  --map-overlay-border: rgba(32, 33, 36, 0.08);
-  --map-overlay-text: #202124;
-  --map-overlay-accent: #d93025;
-  --map-layover-accent-color: #1a73e8;
-  --map-want-accent-color: #188038;
+  --map-overlay-border: rgba(28, 24, 16, 0.08);
+  --map-overlay-text: #1c1810;
+  --map-overlay-accent: #b8502a;
+  --map-layover-accent-color: #7a6526;
+  --map-want-accent-color: #2d6f9e;
   --map-btn-bg: rgba(255, 255, 255, 0.82);
-  --map-btn-text: #3c4043;
+  --map-btn-text: #3d3a33;
   --map-btn-hover: rgba(255, 255, 255, 1);
-  --map-tooltip-bg: #202124;
-  --map-tooltip-text: #f8f9fa;
+  --map-tooltip-bg: #1c1810;
+  --map-tooltip-text: #f8f4ec;
   --map-tooltip-badge-bg: rgba(255, 255, 255, 0.18);
   background: var(--map-ocean);
 }
@@ -564,29 +564,29 @@ function resetZoom() {
 /* Plain `.dark` ancestor, not :global(.dark): Vue compiles `:global(.dark) .x`
    to a bare `.dark`, which drops the descendant and styles <html> instead. */
 .dark .scratch-map {
-  --map-ocean: #1f3639;
-  --map-country: #3c3d42;
-  --map-country-hover: #4a4c52;
-  --map-visited: #f28b82;
-  --map-visited-hover: #f6aea9;
-  --map-layover: #8ab4f8;
-  --map-layover-hover: #aecbfa;
-  --map-want: #81c995;
-  --map-want-hover: #98d2b0;
-  --map-border: #5f6368;
-  --map-overlay-bg: rgba(42, 43, 47, 0.92);
-  --map-overlay-border: rgba(220, 229, 230, 0.1);
-  --map-overlay-text: #e8eaed;
-  --map-overlay-accent: #f28b82;
-  --map-layover-accent-color: #8ab4f8;
-  --map-want-accent-color: #81c995;
-  --map-btn-bg: rgba(42, 43, 47, 0.9);
-  --map-btn-text: #e8eaed;
-  --map-btn-hover: rgba(44, 58, 62, 0.96);
-  --map-tooltip-bg: #2a2b2f;
-  --map-tooltip-text: #e8eaed;
-  --map-tooltip-badge-bg: rgba(220, 229, 230, 0.12);
-  border-color: #3c3d42;
+  --map-ocean: #181410;
+  --map-country: #393632;
+  --map-country-hover: #45423d;
+  --map-visited: #e89270;
+  --map-visited-hover: #f0a88c;
+  --map-layover: #9c895a;
+  --map-layover-hover: #b3a070;
+  --map-want: #6491b1;
+  --map-want-hover: #7ba6c4;
+  --map-border: #4e4b46;
+  --map-overlay-bg: rgba(34, 32, 28, 0.92);
+  --map-overlay-border: rgba(229, 228, 226, 0.1);
+  --map-overlay-text: #e5e4e2;
+  --map-overlay-accent: #e89270;
+  --map-layover-accent-color: #c4b07c;
+  --map-want-accent-color: #8db4d1;
+  --map-btn-bg: rgba(34, 32, 28, 0.9);
+  --map-btn-text: #e5e4e2;
+  --map-btn-hover: rgba(52, 49, 45, 0.96);
+  --map-tooltip-bg: #22201c;
+  --map-tooltip-text: #e5e4e2;
+  --map-tooltip-badge-bg: rgba(229, 228, 226, 0.12);
+  border-color: #34312d;
   background: var(--map-ocean);
 }
 
@@ -633,20 +633,20 @@ function resetZoom() {
   background: var(--map-tooltip-badge-bg);
 }
 .map-tooltip-visa-free {
-  background: rgba(124, 196, 154, 0.2);
-  color: #81c995;
+  background: rgba(131, 195, 144, 0.2);
+  color: #83c390;
 }
 .map-tooltip-visa-arrival {
-  background: rgba(142, 170, 211, 0.2);
-  color: #8ab4f8;
+  background: rgba(129, 182, 237, 0.2);
+  color: #81b6ed;
 }
 .map-tooltip-visa-evisa {
-  background: rgba(217, 178, 106, 0.2);
-  color: #fdd663;
+  background: rgba(221, 164, 105, 0.2);
+  color: #dda469;
 }
 .map-tooltip-visa-required {
-  background: rgba(224, 144, 127, 0.2);
-  color: #f28b82;
+  background: rgba(240, 148, 145, 0.2);
+  color: #f09491;
 }
 
 /* ── Overlay elements ──────────────────────────────────── */

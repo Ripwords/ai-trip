@@ -330,7 +330,7 @@ async function handleCreate() {
 
 .form-input:focus {
   border-color: var(--color-terra-400);
-  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.15);
+  box-shadow: 0 0 0 3px rgba(195, 72, 0, 0.15);
   outline: none;
 }
 

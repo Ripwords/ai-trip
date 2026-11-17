@@ -58,21 +58,21 @@ export async function sendPassportExpiryEmail(params: {
     subject: `Your ${params.countryName} passport expires in ${timeUntil}`,
     html: `
       <div style="font-family: 'DM Sans', system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
-        <h2 style="color: #3d3328; font-size: 22px; margin: 0;">Passport Expiry Reminder</h2>
-        <p style="color: #6e5c46; font-size: 15px; line-height: 1.6; margin-top: 12px;">
+        <h2 style="color: #1c1810; font-size: 22px; margin: 0;">Passport Expiry Reminder</h2>
+        <p style="color: #5b5851; font-size: 15px; line-height: 1.6; margin-top: 12px;">
           Hi ${escapeHtml(params.userName)}, your <strong>${escapeHtml(params.countryName)}</strong> passport expires on
           <strong>${expiryFormatted}</strong> — that's in <strong>${timeUntil}</strong>.
         </p>
-        <p style="color: #6e5c46; font-size: 15px; line-height: 1.6;">
+        <p style="color: #5b5851; font-size: 15px; line-height: 1.6;">
           Many countries require at least 6 months of passport validity for entry.
           If you have upcoming trips, consider renewing soon.
         </p>
         <a href="${params.settingsUrl}"
-           style="display: inline-block; background: #e85d3a; color: white; text-decoration: none;
+           style="display: inline-block; background: #c34800; color: white; text-decoration: none;
                   padding: 12px 28px; border-radius: 12px; font-size: 14px; font-weight: 600; margin-top: 20px;">
           View Passport Details
         </a>
-        <p style="color: #b8a78f; font-size: 12px; margin-top: 24px;">
+        <p style="color: #89867e; font-size: 12px; margin-top: 24px;">
           You're receiving this because you saved this passport in AI Trip.
         </p>
       </div>
@@ -100,22 +100,22 @@ export async function sendTripInviteEmail(params: {
     subject: `${params.inviterName} invited you to plan a trip to ${params.tripDestination}`,
     html: `
       <div style="font-family: 'DM Sans', system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
-        <h2 style="color: #3d3328; font-size: 22px; margin: 0;">You're invited!</h2>
-        <p style="color: #6e5c46; font-size: 15px; line-height: 1.6; margin-top: 12px;">
+        <h2 style="color: #1c1810; font-size: 22px; margin: 0;">You're invited!</h2>
+        <p style="color: #5b5851; font-size: 15px; line-height: 1.6; margin-top: 12px;">
           <strong>${escapeHtml(params.inviterName)}</strong> invited you as <strong>${params.role}</strong>
           to collaborate on a trip to <strong>${escapeHtml(params.tripDestination)}</strong>.
         </p>
         <a href="${params.acceptUrl}"
-           style="display: inline-block; background: #e85d3a; color: white; text-decoration: none;
+           style="display: inline-block; background: #c34800; color: white; text-decoration: none;
                   padding: 12px 28px; border-radius: 12px; font-size: 14px; font-weight: 600; margin-top: 20px;">
           Accept Invite
         </a>
-        <p style="color: #6e5c46; font-size: 13px; margin-top: 20px; line-height: 1.5;">
+        <p style="color: #5b5851; font-size: 13px; margin-top: 20px; line-height: 1.5;">
           Click the button above to join. If you don't have an account yet,
           you'll be asked to sign in with Google first — use this email address
           (<strong>${escapeHtml(params.to)}</strong>).
         </p>
-        <p style="color: #b8a78f; font-size: 12px; margin-top: 16px;">
+        <p style="color: #89867e; font-size: 12px; margin-top: 16px;">
           This invite expires on ${expiresFormatted}.
         </p>
       </div>

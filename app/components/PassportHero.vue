@@ -262,23 +262,23 @@ const uniqueMapPoints = computed(() => {
   background: var(--color-card);
   border: 1px solid var(--color-sand-200);
   box-shadow:
-    0 1px 2px rgba(32, 33, 36, 0.06),
-    0 2px 8px rgba(32, 33, 36, 0.05);
+    0 1px 2px rgba(28, 24, 16, 0.06),
+    0 2px 8px rgba(28, 24, 16, 0.05);
   color: var(--color-sand-900);
-  --passport-water: #aadaff;
-  --passport-land: #f8f9fa;
-  --passport-border: #c4c7c5;
-  --passport-route: #1a73e8;
+  --passport-water: #c7dfed;
+  --passport-land: #f9f6f2;
+  --passport-border: #c1bdb5;
+  --passport-route: #933603;
   --passport-halo: #ffffff;
 }
 
 .dark .passport-shell {
   box-shadow: none;
-  --passport-water: #1f3639;
-  --passport-land: #3c3d42;
-  --passport-border: #5f6368;
-  --passport-route: #8ab4f8;
-  --passport-halo: #1f2023;
+  --passport-water: #181410;
+  --passport-land: #393632;
+  --passport-border: #4e4b46;
+  --passport-route: #f4a98b;
+  --passport-halo: #151410;
 }
 
 .passport-map-frame {

@@ -182,7 +182,7 @@ function createAccommodationMarkerContent(variant: "previous" | "current"): HTML
     width: 30px;
     height: 30px;
     border-radius: 8px;
-    background: ${isPrevious ? "#9aa0a6" : "#d01884"};
+    background: ${isPrevious ? "#a9a59c" : "#b14c79"};
     color: white;
     display: flex;
     align-items: center;
@@ -200,7 +200,7 @@ function createAirportMarkerContent(airport: AirportMarker): HTMLElement {
   const wrap = document.createElement("div")
   const isArrival = airport.variant === "arrival"
   // Arrival = teal (lands here), Departure = amber (leaves here)
-  const color = isArrival ? "#129eaf" : "#f29900"
+  const color = isArrival ? "#04848f" : "#d69a2d"
   // Rotate landing icon downward, takeoff icon upward
   const rotation = isArrival ? "rotate(-45deg)" : "rotate(45deg)"
   wrap.style.cssText = `
@@ -417,7 +417,7 @@ function updatePolylines() {
 
   const polyline = new google.maps.Polyline({
     path,
-    strokeColor: mapMode.value === "light" ? "#202124" : "#a8c7fa",
+    strokeColor: mapMode.value === "light" ? "#1c1810" : "#f4a98b",
     strokeWeight: 3,
     strokeOpacity: 0.6,
     geodesic: true,
@@ -522,7 +522,7 @@ defineExpose({ centerOnActivity, centerOnPoint })
             <span
               class="inline-block h-1.5 w-1.5 rounded-full"
               :style="{
-                background: hiddenTypes.has(type) ? '#bdc1c6' : placeStyle(type).hex,
+                background: hiddenTypes.has(type) ? '#c4c0b9' : placeStyle(type).hex,
               }"
             />
             {{ formatType(type) }}
@@ -538,7 +538,7 @@ defineExpose({ centerOnActivity, centerOnPoint })
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #202124;
+  color: #1c1810;
 }
 .map-btn:hover {
   background: #ffffff;
@@ -546,34 +546,34 @@ defineExpose({ centerOnActivity, centerOnPoint })
 
 .map-filter-pill {
   background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(32, 33, 36, 0.12);
+  border: 1px solid rgba(28, 24, 16, 0.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #202124;
+  color: #1c1810;
 }
 .map-filter-pill.is-hidden {
   background: rgba(255, 255, 255, 0.5);
-  color: #80868b;
+  color: #89867e;
   text-decoration: line-through;
 }
 
 /* Plain `.dark` ancestor, not :global(.dark): Vue compiles `:global(.dark) .x`
    to a bare `.dark`, which drops the descendant and styles <html> instead. */
 .dark .map-btn {
-  background: rgba(42, 43, 47, 0.92);
-  color: #e8eaed;
+  background: rgba(34, 32, 28, 0.92);
+  color: #e5e4e2;
 }
 .dark .map-btn:hover {
-  background: rgba(44, 58, 62, 0.96);
+  background: rgba(52, 49, 45, 0.96);
 }
 
 .dark .map-filter-pill {
-  background: rgba(42, 43, 47, 0.9);
-  border-color: rgba(220, 229, 230, 0.12);
-  color: #e8eaed;
+  background: rgba(34, 32, 28, 0.9);
+  border-color: rgba(229, 228, 226, 0.12);
+  color: #e5e4e2;
 }
 .dark .map-filter-pill.is-hidden {
-  background: rgba(42, 43, 47, 0.5);
-  color: rgba(220, 229, 230, 0.4);
+  background: rgba(34, 32, 28, 0.5);
+  color: rgba(229, 228, 226, 0.4);
 }
 </style>

@@ -40,7 +40,7 @@ const SURFACE_RADIUS = GLOBE_RADIUS + 0.02
 const { isDark } = useDarkMode()
 const prefersReducedMotion = useReducedMotion()
 
-const clearColor = computed(() => (isDark.value ? "#1f2023" : "#f8f9fa"))
+const clearColor = computed(() => (isDark.value ? "#151410" : "#f8f4ec"))
 const palette = computed(() => mapPalette(isDark.value))
 
 const countries = getCountryFeatures()

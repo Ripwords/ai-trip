@@ -4,9 +4,14 @@ import { describe, it } from "node:test"
 import { MAP_PALETTE, mapPalette } from "./map-palette"
 
 describe("map palette", () => {
-  it("uses Google Maps' water and land in light mode", () => {
-    assert.equal(MAP_PALETTE.light.water, "#aadaff")
-    assert.equal(MAP_PALETTE.light.land, "#f8f9fa")
+  it("uses pale blue water and paper land in light mode", () => {
+    assert.equal(MAP_PALETTE.light.water, "#c7dfed")
+    assert.equal(MAP_PALETTE.light.land, "#f9f6f2")
+  })
+
+  it("keeps the dark sea warm and neutral instead of navy", () => {
+    const [r, , b] = [1, 3, 5].map((i) => parseInt(MAP_PALETTE.dark.water.slice(i, i + 2), 16))
+    assert.ok(b! <= r!, `dark water ${MAP_PALETTE.dark.water} leans blue`)
   })
 
   it("keeps land distinct from water in dark mode, so continents stay readable", () => {

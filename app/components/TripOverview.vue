@@ -744,8 +744,8 @@ function formatDayRange(dayNumbers: number[]): string {
   .ov-card,
   .ov-toggle {
     box-shadow:
-      0 1px 2px rgba(60, 64, 67, 0.3),
-      0 1px 3px 1px rgba(60, 64, 67, 0.15);
+      0 1px 2px rgba(61, 58, 51, 0.3),
+      0 1px 3px 1px rgba(61, 58, 51, 0.15);
   }
   .dark .ov-card,
   .dark .ov-toggle {

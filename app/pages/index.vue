@@ -797,8 +797,8 @@ onMounted(() => {
   background: var(--color-card);
   border: 1px solid var(--color-sand-200);
   box-shadow:
-    0 1px 2px rgba(32, 33, 36, 0.06),
-    0 2px 8px rgba(32, 33, 36, 0.05);
+    0 1px 2px rgba(28, 24, 16, 0.06),
+    0 2px 8px rgba(28, 24, 16, 0.05);
 }
 
 .landing-briefing-orbit {

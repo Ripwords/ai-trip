@@ -196,7 +196,7 @@ export default defineNuxtConfig({
       short_name: "AI Trip",
       description: "AI-powered travel itinerary planner with real places verified by Google Maps",
       theme_color: "#ffffff",
-      background_color: "#f8f9fa",
+      background_color: "#f8f4ec",
       display: "standalone",
       orientation: "portrait",
       start_url: "/dashboard",
