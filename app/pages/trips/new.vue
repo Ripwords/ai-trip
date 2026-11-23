@@ -32,7 +32,9 @@ const pace = ref("")
 // Blank on purpose — an unset party size falls back to the trip's member count
 // and then to the AI naming whatever it assumed, which beats prefilling "2" and
 // having every traveler silently accept a number they never chose.
-const partySize = ref("")
+// v-model on a type="number" input hands back a number once the field parses,
+// and "" when it is empty, so this holds either.
+const partySize = ref<string | number>("")
 const currencyCode = ref("USD")
 const userTouchedCurrency = ref(false)
 const travelStyle = ref<string[]>([])
@@ -100,14 +102,15 @@ function toggleStyle(style: string) {
 // rejects anything outside them, so catch it here rather than on submit.
 const PARTY_SIZE_MIN = 1
 const PARTY_SIZE_MAX = 50
+const partySizeRaw = computed(() => String(partySize.value).trim())
 const parsedPartySize = computed(() => {
-  const raw = partySize.value.trim()
+  const raw = partySizeRaw.value
   if (!raw) return null
   const n = Number(raw)
   if (!Number.isInteger(n) || n < PARTY_SIZE_MIN || n > PARTY_SIZE_MAX) return null
   return n
 })
-const partySizeValid = computed(() => !partySize.value.trim() || parsedPartySize.value !== null)
+const partySizeValid = computed(() => !partySizeRaw.value || parsedPartySize.value !== null)
 
 const canSubmit = computed(
   () => !!countryCode.value && rangeValid.value && partySizeValid.value && !loading.value,
