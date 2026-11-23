@@ -84,7 +84,6 @@ async function insertTripRows(
   input: CreateTripInput,
   db: WriteHandle,
 ): Promise<string> {
-
   const country = countryByAlpha2.get(input.countryCode)
   if (!country) {
     throw createError({ statusCode: 400, message: "Unknown country" })
