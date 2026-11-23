@@ -37,10 +37,10 @@ describe("place colours", () => {
     assert.equal(placeGroup("shopping"), "shop")
   })
 
-  it("falls back to a neutral grey for unknown or missing types", () => {
-    assert.equal(placeGroup("bowling alley"), "other")
-    assert.equal(placeGroup(null), "other")
-    assert.equal(placeStyle(undefined), PLACE_GROUP_STYLE.other)
+  it("falls back to the sight colour for unknown or missing types", () => {
+    assert.equal(placeGroup("bowling alley"), "sight")
+    assert.equal(placeGroup(null), "sight")
+    assert.equal(placeStyle(undefined), PLACE_GROUP_STYLE.sight)
   })
 
   it("keeps a white pin glyph legible on every marker colour", () => {

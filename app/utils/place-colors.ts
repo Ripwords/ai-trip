@@ -42,7 +42,9 @@ const GROUP_OF_TYPE: Record<string, PlaceGroup> = {
 }
 
 export function placeGroup(type: string | null | undefined): PlaceGroup {
-  return (type && GROUP_OF_TYPE[type]) || "other"
+  // Unrecognised types read as sights, never as grey: a grey pin says nothing
+  // and disappears into the dark basemap.
+  return (type && GROUP_OF_TYPE[type]) || "sight"
 }
 
 export function placeStyle(type: string | null | undefined): PlaceGroupStyle {
