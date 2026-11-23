@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { placeStyle } from "~/utils/place-colors"
+import { pinColors, placeStyle } from "~/utils/place-colors"
 /// <reference types="google.maps" />
 import { countryByAlpha2 } from "../data/countries"
 
@@ -84,12 +84,13 @@ function getMarkerColor(type: string): string {
 
 function createMarkerContent(index: number, type: string): HTMLElement {
   const div = document.createElement("div")
+  const pin = pinColors(getMarkerColor(type), mapMode.value === "dark")
   div.style.cssText = `
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background: ${getMarkerColor(type)};
-    color: white;
+    background: ${pin.fill};
+    color: ${pin.text};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -182,7 +183,7 @@ function createAccommodationMarkerContent(variant: "previous" | "current"): HTML
     width: 30px;
     height: 30px;
     border-radius: 8px;
-    background: ${isPrevious ? "#a9a59c" : "#b14c79"};
+    background: ${pinColors(isPrevious ? "#a9a59c" : "#b14c79", mapMode.value === "dark").fill};
     color: white;
     display: flex;
     align-items: center;

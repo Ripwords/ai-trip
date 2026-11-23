@@ -48,3 +48,14 @@ export function placeGroup(type: string | null | undefined): PlaceGroup {
 export function placeStyle(type: string | null | undefined): PlaceGroupStyle {
   return PLACE_GROUP_STYLE[placeGroup(type)]
 }
+
+/**
+ * Fill and label colour for a map pin. The dark basemap is warm grey, so a
+ * grey pin vanishes into it: on a dark map, colourless pins flip to a light
+ * fill with dark text. Coloured pins are left alone.
+ */
+export function pinColors(hex: string, onDarkMap: boolean): { fill: string; text: string } {
+  const channels = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+  const isGrey = Math.max(...channels) - Math.min(...channels) < 24
+  return onDarkMap && isGrey ? { fill: "#f4efe6", text: "#1c1810" } : { fill: hex, text: "#ffffff" }
+}

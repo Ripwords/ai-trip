@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { placeStyle } from "~/utils/place-colors"
+import { pinColors, placeStyle } from "~/utils/place-colors"
 /// <reference types="google.maps" />
 import { countryByAlpha2 } from "../data/countries"
 
@@ -151,12 +151,13 @@ function createAirportMarkerContent(airport: AirportMarker): HTMLElement {
 
 function createMarkerContent(label: string, color: string, dimmed: boolean): HTMLElement {
   const div = document.createElement("div")
+  const pin = pinColors(color, mapMode.value === "dark")
   div.style.cssText = `
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    background: ${color};
-    color: white;
+    background: ${pin.fill};
+    color: ${pin.text};
     display: flex;
     align-items: center;
     justify-content: center;

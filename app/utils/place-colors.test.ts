@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
-import { PLACE_GROUP_STYLE, placeGroup, placeStyle } from "./place-colors"
+import { PLACE_GROUP_STYLE, pinColors, placeGroup, placeStyle } from "./place-colors"
 
 function read(rel: string): string {
   return readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8")
@@ -65,6 +65,29 @@ describe("place colours", () => {
       const source = read(file)
       assert.doesNotMatch(source, /\brestaurant:\s*"/, `${file} defines its own type colours`)
       assert.match(source, /placeStyle\(/, `${file} does not use placeStyle()`)
+    }
+  })
+})
+
+describe("pinColors", () => {
+  it("keeps every pin as-is on a light map", () => {
+    for (const style of Object.values(PLACE_GROUP_STYLE)) {
+      assert.deepEqual(pinColors(style.hex, false), { fill: style.hex, text: "#ffffff" })
+    }
+  })
+
+  it("turns grey pins light on the dark map, where grey on grey disappears", () => {
+    assert.deepEqual(pinColors(PLACE_GROUP_STYLE.other.hex, true), {
+      fill: "#f4efe6",
+      text: "#1c1810",
+    })
+    assert.equal(pinColors("#a9a59c", true).fill, "#f4efe6")
+  })
+
+  it("keeps coloured pins coloured on the dark map", () => {
+    for (const group of ["sight", "food", "stay", "park", "transit", "shop"] as const) {
+      const hex = PLACE_GROUP_STYLE[group].hex
+      assert.deepEqual(pinColors(hex, true), { fill: hex, text: "#ffffff" })
     }
   })
 })
