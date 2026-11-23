@@ -117,6 +117,8 @@ const canSubmit = computed(
 )
 
 async function handleCreate() {
+  // Enter in a field submits even while the button is disabled.
+  if (loading.value) return
   error.value = ""
   if (!countryCode.value) {
     error.value = "Please pick a country"
@@ -150,11 +152,12 @@ async function handleCreate() {
       },
     })
 
-    navigateTo(`/trips/${trip!.id}`)
+    // Stay in the loading state on success: the button must not come back
+    // while the trip page loads, or a second click creates a second trip.
+    await navigateTo(`/trips/${trip!.id}`, { replace: true })
   } catch (e: unknown) {
     const err = e as { data?: { message?: string }; message?: string }
     error.value = humanMessage(err.data?.message ?? err.message, "Failed to create trip")
-  } finally {
     loading.value = false
   }
 }

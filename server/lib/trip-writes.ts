@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm"
+import { and, desc, eq, gt, isNull, sql } from "drizzle-orm"
 import type { z } from "zod"
 import { countryByAlpha2 } from "../../app/data/countries"
 import { db as defaultDb } from "../db"
@@ -19,6 +19,8 @@ import { computeAndSaveSegments as defaultComputeAndSaveSegments } from "./segme
 import { getTripWithRelations } from "./trips"
 
 type DbHandle = typeof defaultDb
+/** What the trip inserts need — satisfied by both the pool and a transaction. */
+type WriteHandle = Pick<DbHandle, "select" | "insert">
 
 export type CreateTripInput = z.output<typeof createTripSchema>
 export type AddActivityInput = z.output<typeof addActivitySchema>
@@ -34,7 +36,54 @@ export async function createTrip(
   input: CreateTripInput,
   deps: { db?: DbHandle } = {},
 ) {
-  const db = deps.db ?? defaultDb
+  const tripId = await insertTripRows(userId, input, deps.db ?? defaultDb)
+  return await getTripWithRelations(tripId)
+}
+
+/**
+ * How long an identical create from the same user is treated as a repeat of
+ * the first one rather than a new trip. Covers double-clicks, re-submits from a
+ * page that crashed after the request went out, and client retries.
+ */
+const DUPLICATE_CREATE_WINDOW = sql`now() - interval '60 seconds'`
+
+/**
+ * `createTrip` for the browser form: a repeat of a create the same user made
+ * moments ago returns the trip it already made instead of inserting another.
+ *
+ * The advisory lock serialises one user's creates, so two submits racing each
+ * other cannot both miss the duplicate check and both insert.
+ */
+export async function createTripOnce(userId: string, input: CreateTripInput) {
+  const name = input.name?.trim() || null
+  const tripId = await defaultDb.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`trip-create:${userId}`}))`)
+    const [recent] = await tx
+      .select({ id: trips.id })
+      .from(trips)
+      .where(
+        and(
+          eq(trips.userId, userId),
+          eq(trips.countryCode, input.countryCode),
+          eq(trips.startDate, input.startDate),
+          eq(trips.endDate, input.endDate),
+          name ? eq(trips.name, name) : isNull(trips.name),
+          gt(trips.createdAt, DUPLICATE_CREATE_WINDOW),
+        ),
+      )
+      .orderBy(desc(trips.createdAt))
+      .limit(1)
+    if (recent) return recent.id
+    return await insertTripRows(userId, input, tx)
+  })
+  return await getTripWithRelations(tripId)
+}
+
+async function insertTripRows(
+  userId: string,
+  input: CreateTripInput,
+  db: WriteHandle,
+): Promise<string> {
 
   const country = countryByAlpha2.get(input.countryCode)
   if (!country) {
@@ -76,9 +125,7 @@ export async function createTrip(
 
   await db.insert(itineraryDays).values(dayValues)
 
-  // Reads through the module-level handle, not `deps.db`: `getTripWithRelations`
-  // is shared with `GET /api/trips/[id]` and takes no injection point.
-  return await getTripWithRelations(trip!.id)
+  return trip!.id
 }
 
 /**
